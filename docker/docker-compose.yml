@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "54320:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -34,6 +34,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      SERVER_PORT: 8080
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USERNAME: postgres
@@ -56,7 +57,10 @@ services:
     container_name: kinlin-ai-service
     ports:
       - "8000:8000"
+    volumes:
+      - ../.env:/app/.env:ro
     environment:
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
       KYLIN_AI_API_KEY: ${KYLIN_AI_API_KEY}
       KYLIN_AI_ENDPOINT: ${KYLIN_AI_ENDPOINT:-https://api.kylin.ai}
     networks:
@@ -68,4 +72,3 @@ volumes:
 networks:
   kinlin-network:
     driver: bridge
-

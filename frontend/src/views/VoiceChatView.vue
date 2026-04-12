@@ -1,37 +1,46 @@
 <template>
   <div class="voice-chat-view" :class="{ 'is-speaking': isSpeaking, 'is-recording': isRecording }">
-    <!-- 背景氛围层 - 丰富的动效 -->
     <div class="ambient-background">
       <div class="wave-layer wave-1"></div>
       <div class="wave-layer wave-2"></div>
       <div class="wave-layer wave-3"></div>
       <div class="particle-layer">
-        <div class="particle" v-for="i in 20" :key="i" :style="getParticleStyle(i)"></div>
+        <div class="particle" v-for="i in 30" :key="i" :style="getParticleStyle(i)"></div>
       </div>
       <div class="glow-orb orb-1" :class="{ 'active': isRecording || isSpeaking }"></div>
       <div class="glow-orb orb-2" :class="{ 'active': isRecording || isSpeaking }"></div>
+      <div class="glow-orb orb-3" :class="{ 'active': isRecording || isSpeaking }"></div>
     </div>
 
-    <!-- 返回按钮 -->
-    <button class="back-button" @click="handleBack" title="返回">
-      <el-icon><ArrowLeft /></el-icon>
-    </button>
+    <div class="glass-header">
+      <button class="back-button" @click="handleBack" title="返回">
+        <el-icon><ArrowLeft /></el-icon>
+      </button>
+      <div class="header-info">
+        <h1 class="header-title">语音对话</h1>
+        <p class="header-subtitle">与 {{ roleStore.currentRole?.name || '智能助手' }} 对话</p>
+      </div>
+      <div class="header-spacer"></div>
+    </div>
 
-    <!-- 主体内容区 -->
     <div class="main-content">
-      <!-- 数字人展示区 -->
       <div class="digital-human-container">
         <div class="digital-human-wrapper" :class="{ 'speaking': isSpeaking, 'recording': isRecording }">
-          <DigitalHuman
-            :role-id="roleStore.currentRole?.id"
-            :is-speaking="isSpeaking"
-            :audio-url="currentAudioUrl"
-            :transparent="true"
-            class="digital-human-entity"
-          />
+          <div class="digital-human-frame">
+            <div class="frame-decoration top-left"></div>
+            <div class="frame-decoration top-right"></div>
+            <div class="frame-decoration bottom-left"></div>
+            <div class="frame-decoration bottom-right"></div>
+            <DigitalHuman
+              :role-id="roleStore.currentRole?.id"
+              :is-speaking="isSpeaking"
+              :audio-url="currentAudioUrl"
+              :transparent="true"
+              class="digital-human-entity"
+            />
+          </div>
         </div>
         
-        <!-- 状态指示器 -->
         <transition name="fade-scale">
           <div class="status-indicator" v-if="processing || isRecording">
             <div class="status-dot" :class="{ 'pulse': isRecording, 'thinking': processing }"></div>
@@ -41,68 +50,73 @@
           </div>
         </transition>
 
-        <!-- 音频波形可视化 -->
         <transition name="fade-scale">
           <div class="audio-visualizer" v-if="isSpeaking || isRecording">
-            <div class="wave-bar" v-for="i in 20" :key="i" :style="getWaveBarStyle(i)"></div>
+            <div class="wave-bar" v-for="i in 30" :key="i" :style="getWaveBarStyle(i)"></div>
           </div>
         </transition>
       </div>
 
-      <!-- 识别文本展示 -->
       <transition name="slide-up-fade">
         <div class="transcription-area" v-if="recognizedText">
-          <div class="transcription-bubble">
-            <div class="transcription-icon">
-              <el-icon><Microphone /></el-icon>
+          <div class="transcription-bubble glass-panel">
+            <div class="transcription-icon-wrapper">
+              <el-icon class="transcription-icon"><Microphone /></el-icon>
             </div>
             <div class="transcription-text">{{ recognizedText }}</div>
           </div>
         </div>
       </transition>
 
-      <!-- 悬浮控制台 -->
-      <div class="control-bar" :class="{ 'settings-expanded': showSettings }">
-        <!-- 核心控制区 -->
-        <div class="control-core">
-          <VoiceRecorder
-            @recorded="handleVoiceRecorded"
-            @recording-start="handleRecordingStart"
-            @recording-end="handleRecordingEnd"
-            @realtime-text="handleRealtimeText"
-            :disabled="processing"
-            :enable-realtime="false"
-            class="main-recorder-btn"
-          />
-          
-          <!-- 播放器 -->
-          <VoicePlayer
-            v-if="responseAudioUrl"
-            :audio-url="responseAudioUrl"
-            @playing="handlePlaying"
-            @stopped="handleStopped"
-            v-show="false" 
-          />
-        </div>
+      <div class="control-bar glass-panel" :class="{ 'settings-expanded': showSettings, 'pulse-glow': isRecording || isSpeaking }">
+  <div class="control-core">
+    <div class="recorder-wrapper">
+      <div class="recorder-ring" :class="{ 'recording': isRecording }"></div>
+      <div class="recorder-glow" :class="{ 'active': isRecording || isSpeaking }"></div>
+      <VoiceRecorder
+        @recorded="handleVoiceRecorded"
+        @recording-start="handleRecordingStart"
+        @recording-end="handleRecordingEnd"
+        @realtime-text="handleRealtimeText"
+        :disabled="processing"
+        :enable-realtime="false"
+        class="main-recorder-btn"
+      />
+    </div>
+    
+    <VoicePlayer
+      v-if="responseAudioUrl"
+      :audio-url="responseAudioUrl"
+      @playing="handlePlaying"
+      @stopped="handleStopped"
+      v-show="false" 
+    />
+  </div>
 
-        <!-- 扩展设置开关 -->
-        <button class="settings-toggle" @click="showSettings = !showSettings">
-          <el-icon class="toggle-icon" :class="{ 'rotated': showSettings }"><Setting /></el-icon>
-          <span class="toggle-text">{{ showSettings ? '收起设置' : '语音设置' }}</span>
-        </button>
+  <button class="settings-toggle" @click="showSettings = !showSettings" :class="{ 'active': showSettings }">
+    <el-icon class="toggle-icon" :class="{ 'rotated': showSettings }"><Setting /></el-icon>
+    <span class="toggle-text">{{ showSettings ? '收起设置' : '语音设置' }}</span>
+  </button>
 
-        <!-- 可折叠的参数面板 -->
         <transition name="expand">
           <div class="voice-params-panel" v-if="showSettings">
             <div class="panel-header">
-              <h3 class="panel-title">语音参数</h3>
-              <p class="panel-subtitle">调整语音输出效果</p>
+              <div class="panel-icon">
+                <el-icon><Microphone /></el-icon>
+              </div>
+              <div class="panel-title-group">
+                <h3 class="panel-title">语音参数</h3>
+                <p class="panel-subtitle">调整语音输出效果</p>
+              </div>
             </div>
             
             <div class="params-content">
               <div class="param-item">
                 <div class="param-header">
-                  <span class="param-label">语速</span>
+                  <div class="param-label-wrapper">
+                    <el-icon class="param-icon"><VideoPlay /></el-icon>
+                    <span class="param-label">语速</span>
+                  </div>
                   <span class="param-value">{{ voiceSpeed.toFixed(1) }}x</span>
                 </div>
                 <el-slider
@@ -117,7 +131,10 @@
               
               <div class="param-item">
                 <div class="param-header">
-                  <span class="param-label">音调</span>
+                  <div class="param-label-wrapper">
+                    <el-icon class="param-icon"><TrendCharts /></el-icon>
+                    <span class="param-label">音调</span>
+                  </div>
                   <span class="param-value">{{ voicePitch.toFixed(1) }}x</span>
                 </div>
                 <el-slider
@@ -132,7 +149,10 @@
 
               <div class="param-item">
                 <div class="param-header">
-                  <span class="param-label">语音类型</span>
+                  <div class="param-label-wrapper">
+                    <el-icon class="param-icon"><User /></el-icon>
+                    <span class="param-label">语音类型</span>
+                  </div>
                 </div>
                 <el-select v-model="voiceType" size="small" class="voice-select">
                   <el-option label="默认" value="default" />
@@ -158,7 +178,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Microphone, Setting, VideoPlay, ArrowLeft } from '@element-plus/icons-vue'
+import { Microphone, Setting, VideoPlay, ArrowLeft, User, TrendCharts } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useRoleStore } from '@/stores/role'
 import DigitalHuman from '@/components/DigitalHuman.vue'
@@ -203,7 +223,6 @@ const handleRecordingEnd = () => {
 }
 
 const handleRealtimeText = (text: string) => {
-  // 实时识别文本更新
   if (text) {
     recognizedText.value = text
   }
@@ -215,19 +234,15 @@ const handleVoiceRecorded = async (audioBlob: Blob) => {
   recognizedText.value = ''
 
   try {
-    // 转换音频格式为 WAV（如果需要）
     const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' })
     
-    // 发送语音消息到后端处理
     const response = await voiceApi.sendVoiceMessage({
       audio: audioFile,
       roleId: roleStore.currentRole?.id || ''
     })
 
-    // 显示识别的文本
     recognizedText.value = response.recognizedText || response.text
 
-    // 如果有回复文本，转换为语音并播放
     if (response.text) {
       try {
         console.log('开始TTS合成，文本:', response.text)
@@ -244,36 +259,27 @@ const handleVoiceRecorded = async (audioBlob: Blob) => {
           throw new Error('TTS返回的音频为空')
         }
         
-        // 创建音频URL
         const audioUrl = URL.createObjectURL(audioBlob)
         responseAudioUrl.value = audioUrl
-        
-        // 设置音频URL给数字人组件
         currentAudioUrl.value = audioUrl
         
         console.log('创建音频URL:', audioUrl)
         
-        // 创建音频对象并加载
         const audio = new Audio(audioUrl)
-        
-        // 设置音频属性
         audio.preload = 'auto'
         audio.volume = 1.0
         
-        // 等待音频元数据加载完成
         audio.addEventListener('loadedmetadata', () => {
           console.log('音频元数据加载完成，时长:', audio.duration, '秒')
         })
         
         audio.addEventListener('canplay', () => {
           console.log('音频可以播放')
-          // 尝试播放
           audio.play().then(() => {
             console.log('音频播放成功')
             isSpeaking.value = true
           }).catch((playError) => {
             console.error('播放失败:', playError)
-            // 如果是用户交互限制，提示用户
             if (playError.name === 'NotAllowedError' || playError.name === 'NotSupportedError') {
               ElMessage.warning('请点击页面后重试播放音频')
             } else {
@@ -313,13 +319,11 @@ const handleVoiceRecorded = async (audioBlob: Blob) => {
             ElMessage.error('音频播放失败: ' + (error.message || '未知错误'))
           }
           
-          // 清理资源
           URL.revokeObjectURL(audioUrl)
           responseAudioUrl.value = ''
           currentAudioUrl.value = ''
         })
         
-        // 开始加载音频
         audio.load()
       } catch (ttsError: any) {
         console.error('语音合成失败:', ttsError)
@@ -331,7 +335,6 @@ const handleVoiceRecorded = async (audioBlob: Blob) => {
     ElMessage.error('语音处理失败: ' + (error.message || '未知错误'))
   } finally {
     processing.value = false
-    // 3秒后清除识别文本
     setTimeout(() => {
       recognizedText.value = ''
     }, 3000)
@@ -372,12 +375,11 @@ const handleBack = () => {
   router.push('/chat')
 }
 
-// 粒子样式生成
 const getParticleStyle = (index: number) => {
-  const delay = (index * 0.1) % 2
-  const duration = 3 + (index % 3)
-  const size = 2 + (index % 3)
-  const left = (index * 5) % 100
+  const delay = (index * 0.08) % 3
+  const duration = 4 + (index % 4)
+  const size = 2 + (index % 4)
+  const left = (index * 3.5) % 100
   return {
     left: `${left}%`,
     width: `${size}px`,
@@ -387,17 +389,15 @@ const getParticleStyle = (index: number) => {
   }
 }
 
-// 波形条样式生成
 const getWaveBarStyle = (index: number) => {
-  const delay = index * 0.05
-  const height = 20 + Math.sin(index * 0.5) * 15
+  const delay = index * 0.03
+  const height = 25 + Math.sin(index * 0.6) * 20
   return {
     animationDelay: `${delay}s`,
     height: `${height}%`
   }
 }
 
-// 启动波形动画
 const startWaveAnimation = () => {
   const animate = () => {
     waveAnimationFrame.value = requestAnimationFrame(animate)
@@ -407,7 +407,6 @@ const startWaveAnimation = () => {
 </script>
 
 <style scoped>
-/* 字体引入 */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 .voice-chat-view {
@@ -415,45 +414,88 @@ const startWaveAnimation = () => {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background: #0a0d14;
+  background: linear-gradient(135deg, #0a0d14 0%, #111827 50%, #0f172a 100%);
   color: #ffffff;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Back Button */
-.back-button {
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-header {
   position: fixed;
-  top: 24px;
-  left: 24px;
-  width: 48px;
-  height: 48px;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: rgba(10, 13, 20, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.back-button {
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
   font-size: 20px;
 }
 
 .back-button:hover {
   background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: translateX(-2px);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateX(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .back-button:active {
   transform: scale(0.95);
 }
 
-/* --- 背景氛围层 - 丰富的动效 --- */
+.header-info {
+  text-align: center;
+  flex: 1;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 2px 0;
+  background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.header-spacer {
+  width: 44px;
+}
+
 .ambient-background {
   position: absolute;
   top: 0;
@@ -464,34 +506,33 @@ const startWaveAnimation = () => {
   overflow: hidden;
 }
 
-/* 波形层 */
 .wave-layer {
   position: absolute;
   width: 200%;
   height: 100%;
-  opacity: 0.15;
-  background: linear-gradient(90deg, transparent, rgba(64, 158, 255, 0.3), transparent);
+  opacity: 0.12;
+  background: linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.4), transparent);
   animation: wave-flow 20s linear infinite;
 }
 
 .wave-1 {
-  top: 20%;
-  animation-duration: 25s;
+  top: 15%;
+  animation-duration: 22s;
   animation-delay: 0s;
 }
 
 .wave-2 {
-  top: 50%;
-  animation-duration: 30s;
-  animation-delay: -10s;
-  opacity: 0.1;
+  top: 45%;
+  animation-duration: 28s;
+  animation-delay: -8s;
+  opacity: 0.08;
 }
 
 .wave-3 {
-  top: 80%;
-  animation-duration: 35s;
-  animation-delay: -5s;
-  opacity: 0.08;
+  top: 75%;
+  animation-duration: 32s;
+  animation-delay: -4s;
+  opacity: 0.06;
 }
 
 @keyframes wave-flow {
@@ -499,7 +540,6 @@ const startWaveAnimation = () => {
   100% { transform: translateX(0) translateY(0); }
 }
 
-/* 粒子层 */
 .particle-layer {
   position: absolute;
   width: 100%;
@@ -509,9 +549,10 @@ const startWaveAnimation = () => {
 
 .particle {
   position: absolute;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.7);
   border-radius: 50%;
   animation: particle-float linear infinite;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
 }
 
 @keyframes particle-float {
@@ -526,57 +567,71 @@ const startWaveAnimation = () => {
     opacity: 1;
   }
   100% {
-    transform: translateY(-10vh) translateX(100px) rotate(360deg);
+    transform: translateY(-15vh) translateX(150px) rotate(360deg);
     opacity: 0;
   }
 }
 
-/* 光球 */
 .glow-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.2;
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  filter: blur(80px);
+  opacity: 0.15;
+  transition: opacity 0.8s ease, transform 0.8s ease;
 }
 
 .orb-1 {
-  top: -15%;
-  left: -10%;
-  width: 500px;
-  height: 500px;
-  background: rgba(64, 158, 255, 0.4);
-  animation: orb-float-1 15s ease-in-out infinite;
+  top: -20%;
+  left: -15%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(64, 158, 255, 0.5) 0%, transparent 70%);
+  animation: orb-float-1 18s ease-in-out infinite;
 }
 
 .orb-2 {
-  bottom: -15%;
-  right: -10%;
-  width: 450px;
-  height: 450px;
-  background: rgba(103, 126, 255, 0.3);
-  animation: orb-float-2 18s ease-in-out infinite;
-  animation-delay: -7s;
+  bottom: -20%;
+  right: -15%;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%);
+  animation: orb-float-2 20s ease-in-out infinite;
+  animation-delay: -6s;
+}
+
+.orb-3 {
+  top: 40%;
+  right: -5%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.3) 0%, transparent 70%);
+  animation: orb-float-3 22s ease-in-out infinite;
+  animation-delay: -10s;
 }
 
 .glow-orb.active {
-  opacity: 0.35;
-  transform: scale(1.1);
+  opacity: 0.3;
+  transform: scale(1.15);
 }
 
 @keyframes orb-float-1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, 40px) scale(1.05); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
+  33% { transform: translate(40px, 50px) scale(1.08); }
+  66% { transform: translate(-30px, 30px) scale(0.92); }
 }
 
 @keyframes orb-float-2 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-30px, -40px) scale(1.05); }
-  66% { transform: translate(20px, -20px) scale(0.95); }
+  33% { transform: translate(-40px, -50px) scale(1.08); }
+  66% { transform: translate(30px, -30px) scale(0.92); }
 }
 
-/* --- 主体内容 --- */
+@keyframes orb-float-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-20px, 30px) scale(1.05); }
+  66% { transform: translate(25px, -25px) scale(0.95); }
+}
+
 .main-content {
   position: relative;
   z-index: 1;
@@ -585,10 +640,9 @@ const startWaveAnimation = () => {
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  padding: 40px 20px 120px;
+  padding: 100px 24px 140px;
 }
 
-/* 数字人容器 */
 .digital-human-container {
   flex: 1;
   width: 100%;
@@ -597,12 +651,79 @@ const startWaveAnimation = () => {
   align-items: center;
   justify-content: center;
   position: relative;
-  min-height: 400px;
+  min-height: 450px;
 }
 
 .digital-human-wrapper {
   position: relative;
-  transition: transform 0.3s ease;
+  transition: transform 0.4s ease;
+}
+
+.digital-human-frame {
+  position: relative;
+  padding: 20px;
+}
+
+.frame-decoration {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border: 2px solid;
+  opacity: 0.3;
+  transition: all 0.3s ease;
+}
+
+.frame-decoration.top-left {
+  top: 0;
+  left: 0;
+  border-right: none;
+  border-bottom: none;
+  border-color: rgba(129, 140, 248, 0.5);
+  border-radius: 12px 0 0 0;
+}
+
+.frame-decoration.top-right {
+  top: 0;
+  right: 0;
+  border-left: none;
+  border-bottom: none;
+  border-color: rgba(129, 140, 248, 0.5);
+  border-radius: 0 12px 0 0;
+}
+
+.frame-decoration.bottom-left {
+  bottom: 0;
+  left: 0;
+  border-right: none;
+  border-top: none;
+  border-color: rgba(129, 140, 248, 0.5);
+  border-radius: 0 0 0 12px;
+}
+
+.frame-decoration.bottom-right {
+  bottom: 0;
+  right: 0;
+  border-left: none;
+  border-top: none;
+  border-color: rgba(129, 140, 248, 0.5);
+  border-radius: 0 0 12px 0;
+}
+
+.digital-human-wrapper.speaking .frame-decoration {
+  opacity: 0.6;
+  border-color: rgba(34, 197, 94, 0.7);
+  animation: frame-glow 1.5s ease-in-out infinite;
+}
+
+.digital-human-wrapper.recording .frame-decoration {
+  opacity: 0.6;
+  border-color: rgba(239, 68, 68, 0.7);
+  animation: frame-glow 1.2s ease-in-out infinite;
+}
+
+@keyframes frame-glow {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 0.8; }
 }
 
 .digital-human-wrapper.speaking {
@@ -615,130 +736,140 @@ const startWaveAnimation = () => {
 
 @keyframes speaking-pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
+  50% { transform: scale(1.03); }
 }
 
 @keyframes recording-pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.03); }
+  50% { transform: scale(1.04); }
 }
 
 .digital-human-entity {
-  max-height: 70vh;
+  max-height: 65vh;
   transition: opacity 0.3s ease;
 }
 
-/* 状态指示器 */
 .status-indicator {
   position: absolute;
-  top: 15%;
+  top: 12%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   z-index: 10;
 }
 
 .status-dot {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #ffffff;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
 }
 
 .status-dot.pulse {
-  background: #ff4757;
+  background: #ef4444;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
   animation: pulse-red 1.5s ease-in-out infinite;
 }
 
 .status-dot.thinking {
-  background: #409eff;
+  background: #3b82f6;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
   animation: thinking-bounce 1.2s ease-in-out infinite;
 }
 
 .status-text {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  font-size: 11px;
 }
 
 @keyframes pulse-red {
   0%, 100% { 
     transform: scale(1);
     opacity: 1;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
   }
   50% { 
-    transform: scale(1.3);
+    transform: scale(1.4);
     opacity: 0.7;
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.8);
   }
 }
 
 @keyframes thinking-bounce {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+  50% { transform: translateY(-10px); }
 }
 
-/* 音频波形可视化 */
 .audio-visualizer {
   position: absolute;
-  bottom: 20%;
+  bottom: 15%;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  height: 40px;
+  gap: 4px;
+  height: 50px;
   z-index: 5;
 }
 
 .wave-bar {
-  width: 3px;
-  background: rgba(64, 158, 255, 0.8);
-  border-radius: 2px;
+  width: 4px;
+  background: linear-gradient(180deg, #818cf8 0%, #4f46e5 100%);
+  border-radius: 4px;
   animation: wave-animate 1.2s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
 }
 
 @keyframes wave-animate {
-  0%, 100% { transform: scaleY(0.3); }
+  0%, 100% { transform: scaleY(0.2); }
   50% { transform: scaleY(1); }
 }
 
-/* 识别文本气泡 */
 .transcription-area {
-  margin-bottom: 30px;
-  width: 85%;
-  max-width: 650px;
+  margin-bottom: 40px;
+  width: 90%;
+  max-width: 700px;
   text-align: center;
-  min-height: 70px;
+  min-height: 80px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
 
 .transcription-bubble {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  padding: 16px 24px;
-  border-radius: 16px;
-  font-size: 15px;
-  line-height: 1.6;
+  padding: 20px 28px;
+  border-radius: 20px;
+  font-size: 16px;
+  line-height: 1.7;
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   max-width: 100%;
   word-wrap: break-word;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.transcription-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgba(64, 158, 255, 0.2) 0%, rgba(129, 140, 248, 0.2) 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .transcription-icon {
-  color: rgba(64, 158, 255, 0.9);
-  font-size: 18px;
-  flex-shrink: 0;
+  color: #818cf8;
+  font-size: 20px;
 }
 
 .transcription-text {
@@ -747,118 +878,333 @@ const startWaveAnimation = () => {
   font-weight: 400;
 }
 
-/* --- 控制台 --- */
 .control-bar {
   position: fixed;
-  bottom: 30px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  width: 90%;
-  max-width: 520px;
-  background: rgba(20, 22, 28, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 20px 24px;
+  width: 92%;
+  max-width: 600px;
+  border-radius: 28px;
+  padding: 28px 32px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 100;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 25px 80px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 1px 0 0 rgba(255, 255, 255, 0.1) inset;
+  animation: control-bar-float 6s ease-in-out infinite;
 }
 
 .control-bar.settings-expanded {
-  padding-bottom: 24px;
+  padding-bottom: 32px;
+  animation: control-bar-expanded 0.4s ease-out;
+}
+
+@keyframes control-bar-float {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-4px); }
+}
+
+@keyframes control-bar-expanded {
+  0% { transform: translateX(-50%) scale(0.98); opacity: 0.8; }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
 }
 
 .control-core {
   display: flex;
   justify-content: center;
   width: 100%;
+  position: relative;
 }
 
-/* 录音按钮样式 */
-:deep(.voice-recorder-btn) {
-  width: 72px;
-  height: 72px;
+.recorder-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recorder-ring {
+  position: absolute;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
-  background: #409eff;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 3px solid transparent;
+  border-top-color: rgba(129, 140, 248, 0.6);
+  border-right-color: rgba(129, 140, 248, 0.3);
+  animation: ring-spin 1.8s linear infinite;
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.3));
+}
+
+.recorder-ring.recording {
+  opacity: 1;
+  border-top-color: rgba(239, 68, 68, 0.8);
+  border-right-color: rgba(239, 68, 68, 0.4);
+  filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.5));
+  animation: ring-spin-recording 1.2s linear infinite;
+}
+
+@keyframes ring-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ring-spin-recording {
+  to { transform: rotate(360deg); }
+}
+
+.recorder-glow {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.2) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  filter: blur(20px);
+}
+
+.recorder-glow.active {
+  opacity: 0.6;
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% { 
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.control-bar.pulse-glow {
+  animation: control-bar-pulse 3s ease-in-out infinite;
+}
+
+@keyframes control-bar-pulse {
+  0%, 100% { 
+    box-shadow: 
+      0 25px 80px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+      0 1px 0 0 rgba(255, 255, 255, 0.1) inset;
+  }
+  50% { 
+    box-shadow: 
+      0 30px 100px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+      0 1px 0 0 rgba(255, 255, 255, 0.15) inset,
+      0 0 0 0 rgba(129, 140, 248, 0.2);
+  }
+}
+
+.settings-toggle.active {
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(129, 140, 248, 0.08) 100%);
+  border-color: rgba(129, 140, 248, 0.3);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(129, 140, 248, 0.2) inset;
+}
+
+:deep(.voice-recorder-btn) {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 12px 32px rgba(59, 130, 246, 0.5),
+    0 0 0 0 rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+:deep(.voice-recorder-btn::before) {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s ease;
 }
 
 :deep(.voice-recorder-btn:hover) {
-  transform: scale(1.08);
-  background: #5dade2;
+  transform: scale(1.12);
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  box-shadow: 
+    0 16px 40px rgba(59, 130, 246, 0.6),
+    0 0 0 4px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+:deep(.voice-recorder-btn:hover::before) {
+  left: 100%;
 }
 
 :deep(.voice-recorder-btn:active) {
-  transform: scale(0.95);
+  transform: scale(0.96);
+  box-shadow: 
+    0 8px 24px rgba(59, 130, 246, 0.4),
+    0 0 0 0 rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .voice-chat-view.is-recording :deep(.voice-recorder-btn) {
-  background: #ff4757;
-  animation: recording-glow 1.5s ease-in-out infinite;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  animation: recording-pulse 1.2s ease-in-out infinite;
+  box-shadow: 
+    0 12px 32px rgba(239, 68, 68, 0.5),
+    0 0 0 0 rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-@keyframes recording-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); }
-  50% { box-shadow: 0 0 0 12px rgba(255, 71, 87, 0); }
+@keyframes recording-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 
+      0 12px 32px rgba(239, 68, 68, 0.5),
+      0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% { 
+    transform: scale(1.08);
+    box-shadow: 
+      0 16px 40px rgba(239, 68, 68, 0.6),
+      0 0 0 12px rgba(239, 68, 68, 0);
+  }
 }
 
 .settings-toggle {
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.7);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 13px;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: 16px;
+  font-size: 15px;
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  position: relative;
+  overflow: hidden;
+}
+
+.settings-toggle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.6s ease;
 }
 
 .settings-toggle:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.05);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+.settings-toggle:hover::before {
+  left: 100%;
+}
+
+.settings-toggle:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .toggle-icon {
-  font-size: 16px;
-  transition: transform 0.3s ease;
+  font-size: 20px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 0 4px rgba(129, 140, 248, 0.3));
+}
+
+.settings-toggle:hover .toggle-icon {
+  filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.5));
+  transform: rotate(15deg);
 }
 
 .toggle-icon.rotated {
   transform: rotate(180deg);
 }
 
-.toggle-text {
-  font-size: 13px;
+.settings-toggle:hover .toggle-icon.rotated {
+  transform: rotate(195deg);
 }
 
-/* 参数面板 */
+.toggle-text {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .voice-params-panel {
   width: 100%;
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 14px;
-  padding: 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .panel-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   margin-bottom: 4px;
 }
 
+.panel-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(79, 70, 229, 0.2) 100%);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #818cf8;
+}
+
+.panel-title-group {
+  flex: 1;
+}
+
 .panel-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: #ffffff;
   margin: 0 0 4px 0;
@@ -866,7 +1212,7 @@ const startWaveAnimation = () => {
 }
 
 .panel-subtitle {
-  font-size: 12px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.5);
   margin: 0;
 }
@@ -874,13 +1220,13 @@ const startWaveAnimation = () => {
 .params-content {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .param-item {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .param-header {
@@ -889,24 +1235,35 @@ const startWaveAnimation = () => {
   align-items: center;
 }
 
+.param-label-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.param-icon {
+  color: rgba(129, 140, 248, 0.8);
+  font-size: 16px;
+}
+
 .param-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .param-value {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: #409eff;
-  min-width: 40px;
+  color: #818cf8;
+  min-width: 45px;
   text-align: right;
 }
 
 .custom-slider {
-  --el-slider-main-bg-color: #409eff;
-  --el-slider-runway-bg-color: rgba(255, 255, 255, 0.15);
-  --el-slider-button-size: 16px;
+  --el-slider-main-bg-color: linear-gradient(90deg, #818cf8 0%, #6366f1 100%);
+  --el-slider-runway-bg-color: rgba(255, 255, 255, 0.12);
+  --el-slider-button-size: 18px;
 }
 
 .voice-select {
@@ -915,29 +1272,33 @@ const startWaveAnimation = () => {
 
 .test-button {
   width: 100%;
-  padding: 12px;
-  background: rgba(64, 158, 255, 0.15);
-  border: 1px solid rgba(64, 158, 255, 0.3);
-  border-radius: 10px;
-  color: #409eff;
-  font-size: 13px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(79, 70, 229, 0.2) 100%);
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  border-radius: 12px;
+  color: #818cf8;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   transition: all 0.2s ease;
   margin-top: 4px;
 }
 
 .test-button:hover {
-  background: rgba(64, 158, 255, 0.25);
-  border-color: rgba(64, 158, 255, 0.5);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.3) 0%, rgba(79, 70, 229, 0.3) 100%);
+  border-color: rgba(129, 140, 248, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(129, 140, 248, 0.2);
 }
 
-/* 过渡动画 */
+.test-button:active {
+  transform: translateY(0);
+}
+
 .fade-scale-enter-active,
 .fade-scale-leave-active {
   transition: all 0.3s ease;
@@ -946,7 +1307,7 @@ const startWaveAnimation = () => {
 .fade-scale-enter-from,
 .fade-scale-leave-to {
   opacity: 0;
-  transform: scale(0.9);
+  transform: scale(0.85);
 }
 
 .slide-up-fade-enter-active,
@@ -957,7 +1318,7 @@ const startWaveAnimation = () => {
 .slide-up-fade-enter-from,
 .slide-up-fade-leave-to {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(25px);
 }
 
 .expand-enter-active,
@@ -977,7 +1338,7 @@ const startWaveAnimation = () => {
 
 .expand-enter-to,
 .expand-leave-from {
-  max-height: 500px;
+  max-height: 550px;
   opacity: 1;
 }
 </style>

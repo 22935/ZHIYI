@@ -314,8 +314,8 @@ const loadDigitalHuman = async () => {
             fullImageUrl = '/' + imageUrl
           }
           // 相对路径会被Vite代理处理，不需要添加window.location.origin
-          // /ai 路径会被代理到 http://localhost:8090/ai
-          // /api 路径会被代理到 http://localhost:8090/api
+          // /ai 路径会被代理到 http://localhost:8080/ai
+          // /api 路径会被代理到 http://localhost:8080/api
         }
         console.log('🖼️ 完整图像URL:', fullImageUrl)
         await load2DImage(fullImageUrl)

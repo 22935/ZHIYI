@@ -96,7 +96,7 @@ class RAGService:
             # 确保不使用向量数据库
             self.vector_client = None
             self.vector_collection = None
-    
+
     def _load_documents(self):
         """从文件加载文档"""
         doc_file = self.data_dir / "documents.json"
@@ -105,9 +105,9 @@ class RAGService:
                 with open(doc_file, 'r', encoding='utf-8') as f:
                     self.documents = json.load(f)
                 # 只在第一次加载时记录日志
-        if not hasattr(RAGService, '_load_logged'):
-            logger.info(f"✅ 加载了 {len(self.documents)} 个文档")
-            RAGService._load_logged = True
+                if not hasattr(RAGService, '_load_logged'):
+                    logger.info(f"✅ 加载了 {len(self.documents)} 个文档")
+                    RAGService._load_logged = True
             except Exception as e:
                 logger.error(f"加载文档失败: {e}")
     

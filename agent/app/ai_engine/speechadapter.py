@@ -68,7 +68,7 @@ class SpeechAdapter:
         try:
             # 阿里云DashScope ASR API端点
             # 注意：实际API端点可能不同，需要根据官方文档调整
-            asr_url = f"{self.base_url}/services/audio/asr/transcription"
+            asr_url = f"{self.base_url}/services/aigc/asr/transcription"
             
             # 将音频数据编码为base64
             audio_base64 = base64.b64encode(audio_data).decode('utf-8')
@@ -185,14 +185,17 @@ class SpeechAdapter:
             pitch = max(0.5, min(2.0, pitch))
             
             # 映射前端语音类型到qwen-tts支持的voice
+            # 通义千问qwen-tts支持的语音类型: Cherry, Serena, Ethan, Chelsie
             voice_mapping = {
-                "default": "Cherry",  # 女声，温柔
-                "female": "Bella",    # 女声，优雅
-                "male": "Bob",        # 男声，稳重
-                "gentle": "Cherry",   # 温柔
-                "lively": "Bella"     # 活泼
+                "default": "Cherry",    # 女声，温柔亲切
+                "female": "Serena",     # 女声，优雅大方
+                "male": "Ethan",        # 男声，稳重成熟
+                "gentle": "Cherry",     # 温柔
+                "lively": "Chelsie",    # 活泼
+                "zhitian_emo": "Cherry", # 兼容旧配置，映射到Cherry
+                "zhitian_tech": "Ethan"  # 兼容旧配置，映射到Ethan
             }
-            actual_voice = voice_mapping.get(voice, voice)
+            actual_voice = voice_mapping.get(voice, "Cherry")  # 默认使用Cherry
             
             # 优先使用DashScope SDK（如果可用）
             if DASHSCOPE_SDK_AVAILABLE and self.api_key:
@@ -222,13 +225,28 @@ class SpeechAdapter:
                     
                     # 检查响应状态
                     if response.status_code == 200:
-                        # 获取音频数据
-                        audio_data = response.get_audio_data()
-                        if audio_data and len(audio_data) > 0:
-                            logger.info(f"✅ qwen-tts语音合成成功: 音频长度={len(audio_data)}字节")
-                            return audio_data
-                        else:
-                            logger.warning("qwen-tts返回空音频数据，尝试HTTP API")
+                        # 获取音频数据 - 修复DashScope SDK调用方式
+                        try:
+                            # 新版本DashScope SDK可能返回不同的数据结构
+                            if hasattr(response, 'output') and hasattr(response.output, 'audio'):
+                                audio_data = response.output.audio
+                            elif hasattr(response, 'get_audio_data'):
+                                audio_data = response.get_audio_data()
+                            else:
+                                # 尝试从响应中提取音频数据
+                                audio_data = getattr(response, 'audio', None)
+                                if not audio_data:
+                                    # 检查响应内容
+                                    response_data = response.__dict__
+                                    audio_data = response_data.get('audio', None)
+                            
+                            if audio_data and len(audio_data) > 0:
+                                logger.info(f"✅ qwen-tts语音合成成功: 音频长度={len(audio_data)}字节")
+                                return audio_data
+                            else:
+                                logger.warning("qwen-tts返回空音频数据，尝试HTTP API")
+                        except Exception as sdk_error:
+                            logger.warning(f"DashScope SDK音频数据提取失败: {sdk_error}，尝试HTTP API")
                     else:
                         error_msg = getattr(response, 'message', '未知错误')
                         logger.warning(f"qwen-tts SDK错误 ({response.status_code}): {error_msg}，尝试HTTP API")
@@ -237,9 +255,10 @@ class SpeechAdapter:
                     logger.warning(f"使用DashScope SDK失败: {sdk_error}，尝试HTTP API", exc_info=True)
             
             # 如果SDK不可用或失败，使用HTTP API（备用方案）
-            tts_url = f"{self.base_url}/services/audio/tts"
+            tts_url = f"{self.base_url}/services/aigc/tts"
             
-            # 构建请求数据
+            # 构建请求数据（使用正确的API格式）
+            # 通义千问TTS API需要task参数，使用正确的API格式
             request_data = {
                 "model": "qwen-tts",
                 "input": {
@@ -254,21 +273,57 @@ class SpeechAdapter:
                 }
             }
             
-            # 使用HTTP API调用
+            # 尝试使用task参数格式（兼容不同版本API）
+            request_data_with_task = {
+                "task": "text-to-speech",
+                "model": "qwen-tts",
+                "input": {
+                    "text": text
+                },
+                "parameters": {
+                    "voice": actual_voice,
+                    "format": format,
+                    "sample_rate": sample_rate,
+                    "rate": speed,
+                    "pitch_rate": pitch
+                }
+            }
+            
+            # 使用HTTP API调用，尝试不同的请求格式
             logger.info(f"使用HTTP API调用TTS: {tts_url}")
             
-            response = await self.client.post(
-                tts_url,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                    "X-DashScope-Async": "disable"  # 禁用异步，直接返回音频
-                },
-                json=request_data
-            )
-            
-            # 检查响应状态
-            response.raise_for_status()
+            # 首先尝试带task参数的请求格式
+            try:
+                response = await self.client.post(
+                    tts_url,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                        "X-DashScope-Async": "disable"  # 禁用异步，直接返回音频
+                    },
+                    json=request_data_with_task
+                )
+                response.raise_for_status()
+                logger.info("✅ 使用task参数格式调用成功")
+            except Exception as e:
+                # 如果带task参数失败，尝试不带task参数的格式
+                logger.warning(f"使用task参数格式失败: {e}，尝试不带task参数格式")
+                try:
+                    response = await self.client.post(
+                        tts_url,
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json",
+                            "X-DashScope-Async": "disable"  # 禁用异步，直接返回音频
+                        },
+                        json=request_data
+                    )
+                    response.raise_for_status()
+                    logger.info("✅ 使用标准格式调用成功")
+                except Exception as e2:
+                    # 如果两种格式都失败，抛出异常
+                    logger.error(f"所有HTTP API格式调用失败: {e2}")
+                    raise e2
             
             # TTS API可能直接返回音频流或返回JSON
             content_type = response.headers.get("content-type", "")
@@ -342,7 +397,7 @@ class SpeechAdapter:
         """
         try:
             # 阿里云流式ASR API端点
-            stream_asr_url = f"{self.base_url}/services/audio/asr/transcription-stream"
+            stream_asr_url = f"{self.base_url}/services/aigc/asr/transcription-stream"
             
             # 构建请求头
             headers = {

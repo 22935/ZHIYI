@@ -79,12 +79,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { User, ArrowRight, ChatLineRound, Edit, Delete } from '@element-plus/icons-vue'
-import { conversationApi, type Conversation as ApiConversation } from '@/services/api/conversation'
+import { conversationApi } from '@/services/api/conversation'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 
 interface Conversation {
   id: string
+  contextId: string
   title?: string
   preview?: string
   avatar?: string
@@ -143,19 +144,25 @@ const loadConversations = async () => {
       apiConversations.map(async (conv) => {
         try {
           const detail = await conversationApi.getConversationDetail(conv.id)
+          const resolvedContextId = detail.conversation.contextId || conv.contextId || conv.id
+
           return {
             id: conv.id,
-            title: detail.conversation.title || `对话 ${conv.id.substring(0, 8)}`,
+            contextId: resolvedContextId,
+            title: detail.conversation.title || conv.title || `对话 ${resolvedContextId.substring(0, 8)}`,
             preview: detail.preview || '暂无预览内容...',
             avatar: undefined,
             updatedAt: new Date(conv.updatedAt || conv.createdAt)
           }
         } catch {
           // 如果获取详情失败，使用默认值
+          const resolvedContextId = conv.contextId || conv.id
+
           return {
             id: conv.id,
-            title: conv.title || `对话 ${conv.id.substring(0, 8)}`,
-            preview: `上下文ID: ${conv.contextId || 'N/A'}`,
+            contextId: resolvedContextId,
+            title: conv.title || `对话 ${resolvedContextId.substring(0, 8)}`,
+            preview: conv.preview || `上下文ID: ${resolvedContextId}`,
             avatar: undefined,
             updatedAt: new Date(conv.updatedAt || conv.createdAt)
           }

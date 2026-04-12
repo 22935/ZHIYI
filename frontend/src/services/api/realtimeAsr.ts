@@ -24,9 +24,19 @@ export class RealtimeASRService {
     this.options = options
     this.sessionId = `asr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
-    // 构建WebSocket URL
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = import.meta.env.VITE_API_BASE_URL?.replace(/^https?:\/\//, '') || 'localhost:8000'
+    // 构建WebSocket URL:
+    // 1) 优先使用 VITE_API_BASE_URL 的主机信息（如果是绝对地址）
+    // 2) 否则回退到当前页面主机（开发环境 5173 下可直接走 Vite 代理）
+    const apiBase = (import.meta as any).env.VITE_API_BASE_URL as string | undefined
+    let protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    let host = window.location.host
+
+    if (apiBase && /^https?:\/\//.test(apiBase)) {
+      const parsed = new URL(apiBase)
+      protocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:'
+      host = parsed.host
+    }
+
     const wsUrl = `${protocol}//${host}/ai/realtime-asr/${this.sessionId}`
     
     return new Promise((resolve, reject) => {

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
+    "build:docker": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,7 +25,7 @@
     "@types/three": "^0.158.0",
     "@vitejs/plugin-vue": "^4.5.0",
     "sass-embedded": "^1.97.1",
-    "typescript": "^5.2.2",
+    "typescript": "5.4.5",
     "vite": "^5.0.0",
     "vue-tsc": "^1.8.22"
   }

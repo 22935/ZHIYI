@@ -166,12 +166,13 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { User, Lock, Message, Monitor, Connection, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, FormInstance, FormRules } from 'element-plus'
 import { authApi } from '@/services/api/auth'
 
 const router = useRouter()
+const route = useRoute()
 
 const activeTab = ref('login')
 const loading = ref(false)
@@ -247,7 +248,10 @@ const handleLogin = async () => {
         localStorage.setItem('token', response.token)
         localStorage.setItem('userId', response.userId?.toString() || '')
         ElMessage.success(response.message || '登录成功')
-        router.push('/chat')
+
+        const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/chat'
+        const safeRedirect = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/chat'
+        router.push(safeRedirect)
       } else {
         ElMessage.error(response.message || '登录失败')
       }
@@ -329,24 +333,29 @@ const handleRegister = async () => {
 }
 
 .login-container {
-  width: 1000px;
+  width: 90%;
+  max-width: 1000px;
+  min-width: 320px;
   height: 640px;
+  max-height: 90vh;
   display: flex;
   overflow: hidden;
   z-index: 10;
   border-radius: 32px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.8);
+  margin: 20px;
 }
 
 /* Promo Side */
 .promo-side {
   flex: 1.1;
   background: linear-gradient(135deg, rgba(79, 70, 229, 0.05) 0%, rgba(129, 140, 248, 0.05) 100%);
-  padding: 60px;
+  padding: 40px 60px;
   display: flex;
   flex-direction: column;
   position: relative;
+  min-width: 0;
 }
 
 .brand {
@@ -382,7 +391,7 @@ const handleRegister = async () => {
 }
 
 .title {
-  font-size: 44px;
+  font-size: clamp(32px, 4vw, 44px);
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.2;
@@ -391,7 +400,7 @@ const handleRegister = async () => {
 }
 
 .subtitle {
-  font-size: 18px;
+  font-size: clamp(14px, 2vw, 18px);
   color: var(--text-secondary);
   line-height: 1.6;
 }
@@ -453,9 +462,10 @@ const handleRegister = async () => {
 .auth-side {
   flex: 0.9;
   background: white;
-  padding: 60px;
+  padding: 40px 60px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .auth-content {
@@ -501,7 +511,7 @@ const handleRegister = async () => {
 }
 
 .auth-header h2 {
-  font-size: 28px;
+  font-size: clamp(24px, 3vw, 28px);
   font-weight: 700;
   margin-bottom: 8px;
   color: var(--text-primary);
@@ -509,7 +519,7 @@ const handleRegister = async () => {
 
 .auth-header p {
   color: var(--text-secondary);
-  font-size: 15px;
+  font-size: clamp(13px, 1.5vw, 15px);
 }
 
 .auth-form {
@@ -564,6 +574,23 @@ const handleRegister = async () => {
   100% { transform: scale(1); opacity: 0.2; }
 }
 
+@media (max-width: 1200px) {
+  .login-container {
+    width: 95%;
+    max-width: 900px;
+    height: auto;
+    min-height: 580px;
+  }
+  
+  .promo-side {
+    padding: 30px 40px;
+  }
+  
+  .auth-side {
+    padding: 30px 40px;
+  }
+}
+
 @media (max-width: 1024px) {
   .login-container {
     width: 90%;
@@ -571,6 +598,71 @@ const handleRegister = async () => {
     min-height: 600px;
   }
   .promo-side { display: none; }
-  .auth-side { flex: 1; padding: 40px; }
+  .auth-side { 
+    flex: 1; 
+    padding: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .login-container {
+    width: 95%;
+    margin: 10px;
+    height: auto;
+    min-height: 500px;
+  }
+  
+  .auth-side {
+    padding: 30px 20px;
+  }
+  
+  .auth-header h2 {
+    font-size: 22px;
+  }
+  
+  .auth-header p {
+    font-size: 14px;
+  }
+  
+  .premium-tabs :deep(.el-tabs__nav) {
+    gap: 20px;
+  }
+  
+  .premium-tabs :deep(.el-tabs__item) {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-container {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    height: 100vh;
+    max-height: 100vh;
+  }
+  
+  .auth-side {
+    padding: 20px;
+  }
+  
+  .auth-header {
+    margin-bottom: 20px;
+  }
+  
+  .auth-form {
+    gap: 15px;
+  }
+  
+  .premium-input :deep(.el-input__wrapper) {
+    height: 48px;
+    border-radius: 12px !important;
+  }
+  
+  .submit-btn {
+    height: 50px;
+    border-radius: 14px;
+    font-size: 15px;
+  }
 }
 </style>

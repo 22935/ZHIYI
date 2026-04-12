@@ -41,3 +41,8 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Python caches and local runtime data (safe to ignore)
+agent/**/__pycache__/
+agent/**/*.pyc
+agent/data/rag/chroma_db/
+

@@ -8,7 +8,7 @@ RUN mvn dependency:go-offline -B
 
 # 复制源代码并构建
 COPY src ./src
-RUN mvn clean package -DskipTests
+RUN mvn clean package -Dmaven.test.skip=true
 
 # 运行阶段
 FROM eclipse-temurin:17-jre-alpine
