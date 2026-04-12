@@ -46,8 +46,8 @@ export function exportConversationToCsv(data: ConversationExport): string {
     // 转义CSV特殊字符
     const time = `"${msg.time.replace(/"/g, '""')}"`
     const role = `"${msg.role.replace(/"/g, '""')}"`
-    const content = `"${msg.content.replace(/"/g, '""').replace(/\n/g, ' ')}"`
-    content += `${time},${role},${content}\n`
+    const msgContent = `"${msg.content.replace(/"/g, '""').replace(/\n/g, ' ')}"`
+    content += `${time},${role},${msgContent}\n`
   })
 
   return content

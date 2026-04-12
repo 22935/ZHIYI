@@ -3,6 +3,7 @@ import request from '@/utils/request'
 export interface LoginRequest {
   username: string
   password: string
+  email?: string
 }
 
 export interface LoginResponse {
@@ -38,6 +39,23 @@ export const authApi = {
       return response.data
     } catch {
       return { valid: false }
+    }
+  },
+
+  // 退出登录
+  async logout(): Promise<{ success: boolean; message?: string }> {
+    try {
+      // 清除本地存储的token
+      localStorage.removeItem('token')
+      localStorage.removeItem('userInfo')
+      
+      // 可以调用后端接口进行token失效（如果有的话）
+      // 目前后端没有logout接口，所以只在前端清除
+      
+      return { success: true, message: '退出登录成功' }
+    } catch (error: any) {
+      console.error('退出登录失败:', error)
+      return { success: false, message: error.message || '退出登录失败' }
     }
   }
 }

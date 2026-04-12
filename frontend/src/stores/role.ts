@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { roleApi, type Role, type RoleCreateRequest } from '@/services/api/role'
-import { digitalHumanApi } from '@/services/api/digitalHuman'
 
 export const useRoleStore = defineStore('role', () => {
   const builtinRoles = ref<Role[]>([])
@@ -96,7 +95,7 @@ export const useRoleStore = defineStore('role', () => {
 
   // 添加角色（用于创建后添加到列表）
   const addRole = (role: Role) => {
-    if (role.isBuiltin) {
+    if ((role as any).isBuiltin) {
       builtinRoles.value.push(role)
     } else {
       customRoles.value.push(role)
@@ -172,6 +171,7 @@ export const useRoleStore = defineStore('role', () => {
     loadRoles,
     selectRole,
     setCurrentRole,
+    updateRoleAvatar,
     addRole,
     createRole,
     updateRole,

@@ -8,7 +8,7 @@ RUN npm ci
 
 # 复制源代码并构建
 COPY . .
-RUN npm run build
+RUN npm run build:docker
 
 # 运行阶段
 FROM nginx:alpine

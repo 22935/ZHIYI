@@ -158,7 +158,6 @@ class KylinSDKClient:
                     if not system_prompt and role_config.get("role_id"):
                         # 尝试从后端获取角色信息并构建提示词
                         try:
-                            import httpx
                             async with httpx.AsyncClient(timeout=5.0) as client:
                                 backend_url = "http://localhost:8080"
                                 role_response = await client.get(f"{backend_url}/roles/{role_config.get('role_id')}")
@@ -710,7 +709,6 @@ class KylinAIClient:
         if role_id:
             # 尝试从后端API获取角色信息
             try:
-                import httpx
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     # 尝试从后端获取角色信息（假设后端运行在8080端口）
                     backend_url = "http://localhost:8080"

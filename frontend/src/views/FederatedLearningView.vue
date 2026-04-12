@@ -185,7 +185,7 @@
             </ul>
           </div>
         </div>
-        <el-empty v-else description="点击"分析模式"开始RAG优化"></el-empty>
+        <el-empty v-else description="点击“分析模式”开始RAG优化"></el-empty>
       </div>
     </div>
   </div>

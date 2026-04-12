@@ -11,10 +11,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: false, // 如果5173被占用，自动使用下一个可用端口
+    strictPort: true, // 固定使用5173，避免开发环境端口漂移
     proxy: {
       '/api': {
-        target: 'http://localhost:8090',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         // 智能处理：部分控制器有/api前缀，部分没有
         // 对于有/api前缀的控制器（如digital-human），保留前缀
@@ -31,12 +31,12 @@ export default defineConfig({
             '/api/feedback',
             '/api/federated-models'
           ]
-          
+
           // 检查是否需要保留/api前缀
           if (keepApiPrefix.some(prefix => path.startsWith(prefix))) {
             return path // 保留/api前缀
           }
-          
+
           // 其他路径去掉/api前缀
           return path.replace(/^\/api/, '')
         },
@@ -45,7 +45,7 @@ export default defineConfig({
             console.log('proxy error', err);
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
+            console.log('Sending Request to the Target:', req.method, req.url); 
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
@@ -54,7 +54,7 @@ export default defineConfig({
       },
       // 代理 /ai 路径到Python服务（通过Java后端）
       '/ai': {
-        target: 'http://localhost:8090',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         rewrite: (path) => {
           // /ai 路径需要转发到Java后端，Java后端会代理到Python服务
@@ -76,4 +76,3 @@ export default defineConfig({
     }
   }
 })
-

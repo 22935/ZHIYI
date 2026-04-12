@@ -1,12 +1,35 @@
 # 开发环境配置
 spring:
+  # 使用H2内存数据库
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  # JPA配置
   jpa:
-    show-sql: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  
+  # H2控制台
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  # 禁用Redis（使用内存缓存替代）
+  data:
+    redis:
+      enabled: false
 
+# 日志配置
 logging:
   level:
     com.kinlin.ai: DEBUG
-    org.springframework.web: DEBUG
-
+    org.springframework.web: INFO
+    org.hibernate: INFO

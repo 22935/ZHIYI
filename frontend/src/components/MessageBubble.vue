@@ -336,10 +336,11 @@ const formatTime = (date: Date) => {
   gap: 12px;
   margin-top: 8px;
   padding: 4px 0;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 0.2s;
 }
 
+/* 保持悬停效果，但不再控制显示/隐藏 */
 .message-content:hover .message-actions {
   opacity: 1;
 }

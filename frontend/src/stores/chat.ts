@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { chatApi, type ChatRequest, type ChatResponse } from '@/services/api/chat'
+import { chatApi, type ChatRequest } from '@/services/api/chat'
 
 export interface Message {
   id: number | string
   role: 'user' | 'assistant'
   content: string
+  fileUrl?: string
   createdAt?: Date
   timestamp?: number
   audioUrl?: string

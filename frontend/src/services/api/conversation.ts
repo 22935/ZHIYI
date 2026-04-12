@@ -5,6 +5,8 @@ export interface Conversation {
   userId: string
   roleId?: string
   contextId: string
+  title?: string
+  preview?: string
   createdAt: string
   updatedAt: string
 }

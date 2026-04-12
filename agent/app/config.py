@@ -8,28 +8,27 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-# 显式加载.env文件（确保在主目录）
+# 显式加载.env文件（优先检查当前目录，然后检查主目录）
 _config_path = Path(__file__).resolve()
-_project_root = _config_path.parent.parent.parent  # 从 agent/app/ 到主目录
-_env_file_path = _project_root / ".env"
 
-# 加载.env文件
-if _env_file_path.exists():
-    # 显式加载.env文件
-    result = load_dotenv(dotenv_path=str(_env_file_path), override=False)
-    # 验证关键配置项是否加载
-    dashscope_key_from_env = os.getenv('DASHSCOPE_API_KEY', '')
-    qwen_key_from_env = os.getenv('QWEN_API_KEY', '')
-    if not dashscope_key_from_env and not qwen_key_from_env:
-        import logging
-        _warn_logger = logging.getLogger(__name__)
-        _warn_logger.warning(f".env文件存在但未找到DASHSCOPE_API_KEY或QWEN_API_KEY配置项")
-        _warn_logger.warning(f"   配置文件路径: {_env_file_path}")
-        _warn_logger.warning(f"   请在.env文件中添加: DASHSCOPE_API_KEY=sk-your_key")
+# 优先检查当前目录的.env文件
+_current_dir_env = Path(".env")
+_env_file_path = _current_dir_env
+
+if _current_dir_env.exists():
+    # 加载当前目录的.env文件
+    result = load_dotenv(dotenv_path=str(_current_dir_env), override=True)
+    print(f"✅ 从当前目录加载.env文件: {_current_dir_env}")
 else:
-    import logging
-    _warn_logger = logging.getLogger(__name__)
-    _warn_logger.warning(f".env文件不存在: {_env_file_path}")
+    # 回退到主目录的.env文件
+    _project_root = _config_path.parent.parent.parent  # 从 agent/app/ 到主目录
+    _env_file_path = _project_root / ".env"
+    if _env_file_path.exists():
+        result = load_dotenv(dotenv_path=str(_env_file_path), override=True)
+        print(f"✅ 从主目录加载.env文件: {_env_file_path}")
+    else:
+        print(f"⚠️ .env文件不存在: {_env_file_path}")
+        _env_file_path = None
 
 class Settings(BaseSettings):
     # 应用配置
@@ -92,7 +91,7 @@ class Settings(BaseSettings):
         # parent.parent.parent = 主目录（Kinlin_AI）
         # 注意：env_file可以是相对路径或绝对路径
         # 由于已经通过load_dotenv显式加载，这里也可以使用环境变量
-        env_file = str(_env_file_path) if _env_file_path.exists() else None
+        env_file = str(_env_file_path) if (_env_file_path and _env_file_path.exists()) else None
         case_sensitive = False
         # 允许忽略.env文件中的额外字段（这些字段可能是给后端Java服务等其他服务使用的）
         extra = "ignore"
@@ -102,6 +101,27 @@ class Settings(BaseSettings):
 # 初始化配置
 try:
     settings = Settings()
+    
+    # 验证关键配置项是否加载（在Settings初始化后检查）
+    if not settings.DASHSCOPE_API_KEY and not settings.QWEN_API_KEY:
+        import logging
+        _warn_logger = logging.getLogger(__name__)
+        _warn_logger.warning(f"通义千问API密钥未配置")
+        if _env_file_path:
+            _warn_logger.warning(f"   配置文件路径: {_env_file_path}")
+        _warn_logger.warning(f"   请在.env文件中添加以下配置项之一:")
+        _warn_logger.warning(f"   DASHSCOPE_API_KEY=sk-your_api_key_here")
+        _warn_logger.warning(f"   或")
+        _warn_logger.warning(f"   QWEN_API_KEY=sk-your_api_key_here")
+        _warn_logger.warning(f"   获取API密钥: https://dashscope.aliyuncs.com/")
+    else:
+        import logging
+        _info_logger = logging.getLogger(__name__)
+        if settings.DASHSCOPE_API_KEY:
+            _info_logger.info(f"✅ 通义千问API密钥已配置 (DASHSCOPE_API_KEY)")
+        else:
+            _info_logger.info(f"✅ 通义千问API密钥已配置 (QWEN_API_KEY)")
+        
 except Exception as e:
     import logging
     _init_logger = logging.getLogger(__name__)
@@ -177,7 +197,7 @@ except ImportError:
     _logger.setLevel(logging.INFO)
 
 # 获取配置文件路径（使用正确的路径）
-_env_file_path_correct = _project_root / ".env"
+_env_file_path_correct = Path(".env")
 
 # 配置信息不再详细输出，只在需要时输出警告
 

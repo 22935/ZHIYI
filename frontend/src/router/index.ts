@@ -136,40 +136,60 @@ const router = createRouter({
   routes
 })
 
+const clearAuthState = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('userId')
+}
+
+const normalizeRedirect = (redirect?: string) => {
+  if (!redirect) return '/chat'
+  if (!redirect.startsWith('/') || redirect.startsWith('//')) return '/chat'
+  return redirect
+}
+
 // 路由守卫
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - Kinlin AI` : 'Kinlin AI'
-  
-  // 检查是否需要认证
-  if (to.meta.requiresAuth) {
-    const token = localStorage.getItem('token')
+
+  const token = localStorage.getItem('token')
+  const requiresAuth = Boolean(to.meta.requiresAuth)
+
+  // 访问受保护页面时，统一进行登录态校验。
+  if (requiresAuth) {
     if (!token) {
-      next('/login')
+      next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
       return
     }
-    
-    // 验证Token
-    const result = await authApi.verifyToken()
-    if (!result.valid) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('userId')
-      next('/login')
-      return
-    }
-  }
-  
-  // 如果已登录，访问登录页则跳转到首页
-  if (to.path === '/login') {
-    const token = localStorage.getItem('token')
-    if (token) {
+
+    try {
       const result = await authApi.verifyToken()
-      if (result.valid) {
-        next('/chat')
+      if (!result.valid) {
+        clearAuthState()
+        next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
         return
       }
+    } catch {
+      clearAuthState()
+      next('/login')
+      return
     }
   }
-  
+
+  // 已登录时访问登录页，回到来源页（如果有）或默认聊天页。
+  if (to.path === '/login' && token) {
+    try {
+      const result = await authApi.verifyToken()
+      if (result.valid) {
+        const redirect = normalizeRedirect(typeof to.query.redirect === 'string' ? to.query.redirect : undefined)
+        next(redirect)
+        return
+      }
+      clearAuthState()
+    } catch {
+      clearAuthState()
+    }
+  }
+
   next()
 })
 

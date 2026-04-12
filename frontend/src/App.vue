@@ -11,11 +11,12 @@
           </div>
 
           <!-- Main Navigation -->
-          <div class="sidebar-nav">
+          <div class="sidebar-nav" ref="sidebarNav">
             <el-menu
               :default-active="activeMenu"
               router
               class="sidebar-menu"
+              @wheel="handleSidebarWheel"
             >
               <div class="menu-group-title">{{ $t('nav.main') }}</div>
               <el-menu-item index="/chat">
@@ -75,6 +76,17 @@
                 <span class="user-status">Online</span>
               </div>
             </div>
+            <div class="logout-section">
+              <el-button 
+                class="logout-btn" 
+                type="danger" 
+                size="small" 
+                @click="handleLogout"
+                :icon="SwitchButton"
+              >
+                退出登录
+              </el-button>
+            </div>
           </div>
         </el-aside>
 
@@ -110,12 +122,13 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { 
   ChatDotRound, User, UserFilled, Microphone, Search, 
-  Clock, Setting, DataAnalysis
+  Clock, Setting, SwitchButton
 } from '@element-plus/icons-vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import DigitalHuman from '@/components/DigitalHuman.vue'
 import { useRoleStore } from '@/stores/role'
-import { useChatStore } from '@/stores/chat'
+import { authApi } from '@/services/api/auth'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,12 +136,31 @@ const globalError = ref('')
 
 // 获取角色和聊天状态
 const roleStore = useRoleStore()
-const chatStore = useChatStore()
 
 // 计算当前角色ID和状态
 const currentRoleId = computed(() => roleStore.currentRole?.id || null)
 const isSpeaking = computed(() => false) // 可以从chatStore获取
 const currentAudioUrl = computed(() => '') // 可以从chatStore获取
+
+// 导航栏滚动相关
+const sidebarNav = ref<HTMLElement | null>(null)
+
+// 处理导航栏滚动
+const handleSidebarWheel = (event: WheelEvent) => {
+  if (!sidebarNav.value) return
+  
+  // 阻止默认滚动行为
+  event.preventDefault()
+  
+  // 计算滚动距离（平滑滚动）
+  const scrollAmount = event.deltaY * 0.5
+  
+  // 平滑滚动导航栏
+  sidebarNav.value.scrollBy({
+    top: scrollAmount,
+    behavior: 'smooth'
+  })
+}
 
 // 判断是否为沉浸式模式（如语音交互界面、登录页面、联邦学习管理中心、设置页面等）
 const isImmersive = computed(() => {
@@ -170,6 +202,44 @@ const handleGlobalError = (event: CustomEvent) => {
     setTimeout(() => {
       clearGlobalError()
     }, duration)
+  }
+}
+
+// 退出登录处理
+const handleLogout = async () => {
+  try {
+    // 确认退出
+    await ElMessageBox.confirm(
+      '确定要退出登录吗？退出后将需要重新登录。',
+      '确认退出',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+        customClass: 'logout-confirm'
+      }
+    )
+    
+    // 执行退出登录
+    const result = await authApi.logout()
+    
+    if (result.success) {
+      ElMessage.success(result.message || '退出登录成功')
+      
+      // 跳转到登录页面
+      router.push('/login')
+    } else {
+      ElMessage.error(result.message || '退出登录失败')
+    }
+  } catch (error) {
+    // 用户取消退出
+    if (error === 'cancel') {
+      return
+    }
+    
+    // 其他错误
+    console.error('退出登录失败:', error)
+    ElMessage.error('退出登录失败，请重试')
   }
 }
 
@@ -235,7 +305,28 @@ onUnmounted(() => {
 .sidebar-nav {
   flex: 1;
   padding: 16px 8px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  max-height: calc(100vh - 480px); /* 限制最大高度，确保可以滚动 */
+}
+
+/* 导航栏滚动条样式 */
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .menu-group-title {
@@ -320,6 +411,38 @@ onUnmounted(() => {
 .user-status {
   font-size: 12px;
   color: var(--success);
+}
+
+/* 退出登录按钮样式 */
+.logout-section {
+  margin-top: 12px;
+  padding: 0 12px;
+}
+
+.logout-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.logout-btn:hover {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.logout-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.logout-btn:deep(.el-icon) {
+  font-size: 14px;
 }
 
 /* Main Content Styles */

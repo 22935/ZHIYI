@@ -64,6 +64,7 @@
             v-if="activeTab === 'conversations'"
             :key="`conversations-${refreshKey}`"
             :search-keyword="searchKeyword"
+            :user-id="userStore.currentUser?.id"
             @select="handleSelectConversation"
           />
           
@@ -95,8 +96,9 @@ const searchKeyword = ref('')
 const activeTab = ref('conversations')
 const refreshKey = ref(0)
 
-const handleSelectConversation = (conversation: any) => {
-  router.push(`/chat?contextId=${conversation.contextId || conversation.id}`)
+const handleSelectConversation = (conversation: { id: string; contextId?: string }) => {
+  const contextId = conversation.contextId || conversation.id
+  router.push(`/chat?contextId=${encodeURIComponent(contextId)}`)
 }
 
 // 刷新当前标签页的数据
@@ -121,9 +123,7 @@ const clearAll = async () => {
     
     await conversationApi.deleteAllConversations(userId)
     ElMessage.success('历史记录已清空')
-    
-    // 刷新对话列表
-    window.location.reload()
+    refresh()
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error('清空失败: ' + (error.message || '未知错误'))
