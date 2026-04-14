@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory } from 'vue-router'
+﻿import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
 import ChatView from '@/views/ChatView.vue'
 import RoleView from '@/views/RoleView.vue'
 import SettingsView from '@/views/SettingsView.vue'
@@ -7,7 +8,7 @@ import LoginView from '@/views/LoginView.vue'
 import RagView from '@/views/RagView.vue'
 import { authApi } from '@/services/api/auth'
 
-const routes = [
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     redirect: '/chat'
@@ -53,7 +54,7 @@ const routes = [
     name: 'Chat',
     component: ChatView,
     meta: {
-      title: '对话框',
+      title: '对话',
       requiresAuth: true
     }
   },
@@ -116,7 +117,7 @@ const routes = [
     name: 'FederatedModelManagement',
     component: () => import('@/views/FederatedModelManagementView.vue'),
     meta: {
-      title: '联邦学习模型管理',
+      title: '联邦模型管理',
       requiresAuth: true
     }
   },
@@ -125,7 +126,7 @@ const routes = [
     name: 'FederatedLearning',
     component: () => import('@/views/FederatedLearningView.vue'),
     meta: {
-      title: '联邦学习全局模型',
+      title: '联邦学习管理',
       requiresAuth: true
     }
   }
@@ -147,14 +148,14 @@ const normalizeRedirect = (redirect?: string) => {
   return redirect
 }
 
-// 路由守卫
+// Global route guard
 router.beforeEach(async (to, _from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} - Kinlin AI` : 'Kinlin AI'
+  document.title = to.meta.title ? `${to.meta.title} - 联邦智能枢` : '联邦智能枢'
 
   const token = localStorage.getItem('token')
   const requiresAuth = Boolean(to.meta.requiresAuth)
 
-  // 访问受保护页面时，统一进行登录态校验。
+  // Validate login state for protected routes
   if (requiresAuth) {
     if (!token) {
       next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
@@ -175,7 +176,7 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
-  // 已登录时访问登录页，回到来源页（如果有）或默认聊天页。
+  // 宸茬櫥褰曟椂璁块棶鐧诲綍椤碉紝鍥炲埌鏉ユ簮椤碉紙濡傛灉鏈夛級鎴栭粯璁よ亰澶╅〉銆?
   if (to.path === '/login' && token) {
     try {
       const result = await authApi.verifyToken()
@@ -194,4 +195,5 @@ router.beforeEach(async (to, _from, next) => {
 })
 
 export default router
+
 

@@ -232,7 +232,7 @@ const renderGraph = () => {
     edges: edges
   }
   
-  const options = {
+  const options: any = {
     nodes: {
       shape: 'dot',
       size: 20,
@@ -268,6 +268,7 @@ const renderGraph = () => {
         align: 'middle'
       },
       smooth: {
+        enabled: true,
         type: 'continuous',
         roundness: 0.5
       }
@@ -291,15 +292,15 @@ const renderGraph = () => {
   network = new Network(graphCanvasRef.value, data, options)
   
   // 添加事件监听
-  network.on('click', (params) => {
+  network.on('click', (params: any) => {
     if (params.nodes.length > 0) {
       const nodeId = params.nodes[0]
-      const node = nodes.get(nodeId)
+      const node = nodes.get(nodeId) as any
       ElMessage.info(`选中实体: ${node?.label || nodeId}`)
     }
   })
   
-  network.on('stabilizationEnd', () => {
+  network.on('stabilized', () => {
     // 图谱稳定后可以执行的操作
   })
 }
@@ -337,9 +338,9 @@ const getLayoutOptions = () => {
  */
 const applyLayout = () => {
   if (network) {
-    const options = network.getOptions()
-    options.layout = getLayoutOptions()
-    network.setOptions(options)
+    network.setOptions({
+      layout: getLayoutOptions()
+    } as any)
     network.fit()
   }
 }

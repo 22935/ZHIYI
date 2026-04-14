@@ -163,7 +163,7 @@ const emit = defineEmits(['copy', 'quote', 'delete', 'tts', 'export'])
 const roleStore = useRoleStore()
 const activeCollapse = ref<string[]>([])
 
-const handleAction = (type: string) => {
+const handleAction = (type: 'copy' | 'quote' | 'delete' | 'tts' | 'export') => {
   if (type === 'copy') {
     navigator.clipboard.writeText(props.message.content)
     ElMessage.success('已复制到剪贴板')

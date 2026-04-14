@@ -18,6 +18,8 @@ services:
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - AI_SERVICE_URL=http://ai-service:8000
+      - AGENT_PYTHON_LAWYER_CHAT_URL=http://ai-service:8000/ai/agent/lawyer/chat
+      - AGENT_TIMEOUT_MS=120000
     depends_on:
       - postgres
       - redis
@@ -41,6 +43,8 @@ services:
     environment:
       - ENVIRONMENT=production
       - LOG_LEVEL=INFO
+      - ANONYMIZED_TELEMETRY=False
+      - CHROMA_TELEMETRY_ENABLED=false
     volumes:
       - ../.env:/app/.env:ro
       - ../agent/data:/app/data

@@ -246,8 +246,8 @@ const handleUploadSuccess = () => {
 
 const currentRoleId = computed(() => roleStore.currentRole?.id)
 
-const handleUploadError = () => {
-  ElMessage.error('文档上传失败')
+const handleUploadError = (error?: any) => {
+  ElMessage.error('文档上传失败' + (error?.message ? `: ${error.message}` : ''))
 }
 
 const handleDelete = async (docId: string) => {

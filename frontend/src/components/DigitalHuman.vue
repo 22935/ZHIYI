@@ -507,7 +507,7 @@ const load2DImage = async (imageUrl: string) => {
           console.error('❌ 加载图像纹理失败:', {
             error,
             url: imageUrl,
-            message: error?.message || '未知错误'
+            message: error instanceof Error ? error.message : '未知错误'
           })
           reject(error)
         }

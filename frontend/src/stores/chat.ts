@@ -1,6 +1,7 @@
-import { defineStore } from 'pinia'
+﻿import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { chatApi, type ChatRequest } from '@/services/api/chat'
+import { agentLawyerApi, type AgentTraceStep, type FederatedInfo } from '@/services/api/agentLawyer'
 
 export interface Message {
   id: number | string
@@ -16,17 +17,21 @@ export interface Message {
   sources?: any[]
   reasoningPath?: any[]
   modelInfo?: string
+  skillsUsed?: string[]
+  trace?: AgentTraceStep[]
+  federated?: FederatedInfo
+  riskLevel?: string
+  agentMode?: 'default' | 'lawyer'
 }
 
 export const useChatStore = defineStore('chat', () => {
   const messages = ref<Message[]>([])
   const loading = ref(false)
   const contextId = ref<string | null>(null)
+  const lawyerSessionId = ref<string | null>(null)
   const currentRoleId = ref<string | null>(null)
 
-  const sendMessage = async (text: string, fileUrl?: string) => {
-    if ((!text.trim() && !fileUrl) || loading.value) return
-
+  const pushUserMessage = (text: string, fileUrl?: string) => {
     const userMessage: Message = {
       id: Date.now(),
       role: 'user',
@@ -34,9 +39,15 @@ export const useChatStore = defineStore('chat', () => {
       createdAt: new Date()
     }
     if (fileUrl) {
-      (userMessage as any).fileUrl = fileUrl
+      userMessage.fileUrl = fileUrl
     }
     messages.value.push(userMessage)
+  }
+
+  const sendMessage = async (text: string, fileUrl?: string) => {
+    if ((!text.trim() && !fileUrl) || loading.value) return
+
+    pushUserMessage(text, fileUrl)
 
     loading.value = true
     try {
@@ -59,8 +70,43 @@ export const useChatStore = defineStore('chat', () => {
         tokensUsed: response.tokensUsed,
         sources: response.sources,
         reasoningPath: response.reasoningPath,
-        modelInfo: response.modelInfo
-      } as any
+        modelInfo: response.modelInfo,
+        agentMode: 'default'
+      }
+      messages.value.push(assistantMessage)
+
+      return response
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const sendLawyerMessage = async (text: string) => {
+    if (!text.trim() || loading.value) return
+
+    pushUserMessage(text)
+
+    loading.value = true
+    try {
+      const response = await agentLawyerApi.chat({
+        text,
+        sessionId: lawyerSessionId.value || undefined
+      })
+
+      lawyerSessionId.value = response.sessionId || lawyerSessionId.value
+
+      const assistantMessage: Message = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: response.answer || '',
+        createdAt: new Date(),
+        modelInfo: 'Lawyer Agent',
+        skillsUsed: response.skillsUsed || [],
+        trace: response.trace || [],
+        federated: response.federated || {},
+        riskLevel: response.riskLevel,
+        agentMode: 'lawyer'
+      }
       messages.value.push(assistantMessage)
 
       return response
@@ -75,29 +121,29 @@ export const useChatStore = defineStore('chat', () => {
     }
     messages.value = []
     contextId.value = null
+    lawyerSessionId.value = null
   }
 
   const setRole = (roleId: string | null) => {
     currentRoleId.value = roleId
   }
 
-  // 加载对话历史
   const loadHistory = async (targetContextId: string) => {
     if (!targetContextId) return
 
     loading.value = true
     try {
       const history = await chatApi.getHistory(targetContextId)
-      
-      // 将后端消息格式转换为前端格式
+
       messages.value = history.map((msg: any) => ({
         id: msg.id || Date.now() + Math.random(),
         role: msg.role?.toLowerCase() === 'user' ? 'user' : 'assistant',
         content: msg.content || '',
         createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
-        fileUrl: msg.fileUrl
+        fileUrl: msg.fileUrl,
+        agentMode: 'default'
       }))
-      
+
       contextId.value = targetContextId
     } catch (error: any) {
       console.error('加载对话历史失败:', error)
@@ -107,7 +153,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 设置上下文ID（用于从外部设置，如从对话列表选择）
   const setContextId = (id: string | null) => {
     contextId.value = id
     if (id) {
@@ -117,9 +162,7 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 添加消息（用于直接添加消息到列表）
   const addMessage = (message: Message) => {
-    // 确保消息数据完整
     const completeMessage: Message = {
       ...message,
       id: message.id || Date.now().toString(),
@@ -131,7 +174,6 @@ export const useChatStore = defineStore('chat', () => {
     messages.value.push(completeMessage)
   }
 
-  // 设置消息列表（用于批量设置消息）
   const setMessages = (newMessages: Message[]) => {
     messages.value = newMessages.map(msg => ({
       ...msg,
@@ -139,18 +181,20 @@ export const useChatStore = defineStore('chat', () => {
     }))
   }
 
-  // 清除消息（用于清除当前对话）
   const clearMessages = () => {
     messages.value = []
     contextId.value = null
+    lawyerSessionId.value = null
   }
 
   return {
     messages,
     loading,
     contextId,
+    lawyerSessionId,
     currentRoleId,
     sendMessage,
+    sendLawyerMessage,
     clearHistory,
     setRole,
     loadHistory,
@@ -160,4 +204,3 @@ export const useChatStore = defineStore('chat', () => {
     clearMessages
   }
 })
-

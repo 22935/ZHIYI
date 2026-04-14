@@ -1,371 +1,251 @@
 <template>
-  <div class="settings-view" :class="themeClass">
-    <!-- 环境渲染背景 -->
-    <div class="ambient-layer">
-      <div class="glow g-1"></div>
-      <div class="glow g-2"></div>
-      <div class="grain"></div>
-    </div>
+  <div class="settings-view">
+    <div class="ambient-glow top-left"></div>
+    <div class="ambient-glow bottom-right"></div>
 
-    <!-- 顶部社论式标题 -->
-    <header class="settings-header">
-      <button class="back-btn" @click="handleBack" title="返回">
-        <el-icon><ArrowLeft /></el-icon>
+    <section class="page-header glass-panel">
+      <div>
+        <h1>设置中心</h1>
+        <p>与其他页面一致：同页分区切换、同页保存反馈，不弹出新界面。</p>
+      </div>
+      <div class="status-chip">
+        上次保存：{{ lastSavedText }}
+      </div>
+    </section>
+
+    <section class="tabs-bar glass-panel">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        class="tab-btn"
+        :class="{ active: activeTab === tab.id }"
+        @click="activeTab = tab.id"
+      >
+        <el-icon><component :is="tab.icon" /></el-icon>
+        <span>{{ tab.label }}</span>
       </button>
-      <div class="header-left">
-        <div class="system-meta">
-          <span class="meta-tag">PREFERENCES</span>
-          <span class="status-indicator">
-            <span class="dot"></span> SYSTEM_STABLE
-          </span>
-        </div>
-        <h1 class="grand-title">{{ $t('settings.title') }}</h1>
-        <p class="tagline">配置您的智能助手，打造个性化的交互体验</p>
-      </div>
-      
-      <div class="header-right">
-        <div class="sync-info">
-          <span class="label">LAST SYNCED</span>
-          <span class="time">{{ lastSyncTime }}</span>
-        </div>
-      </div>
-    </header>
+    </section>
 
-    <!-- 主布局：侧边分类与内容区 -->
-    <div class="settings-layout">
-      <!-- 极简侧边导航 -->
-      <aside class="settings-nav">
-        <nav class="nav-list">
-          <button 
-            v-for="cat in menuCategories" 
-            :key="cat.id"
-            class="nav-item"
-            :class="{ active: activeCategory === cat.id }"
-            @click="activeCategory = cat.id"
-          >
-            <el-icon><component :is="cat.icon" /></el-icon>
-            <span class="nav-label">{{ cat.label }}</span>
-          </button>
-        </nav>
-      </aside>
+    <section class="content-panel glass-panel">
+      <div v-if="activeTab === 'general'" class="form-grid">
+        <el-form-item label="主题模式">
+          <el-radio-group v-model="settings.theme">
+            <el-radio-button label="light">明亮</el-radio-button>
+            <el-radio-button label="dark">深色</el-radio-button>
+            <el-radio-button label="auto">跟随系统</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
 
-      <!-- 设置内容区 -->
-      <main class="settings-content">
-        <transition name="fade-slide" mode="out-in">
-          <div :key="activeCategory" class="category-wrapper">
-            <!-- 通用设置 -->
-            <div v-if="activeCategory === 'general'" class="settings-group">
-              <h3 class="group-title">{{ $t('settings.general') }}</h3>
-              <div class="art-card">
-                <el-form label-position="top">
-                  <div class="form-grid">
-                    <el-form-item :label="$t('settings.theme')" class="grid-item">
-                      <el-radio-group v-model="settings.theme" class="art-radio-group">
-                        <el-radio-button label="light">{{ $t('settings.themeLight') }}</el-radio-button>
-                        <el-radio-button label="dark">{{ $t('settings.themeDark') }}</el-radio-button>
-                        <el-radio-button label="auto">{{ $t('settings.themeAuto') }}</el-radio-button>
-                      </el-radio-group>
-                    </el-form-item>
+        <el-form-item label="语言">
+          <el-select v-model="settings.language" @change="handleLanguageChange">
+            <el-option label="简体中文" value="zh-CN" />
+            <el-option label="English" value="en" />
+          </el-select>
+        </el-form-item>
 
-                    <el-form-item :label="$t('settings.language')" class="grid-item">
-                      <el-select v-model="settings.language" @change="handleLanguageChange" class="art-select">
-                        <el-option :label="$t('settings.languageZhCN')" value="zh-CN" />
-                        <el-option :label="$t('settings.languageEn')" value="en" />
-                      </el-select>
-                    </el-form-item>
-
-                    <el-form-item :label="$t('settings.fontSize')" class="grid-item full-width">
-                      <div class="slider-box">
-                        <el-slider v-model="settings.fontSize" :min="12" :max="20" class="art-slider" />
-                        <span class="slider-val">{{ settings.fontSize }}px</span>
-                      </div>
-                    </el-form-item>
-
-                    <el-form-item :label="$t('settings.primaryColor')" class="grid-item">
-                      <el-color-picker v-model="settings.primaryColor" @change="applyTheme" class="art-color-picker" />
-                    </el-form-item>
-
-                    <el-form-item :label="$t('settings.backgroundStyle')" class="grid-item full-width">
-                      <el-radio-group v-model="settings.backgroundStyle" @change="applyTheme" class="art-pill-group">
-                        <el-radio label="default">{{ $t('settings.backgroundDefault') }}</el-radio>
-                        <el-radio label="mesh">{{ $t('settings.backgroundMesh') }}</el-radio>
-                        <el-radio label="image">{{ $t('settings.backgroundImage') }}</el-radio>
-                      </el-radio-group>
-                    </el-form-item>
-                  </div>
-                </el-form>
-              </div>
-            </div>
-
-            <!-- 隐私与安全 -->
-            <div v-if="activeCategory === 'privacy'" class="settings-group">
-              <h3 class="group-title">{{ $t('settings.privacy') }}</h3>
-              <div class="art-card">
-                <el-form label-position="top">
-                  <el-form-item :label="$t('settings.storageLocation')">
-                    <el-radio-group v-model="settings.storageLocation" class="art-radio-group">
-                      <el-radio-button label="local">{{ $t('settings.storageLocal') }}</el-radio-button>
-                      <el-radio-button label="cloud">{{ $t('settings.storageCloud') }}</el-radio-button>
-                    </el-radio-group>
-                    <p class="form-tip">{{ $t('settings.storageTip') }}</p>
-                  </el-form-item>
-
-                  <el-form-item :label="$t('settings.autoDelete')">
-                    <el-select v-model="settings.autoDelete" class="art-select">
-                      <el-option :label="$t('settings.autoDeleteNever')" value="never" />
-                      <el-option :label="$t('settings.autoDelete7')" value="7" />
-                      <el-option :label="$t('settings.autoDelete30')" value="30" />
-                    </el-select>
-                  </el-form-item>
-
-                  <el-form-item :label="$t('settings.privacyPassword')">
-                    <el-input 
-                      v-model="settings.privacyPassword" 
-                      type="password" 
-                      show-password 
-                      :placeholder="$t('settings.privacyPasswordPlaceholder')"
-                      class="art-input"
-                    />
-                  </el-form-item>
-                </el-form>
-              </div>
-            </div>
-
-            <!-- 对话设置 -->
-            <div v-if="activeCategory === 'chat'" class="settings-group">
-              <h3 class="group-title">{{ $t('settings.chat') }}</h3>
-              <div class="art-card">
-                <el-form label-position="top">
-                  <div class="switch-item">
-                    <div class="switch-info">
-                      <span class="label">{{ $t('settings.autoSend') }}</span>
-                      <span class="desc">{{ $t('settings.autoSendTip') }}</span>
-                    </div>
-                    <el-switch v-model="settings.autoSend" class="art-switch" />
-                  </div>
-
-                  <div class="switch-item">
-                    <div class="switch-info">
-                      <span class="label">{{ $t('settings.messageSound') }}</span>
-                      <span class="desc">收到AI回复时播放提示音</span>
-                    </div>
-                    <el-switch v-model="settings.messageSound" class="art-switch" />
-                  </div>
-
-                  <el-form-item :label="$t('settings.historyRetention')" style="margin-top: 24px">
-                    <el-select v-model="settings.historyRetention" class="art-select">
-                      <el-option :label="$t('settings.historyRetention1')" value="1" />
-                      <el-option :label="$t('settings.historyRetention7')" value="7" />
-                      <el-option :label="$t('settings.historyRetention30')" value="30" />
-                      <el-option :label="$t('settings.historyRetentionForever')" value="forever" />
-                    </el-select>
-                  </el-form-item>
-                </el-form>
-              </div>
-            </div>
-
-            <!-- 数字人设置 -->
-            <div v-if="activeCategory === 'digital'" class="settings-group">
-              <h3 class="group-title">{{ $t('settings.digitalHuman') }}</h3>
-              <div class="art-card">
-                <el-form label-position="top">
-                  <el-form-item :label="$t('settings.renderQuality')">
-                    <el-select v-model="settings.renderQuality" class="art-select">
-                      <el-option :label="$t('settings.renderQualityHigh')" value="high" />
-                      <el-option :label="$t('settings.renderQualityMedium')" value="medium" />
-                      <el-option :label="$t('settings.renderQualityLow')" value="low" />
-                    </el-select>
-                  </el-form-item>
-
-                  <el-form-item :label="$t('settings.animationSmoothness')">
-                    <div class="slider-box">
-                      <el-slider v-model="settings.animationSmoothness" :min="30" :max="60" class="art-slider" />
-                      <span class="slider-val">{{ settings.animationSmoothness }} FPS</span>
-                    </div>
-                  </el-form-item>
-                </el-form>
-              </div>
-            </div>
-
-            <!-- 语音设置 -->
-            <div v-if="activeCategory === 'voice'" class="settings-group">
-              <h3 class="group-title">{{ $t('settings.voice') }}</h3>
-              <div class="art-card-transparent">
-                <VoiceSettings 
-                  :initial-voice="settings.voice"
-                  :initial-speed="settings.speed"
-                  :initial-pitch="settings.pitch"
-                  @change="handleVoiceSettingsChange" 
-                />
-              </div>
-            </div>
+        <el-form-item label="字体大小">
+          <div class="slider-box">
+            <el-slider v-model="settings.fontSize" :min="12" :max="20" />
+            <span>{{ settings.fontSize }}px</span>
           </div>
-        </transition>
-      </main>
-    </div>
+        </el-form-item>
 
-    <!-- 底部固定的操作栏 -->
-    <footer class="settings-footer">
-      <div class="footer-inner">
-        <div class="footer-info">
-          <el-icon><InfoFilled /></el-icon>
-          <span>所有修改将实时同步至您的账户</span>
-        </div>
-        <div class="footer-actions">
-          <button class="reset-btn" @click="resetSettings">{{ $t('common.reset') }}</button>
-          <button class="save-btn" @click="saveSettings">{{ $t('settings.saveButton') }}</button>
-        </div>
+        <el-form-item label="主色">
+          <el-color-picker v-model="settings.primaryColor" @change="applyTheme" />
+        </el-form-item>
       </div>
-    </footer>
+
+      <div v-if="activeTab === 'privacy'" class="form-grid">
+        <el-form-item label="存储位置">
+          <el-radio-group v-model="settings.storageLocation">
+            <el-radio-button label="local">本地</el-radio-button>
+            <el-radio-button label="cloud">云端</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="自动删除记录">
+          <el-select v-model="settings.autoDelete">
+            <el-option label="永不删除" value="never" />
+            <el-option label="7天后删除" value="7" />
+            <el-option label="30天后删除" value="30" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="隐私密码">
+          <el-input
+            v-model="settings.privacyPassword"
+            type="password"
+            show-password
+            placeholder="可选，用于保护敏感设置"
+          />
+        </el-form-item>
+      </div>
+
+      <div v-if="activeTab === 'chat'" class="form-grid">
+        <div class="switch-row">
+          <div>
+            <strong>自动发送</strong>
+            <p>输入后回车直接发送消息。</p>
+          </div>
+          <el-switch v-model="settings.autoSend" />
+        </div>
+
+        <div class="switch-row">
+          <div>
+            <strong>消息提示音</strong>
+            <p>AI 回复完成后播放提示音。</p>
+          </div>
+          <el-switch v-model="settings.messageSound" />
+        </div>
+
+        <el-form-item label="历史保留时长">
+          <el-select v-model="settings.historyRetention">
+            <el-option label="1天" value="1" />
+            <el-option label="7天" value="7" />
+            <el-option label="30天" value="30" />
+            <el-option label="永久" value="forever" />
+          </el-select>
+        </el-form-item>
+      </div>
+
+      <div v-if="activeTab === 'voice'" class="form-grid">
+        <el-form-item label="语音类型">
+          <el-select v-model="settings.voice">
+            <el-option label="默认助手" value="default" />
+            <el-option label="女声A" value="female" />
+            <el-option label="男声A" value="male" />
+            <el-option label="女声B" value="gentle" />
+            <el-option label="男声B" value="lively" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="语速">
+          <div class="slider-box">
+            <el-slider v-model="settings.speed" :min="0.5" :max="2.0" :step="0.1" />
+            <span>{{ settings.speed.toFixed(1) }}x</span>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="音调">
+          <div class="slider-box">
+            <el-slider v-model="settings.pitch" :min="0.5" :max="2.0" :step="0.1" />
+            <span>{{ settings.pitch.toFixed(1) }}x</span>
+          </div>
+        </el-form-item>
+      </div>
+    </section>
+
+    <section class="footer-bar glass-panel">
+      <div class="hint">
+        <el-icon><InfoFilled /></el-icon>
+        <span>{{ inlineHint }}</span>
+      </div>
+      <div class="actions">
+        <el-button @click="resetSettings">重置</el-button>
+        <el-button type="primary" @click="saveSettings">保存设置</el-button>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
-import ElementPlus from 'element-plus'
-import zhCN from 'element-plus/dist/locale/zh-cn.mjs'
-import en from 'element-plus/dist/locale/en.mjs'
-import { 
-  Setting, Lock, ChatDotRound, UserFilled, Microphone, 
-  ArrowLeft, InfoFilled, Moon, Sunny, Top 
-} from '@element-plus/icons-vue'
-import VoiceSettings from '@/components/VoiceSettings.vue'
+import { Setting, Lock, ChatDotRound, Microphone, InfoFilled } from '@element-plus/icons-vue'
 
-const { t, locale } = useI18n()
-const router = useRouter()
+type TabId = 'general' | 'privacy' | 'chat' | 'voice'
 
-const handleBack = () => {
-  router.push('/chat')
+interface AppSettings {
+  theme: 'light' | 'dark' | 'auto'
+  language: 'zh-CN' | 'en'
+  fontSize: number
+  primaryColor: string
+  storageLocation: 'local' | 'cloud'
+  autoDelete: 'never' | '7' | '30'
+  privacyPassword: string
+  autoSend: boolean
+  messageSound: boolean
+  historyRetention: '1' | '7' | '30' | 'forever'
+  voice: 'default' | 'female' | 'male' | 'gentle' | 'lively'
+  speed: number
+  pitch: number
 }
 
-const lastSyncTime = ref(new Date().toLocaleTimeString())
-const activeCategory = ref('general')
-const isDark = computed(() => settings.value.theme === 'dark')
-const themeClass = computed(() => `theme-${settings.value.theme}`)
+const { locale } = useI18n()
 
-const menuCategories = [
-  { id: 'general', label: t('settings.general'), icon: Setting },
-  { id: 'privacy', label: t('settings.privacy'), icon: Lock },
-  { id: 'chat', label: t('settings.chat'), icon: ChatDotRound },
-  { id: 'digital', label: t('settings.digitalHuman'), icon: UserFilled },
-  { id: 'voice', label: t('settings.voice'), icon: Microphone },
+const tabs = [
+  { id: 'general' as TabId, label: '通用', icon: Setting },
+  { id: 'privacy' as TabId, label: '隐私', icon: Lock },
+  { id: 'chat' as TabId, label: '对话', icon: ChatDotRound },
+  { id: 'voice' as TabId, label: '语音', icon: Microphone }
 ]
 
-const settings = ref({
+const defaultSettings = (): AppSettings => ({
   theme: 'light',
   language: 'zh-CN',
   fontSize: 14,
   primaryColor: '#4f46e5',
-  backgroundStyle: 'default',
   storageLocation: 'local',
   autoDelete: 'never',
   privacyPassword: '',
   autoSend: false,
   messageSound: true,
   historyRetention: '7',
-  renderQuality: 'medium',
-  animationSmoothness: 45,
   voice: 'default',
   speed: 1.0,
   pitch: 1.0
 })
 
-// 更新 Element Plus 语言
-const updateElementPlusLocale = (lang: string) => {
-  const elementLocale = lang === 'en' ? en : zhCN
-  ElementPlus.locale(elementLocale)
-}
+const settings = ref<AppSettings>(defaultSettings())
+const activeTab = ref<TabId>('general')
+const lastSaved = ref<Date | null>(null)
+const inlineHint = ref('修改后点击“保存设置”即可生效，全程在当前页面完成。')
 
-// 处理语言切换
-const handleLanguageChange = (newLang: string) => {
-  locale.value = newLang
-  updateElementPlusLocale(newLang)
-  saveSettings(false)
-}
+const lastSavedText = computed(() => {
+  if (!lastSaved.value) return '尚未保存'
+  return lastSaved.value.toLocaleTimeString('zh-CN', { hour12: false })
+})
 
-const applyTheme = () => {
+function applyTheme(): void {
   const root = document.documentElement
-  if (settings.value.primaryColor) {
-    root.style.setProperty('--primary-color', settings.value.primaryColor)
-  }
-  
-  if (settings.value.backgroundStyle === 'mesh') {
-    document.body.style.backgroundImage = 'radial-gradient(at 0% 0%, var(--primary-fade) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.03) 0px, transparent 50%)'
-  } else if (settings.value.backgroundStyle === 'default') {
-    document.body.style.backgroundImage = ''
-  }
+  root.style.setProperty('--primary-color', settings.value.primaryColor)
+  root.style.setProperty('--font-size-base', `${settings.value.fontSize}px`)
 }
 
-const loadSettings = () => {
+function handleLanguageChange(newLang: 'zh-CN' | 'en'): void {
+  locale.value = newLang
+  inlineHint.value = `语言已切换为 ${newLang === 'zh-CN' ? '简体中文' : 'English'}，记得保存设置。`
+}
+
+function loadSettings(): void {
   const saved = localStorage.getItem('appSettings')
-  if (saved) {
-    try {
-      const savedSettings = JSON.parse(saved)
-      settings.value = { ...settings.value, ...savedSettings }
-      if (savedSettings.language) {
-        locale.value = savedSettings.language
-        updateElementPlusLocale(savedSettings.language)
-      }
-      applyTheme()
-    } catch (e) {
-      console.error('加载设置失败', e)
-    }
+  if (!saved) return
+  try {
+    const parsed = JSON.parse(saved) as Partial<AppSettings>
+    settings.value = { ...defaultSettings(), ...parsed }
+    locale.value = settings.value.language
+    applyTheme()
+    inlineHint.value = '已读取本地设置。'
+  } catch {
+    settings.value = defaultSettings()
+    inlineHint.value = '本地设置解析失败，已使用默认配置。'
   }
 }
 
-const saveSettings = (showMessage = true) => {
+function saveSettings(): void {
   localStorage.setItem('appSettings', JSON.stringify(settings.value))
   applyTheme()
-  if (showMessage) {
-    ElMessage({
-      message: t('settings.saveSuccess'),
-      type: 'success',
-      customClass: 'art-message'
-    })
-  }
-  lastSyncTime.value = new Date().toLocaleTimeString()
+  lastSaved.value = new Date()
+  inlineHint.value = '设置已保存。'
 }
 
-const resetSettings = () => {
-  settings.value = {
-    theme: 'light',
-    language: 'zh-CN',
-    fontSize: 14,
-    primaryColor: '#4f46e5',
-    backgroundStyle: 'default',
-    storageLocation: 'local',
-    autoDelete: 'never',
-    privacyPassword: '',
-    autoSend: false,
-    messageSound: true,
-    historyRetention: '7',
-    renderQuality: 'medium',
-    animationSmoothness: 45,
-    voice: 'default',
-    speed: 1.0,
-    pitch: 1.0
-  }
+function resetSettings(): void {
+  settings.value = defaultSettings()
   locale.value = 'zh-CN'
-  updateElementPlusLocale('zh-CN')
   localStorage.removeItem('appSettings')
   applyTheme()
-  ElMessage.success(t('settings.resetSuccess'))
-}
-
-const handleVoiceSettingsChange = (voiceSettings: { voice: string; speed: number; pitch: number }) => {
-  settings.value.voice = voiceSettings.voice
-  settings.value.speed = voiceSettings.speed
-  settings.value.pitch = voiceSettings.pitch
-  // 语音设置变化时自动保存
-  localStorage.setItem('appSettings', JSON.stringify(settings.value))
-}
-
-const toggleTheme = () => {
-  settings.value.theme = settings.value.theme === 'dark' ? 'light' : 'dark'
-  saveSettings(false)
+  lastSaved.value = new Date()
+  inlineHint.value = '已恢复默认设置。'
 }
 
 onMounted(() => {
@@ -373,329 +253,180 @@ onMounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
+<style scoped>
 .settings-view {
-  --bg: #f8f9fb;
-  --text: #1a1a1a;
-  --text-dim: #718096;
-  --accent: #4f46e5;
-  --border: rgba(0, 0, 0, 0.05);
-  --card-bg: #ffffff;
-  --nav-bg: #ffffff;
-  
-  &.theme-dark {
-    --bg: #02040a;
-    --text: #f8fafc;
-    --text-dim: rgba(255, 255, 255, 0.45);
-    --accent: #6366f1;
-    --border: rgba(255, 255, 255, 0.06);
-    --card-bg: rgba(255, 255, 255, 0.02);
-    --nav-bg: rgba(255, 255, 255, 0.01);
-  }
-
   position: relative;
-  height: 100vh;
-  width: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Inter', -apple-system, system-ui, sans-serif;
-  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  min-height: 100%;
+  padding: 20px;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  color: var(--text-primary);
+  overflow: auto;
 }
 
-/* --- 环境层 --- */
-.ambient-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
+.ambient-glow {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.2;
   pointer-events: none;
-  .glow { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.1; }
-  .g-1 { top: -10%; right: -5%; width: 50%; height: 50%; background: var(--accent); }
-  .g-2 { bottom: -5%; left: -5%; width: 40%; height: 40%; background: #10b981; opacity: 0.05; }
-  .grain { position: absolute; inset: 0; opacity: 0.02; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 }
 
-/* --- Header --- */
-.settings-header {
-  position: relative;
-  z-index: 10;
-  height: 140px;
-  padding: 0 80px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-
-  .system-meta {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 12px;
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: 2px;
-    .meta-tag { color: var(--accent); }
-    .status-indicator {
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      .dot { width: 4px; height: 4px; background: #10b981; border-radius: 50%; }
-    }
-  }
-
-  .grand-title { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin: 0; }
-  .tagline { font-size: 14px; color: var(--text-dim); margin: 4px 0 0 0; }
-
-  .header-right {
-    .sync-info {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      .label { font-size: 9px; font-weight: 900; color: var(--text-dim); letter-spacing: 1px; }
-      .time { font-size: 14px; font-weight: 700; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
-    }
-  }
+.ambient-glow.top-left {
+  top: -120px;
+  left: -120px;
+  background: #5b8ff9;
 }
 
-/* --- Layout --- */
-.settings-layout {
+.ambient-glow.bottom-right {
+  right: -120px;
+  bottom: -140px;
+  background: #36cfc9;
+}
+
+.glass-panel {
   position: relative;
   z-index: 1;
-  flex: 1;
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  padding: 0 80px 100px;
-  gap: 60px;
-  overflow: hidden;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(15, 35, 95, 0.06);
 }
 
-/* --- Sidebar Nav --- */
-.settings-nav {
-  .nav-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 16px 24px;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 16px;
-      color: var(--text-dim);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      
-      .el-icon { font-size: 18px; }
-      
-      &:hover {
-        background: var(--nav-bg);
-        color: var(--text);
-      }
-      
-      &.active {
-        background: var(--card-bg);
-        border-color: var(--border);
-        color: var(--accent);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.02);
-      }
-    }
-  }
+.page-header {
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-/* --- Content --- */
-.settings-content {
-  overflow-y: auto;
-  padding-right: 20px;
-  
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-
-  .category-wrapper {
-    max-width: 800px;
-  }
-
-  .group-title {
-    font-size: 20px;
-    font-weight: 800;
-    margin: 0 0 32px 0;
-    letter-spacing: -0.5px;
-  }
-
-  .art-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 32px;
-    padding: 40px;
-    backdrop-filter: blur(20px);
-  }
-
-  .art-card-transparent {
-    background: transparent;
-  }
+.page-header h1 {
+  margin: 0;
+  font-size: 24px;
 }
 
-/* --- Form Art --- */
+.page-header p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.status-chip {
+  border-radius: 999px;
+  background: rgba(91, 143, 249, 0.12);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tabs-bar {
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: rgba(91, 143, 249, 0.12);
+  border-color: rgba(91, 143, 249, 0.28);
+  color: var(--text-primary);
+}
+
+.content-panel {
+  padding: 16px;
+}
+
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
-  
-  .grid-item {
-    margin-bottom: 0;
-    &.full-width { grid-column: span 2; }
-  }
-}
-
-:deep(.el-form-item__label) {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--text-dim) !important;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  padding-bottom: 12px !important;
+  gap: 16px;
 }
 
 .slider-box {
   display: flex;
   align-items: center;
-  gap: 24px;
-  .art-slider { flex: 1; }
-  .slider-val { font-size: 13px; font-weight: 800; font-family: 'JetBrains Mono'; min-width: 60px; text-align: right; }
+  gap: 10px;
 }
 
-.art-pill-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  :deep(.el-radio) {
-    margin-right: 0;
-    padding: 10px 20px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--glass);
-    transition: all 0.3s;
-    &.is-checked { border-color: var(--accent); background: rgba(99, 102, 241, 0.05); }
-    .el-radio__input { display: none; }
-    .el-radio__label { padding-left: 0; font-weight: 700; font-size: 13px; }
-  }
-}
-
-.art-radio-group {
-  background: var(--glass);
-  padding: 4px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  :deep(.el-radio-button__inner) {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    font-size: 12px;
-    font-weight: 800;
-    padding: 10px 20px;
-    color: var(--text-dim);
-    border-radius: 10px;
-  }
-  :deep(.el-radio-button.is-active .el-radio-button__inner) {
-    background: var(--text);
-    color: var(--bg);
-  }
-}
-
-.switch-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 0;
-  border-bottom: 1px solid var(--border);
-  &:first-child { padding-top: 0; }
-  &:last-child { border-bottom: none; }
-  
-  .switch-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    .label { font-size: 15px; font-weight: 700; }
-    .desc { font-size: 12px; color: var(--text-dim); }
-  }
-}
-
-.form-tip {
-  margin-top: 12px;
+.slider-box span {
+  width: 58px;
+  color: var(--text-secondary);
   font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.6;
 }
 
-/* --- Footer --- */
-.settings-footer {
-  position: relative;
-  z-index: 20;
-  height: 100px;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  padding: 0 80px;
+.switch-row {
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 12px;
   display: flex;
   align-items: center;
-  flex-shrink: 0;
-
-  .footer-inner {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .footer-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-dim);
-    .el-icon { font-size: 16px; color: var(--accent); }
-  }
-
-  .footer-actions {
-    display: flex;
-    gap: 16px;
-    
-    .reset-btn {
-      height: 48px; padding: 0 32px; background: transparent; border: 1px solid var(--border);
-      border-radius: 14px; color: var(--text); font-size: 13px; font-weight: 800; cursor: pointer;
-      transition: all 0.3s;
-      &:hover { background: var(--btn-hover); }
-    }
-
-    .save-btn {
-      height: 48px; padding: 0 40px; background: var(--accent); color: white; border: none;
-      border-radius: 14px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      &:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3); }
-    }
-  }
+  justify-content: space-between;
+  gap: 10px;
 }
 
-/* --- Transitions --- */
-.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.4s ease; }
-.fade-slide-enter-from { opacity: 0; transform: translateY(10px); }
-.fade-slide-leave-to { opacity: 0; transform: translateY(-10px); }
-
-/* --- Global Overrides --- */
-:deep(.el-input__wrapper), :deep(.el-select .el-input__wrapper) {
-  background-color: var(--glass) !important;
-  box-shadow: none !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 12px !important;
-  padding: 8px 16px !important;
+.switch-row strong {
+  display: block;
 }
 
-:deep(.el-input__inner) { font-weight: 600; font-size: 14px; }
+.switch-row p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.footer-bar {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .settings-view {
+    padding: 12px;
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .footer-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions {
+    justify-content: flex-end;
+  }
+}
 </style>
