@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -91,6 +92,21 @@ public class GlobalExceptionHandler {
             response.put("error", errorMessage);
         }
         
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingRequestHeaderException(
+            MissingRequestHeaderException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", "缺少必要请求头");
+        response.put("error", ex.getHeaderName() + " 请求头缺失");
+
+        // Authorization 缺失属于未认证场景，返回 401；其余头缺失返回 400。
+        if ("Authorization".equalsIgnoreCase(ex.getHeaderName())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
         return ResponseEntity.badRequest().body(response);
     }
 

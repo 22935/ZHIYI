@@ -185,7 +185,7 @@ const accountForm = ref({
 
 const stats = computed(() => {
   return {
-    conversations: chatStore.conversations?.length || 0,
+    conversations: chatStore.contextId ? 1 : 0,
     roles: roleStore.roles?.length || 0,
     messages: chatStore.messages?.length || 0
   }

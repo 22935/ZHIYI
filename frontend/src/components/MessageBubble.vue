@@ -31,7 +31,11 @@
         </div>
 
         <!-- 文本内容 -->
-        <div v-if="message.content" class="message-text">{{ message.content }}</div>
+        <div
+          v-if="message.content"
+          class="message-text markdown-body"
+          v-html="renderedMessageHtml"
+        />
         
         <!-- 可解释性信息（仅AI回复显示） -->
         <div v-if="message.role === 'assistant' && hasExplanation" class="message-explanation">
@@ -163,7 +167,7 @@ const emit = defineEmits(['copy', 'quote', 'delete', 'tts', 'export'])
 const roleStore = useRoleStore()
 const activeCollapse = ref<string[]>([])
 
-const handleAction = (type: string) => {
+const handleAction = (type: 'copy' | 'quote' | 'delete' | 'tts' | 'export') => {
   if (type === 'copy') {
     navigator.clipboard.writeText(props.message.content)
     ElMessage.success('已复制到剪贴板')
@@ -179,6 +183,124 @@ const handleAction = (type: string) => {
     emit(type, props.message)
   }
 }
+
+const escapeHtml = (raw: string) => {
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+const escapeAttr = (raw: string) => raw.replace(/"/g, '&quot;')
+
+const isSafeUrl = (url: string) => /^(https?:\/\/|mailto:|\/)/i.test(url)
+
+const applyInlineMarkdown = (value: string) => {
+  let text = value
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_all, label, url) => {
+    const safe = String(url || '').trim()
+    if (!isSafeUrl(safe)) return label
+    return `<a href="${escapeAttr(safe)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+  })
+  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>')
+  return text
+}
+
+const markdownToHtml = (raw: string) => {
+  if (!raw) return ''
+
+  const codeBlocks: string[] = []
+  const stripped = raw.replace(/```([a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, (_m, lang, code) => {
+    const language = (lang || '').trim()
+    const escapedCode = escapeHtml(String(code || '').replace(/\n$/, ''))
+    const className = language ? ` class="language-${escapeAttr(language)}"` : ''
+    const token = `@@CODE_BLOCK_${codeBlocks.length}@@`
+    codeBlocks.push(`<pre><code${className}>${escapedCode}</code></pre>`)
+    return token
+  })
+
+  const lines = stripped.split(/\r?\n/)
+  const output: string[] = []
+  let inUl = false
+  let inOl = false
+
+  const closeLists = () => {
+    if (inUl) {
+      output.push('</ul>')
+      inUl = false
+    }
+    if (inOl) {
+      output.push('</ol>')
+      inOl = false
+    }
+  }
+
+  lines.forEach((line) => {
+    const trimmed = line.trim()
+    if (!trimmed) {
+      closeLists()
+      return
+    }
+
+    if (/^@@CODE_BLOCK_\d+@@$/.test(trimmed)) {
+      closeLists()
+      output.push(trimmed)
+      return
+    }
+
+    const escaped = escapeHtml(trimmed)
+    const heading = escaped.match(/^(#{1,6})\s+(.+)$/)
+    if (heading) {
+      closeLists()
+      const level = Math.min(6, heading[1].length)
+      output.push(`<h${level}>${applyInlineMarkdown(heading[2])}</h${level}>`)
+      return
+    }
+
+    const ul = escaped.match(/^[-*]\s+(.+)$/)
+    if (ul) {
+      if (!inUl) {
+        closeLists()
+        output.push('<ul>')
+        inUl = true
+      }
+      output.push(`<li>${applyInlineMarkdown(ul[1])}</li>`)
+      return
+    }
+
+    const ol = escaped.match(/^\d+\.\s+(.+)$/)
+    if (ol) {
+      if (!inOl) {
+        closeLists()
+        output.push('<ol>')
+        inOl = true
+      }
+      output.push(`<li>${applyInlineMarkdown(ol[1])}</li>`)
+      return
+    }
+
+    closeLists()
+    output.push(`<p>${applyInlineMarkdown(escaped)}</p>`)
+  })
+
+  closeLists()
+  let html = output.join('\n')
+  codeBlocks.forEach((block, index) => {
+    html = html.replace(`@@CODE_BLOCK_${index}@@`, block)
+  })
+  return html
+}
+
+const renderedMessageHtml = computed(() => {
+  const content = props.message.content || ''
+  if (!content) return ''
+  if (props.message.role === 'assistant') return markdownToHtml(content)
+  return escapeHtml(content).replace(/\n/g, '<br />')
+})
 
 const roleName = computed(() => {
   return roleStore.currentRole?.name || 'Assistant'
@@ -406,6 +528,67 @@ const formatTime = (date: Date) => {
 
 .message-text {
   white-space: pre-wrap;
+}
+
+.message-text.markdown-body {
+  white-space: normal;
+  line-height: 1.7;
+}
+
+.message-text.markdown-body :deep(h1),
+.message-text.markdown-body :deep(h2),
+.message-text.markdown-body :deep(h3),
+.message-text.markdown-body :deep(h4),
+.message-text.markdown-body :deep(h5),
+.message-text.markdown-body :deep(h6) {
+  margin: 8px 0;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.message-text.markdown-body :deep(h1) { font-size: 20px; }
+.message-text.markdown-body :deep(h2) { font-size: 18px; }
+.message-text.markdown-body :deep(h3) { font-size: 16px; }
+
+.message-text.markdown-body :deep(p) {
+  margin: 8px 0;
+}
+
+.message-text.markdown-body :deep(ul),
+.message-text.markdown-body :deep(ol) {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.message-text.markdown-body :deep(li) {
+  margin: 4px 0;
+}
+
+.message-text.markdown-body :deep(pre) {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow-x: auto;
+}
+
+.message-text.markdown-body :deep(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(100, 116, 139, 0.15);
+}
+
+.message-text.markdown-body :deep(pre code) {
+  background: transparent;
+  padding: 0;
+}
+
+.message-text.markdown-body :deep(a) {
+  color: #2563eb;
+  text-decoration: underline;
+  word-break: break-all;
 }
 
 /* Explanation Section */

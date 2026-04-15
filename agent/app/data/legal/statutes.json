@@ -1,0 +1,98 @@
+[
+  {
+    "id": "statute_civil_code_contract_465",
+    "title": "民法典 第465条 合同效力",
+    "law_name": "中华人民共和国民法典",
+    "article": "第465条",
+    "content": "依法成立的合同，受法律保护。依法成立的合同，仅对当事人具有法律约束力，但是法律另有规定的除外。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_civil_code_contract_509",
+    "title": "民法典 第509条 合同履行",
+    "law_name": "中华人民共和国民法典",
+    "article": "第509条",
+    "content": "当事人应当按照约定全面履行自己的义务，并应遵循诚信原则履行通知、协助、保密等附随义务。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_civil_code_limitation_188",
+    "title": "民法典 第188条 普通诉讼时效",
+    "law_name": "中华人民共和国民法典",
+    "article": "第188条",
+    "content": "向人民法院请求保护民事权利的诉讼时效期间为三年，自权利人知道或者应当知道权利受到损害以及义务人之日起计算。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_civil_code_limitation_194",
+    "title": "民法典 第194条 诉讼时效中止",
+    "law_name": "中华人民共和国民法典",
+    "article": "第194条",
+    "content": "在诉讼时效期间的最后六个月内，因不可抗力、无民事行为能力人无代理人等法定事由，诉讼时效中止。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_civil_code_limitation_195",
+    "title": "民法典 第195条 诉讼时效中断",
+    "law_name": "中华人民共和国民法典",
+    "article": "第195条",
+    "content": "权利人提出履行请求、义务人同意履行义务、权利人提起诉讼或申请仲裁等情形，诉讼时效中断。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_labor_contract_10",
+    "title": "劳动合同法 第10条 书面劳动合同",
+    "law_name": "中华人民共和国劳动合同法",
+    "article": "第10条",
+    "content": "建立劳动关系，应当订立书面劳动合同。已建立劳动关系，未同时订立书面劳动合同的，应当自用工之日起一个月内订立。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_labor_contract_82",
+    "title": "劳动合同法 第82条 未签合同双倍工资",
+    "law_name": "中华人民共和国劳动合同法",
+    "article": "第82条",
+    "content": "用人单位自用工之日起超过一个月不满一年未与劳动者订立书面劳动合同的，应当向劳动者每月支付二倍工资。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_labor_dispute_27",
+    "title": "劳动争议调解仲裁法 第27条 仲裁时效",
+    "law_name": "中华人民共和国劳动争议调解仲裁法",
+    "article": "第27条",
+    "content": "劳动争议申请仲裁的时效期间为一年，自当事人知道或者应当知道其权利被侵害之日起计算。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_cpl_21",
+    "title": "民事诉讼法 第21条 一般地域管辖",
+    "law_name": "中华人民共和国民事诉讼法",
+    "article": "第21条",
+    "content": "对公民提起的民事诉讼，由被告住所地人民法院管辖；被告住所地与经常居住地不一致的，由经常居住地人民法院管辖。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_cpl_24",
+    "title": "民事诉讼法 第24条 合同纠纷管辖",
+    "law_name": "中华人民共和国民事诉讼法",
+    "article": "第24条",
+    "content": "因合同纠纷提起的诉讼，由被告住所地或者合同履行地人民法院管辖。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_cpl_28",
+    "title": "民事诉讼法 第28条 侵权纠纷管辖",
+    "law_name": "中华人民共和国民事诉讼法",
+    "article": "第28条",
+    "content": "因侵权行为提起的诉讼，由侵权行为地或者被告住所地人民法院管辖。",
+    "source": "seed"
+  },
+  {
+    "id": "statute_evidence_rule_90",
+    "title": "民事诉讼证据规定 第90条 电子数据真实性审查",
+    "law_name": "最高人民法院关于民事诉讼证据的若干规定",
+    "article": "第90条",
+    "content": "人民法院应当结合电子数据形成、存储、传输方式等因素，审查电子数据的真实性。",
+    "source": "seed"
+  }
+]

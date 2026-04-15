@@ -251,10 +251,6 @@ watch(() => props.modelValue, (val) => {
 })
 </script>
 
-<script lang="ts">
-import { watch } from 'vue'
-</script>
-
 <style scoped lang="scss">
 .file-manager {
   min-height: 400px;

@@ -1,99 +1,80 @@
-<template>
-  <div class="chat-view-container">
-    <!-- Background Elements for Atmosphere -->
-    <div class="ambient-glow top-left"></div>
-    <div class="ambient-glow bottom-right"></div>
-
-    <!-- Main Chat Content -->
-    <main class="chat-stage">
-      
-      <!-- Top Right: Header Actions (Role & Settings) -->
-      <div class="header-actions">
-        <el-tooltip :content="t('role.title')" placement="bottom" effect="light">
-          <div class="action-btn glass-btn" @click="showRoleDrawer = true">
-             <el-avatar :size="32" :src="currentRole?.avatar" class="current-role-avatar">
-               {{ currentRole?.name?.charAt(0) }}
-             </el-avatar>
-             <span class="role-name-label">{{ currentRole?.name || t('role.title') }}</span>
-             <el-icon class="icon-right"><ArrowDown /></el-icon>
-          </div>
-        </el-tooltip>
-        
-        <el-tooltip :content="t('settings.title')" placement="bottom" effect="light">
-          <div class="action-btn glass-btn icon-only">
-             <el-icon><MoreFilled /></el-icon>
-          </div>
-        </el-tooltip>
+﻿<template>
+  <div class="chat-view">
+    <header class="chat-header">
+      <div class="left">
+        <span class="title">联邦智能枢对话中心</span>
+        <el-tag size="small" :type="isLawyerMode ? 'success' : 'info'">
+          {{ isLawyerMode ? '律师 Agent 已启用' : '普通对话模式' }}
+        </el-tag>
       </div>
-
-      <!-- Chat Messages Scroll Area -->
-      <div class="messages-container" ref="messagesRef">
-        <div v-if="chatStore.messages.length === 0" class="empty-state">
-           <div class="hero-content">
-             <div class="logo-mark">Kinlin AI</div>
-             <h1 class="welcome-text">{{ $t('chat.noMessages') }}</h1>
-             <p class="subtitle">{{ $t('chat.newChat') }}</p>
-           </div>
-        </div>
-
-        <div v-else class="message-list">
-          <div 
-            v-for="msg in chatStore.messages" 
-            :key="msg.id" 
-            class="message-row"
-            :class="msg.role"
-          >
-             <div class="message-content-wrapper">
-                <MessageBubble 
-                  :message="{
-                    id: msg.id,
-                    role: msg.role,
-                    content: msg.content || '',
-                    createdAt: msg.createdAt || (msg.timestamp ? new Date(msg.timestamp) : new Date()),
-                    confidence: msg.confidence,
-                    fileUrl: msg.fileUrl,
-                    tokensUsed: msg.tokensUsed,
-                    sources: msg.sources,
-                    reasoningPath: msg.reasoningPath,
-                    modelInfo: msg.modelInfo
-                  }"
-                />
-             </div>
-          </div>
-        </div>
+      <div class="right">
+        <el-button size="small" type="primary" @click="toggleLawyerMode">
+          <el-icon><ScaleToOriginal /></el-icon>
+          {{ isLawyerMode ? '保持律师模式' : '切换律师模式' }}
+        </el-button>
+        <el-button size="small" @click="showRoleDrawer = true">
+          <el-icon><User /></el-icon>
+          角色
+        </el-button>
+        <el-button size="small" @click="goToSettings">
+          <el-icon><MoreFilled /></el-icon>
+          设置
+        </el-button>
       </div>
+    </header>
 
-      <!-- Bottom: Input Area (Floating) -->
-      <div class="input-dock-wrapper">
-        <!-- Quick Reply Templates -->
-        <div v-if="currentTemplates.length > 0" class="templates-container">
-          <div 
-            v-for="template in currentTemplates" 
-            :key="template"
-            class="template-tag"
-            @click="useTemplate(template)"
-          >
-            {{ template }}
-          </div>
-        </div>
-
-        <!-- Recommendations -->
-        <div v-if="recommendations.length > 0" class="recommendations-container">
-          <div class="recommendations-label">💡 推荐问题</div>
-          <div class="recommendations-tags">
-            <div 
-              v-for="rec in recommendations" 
-              :key="rec"
-              class="recommendation-tag"
-              @click="useRecommendation(rec)"
-            >
-              {{ rec }}
+    <div class="chat-main" :class="{ lawyer: isLawyerMode }">
+      <section class="chat-panel">
+        <div class="messages" ref="messagesRef">
+          <div v-if="chatStore.messages.length === 0" class="empty-state">
+            <h2>开始一次新对话</h2>
+            <p>你可以直接输入问题，或使用下方快捷模板。</p>
+            <div class="quick-actions">
+              <el-button @click="useTemplate(currentTemplates[0])">{{ currentTemplates[0] }}</el-button>
+              <el-button @click="useTemplate(currentTemplates[1])">{{ currentTemplates[1] }}</el-button>
+              <el-button @click="showRoleDrawer = true">选择角色</el-button>
             </div>
           </div>
+
+          <div v-else class="message-list">
+            <div
+              v-for="msg in chatStore.messages"
+              :key="msg.id"
+              class="message-row"
+              :class="msg.role"
+            >
+              <MessageBubble
+                :message="{
+                  id: msg.id,
+                  role: msg.role,
+                  content: msg.content || '',
+                  createdAt: msg.createdAt || (msg.timestamp ? new Date(msg.timestamp) : new Date()),
+                  confidence: msg.confidence,
+                  fileUrl: msg.fileUrl,
+                  tokensUsed: msg.tokensUsed,
+                  sources: msg.sources,
+                  reasoningPath: msg.reasoningPath,
+                  modelInfo: msg.modelInfo
+                }"
+              />
+            </div>
+          </div>
+
+          <div v-if="loading" class="typing">AI 正在思考...</div>
         </div>
 
-        <div class="input-dock glass-panel">
-          <!-- Textarea -->
+        <button v-if="showScrollToBottom" class="to-bottom" @click="handleScrollToBottom">
+          <el-icon><ArrowDownBold /></el-icon>
+          <span v-if="pendingMessageCount > 0" class="badge">{{ pendingMessageCount > 9 ? '9+' : pendingMessageCount }}</span>
+        </button>
+
+        <div class="template-row" v-if="showAssistTools && currentTemplates.length">
+          <button v-for="tpl in currentTemplates" :key="tpl" class="template-item" @click="useTemplate(tpl)">
+            {{ tpl }}
+          </button>
+        </div>
+
+        <div class="composer">
           <el-input
             v-model="inputText"
             type="textarea"
@@ -101,207 +82,264 @@
             :autosize="{ minRows: 1, maxRows: 6 }"
             resize="none"
             :placeholder="$t('chat.placeholder')"
-            class="dock-input"
             @keydown="handleKeydown"
           />
-
-          <!-- Dock Footer -->
-          <div class="dock-footer">
-             <div class="footer-left">
-                <el-popover
-                  placement="top-start"
-                  :width="200"
-                  trigger="click"
-                  popper-class="tools-popover"
-                >
-                  <template #reference>
-                    <div class="plus-trigger">
-                      <el-icon><CirclePlus /></el-icon>
-                    </div>
-                  </template>
-                  <div class="tools-grid">
-                    <div class="tool-item" @click="isRecording ? stopVoiceInput() : startVoiceInput()">
-                      <el-icon :class="{ 'is-recording': isRecording }"><Microphone /></el-icon>
-                      <span>{{ isRecording ? $t('voice.stopRecording') : $t('voice.startRecording') }}</span>
-                    </div>
-                    <div class="tool-item" @click="handleControl('folder')">
-                      <el-icon><Folder /></el-icon>
-                      <span>{{ $t('rag.upload') }}</span>
-                    </div>
-                    <div class="tool-item" @click="handleControl('image')">
-                      <el-icon><Picture /></el-icon>
-                      <span>{{ $t('common.search') }}</span>
-                    </div>
-                  </div>
-                </el-popover>
-                
-                <div class="word-count" :class="{ 'warning': inputText.length > 500 }">
-                  {{ $t('chat.wordCount', { count: inputText.length }) }}
-                  <span v-if="inputText.length > 500" class="hint"> ({{ $t('chat.wordCountHint') }})</span>
-                  <el-button 
-                    v-if="inputText.length > 500" 
-                    link 
-                    type="primary" 
-                    size="small" 
-                    @click="autoSegment"
-                    class="segment-btn"
-                  >
-                    自动分段
-                  </el-button>
-                </div>
-             </div>
-
-             <div class="footer-right">
-                <div class="emotion-pill">
-                  <span class="label">Emotion</span>
-                  <input v-model="emotionTag" placeholder="Auto" class="transparent-input" />
-                </div>
-                <button class="send-trigger" @click="sendMessage" :disabled="loading || (!inputText.trim() && !isRecording)">
-                   <el-icon v-if="!loading"><ArrowUp /></el-icon>
-                   <el-icon v-else class="is-loading"><Loading /></el-icon>
-                </button>
-             </div>
+          <div class="composer-footer">
+            <div class="left-actions">
+              <el-button text @click="toggleAssistTools">{{ showAssistTools ? '收起模板' : '展开模板' }}</el-button>
+              <el-button text @click="isRecording ? stopVoiceInput() : startVoiceInput()">
+                <el-icon><Microphone /></el-icon>
+                {{ isRecording ? '停止录音' : '语音输入' }}
+              </el-button>
+              <el-button text @click="handleControl('folder')">
+                <el-icon><Folder /></el-icon>
+                文件
+              </el-button>
+            </div>
+            <div class="right-actions">
+              <span class="word-count" :class="{ warning: inputText.length > 500 }">
+                {{ $t('chat.wordCount', { count: inputText.length }) }}
+              </span>
+              <el-button v-if="inputText.length > 500" text @click="autoSegment">自动分段</el-button>
+              <el-button type="primary" :disabled="isSendDisabled" @click="sendMessage">
+                <el-icon v-if="!loading"><ArrowUp /></el-icon>
+                <el-icon v-else class="is-loading"><Loading /></el-icon>
+              </el-button>
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </section>
 
-    <!-- Role Selection Drawer (Minimalist) -->
-    <el-drawer
-      v-model="showRoleDrawer"
-      direction="rtl"
-      :size="320"
-      :with-header="false"
-      class="role-drawer"
-    >
-      <div class="drawer-content">
-         <div class="drawer-header">
-           <h2>Choose a Persona</h2>
-           <el-button circle text @click="showRoleDrawer = false"><el-icon><Close /></el-icon></el-button>
-         </div>
-         
-         <div class="role-grid">
-            <div 
-              v-for="role in roles" 
-              :key="role.id"
-              class="role-card-minimal"
-              :class="{ 'active': roleStore.currentRole?.id === role.id || selectedRoleId === role.id }"
-              @click="selectRole(role)"
+      <aside v-if="isLawyerMode" class="lawyer-panel">
+        <LawyerSkillPanel
+          :skills-used="latestLawyerMeta.skillsUsed"
+          :trace="latestLawyerMeta.trace"
+          :federated="latestLawyerMeta.federated"
+          :risk-level="latestLawyerMeta.riskLevel"
+        />
+
+        <div v-if="availableResultPanels.length" class="lawyer-results">
+          <el-collapse v-model="activeResultPanels">
+            <el-collapse-item
+              v-if="availableResultPanels.includes('evidence')"
+              title="证据分析结果"
+              name="evidence"
             >
-               <el-avatar :size="48" :src="role.avatar" class="role-avatar-lg">
-                  {{ role.name.charAt(0) }}
-               </el-avatar>
-               <div class="role-info">
-                  <div class="name">{{ role.name }}</div>
-                  <div class="desc">{{ role.description || 'AI Assistant' }}</div>
-               </div>
-               <div class="check-mark" v-if="roleStore.currentRole?.id === role.id || selectedRoleId === role.id">
-                 <el-icon><Check /></el-icon>
-               </div>
-            </div>
-         </div>
+              <EvidenceAnalysisCard :data="latestSkillResults.evidenceAnalysis" />
+            </el-collapse-item>
+
+            <el-collapse-item
+              v-if="availableResultPanels.includes('limitation')"
+              title="诉讼时效结果"
+              name="limitation"
+            >
+              <LimitationTimeline :data="latestSkillResults.limitationCalc" />
+            </el-collapse-item>
+
+            <el-collapse-item
+              v-if="availableResultPanels.includes('jurisdiction')"
+              title="管辖法院建议"
+              name="jurisdiction"
+            >
+              <JurisdictionCard :data="latestSkillResults.jurisdiction" />
+            </el-collapse-item>
+
+            <el-collapse-item
+              v-if="availableResultPanels.includes('hearing')"
+              title="庭审提纲"
+              name="hearing"
+            >
+              <HearingOutlineViewer :data="latestSkillResults.hearingOutline" />
+            </el-collapse-item>
+          </el-collapse>
+        </div>
+      </aside>
+    </div>
+
+    <el-drawer v-model="showRoleDrawer" direction="rtl" :size="320" :with-header="false">
+      <div class="drawer-head">
+        <h3>角色列表</h3>
+        <el-button text @click="showRoleDrawer = false"><el-icon><Close /></el-icon></el-button>
+      </div>
+      <div class="role-list">
+        <div
+          v-for="role in roles"
+          :key="role.id"
+          class="role-item"
+          :class="{ active: roleStore.currentRole?.id === role.id || selectedRoleId === role.id }"
+          @click="selectRole(role)"
+        >
+          <el-avatar :size="36" :src="role.avatar">{{ role.name?.charAt(0) }}</el-avatar>
+          <div class="role-text">
+            <div class="name">{{ role.name }}</div>
+            <div class="desc">{{ role.description || 'AI Assistant' }}</div>
+          </div>
+          <el-icon v-if="roleStore.currentRole?.id === role.id || selectedRoleId === role.id"><Check /></el-icon>
+        </div>
       </div>
     </el-drawer>
 
-    <!-- File Manager Modal -->
-    <FileManager
-      v-model="showFileManager"
-      @fileSelected="handleFileSelected"
-    />
+    <FileManager v-model="showFileManager" @fileSelected="handleFileSelected" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
-  ArrowUp, ArrowDown, Microphone, Folder, MoreFilled, 
-  Close, Check, Loading, CirclePlus, Picture
+  ArrowUp,
+  Microphone,
+  Folder,
+  MoreFilled,
+  Close,
+  Check,
+  Loading,
+  ArrowDownBold,
+  User,
+  ScaleToOriginal
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import MessageBubble from '@/components/MessageBubble.vue'
 import FileManager from '@/components/FileManager.vue'
+import LawyerSkillPanel from '@/components/agent/LawyerSkillPanel.vue'
+import EvidenceAnalysisCard from '@/components/agent/EvidenceAnalysisCard.vue'
+import LimitationTimeline from '@/components/agent/LimitationTimeline.vue'
+import JurisdictionCard from '@/components/agent/JurisdictionCard.vue'
+import HearingOutlineViewer from '@/components/agent/HearingOutlineViewer.vue'
 import { useRoleStore } from '@/stores/role'
 import { useChatStore } from '@/stores/chat'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 
 const roleStore = useRoleStore()
 const chatStore = useChatStore()
 
-// State
 const selectedRoleId = ref<string | null>(null)
 const inputText = ref('')
-const emotionTag = ref('')
 const loading = ref(false)
-const isSpeaking = ref(false)
-const currentAudioUrl = ref('')
 const showRoleDrawer = ref(false)
 const showFileManager = ref(false)
 const isRecording = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
-const recommendations = ref<string[]>([])
+const showAssistTools = ref(true)
+const isNearBottom = ref(true)
+const pendingMessageCount = ref(0)
+const activeResultPanels = ref<string[]>([])
+const ASSIST_TOOL_VISIBLE_KEY = 'chat.assist_tools_visible'
 
-// Computed
 const roles = computed(() => roleStore.roles)
-// 直接使用 roleStore 的 currentRole，确保显示一致
 const currentRole = computed(() => roleStore.currentRole)
+const isLawyerMode = computed(() => {
+  const name = (currentRole.value?.name || '').toLowerCase()
+  return name.includes('律师') || name.includes('lawyer') || name.includes('法律')
+})
+
+const latestLawyerMessage = computed(() => {
+  return [...chatStore.messages]
+    .reverse()
+    .find(msg => msg.role === 'assistant' && (msg.agentMode === 'lawyer' || (msg.trace && msg.trace.length > 0)))
+})
+
+const latestLawyerMeta = computed(() => {
+  const lastAssistant = latestLawyerMessage.value
+
+  return {
+    skillsUsed: lastAssistant?.skillsUsed || [],
+    trace: lastAssistant?.trace || [],
+    federated: lastAssistant?.federated || {},
+    riskLevel: lastAssistant?.riskLevel || ''
+  }
+})
+
+const latestSkillResults = computed(() => {
+  const lastAssistant = latestLawyerMessage.value
+  return {
+    evidenceAnalysis: lastAssistant?.evidenceAnalysis,
+    limitationCalc: lastAssistant?.limitationCalc,
+    jurisdiction: lastAssistant?.jurisdiction,
+    hearingOutline: lastAssistant?.hearingOutline
+  }
+})
+
+const availableResultPanels = computed(() => {
+  const skillSet = new Set(latestLawyerMeta.value.skillsUsed || [])
+  const panels: string[] = []
+  if (latestSkillResults.value.evidenceAnalysis || skillSet.has('evidence_analysis')) panels.push('evidence')
+  if (latestSkillResults.value.limitationCalc || skillSet.has('limitation_calculation')) panels.push('limitation')
+  if (latestSkillResults.value.jurisdiction || skillSet.has('jurisdiction_determination')) panels.push('jurisdiction')
+  if (latestSkillResults.value.hearingOutline || skillSet.has('hearing_outline_generation')) panels.push('hearing')
+  return panels
+})
+
+const showScrollToBottom = computed(() => !isNearBottom.value && chatStore.messages.length > 0)
+const isSendDisabled = computed(() => loading.value || (!inputText.value.trim() && !isRecording.value))
 
 const currentTemplates = computed(() => {
   const roleName = currentRole.value?.name || ''
-  if (roleName.includes('律师')) {
-    return ['合同纠纷咨询', '劳动仲裁流程', '知识产权保护', '法律风险评估']
-  } else if (roleName.includes('教师')) {
-    return ['制定学习计划', '解题思路讲解', '考试重点预测', '口语对练']
-  } else if (roleName.includes('程序员')) {
-    return ['代码性能优化', 'Bug排除思路', '新功能实现方案', '技术架构咨询']
-  } else if (roleName.includes('作家')) {
-    return ['创意灵感激发', '文章润色建议', '情节构思设计', '诗歌散文创作']
+  const lower = roleName.toLowerCase()
+
+  if (roleName.includes('律师') || lower.includes('lawyer')) {
+    return ['合同纠纷咨询', '劳动仲裁流程', '法律风险评估', '文书草稿生成']
   }
-  return ['日常打招呼', '今日天气如何', '帮我安排日程', '写一段总结']
+  if (roleName.includes('教师') || lower.includes('teacher')) {
+    return ['制定学习计划', '题目讲解', '考试重点整理', '口语训练']
+  }
+  if (roleName.includes('程序') || lower.includes('developer')) {
+    return ['代码优化建议', '排查报错思路', '功能设计方案', '接口联调清单']
+  }
+  if (roleName.includes('作家') || lower.includes('writer')) {
+    return ['文章润色', '标题优化', '情节大纲', '文案创作']
+  }
+  return ['日常问答', '帮我做个计划', '总结这段内容', '给我几个建议']
 })
 
-// 加载推荐问题
-// const loadRecommendations = async () => {
-//   if (loadingRecommendations.value) return
-  
-//   try {
-//     loadingRecommendations.value = true
-//     const conversationHistory = chatStore.messages
-//       .slice(-6) // 最近6条消息
-//       .map(msg => msg.content)
-//     const roleName = currentRole.value?.name
-    
-//     const result = await recommendationApi.getRecommendations(conversationHistory, roleName)
-//     recommendations.value = result || []
-//   } catch (error) {
-//     console.error('加载推荐问题失败:', error)
-//     recommendations.value = []
-//   } finally {
-//     loadingRecommendations.value = false
-//   }
-// }
-
-// Methods
-const useTemplate = (text: string) => {
-  inputText.value = text
-  // 自动聚焦到输入框
-  nextTick(() => {
-    const textarea = document.querySelector('.dock-input textarea') as HTMLTextAreaElement
-    if (textarea) {
-      textarea.focus()
-      textarea.setSelectionRange(text.length, text.length)
-    }
+const getLawyerRole = () => {
+  return roles.value.find(role => {
+    const roleName = (role.name || '').toLowerCase()
+    return roleName.includes('律师') || roleName.includes('法律') || roleName.includes('lawyer')
   })
 }
 
-const useRecommendation = (text: string) => {
+const activateLawyerAgent = async () => {
+  if (isLawyerMode.value) {
+    ElMessage.success('当前已经是律师模式')
+    return
+  }
+
+  const lawyerRole = getLawyerRole()
+  if (!lawyerRole) {
+    ElMessage.warning('未找到律师角色，请先在角色管理中创建或启用律师角色')
+    showRoleDrawer.value = true
+    return
+  }
+
+  await selectRole(lawyerRole)
+}
+
+const toggleLawyerMode = async () => {
+  if (isLawyerMode.value) {
+    ElMessage.info('当前已在律师模式')
+    return
+  }
+  await activateLawyerAgent()
+}
+
+const goToSettings = () => {
+  router.push('/settings')
+}
+
+const toggleAssistTools = () => {
+  showAssistTools.value = !showAssistTools.value
+}
+
+const useTemplate = (text: string) => {
+  if (!text) return
   inputText.value = text
-  // 自动聚焦到输入框
   nextTick(() => {
-    const textarea = document.querySelector('.dock-input textarea') as HTMLTextAreaElement
+    const textarea = document.querySelector('.composer textarea') as HTMLTextAreaElement | null
     if (textarea) {
       textarea.focus()
       textarea.setSelectionRange(text.length, text.length)
@@ -311,18 +349,16 @@ const useRecommendation = (text: string) => {
 
 const autoSegment = () => {
   if (inputText.value.length <= 500) return
-  // Simple segmentation by punctuation or space
   const segments = inputText.value.match(/.{1,500}/g) || []
   inputText.value = segments.join('\n\n---\n\n')
   ElMessage.success(t('chat.autoSegment'))
 }
 
 const selectRole = async (role: any) => {
-  // 如果当前有对话历史，询问用户如何处理
   if (chatStore.messages.length > 0) {
     try {
-      const result = await ElMessageBox.confirm(
-        `切换角色到"${role.name}"将清空当前对话，是否继续？`,
+      await ElMessageBox.confirm(
+        `切换到角色 "${role.name}" 会清空当前对话，是否继续？`,
         '切换角色',
         {
           confirmButtonText: '继续',
@@ -330,40 +366,28 @@ const selectRole = async (role: any) => {
           type: 'warning'
         }
       )
-      
-      // 用户确认切换角色
-      if (result) {
-        chatStore.clearMessages()
-      } else {
-        return // 用户取消切换
-      }
-    } catch (error) {
-      // 用户关闭对话框，不进行任何操作
+      chatStore.clearMessages()
+    } catch {
       return
     }
   }
 
-  // 更新选中的角色
   selectedRoleId.value = role.id
   await roleStore.setCurrentRole(role)
   chatStore.setRole(role.id)
-  showRoleDrawer.value = false // 自动关闭抽屉提供更流畅的体验
-  
-  // 显示角色切换成功提示
+  showRoleDrawer.value = false
   ElMessage.success(`已切换到角色: ${role.name}`)
 }
 
 const sendMessage = async () => {
+  if (loading.value) return
   if (!inputText.value.trim() && !isRecording.value) return
-  
-  // 确保有选中的角色
+
   if (!selectedRoleId.value && roles.value.length > 0) {
-    // 如果没有选中角色，自动选择第一个角色
     const firstRole = roles.value[0]
     await roleStore.setCurrentRole(firstRole)
     selectedRoleId.value = firstRole.id
     chatStore.setRole(firstRole.id)
-    ElMessage.success(`已自动选择角色: ${firstRole.name}`)
   } else if (!selectedRoleId.value) {
     ElMessage.warning('请先选择角色')
     showRoleDrawer.value = true
@@ -372,57 +396,52 @@ const sendMessage = async () => {
 
   loading.value = true
   const userText = inputText.value.trim()
-  inputText.value = '' // 乐观清除
+  inputText.value = ''
 
   try {
-    const response = await chatStore.sendMessage(userText)
+    const response = isLawyerMode.value
+      ? await chatStore.sendLawyerMessage(userText)
+      : await chatStore.sendMessage(userText)
+
     if (!response) throw new Error('消息发送失败')
-
     scrollToBottom()
-
-    // 处理语音回复
-    if (response.audioUrl) {
-      currentAudioUrl.value = response.audioUrl
-      isSpeaking.value = true
-      // 模拟语音播放结束
-      setTimeout(() => isSpeaking.value = false, 5000)
-    }
-
   } catch (err: any) {
     ElMessage.error(err.message || '发送消息失败')
-    inputText.value = userText // 出错时恢复文本
+    inputText.value = userText
   } finally {
     loading.value = false
   }
 }
 
-// Voice (Stub)
-const startVoiceInput = () => { isRecording.value = true }
-const stopVoiceInput = () => { isRecording.value = false }
+const startVoiceInput = () => {
+  isRecording.value = true
+}
+
+const stopVoiceInput = () => {
+  isRecording.value = false
+}
 
 const handleKeydown = (event: KeyboardEvent) => {
-  // 处理回车键发送消息（Ctrl+Enter 或 Shift+Enter 换行）
-  if (event.key === 'Enter') {
-    if (event.ctrlKey || event.shiftKey) {
-      // Ctrl+Enter 或 Shift+Enter：插入换行
-      event.preventDefault()
-      const textarea = event.target as HTMLTextAreaElement
-      const cursorPosition = textarea.selectionStart
-      const textBefore = inputText.value.substring(0, cursorPosition)
-      const textAfter = inputText.value.substring(cursorPosition)
-      inputText.value = textBefore + '\n' + textAfter
-      
-      // 设置光标位置到新行
-      nextTick(() => {
-        textarea.selectionStart = cursorPosition + 1
-        textarea.selectionEnd = cursorPosition + 1
-      })
-    } else {
-      // 普通回车键：发送消息
-      event.preventDefault()
-      sendMessage()
-    }
+  if (event.isComposing || event.keyCode === 229) return
+  if (event.key !== 'Enter') return
+
+  if (event.ctrlKey || event.shiftKey) {
+    event.preventDefault()
+    const textarea = event.target as HTMLTextAreaElement
+    const cursorPosition = textarea.selectionStart
+    const textBefore = inputText.value.substring(0, cursorPosition)
+    const textAfter = inputText.value.substring(cursorPosition)
+    inputText.value = `${textBefore}\n${textAfter}`
+
+    nextTick(() => {
+      textarea.selectionStart = cursorPosition + 1
+      textarea.selectionEnd = cursorPosition + 1
+    })
+    return
   }
+
+  event.preventDefault()
+  sendMessage()
 }
 
 const handleControl = (type: string) => {
@@ -459,62 +478,56 @@ const handleFileSelected = async (file: any) => {
   }
 }
 
-// 自动滚动到底部（当有新消息时）
 const scrollToBottom = () => {
   if (!messagesRef.value) return
-  
   nextTick(() => {
-    messagesRef.value!.scrollTo({
-      top: messagesRef.value!.scrollHeight,
+    messagesRef.value?.scrollTo({
+      top: messagesRef.value.scrollHeight,
       behavior: 'smooth'
     })
   })
 }
 
-// 监听消息变化，自动滚动到底部
-watch(() => chatStore.messages.length, () => {
+const handleScrollToBottom = () => {
+  pendingMessageCount.value = 0
   scrollToBottom()
-})
-
-// 滚动状态检测
-const checkScrollState = () => {
-  if (!messagesRef.value) return
-  
-  const { scrollTop, scrollHeight, clientHeight } = messagesRef.value
-  const isAtTop = scrollTop === 0
-  const isAtBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 10
-  
-  // 添加或移除滚动状态类
-  messagesRef.value.classList.toggle('scrolled-top', !isAtTop)
-  messagesRef.value.classList.toggle('scrolled-bottom', !isAtBottom)
 }
 
-// 监听滚动事件
-onMounted(() => {
-  if (messagesRef.value) {
-    messagesRef.value.addEventListener('scroll', checkScrollState)
-    // 初始检查滚动状态
-    checkScrollState()
-  }
-})
+watch(
+  () => chatStore.messages.length,
+  (newLen, oldLen) => {
+    if (newLen <= oldLen) return
+    const latest = chatStore.messages[newLen - 1]
+    const isUserMessage = latest?.role === 'user'
 
-onUnmounted(() => {
-  if (messagesRef.value) {
-    messagesRef.value.removeEventListener('scroll', checkScrollState)
-  }
-})
+    if (isNearBottom.value || isUserMessage) {
+      scrollToBottom()
+      return
+    }
 
-// 监听 roleStore.currentRole 变化，同步 selectedRoleId
-watch(() => roleStore.currentRole, (newRole) => {
-  if (newRole) {
-    selectedRoleId.value = newRole.id
-    chatStore.setRole(newRole.id)
+    pendingMessageCount.value = Math.min(99, pendingMessageCount.value + 1)
   }
-}, { immediate: true })
+)
+
+watch(
+  availableResultPanels,
+  panels => {
+    activeResultPanels.value = [...panels]
+  },
+  { immediate: true }
+)
+
+const checkScrollState = () => {
+  if (!messagesRef.value) return
+  const { scrollTop, scrollHeight, clientHeight } = messagesRef.value
+  const isAtBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 24
+  isNearBottom.value = isAtBottom
+  if (isAtBottom) pendingMessageCount.value = 0
+}
 
 watch(
   () => route.query.contextId,
-  async (contextId) => {
+  async contextId => {
     const targetContextId = typeof contextId === 'string' ? contextId.trim() : ''
     if (!targetContextId) return
     if (chatStore.contextId === targetContextId) return
@@ -525,841 +538,285 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => roleStore.currentRole,
+  newRole => {
+    if (!newRole) return
+    selectedRoleId.value = newRole.id
+    chatStore.setRole(newRole.id)
+  },
+  { immediate: true }
+)
+
+watch(showAssistTools, visible => {
+  localStorage.setItem(ASSIST_TOOL_VISIBLE_KEY, visible ? '1' : '0')
+})
+
 onMounted(async () => {
   await roleStore.loadRoles()
-  // 如果有角色，设置第一个为当前角色，并同步 selectedRoleId
+
+  const assistToolVisible = localStorage.getItem(ASSIST_TOOL_VISIBLE_KEY)
+  if (assistToolVisible === '0') {
+    showAssistTools.value = false
+  }
+
   if (roles.value.length > 0) {
-    const firstRole = roles.value[0]
-    // 如果 roleStore 中没有当前角色，则设置
     if (!roleStore.currentRole) {
+      const firstRole = roles.value[0]
       await roleStore.setCurrentRole(firstRole)
       selectedRoleId.value = firstRole.id
       chatStore.setRole(firstRole.id)
     } else {
-      // 如果已有当前角色，同步 selectedRoleId
       selectedRoleId.value = roleStore.currentRole.id
       chatStore.setRole(roleStore.currentRole.id)
     }
   }
-  // 初始加载推荐问题
-  // await loadRecommendations()
+
+  if (messagesRef.value) {
+    messagesRef.value.addEventListener('scroll', checkScrollState)
+    checkScrollState()
+  }
+})
+
+onUnmounted(() => {
+  if (messagesRef.value) {
+    messagesRef.value.removeEventListener('scroll', checkScrollState)
+  }
 })
 </script>
 
 <style scoped>
-/* --- Layout & Container --- */
-.chat-view-container {
+.chat-view {
   height: 100%;
-  width: 100%;
-  position: relative;
-  overflow: hidden;
-  background-color: var(--bg-app);
-  display: flex;
-  flex-direction: column;
   min-height: 0;
-}
-
-.chat-stage {
-  flex: 1;
-  position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  background: var(--bg-app);
 }
 
-/* Ambient Background */
-.ambient-glow {
-  position: absolute;
-  width: 600px;
-  height: 600px;
-  border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.4;
-  z-index: 0;
-  pointer-events: none;
-}
-.top-left {
-  top: -200px;
-  left: -200px;
-  background: radial-gradient(circle, var(--primary-fade) 0%, transparent 70%);
-}
-.bottom-right {
-  bottom: -200px;
-  right: -200px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 70%);
-}
-
-/* --- Digital Human Widget (Top-Left Floating) --- */
-.digital-human-widget {
-  position: absolute;
-  top: 24px;
-  left: 24px;
-  width: 220px; /* Increased size */
-  height: 300px;
-  z-index: 5; /* 降低z-index，确保不遮挡消息 */
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  pointer-events: none; /* 允许点击穿透到消息区域 */
-}
-
-.digital-human-widget:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-}
-
-/* Active state for speaking: Subtle glow border */
-.digital-human-widget.is-speaking {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px var(--primary-fade), 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.dh-content {
-  width: 100%;
-  height: 100%;
-  background: #000; /* Placeholder for video area */
-}
-
-.dh-controls-overlay {
-  position: absolute;
-  bottom: 12px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.digital-human-widget .dh-controls-overlay {
-  pointer-events: auto; /* 控件区域可以交互 */
-}
-
-.status-indicator {
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  padding: 4px 10px;
-  border-radius: 12px;
-  color: white;
-  font-size: 10px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  opacity: 0; /* Hidden by default */
-  transition: opacity 0.3s;
-}
-
-.status-indicator.active {
-  opacity: 1;
-}
-
-.pulse {
-  width: 6px;
-  height: 6px;
-  background-color: #10b981;
-  border-radius: 50%;
-  animation: pulse-animation 1.5s infinite;
-}
-
-/* --- Header Actions (Top-Right Floating) --- */
-.header-actions {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  display: flex;
-  gap: 8px;
-  z-index: 10;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-}
-
-.action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.action-btn:active {
-  transform: translateY(0);
-}
-
-.action-btn.icon-only {
-  padding: 8px;
-}
-
-.current-role-avatar {
-  flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.role-name-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 120px;
-}
-
-.icon-right {
-  margin-left: auto;
-  opacity: 0.6;
-  transition: opacity 0.2s ease;
-}
-
-.action-btn:hover .icon-right {
-  opacity: 1;
-}
-
-/* --- Messages Container --- */
-.messages-container {
-  flex: 1 1 auto;
-  height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 24px 8% 200px; /* 进一步减少左右padding，拓宽对话窗口 */
-  display: flex;
-  flex-direction: column;
-  z-index: 1;
-  scroll-behavior: smooth;
-  min-height: 0; /* 确保可以滚动 */
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  cursor: default;
-}
-
-/* 消息容器滚动条样式 */
-.messages-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.messages-container::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 4px;
-}
-
-.messages-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-  transition: background-color 0.3s ease;
-}
-
-.messages-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-
-.messages-container::-webkit-scrollbar-thumb:active {
-  background: rgba(255, 255, 255, 0.6);
-}
-
-/* 滚动时显示滚动条 */
-.messages-container:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-/* 滚动容器阴影效果 */
-.messages-container {
-  scrollbar-gutter: stable;
-}
-
-/* 滚动时添加渐变遮罩 */
-.messages-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: linear-gradient(to bottom, var(--bg-app), transparent);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: 2;
-}
-
-.messages-container::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: linear-gradient(to top, var(--bg-app), transparent);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: 2;
-}
-
-.messages-container.scrolled-top::before {
-  opacity: 1;
-}
-
-.messages-container.scrolled-bottom::after {
-  opacity: 1;
-}
-
-/* Empty State */
-.empty-state {
-  margin: auto;
-  text-align: center;
-  opacity: 0.8;
-  max-width: 400px;
-}
-
-.logo-mark {
-  font-family: var(--font-serif);
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--primary-color);
-  margin-bottom: 24px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.welcome-text {
-  font-size: 32px;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: 12px;
-  font-family: var(--font-serif);
-}
-
-.subtitle {
-  font-size: 16px;
-  color: var(--text-secondary);
-}
-
-/* --- Message List --- */
-.message-list {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  max-width: 1200px; /* 进一步拓宽消息列表最大宽度 */
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* --- Input Dock (Floating Bottom) --- */
-.input-dock-wrapper {
-  position: absolute; /* 改为absolute，相对于chat-stage定位 */
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 24px 32px 32px; /* 调整padding */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  pointer-events: none; /* Let clicks pass through area */
-  z-index: 20;
-  background: linear-gradient(to top, var(--bg-app) 60%, transparent);
-  max-width: 100%;
-}
-
-.templates-container {
-  pointer-events: auto;
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  max-width: 1400px; /* 拓宽模板容器以匹配输入框 */
-  width: 100%;
-  padding: 6px 4px;
-  scrollbar-width: thin;
-  scroll-behavior: smooth;
-  cursor: grab;
-}
-
-.templates-container:active {
-  cursor: grabbing;
-}
-
-/* 模板容器滚动条样式 */
-.templates-container::-webkit-scrollbar {
-  height: 4px;
-  display: block;
-}
-
-.templates-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.templates-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-}
-
-.templates-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-.template-tag {
-  flex-shrink: 0;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  font-size: 13px;
-  color: var(--text-regular);
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  font-weight: 500;
-  white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.template-tag:hover {
-  background: white;
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
-}
-
-.recommendations-container {
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 1400px; /* 拓宽推荐问题容器以匹配输入框 */
-  width: 100%;
-  padding: 6px 4px;
-}
-
-.recommendations-tags {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 4px 0;
-  scrollbar-width: thin;
-  scroll-behavior: smooth;
-  cursor: grab;
-}
-
-.recommendations-tags:active {
-  cursor: grabbing;
-}
-
-/* 推荐问题容器滚动条样式 */
-.recommendations-tags::-webkit-scrollbar {
-  height: 4px;
-}
-
-.recommendations-tags::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.recommendations-tags::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-}
-
-.recommendations-tags::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-.recommendations-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.recommendation-tag {
-  flex-shrink: 0;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  font-size: 13px;
-  color: var(--text-regular);
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  font-weight: 500;
-  white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.recommendation-tag:hover {
-  background: white;
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
-}
-
-.input-dock {
-  pointer-events: auto;
-  width: 100%;
-  max-width: 1400px; /* 进一步拓宽输入框最大宽度 */
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(24px) saturate(180%);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.input-dock:focus-within {
-  box-shadow: 
-    0 12px 48px rgba(79, 70, 229, 0.12),
-    0 4px 16px rgba(79, 70, 229, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  border-color: rgba(79, 70, 229, 0.2);
-  transform: translateY(-2px);
-}
-
-.dock-input :deep(.el-textarea__inner) {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 10px 0;
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  resize: none;
-  min-height: 24px !important;
-}
-
-.dock-input :deep(.el-textarea__inner)::placeholder {
-  color: var(--text-disabled);
-  opacity: 0.6;
-}
-
-.dock-input :deep(.el-textarea__inner):focus {
-  outline: none;
-}
-
-.dock-footer {
+.chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 2px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-  padding-top: 10px;
-  min-height: 40px;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
 }
 
-.footer-left {
+.chat-header .left {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.chat-header .title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chat-header .right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.chat-main.lawyer {
+  grid-template-columns: 1fr 320px;
+}
+
+.chat-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.empty-state {
+  margin: 60px auto;
+  text-align: center;
+  max-width: 720px;
+}
+
+.quick-actions {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.message-list {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
-.plus-trigger {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+.typing {
+  margin-top: 12px;
   color: var(--text-secondary);
-  font-size: 20px;
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 10px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.plus-trigger:hover {
-  color: var(--primary-color);
-  background: rgba(79, 70, 229, 0.08);
-  transform: scale(1.05);
-}
-
-.tools-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  padding: 8px;
-}
-
-.tool-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 12px;
-  border-radius: var(--radius-md);
-  transition: all 0.2s;
-}
-
-.tool-item:hover {
-  background: var(--bg-app);
-  color: var(--primary-color);
-}
-
-.tool-item .el-icon {
-  font-size: 24px;
-}
-
-.tool-item .el-icon.is-recording {
-  color: var(--danger);
-  animation: pulse-animation 1s infinite;
-}
-
-.word-count {
   font-size: 13px;
-  color: var(--text-secondary);
+}
+
+.to-bottom {
+  position: absolute;
+  right: 18px;
+  bottom: 180px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.to-bottom .badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  line-height: 16px;
+  font-size: 10px;
+  background: #ef4444;
+}
+
+.template-row {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  overflow-x: auto;
+}
+
+.template-item {
+  border: 1px solid var(--border-light);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.composer {
+  border-top: 1px solid var(--border-light);
+  background: #fff;
+  padding: 12px 16px;
+}
+
+.composer-footer {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.left-actions,
+.right-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
 }
 
 .word-count.warning {
   color: #f59e0b;
-  font-weight: 500;
 }
 
-.word-count .hint {
-  font-weight: 500;
-  opacity: 0.8;
-}
-
-.segment-btn {
-  font-size: 12px;
-  padding: 0;
-}
-
-.footer-right {
+.lawyer-panel {
+  border-left: 1px solid var(--border-light);
+  background: #fff;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  overflow-y: auto;
 }
 
-.emotion-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.04);
-  padding: 6px 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-}
-
-.emotion-pill:hover {
-  background: rgba(0, 0, 0, 0.06);
-  border-color: rgba(79, 70, 229, 0.2);
-}
-
-.emotion-pill .label {
-  font-weight: 500;
-  color: var(--text-regular);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.7;
-}
-
-.emotion-pill .transparent-input {
-  background: transparent;
-  border: none;
-  outline: none;
-  font-size: 12px;
-  color: var(--text-primary);
-  font-weight: 500;
-  width: 60px;
-  padding: 0;
-}
-
-.emotion-pill .transparent-input::placeholder {
-  color: var(--text-disabled);
-  opacity: 0.6;
-}
-
-.send-trigger {
-  width: 40px;
-  height: 40px;
+.lawyer-results {
+  border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, #6366f1 100%);
-  color: white;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  box-shadow: 
-    0 4px 12px rgba(79, 70, 229, 0.25),
-    0 2px 4px rgba(79, 70, 229, 0.15);
-  position: relative;
-  overflow: hidden;
+  background: #fff;
+  padding: 8px;
 }
 
-.send-trigger::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
-  opacity: 0;
-  transition: opacity 0.2s;
+.lawyer-results :deep(.el-collapse) {
+  border-top: none;
+  border-bottom: none;
 }
 
-.send-trigger:hover:not(:disabled)::before {
-  opacity: 1;
-}
-
-.send-trigger:hover:not(:disabled) {
-  transform: translateY(-2px) scale(1.05);
-  background: linear-gradient(135deg, var(--primary-hover) 0%, #818cf8 100%);
-  box-shadow: 
-    0 6px 20px rgba(79, 70, 229, 0.35),
-    0 4px 8px rgba(79, 70, 229, 0.2);
-}
-
-.send-trigger:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
-}
-
-.send-trigger:disabled {
-  background: var(--text-disabled);
-  cursor: not-allowed;
-  box-shadow: none;
-  opacity: 0.5;
-}
-
-.send-trigger .el-icon {
-  font-size: 18px;
+.lawyer-results :deep(.el-collapse-item__header) {
+  font-size: 13px;
   font-weight: 600;
 }
 
-/* --- Drawer Styles --- */
-.drawer-content {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-app);
-}
-
-.drawer-header {
-  padding: 24px;
+.drawer-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-light);
 }
 
-.drawer-header h2 {
-  font-family: var(--font-serif);
-  font-size: 20px;
-}
-
-.role-grid {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 24px 24px;
+.role-list {
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
-.role-card-minimal {
+.role-item {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: #fff;
+  gap: 10px;
   border: 1px solid var(--border-light);
-  border-radius: 16px;
+  border-radius: 10px;
+  padding: 10px;
   cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
 }
 
-.role-card-minimal:hover {
-  border-color: var(--primary-color);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-.role-card-minimal.active {
+.role-item.active {
   border-color: var(--primary-color);
   background: var(--primary-fade);
 }
 
-.role-info {
-  flex: 1;
-}
-
-.role-info .name {
+.role-text .name {
+  font-size: 14px;
   font-weight: 600;
-  font-size: 15px;
-  color: var(--text-primary);
 }
 
-.role-info .desc {
-  font-size: 13px;
+.role-text .desc {
+  font-size: 12px;
   color: var(--text-secondary);
-  margin-top: 2px;
 }
 
-.check-mark {
-  color: var(--primary-color);
-}
-
-/* Animation */
-@keyframes pulse-animation {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.5); opacity: 0.5; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.role-fade-enter-active, .role-fade-leave-active {
-  transition: opacity 0.5s ease, filter 0.5s ease;
-}
-.role-fade-enter-from, .role-fade-leave-to {
-  opacity: 0;
-  filter: blur(10px);
-}
-
-@media (max-width: 1024px) {
-  .messages-container {
-    padding: 120px 16px 200px; /* 调整底部padding以匹配输入框高度 */
+@media (max-width: 1100px) {
+  .chat-main.lawyer {
+    grid-template-columns: 1fr;
   }
-  .message-list {
-    max-width: 100%; /* 小屏幕上使用全宽 */
-  }
-  .input-dock {
-    max-width: 100%;
-  }
-  .templates-container,
-  .recommendations-container {
-    max-width: 100%;
+
+  .lawyer-panel {
+    border-left: none;
+    border-top: 1px solid var(--border-light);
+    max-height: 260px;
   }
 }
 </style>

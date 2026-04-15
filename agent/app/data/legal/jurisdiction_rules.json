@@ -1,0 +1,92 @@
+[
+  {
+    "id": "jurisdiction_rule_001",
+    "title": "一般地域管辖",
+    "rule_type": "general_territorial",
+    "basis": "《民事诉讼法》第21条",
+    "content": "对公民提起诉讼通常由被告住所地法院管辖；住所地与经常居住地不一致的，由经常居住地法院管辖。",
+    "keywords": ["被告住所地", "经常居住地", "一般管辖"],
+    "source": "seed"
+  },
+  {
+    "id": "jurisdiction_rule_002",
+    "title": "合同纠纷地域管辖",
+    "rule_type": "contract",
+    "basis": "《民事诉讼法》第24条",
+    "content": "合同纠纷可由被告住所地或合同履行地法院管辖。",
+    "keywords": ["合同履行地", "被告住所地", "合同纠纷"],
+    "source": "seed"
+  },
+  {
+    "id": "jurisdiction_rule_003",
+    "title": "侵权纠纷地域管辖",
+    "rule_type": "tort",
+    "basis": "《民事诉讼法》第28条",
+    "content": "侵权纠纷可由侵权行为地或被告住所地法院管辖。",
+    "keywords": ["侵权行为地", "被告住所地", "侵权"],
+    "source": "seed"
+  },
+  {
+    "id": "jurisdiction_rule_004",
+    "title": "劳动争议程序衔接",
+    "rule_type": "labor",
+    "basis": "《劳动争议调解仲裁法》第5条",
+    "content": "劳动争议通常先仲裁后诉讼，诉讼由劳动合同履行地或用人单位所在地法院受理。",
+    "keywords": ["劳动争议", "先仲裁", "履行地"],
+    "source": "seed"
+  },
+  {
+    "id": "jurisdiction_rule_005",
+    "title": "协议管辖限制",
+    "rule_type": "agreement",
+    "basis": "《民事诉讼法》第35条",
+    "content": "合同当事人可书面协议选择与争议有实际联系地点的法院，但不得违反级别管辖和专属管辖规定。",
+    "keywords": ["协议管辖", "实际联系", "书面约定"],
+    "source": "seed"
+  },
+  {
+    "id": "jurisdiction_rule_006",
+    "title": "不动产专属管辖",
+    "rule_type": "exclusive",
+    "basis": "《民事诉讼法》第34条",
+    "content": "因不动产纠纷提起的诉讼，由不动产所在地人民法院专属管辖。",
+    "keywords": ["不动产", "专属管辖", "所在地"],
+    "source": "seed"
+  },
+  {
+    "id": "jurisdiction_rule_007",
+    "title": "港口作业专属管辖",
+    "rule_type": "exclusive",
+    "basis": "《民事诉讼法》第34条",
+    "content": "因港口作业中发生纠纷提起诉讼，由港口所在地人民法院专属管辖。",
+    "keywords": ["港口", "专属管辖"],
+    "source": "seed"
+  },
+  {
+    "id": "jurisdiction_rule_008",
+    "title": "继承遗产专属管辖",
+    "rule_type": "exclusive",
+    "basis": "《民事诉讼法》第34条",
+    "content": "因继承遗产纠纷提起诉讼，由被继承人死亡时住所地或主要遗产所在地法院专属管辖。",
+    "keywords": ["继承", "遗产", "专属管辖"],
+    "source": "seed"
+  },
+  {
+    "id": "jurisdiction_rule_009",
+    "title": "级别管辖一般规则",
+    "rule_type": "level",
+    "basis": "《民事诉讼法》第18条",
+    "content": "基层法院管辖第一审民事案件；法律另有规定或重大复杂案件由中级以上法院管辖。",
+    "keywords": ["级别管辖", "基层法院", "中级法院"],
+    "source": "seed"
+  },
+  {
+    "id": "jurisdiction_rule_010",
+    "title": "网络侵权管辖提示",
+    "rule_type": "internet_tort",
+    "basis": "相关司法解释",
+    "content": "网络侵权案件可结合侵权行为实施地、结果发生地及被告住所地综合判断。",
+    "keywords": ["网络侵权", "结果发生地", "管辖"],
+    "source": "seed"
+  }
+]

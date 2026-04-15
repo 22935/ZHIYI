@@ -42,6 +42,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       AI_SERVICE_URL: http://ai-service:8000
+      AGENT_PYTHON_LAWYER_CHAT_URL: http://ai-service:8000/ai/agent/lawyer/chat
+      AGENT_TIMEOUT_MS: 120000
     depends_on:
       - postgres
       - redis

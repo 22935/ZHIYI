@@ -44,5 +44,6 @@ lxml==4.9.3  # XML解析（beautifulsoup4依赖）
 
 # 向量数据库和Embedding（推荐）
 chromadb==0.4.15  # 向量数据库（稳定版本）
-sentence-transformers==2.2.2  # 文本向量化（多语言支持）
+sentence-transformers>=5.0,<6.0  # 与新版 transformers/huggingface_hub 兼容
+huggingface_hub>=0.34,<1.0
 

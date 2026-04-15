@@ -1,0 +1,92 @@
+[
+  {
+    "id": "evidence_rule_001",
+    "title": "微信聊天记录审查要点",
+    "rule_type": "electronic_data",
+    "basis": "《民事诉讼证据规定》第90条",
+    "content": "应核验聊天双方身份、聊天完整性、导出方式与原始载体，避免断章取义截图。",
+    "keywords": ["微信", "聊天记录", "电子数据", "真实性"],
+    "source": "seed"
+  },
+  {
+    "id": "evidence_rule_002",
+    "title": "银行流水证明力",
+    "rule_type": "documentary",
+    "basis": "《民事诉讼证据规定》第94条",
+    "content": "银行流水可证明资金往来事实，需与交易说明、合同或聊天记录形成对应。",
+    "keywords": ["银行流水", "转账", "工资", "付款"],
+    "source": "seed"
+  },
+  {
+    "id": "evidence_rule_003",
+    "title": "电子截图辅助证明",
+    "rule_type": "electronic_data",
+    "basis": "《民事诉讼证据规定》第93条",
+    "content": "截图属于电子数据的表现形式，通常需要原始数据或平台记录进行补强。",
+    "keywords": ["截图", "补强", "原始数据"],
+    "source": "seed"
+  },
+  {
+    "id": "evidence_rule_004",
+    "title": "录音证据合法性",
+    "rule_type": "audio_video",
+    "basis": "《民事诉讼证据规定》第92条",
+    "content": "录音应当来源合法，未严重侵害他人合法权益且内容完整可辨识。",
+    "keywords": ["录音", "合法性", "完整性"],
+    "source": "seed"
+  },
+  {
+    "id": "evidence_rule_005",
+    "title": "证人证言采信规则",
+    "rule_type": "witness",
+    "basis": "《民事诉讼证据规定》第68条",
+    "content": "证人应当出庭作证，证言需与其他证据相互印证，利害关系证人证明力较弱。",
+    "keywords": ["证人", "证言", "出庭", "印证"],
+    "source": "seed"
+  },
+  {
+    "id": "evidence_rule_006",
+    "title": "劳动关系认定证据组合",
+    "rule_type": "labor",
+    "basis": "《劳动争议调解仲裁法》及司法解释",
+    "content": "可使用考勤记录、工资支付凭证、工作证、社保缴纳记录等综合认定劳动关系。",
+    "keywords": ["劳动关系", "考勤", "社保", "工资条"],
+    "source": "seed"
+  },
+  {
+    "id": "evidence_rule_007",
+    "title": "书证原件规则",
+    "rule_type": "documentary",
+    "basis": "《民事诉讼证据规定》第11条",
+    "content": "提交书证应优先提交原件，复制件需说明来源并结合其他证据佐证。",
+    "keywords": ["书证", "原件", "复印件"],
+    "source": "seed"
+  },
+  {
+    "id": "evidence_rule_008",
+    "title": "证据保全建议",
+    "rule_type": "preservation",
+    "basis": "《民事诉讼法》第84条",
+    "content": "对易灭失或以后难以取得的证据可申请诉前或诉中证据保全。",
+    "keywords": ["证据保全", "诉前", "灭失"],
+    "source": "seed"
+  },
+  {
+    "id": "evidence_rule_009",
+    "title": "举证责任分配",
+    "rule_type": "burden_of_proof",
+    "basis": "《民事诉讼证据规定》第2条",
+    "content": "主张权利的一方对其主张事实承担举证责任；对方可就抗辩事实举证。",
+    "keywords": ["举证责任", "主张", "抗辩"],
+    "source": "seed"
+  },
+  {
+    "id": "evidence_rule_010",
+    "title": "非法证据排除",
+    "rule_type": "legality",
+    "basis": "《民事诉讼证据规定》第106条",
+    "content": "以严重侵害他人合法权益、违反法律禁止性规定方法形成或取得的证据，不得作为认定依据。",
+    "keywords": ["非法证据", "排除", "侵害权益"],
+    "source": "seed"
+  }
+]
