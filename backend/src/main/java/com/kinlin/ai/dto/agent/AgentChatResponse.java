@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Lawyer agent chat response DTO.
+ * Shared agent chat response DTO.
  */
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -32,6 +32,30 @@ public class AgentChatResponse {
 
     private Map<String, Object> federated;
 
+    @JsonAlias("inspiration_expand")
+    private Map<String, Object> inspirationExpand;
+
+    @JsonAlias("outline_generate")
+    private Map<String, Object> outlineGenerate;
+
+    @JsonAlias("content_write")
+    private Map<String, Object> contentWrite;
+
+    @JsonAlias("character_relation_map")
+    private Map<String, Object> characterRelationMap;
+
+    @JsonAlias("requirement_analysis")
+    private Map<String, Object> requirementAnalysis;
+
+    @JsonAlias("codebase_semantic_search")
+    private Map<String, Object> codebaseSemanticSearch;
+
+    @JsonAlias("code_generation")
+    private Map<String, Object> codeGeneration;
+
+    @JsonAlias("diagram_generation")
+    private Map<String, Object> diagramGeneration;
+
     private String message;
 
     private String error;
@@ -39,7 +63,7 @@ public class AgentChatResponse {
     public static AgentChatResponse failure(String sessionId, String message, String error) {
         AgentChatResponse response = new AgentChatResponse();
         response.setSuccess(false);
-        response.setAnswer("抱歉，律师智能体当前不可用，请稍后重试。");
+        response.setAnswer("Sorry, the agent is temporarily unavailable. Please try again later.");
         response.setSessionId(sessionId);
         response.setFederated(new java.util.HashMap<>());
         response.setMessage(message);

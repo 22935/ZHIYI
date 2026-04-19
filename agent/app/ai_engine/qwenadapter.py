@@ -3,6 +3,7 @@
 使用OpenAI兼容模式调用通义千问大模型
 支持流式和非流式文本生成
 """
+import asyncio
 import os
 import logging
 from typing import List, Dict, Optional, AsyncIterator
@@ -77,61 +78,50 @@ class QwenAdapter:
             包含text、tokens_used、confidence的字典
         """
         try:
-            # 构建消息列表
-            messages = []
-            
-            # 添加系统提示
+            messages: List[Dict[str, str]] = []
+
             if system_prompt:
-                messages.append({
-                    "role": "system",
-                    "content": system_prompt
-                })
-            
-            # 添加上下文历史
+                messages.append({"role": "system", "content": system_prompt})
+
             if context:
-                # 确保context格式正确
                 for msg in context:
                     if isinstance(msg, dict) and "role" in msg and "content" in msg:
-                        messages.append({
-                            "role": msg["role"],
-                            "content": msg["content"]
-                        })
+                        messages.append({"role": str(msg["role"]), "content": str(msg["content"])})
                     elif isinstance(msg, str):
-                        # 如果是字符串，假设是用户消息
-                        messages.append({
-                            "role": "user",
-                            "content": msg
-                        })
-            
-            # 添加当前用户输入
-            messages.append({
-                "role": "user",
-                "content": prompt
-            })
-            
-            # 调用OpenAI兼容API
-            completion = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=kwargs.get("temperature", 0.7),
-                max_tokens=kwargs.get("max_tokens", 2000),
-                top_p=kwargs.get("top_p", 0.9),
-                stream=False  # 非流式
+                        messages.append({"role": "user", "content": msg})
+
+            messages.append({"role": "user", "content": prompt})
+
+            request_timeout = float(kwargs.get("request_timeout", 10))
+            completion = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.client.chat.completions.create,
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=kwargs.get("temperature", 0.7),
+                    max_tokens=kwargs.get("max_tokens", 2000),
+                    top_p=kwargs.get("top_p", 0.9),
+                    stream=False,
+                    timeout=request_timeout,
+                ),
+                timeout=request_timeout + 1.0,
             )
-            
-            # 解析响应
+
             text = completion.choices[0].message.content or ""
             tokens_used = completion.usage.total_tokens if completion.usage else 0
-            
+
             logger.debug(f"通义千问生成成功: {len(text)} 字符, {tokens_used} tokens")
-            
+
             return {
                 "text": text,
                 "tokens_used": tokens_used,
-                "confidence": 0.95,  # 通义千问不返回confidence，使用默认值
-                "finish_reason": completion.choices[0].finish_reason or "stop"
+                "confidence": 0.95,
+                "finish_reason": completion.choices[0].finish_reason or "stop",
             }
-                
+
+        except asyncio.TimeoutError as e:
+            logger.warning("通义千问调用超时: %s", e)
+            raise Exception("通义千问API调用超时")
         except Exception as e:
             logger.error(f"通义千问API调用异常: {e}", exc_info=True)
             raise Exception(f"通义千问API调用失败: {str(e)}")

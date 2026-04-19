@@ -23,6 +23,8 @@ public class AgentProperties {
     @Data
     public static class Python {
         private String lawyerChatUrl = "http://localhost:8000/ai/agent/lawyer/chat";
+        private String teacherChatUrl = "http://localhost:8000/ai/agent/teacher/chat";
+        private String programmerChatUrl = "http://localhost:8000/ai/agent/programmer/chat";
+        private String writerChatUrl = "http://localhost:8000/ai/agent/writer/chat";
     }
 }
-

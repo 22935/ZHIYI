@@ -22,6 +22,7 @@ class ReactExecutor:
         session_id: str,
         text: str,
         memory: Dict[str, object],
+        role: str = "lawyer",
     ) -> Tuple[List[AgentTraceStep], List[str], Dict[str, object]]:
         trace: List[AgentTraceStep] = []
         skills_used: List[str] = []
@@ -36,7 +37,7 @@ class ReactExecutor:
                 actionInput=action.action_input,
                 memory=current_memory,
             )
-            result = await self.tool_router.run(action, request)
+            result = await self.tool_router.run(action, request, role=role)
 
             if action.action not in skills_used:
                 skills_used.append(action.action)

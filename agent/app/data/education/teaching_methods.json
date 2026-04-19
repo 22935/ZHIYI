@@ -1,0 +1,107 @@
+[
+  {
+    "id": "method_001",
+    "method_name": "问题链教学法",
+    "applicable_scenarios": ["新授课概念建构", "逻辑推理训练"],
+    "implementation_steps": ["设置起始问题", "追问关键关系", "组织学生归纳", "教师点拨提升"],
+    "examples": ["勾股定理从面积关系追问到代数表达"]
+  },
+  {
+    "id": "method_002",
+    "method_name": "分层任务单",
+    "applicable_scenarios": ["学情差异明显班级", "作业分层"],
+    "implementation_steps": ["按诊断划分A/B/C层", "设计阶梯任务", "设置可选挑战", "按层反馈"],
+    "examples": ["一次函数图像题基础层描点、提升层参数变化"]
+  },
+  {
+    "id": "method_003",
+    "method_name": "错题再生训练",
+    "applicable_scenarios": ["单元讲评课", "考试后复盘"],
+    "implementation_steps": ["归类错因", "重构同源题", "限时重做", "反思记录"],
+    "examples": ["欧姆定律计算中单位错误再训练"]
+  },
+  {
+    "id": "method_004",
+    "method_name": "同伴互讲",
+    "applicable_scenarios": ["习题课", "复习课"],
+    "implementation_steps": ["明确讲解标准", "两人互讲", "同伴提问", "教师抽查"],
+    "examples": ["二次函数最值题由学生讲思路"]
+  },
+  {
+    "id": "method_005",
+    "method_name": "实验探究四步法",
+    "applicable_scenarios": ["物理实验课", "科学探究活动"],
+    "implementation_steps": ["提出假设", "设计实验", "记录数据", "得出结论"],
+    "examples": ["压强与受力面积关系实验"]
+  },
+  {
+    "id": "method_006",
+    "method_name": "可视化板书法",
+    "applicable_scenarios": ["概念梳理", "知识总结"],
+    "implementation_steps": ["明确主线", "分区板书", "颜色区分关系", "留白补充"],
+    "examples": ["电学公式关系图板书"]
+  },
+  {
+    "id": "method_007",
+    "method_name": "情境任务驱动",
+    "applicable_scenarios": ["导入环节", "跨学科活动"],
+    "implementation_steps": ["给出真实情境", "发布任务", "小组求解", "展示评价"],
+    "examples": ["用校园地图设计最短路径应用勾股定理"]
+  },
+  {
+    "id": "method_008",
+    "method_name": "三段式讲评",
+    "applicable_scenarios": ["作业讲评", "周测讲评"],
+    "implementation_steps": ["先讲共性错因", "再讲关键题", "最后给迁移题"],
+    "examples": ["一元二次方程公式法易错点讲评"]
+  },
+  {
+    "id": "method_009",
+    "method_name": "思维脚手架",
+    "applicable_scenarios": ["学困生辅导", "答疑环节"],
+    "implementation_steps": ["拆解步骤", "提供提示句", "逐步撤架", "独立完成"],
+    "examples": ["受力分析先判接触再判方向"]
+  },
+  {
+    "id": "method_010",
+    "method_name": "目标-证据-评价对齐",
+    "applicable_scenarios": ["教案设计", "备课组共研"],
+    "implementation_steps": ["写清学习目标", "匹配达成证据", "设计评价任务", "调整教学活动"],
+    "examples": ["一次函数目标对应课堂小测与作图任务"]
+  },
+  {
+    "id": "method_011",
+    "method_name": "即时反馈投票",
+    "applicable_scenarios": ["课堂检测", "概念辨析"],
+    "implementation_steps": ["发布单题", "学生投票", "展示分布", "针对讲解"],
+    "examples": ["判断串并联电路电流关系"]
+  },
+  {
+    "id": "method_012",
+    "method_name": "双轨提问",
+    "applicable_scenarios": ["同堂差异化教学", "复习课"],
+    "implementation_steps": ["设置基础问", "设置挑战问", "随机点答", "归纳共性"],
+    "examples": ["基础问求速度，挑战问比较平均速度陷阱"]
+  },
+  {
+    "id": "method_013",
+    "method_name": "项目化微任务",
+    "applicable_scenarios": ["综合实践", "周末拓展"],
+    "implementation_steps": ["定义产出物", "拆分里程碑", "过程指导", "成果汇报"],
+    "examples": ["设计家庭节电方案并计算电费变化"]
+  },
+  {
+    "id": "method_014",
+    "method_name": "反思日志",
+    "applicable_scenarios": ["阶段学习总结", "个别辅导"],
+    "implementation_steps": ["记录错误", "写出原因", "制定改进", "下次复盘"],
+    "examples": ["统计单元中函数题错误类型并制定练习计划"]
+  },
+  {
+    "id": "method_015",
+    "method_name": "家校协同沟通单",
+    "applicable_scenarios": ["学情预警", "阶段汇报"],
+    "implementation_steps": ["提炼关键信息", "给出可执行建议", "约定跟进周期", "回收反馈"],
+    "examples": ["针对计算薄弱学生给出每日10分钟口算计划"]
+  }
+]

@@ -1,721 +1,743 @@
-﻿<template>
+<template>
   <div class="federated-learning-view">
-    <div class="page-header glass-panel">
-      <div>
-        <h1>联邦学习中心</h1>
-        <p>分布式模型协同训练与版本管理</p>
-      </div>
-      <div class="header-actions">
-        <el-button type="primary" @click="startDemo" :disabled="demoRunning">
-          <el-icon><VideoPlay /></el-icon>
-          开始演示
-        </el-button>
-        <el-button @click="resetSystem">
-          <el-icon><Refresh /></el-icon>
-          重置系统
-        </el-button>
-        <el-button @click="exportReport">
-          <el-icon><Document /></el-icon>
-          导出报告
-        </el-button>
-      </div>
+    <div class="ambient-layer">
+      <div class="ambient-orb orb-1"></div>
+      <div class="ambient-orb orb-2"></div>
+      <div class="ambient-orb orb-3"></div>
+      <div class="grid-pattern"></div>
     </div>
 
-    <div class="overview-cards">
-      <div class="overview-card glass-panel" v-for="stat in systemStats" :key="stat.label">
-        <div class="stat-icon">{{ stat.icon }}</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-label">{{ stat.label }}</div>
-        </div>
-        <div class="stat-trend" :class="{ positive: stat.trend > 0, negative: stat.trend < 0 }">
-          <el-icon v-if="stat.trend > 0"><Top /></el-icon>
-          <el-icon v-else-if="stat.trend < 0"><Bottom /></el-icon>
-          {{ Math.abs(stat.trend) }}%
-        </div>
-      </div>
-    </div>
-
-    <div class="main-content">
-      <div class="network-section glass-panel">
-        <div class="section-header">
-          <h2>联邦网络拓扑</h2>
-          <div class="section-actions">
-            <el-button size="small" @click="refreshNetwork">
-              <el-icon><Refresh /></el-icon>
-              刷新
-            </el-button>
-            <el-switch
-              v-model="autoRefresh"
-              active-text="自动刷新"
-              inactive-text="手动刷新"
-            />
+    <div class="view-container">
+      <header class="view-header">
+        <div class="header-left">
+          <div class="brand-icon">
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <circle cx="18" cy="18" r="16" stroke="#6366f1" stroke-width="1.5" />
+              <circle cx="18" cy="18" r="8" fill="#6366f1" opacity="0.2" />
+              <circle cx="18" cy="18" r="4" fill="#6366f1" />
+              <circle cx="10" cy="10" r="2.5" fill="#22d3ee" />
+              <circle cx="26" cy="10" r="2.5" fill="#22d3ee" />
+              <circle cx="10" cy="26" r="2.5" fill="#22d3ee" />
+              <circle cx="26" cy="26" r="2.5" fill="#22d3ee" />
+              <line x1="18" y1="18" x2="10" y2="10" stroke="#6366f1" stroke-width="0.8" opacity="0.4" />
+              <line x1="18" y1="18" x2="26" y2="10" stroke="#6366f1" stroke-width="0.8" opacity="0.4" />
+              <line x1="18" y1="18" x2="10" y2="26" stroke="#6366f1" stroke-width="0.8" opacity="0.4" />
+              <line x1="18" y1="18" x2="26" y2="26" stroke="#6366f1" stroke-width="0.8" opacity="0.4" />
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>联邦学习系统</h1>
+            <p>Federated Learning · 分布式智能协作平台</p>
           </div>
         </div>
-
-        <div class="network-toolbar">
-          <el-button size="small" circle @click="zoomIn"><el-icon><ZoomIn /></el-icon></el-button>
-          <el-button size="small" circle @click="zoomOut"><el-icon><ZoomOut /></el-icon></el-button>
-          <el-button size="small" circle @click="resetView"><el-icon><Refresh /></el-icon></el-button>
-          <el-button size="small" circle @click="toggleFullscreen"><el-icon><FullScreen /></el-icon></el-button>
+        <div class="header-right">
+          <div class="system-status-bar">
+            <span class="status-indicator" :class="systemStatus">
+              <span class="indicator-dot"></span>
+              {{ systemStatusText }}
+            </span>
+            <span class="round-badge">Round {{ currentRound }}</span>
+          </div>
+          <div class="header-actions">
+            <button class="action-btn" @click="startDemo" :disabled="demoRunning">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <polygon points="3,1 12,7 3,13" fill="currentColor" />
+              </svg>
+              演示
+            </button>
+            <button class="action-btn" @click="resetSystem">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 7a5 5 0 0 1 9-3M12 7a5 5 0 0 1-9 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                <path d="M11 1v3h-3M3 13v-3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              重置
+            </button>
+          </div>
         </div>
+      </header>
 
-        <div ref="networkCanvas" class="network-canvas"></div>
-
-        <div class="network-status">
-          <div class="item">活跃节点：<strong>{{ activeNodesCount }}</strong></div>
-          <div class="item">待激活节点：<strong>{{ inactiveNodesCount }}</strong></div>
-          <div class="item">数据传输：<strong>{{ dataTransfers }}</strong></div>
+      <div class="stats-row">
+        <div v-for="stat in systemStats" :key="stat.label" class="stat-card">
+          <div class="stat-icon-wrap" :style="{ background: stat.bgColor }">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" v-html="stat.svgPath"></svg>
+          </div>
+          <div class="stat-body">
+            <span class="stat-value">{{ stat.value }}</span>
+            <span class="stat-label">{{ stat.label }}</span>
+          </div>
+          <div class="stat-trend" :class="stat.trend > 0 ? 'up' : 'down'" v-if="stat.trend">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path v-if="stat.trend > 0" d="M6 2L10 7H2L6 2Z" fill="currentColor" />
+              <path v-else d="M6 10L2 5H10L6 10Z" fill="currentColor" />
+            </svg>
+            {{ Math.abs(stat.trend) }}%
+          </div>
         </div>
       </div>
 
-      <div class="details-section">
-        <div class="detail-card glass-panel">
-          <div class="section-header">
-            <h3>模型版本历史</h3>
-            <div class="section-actions">
-              <el-radio-group v-model="timelineView" size="small">
-                <el-radio-button label="all">全部</el-radio-button>
-                <el-radio-button label="latest">最新</el-radio-button>
-                <el-radio-button label="significant">重点</el-radio-button>
-              </el-radio-group>
-              <el-button size="small" @click="compareVersions" :disabled="selectedVersions.length < 2">
-                <el-icon><ScaleToOriginal /></el-icon>
-                版本对比
-              </el-button>
-              <el-button size="small" @click="exportHistory">
-                <el-icon><Download /></el-icon>
-                导出
-              </el-button>
+      <div class="viz-row">
+        <div class="panel-card topology-panel">
+          <div class="panel-card-header">
+            <div class="panel-title-group">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <circle cx="9" cy="9" r="7" stroke="#6366f1" stroke-width="1.2" />
+                <circle cx="9" cy="9" r="3" fill="#6366f1" opacity="0.3" />
+                <circle cx="9" cy="9" r="1.5" fill="#6366f1" />
+                <circle cx="5" cy="5" r="1.5" fill="#22d3ee" />
+                <circle cx="13" cy="5" r="1.5" fill="#22d3ee" />
+                <circle cx="5" cy="13" r="1.5" fill="#22d3ee" />
+                <circle cx="13" cy="13" r="1.5" fill="#22d3ee" />
+              </svg>
+              <h2>联邦网络拓扑</h2>
+            </div>
+            <div class="panel-actions">
+              <button class="icon-btn" @click="refreshNetwork" title="刷新">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 7a5 5 0 0 1 9-3M12 7a5 5 0 0 1-9 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                  <path d="M11 1v3h-3M3 13v-3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
             </div>
           </div>
-
-          <div class="timeline-wrap">
-            <el-timeline v-if="filteredModelHistory.length">
-              <el-timeline-item
-                v-for="version in filteredModelHistory"
-                :key="version.version_id"
-                :timestamp="formatTime(version.created_at)"
-                :type="version.isLatest ? 'primary' : version.significant ? 'warning' : 'info'"
-              >
-                <div
-                  class="version-card"
-                  :class="{ selected: selectedVersions.includes(version.version_id) }"
-                  @click="toggleVersionSelection(version)"
-                  @dblclick="showVersionDetails(version)"
-                >
-                  <div class="version-top">
-                    <el-tag size="small">v{{ version.version }}</el-tag>
-                    <el-tag v-if="version.isLatest" size="small" type="success">最新</el-tag>
-                    <el-tag v-if="version.significant" size="small" type="warning">重点</el-tag>
-                  </div>
-                  <div class="version-metrics">
-                    <span>客户端：{{ version.clients_count }}</span>
-                    <span>准确率：{{ version.accuracy }}%</span>
-                    <span>损失：{{ version.loss }}</span>
-                    <span>训练时长：{{ version.training_duration }}</span>
-                  </div>
-                </div>
-              </el-timeline-item>
-            </el-timeline>
-            <el-empty v-else description="暂无模型历史数据" />
-          </div>
+          <FederatedTopologyGraph
+            :clients="topologyClients"
+            :global-version="globalVersion"
+            :aggregating="aggregating"
+          />
         </div>
 
-        <div class="detail-card glass-panel">
-          <div class="section-header">
-            <h3>客户端列表</h3>
-            <el-input
-              v-model="clientSearch"
-              size="small"
-              placeholder="搜索客户端"
-              clearable
-              style="width: 220px"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
+        <div class="panel-card training-panel">
+          <div class="panel-card-header">
+            <div class="panel-title-group">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M2 14L6 8L10 11L16 3" stroke="#22d3ee" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="16" cy="3" r="2" fill="#22d3ee" opacity="0.3" />
+              </svg>
+              <h2>训练曲线</h2>
+            </div>
+            <div class="training-controls">
+              <button class="ctrl-btn" :class="{ active: trainingRunning }" @click="toggleTraining">
+                {{ trainingRunning ? '⏸ 暂停' : '▶ 继续' }}
+              </button>
+              <button class="ctrl-btn" @click="resetTraining">↺ 重置</button>
+            </div>
           </div>
-
-          <div class="clients-overview">
-            <span>总数：{{ clients.length }}</span>
-            <span>活跃率：{{ activeRate }}%</span>
-            <span>数据量：{{ totalDataSize }} MB</span>
+          <TrainingCurveChart
+            :accuracy-data="accuracyHistory"
+            :loss-data="lossHistory"
+            :rounds="roundHistory"
+          />
+          <div class="training-metrics-row">
+            <div class="mini-metric">
+              <span class="mini-metric-label">准确率</span>
+              <span class="mini-metric-value cyan">{{ currentAccuracy }}%</span>
+            </div>
+            <div class="mini-metric">
+              <span class="mini-metric-label">损失值</span>
+              <span class="mini-metric-value pink">{{ currentLoss }}</span>
+            </div>
+            <div class="mini-metric">
+              <span class="mini-metric-label">训练耗时</span>
+              <span class="mini-metric-value purple">{{ trainingTime }}</span>
+            </div>
+            <div class="mini-metric">
+              <span class="mini-metric-label">收敛速度</span>
+              <span class="mini-metric-value green">{{ convergenceSpeed }}</span>
+            </div>
           </div>
+        </div>
+      </div>
 
-          <div class="clients-wrap">
-            <div
-              v-for="client in filteredClients"
-              :key="client.client_id"
-              class="client-card"
-              :class="{ selected: selectedClients.includes(client.client_id), active: client.upload_count > 0 }"
-              @click="toggleClientSelection(client)"
-              @dblclick="showClientDetails(client)"
-            >
-              <div class="client-top">
-                <div>
-                  <div class="name">{{ client.info?.name || client.client_id }}</div>
-                  <div class="meta">
-                    <span>上传 {{ client.upload_count }} 次</span>
-                    <span v-if="client.is_online" class="online">在线</span>
-                    <span v-else class="offline">离线</span>
-                  </div>
-                </div>
-                <el-button size="small" circle @click.stop="sendMessageToClient(client)">
-                  <el-icon><Message /></el-icon>
-                </el-button>
-              </div>
+      <div class="detail-row">
+        <div class="panel-card aggregation-panel">
+          <div class="panel-card-header">
+            <div class="panel-title-group">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <circle cx="9" cy="4" r="2" fill="#6366f1" />
+                <circle cx="4" cy="13" r="2" fill="#22d3ee" />
+                <circle cx="14" cy="13" r="2" fill="#a78bfa" />
+                <line x1="9" y1="6" x2="4" y2="11" stroke="#6366f1" stroke-width="0.8" opacity="0.5" />
+                <line x1="9" y1="6" x2="14" y2="11" stroke="#6366f1" stroke-width="0.8" opacity="0.5" />
+              </svg>
+              <h2>模型聚合</h2>
+            </div>
+          </div>
+          <ModelAggregationCard
+            :clients="aggClients"
+            :aggregating="aggregating"
+            :min-clients="3"
+            @aggregate="handleAggregate"
+            @refresh="fetchAggregationStatus"
+          />
+        </div>
 
-              <div class="client-stats">
-                <div>最后上传：{{ formatTime(client.last_upload) }}</div>
-                <div>数据量：{{ client.data_size }} MB</div>
-                <div>贡献度：{{ client.contribution }}%</div>
-              </div>
-
-              <div class="progress-row">
-                <span>准确率</span>
-                <el-progress :percentage="client.accuracy" :show-text="false" :stroke-width="4" />
-                <span>{{ client.accuracy }}%</span>
-              </div>
-              <div class="progress-row">
-                <span>训练进度</span>
-                <el-progress :percentage="client.training_progress" :show-text="false" :stroke-width="4" />
-                <span>{{ client.training_progress }}%</span>
+        <div class="panel-card privacy-panel">
+          <div class="panel-card-header">
+            <div class="panel-title-group">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <rect x="4" y="8" width="10" height="7" rx="1.5" stroke="#34d399" stroke-width="1.2" />
+                <path d="M6 8V6a3 3 0 0 1 6 0v2" stroke="#34d399" stroke-width="1.2" stroke-linecap="round" />
+                <circle cx="9" cy="11.5" r="1" fill="#34d399" />
+              </svg>
+              <h2>隐私保护</h2>
+            </div>
+          </div>
+          <div class="privacy-content">
+            <div class="privacy-visual">
+              <svg width="100%" height="80" viewBox="0 0 280 80" class="privacy-svg">
+                <defs>
+                  <linearGradient id="privGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#6366f1" stop-opacity="0.2" />
+                    <stop offset="50%" stop-color="#22d3ee" stop-opacity="0.1" />
+                    <stop offset="100%" stop-color="#34d399" stop-opacity="0.2" />
+                  </linearGradient>
+                </defs>
+                <rect x="0" y="0" width="280" height="80" rx="8" fill="url(#privGrad)" />
+                <g transform="translate(30, 20)">
+                  <rect x="0" y="0" width="40" height="40" rx="4" fill="#6366f1" opacity="0.15" stroke="#6366f1" stroke-width="0.5" />
+                  <text x="20" y="24" text-anchor="middle" fill="#6366f1" font-size="8">∇x</text>
+                </g>
+                <g transform="translate(90, 20)">
+                  <rect x="0" y="0" width="40" height="40" rx="4" fill="#22d3ee" opacity="0.15" stroke="#22d3ee" stroke-width="0.5" />
+                  <text x="20" y="24" text-anchor="middle" fill="#22d3ee" font-size="8">ε-δ</text>
+                </g>
+                <g transform="translate(150, 20)">
+                  <rect x="0" y="0" width="40" height="40" rx="4" fill="#a78bfa" opacity="0.15" stroke="#a78bfa" stroke-width="0.5" />
+                  <text x="20" y="24" text-anchor="middle" fill="#a78bfa" font-size="8">E[·]</text>
+                </g>
+                <g transform="translate(210, 20)">
+                  <rect x="0" y="0" width="40" height="40" rx="4" fill="#34d399" opacity="0.15" stroke="#34d399" stroke-width="0.5" />
+                  <text x="20" y="24" text-anchor="middle" fill="#34d399" font-size="8">||g||</text>
+                </g>
+                <line x1="70" y1="40" x2="90" y2="40" stroke="#64748b" stroke-width="0.8" marker-end="url(#arrowhead)" />
+                <line x1="130" y1="40" x2="150" y2="40" stroke="#64748b" stroke-width="0.8" />
+                <line x1="190" y1="40" x2="210" y2="40" stroke="#64748b" stroke-width="0.8" />
+              </svg>
+            </div>
+            <div class="privacy-items">
+              <div class="privacy-item" v-for="item in privacyMechanisms" :key="item.label">
+                <span class="privacy-dot" :class="{ active: item.enabled }"></span>
+                <span class="privacy-label">{{ item.label }}</span>
+                <span class="privacy-status" :class="{ on: item.enabled }">{{ item.enabled ? '已启用' : '未启用' }}</span>
               </div>
             </div>
+          </div>
+        </div>
 
-            <el-empty v-if="filteredClients.length === 0" description="未找到匹配客户端" />
+        <div class="panel-card models-panel">
+          <div class="panel-card-header">
+            <div class="panel-title-group">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M9 2L16 6v6l-7 4-7-4V6l7-4z" stroke="#6366f1" stroke-width="1.2" />
+                <path d="M9 2v8m0 0l7-4m-7 4l-7-4m7 4v8" stroke="#6366f1" stroke-width="0.6" opacity="0.4" />
+              </svg>
+              <h2>模型管理</h2>
+            </div>
+          </div>
+          <div class="models-list">
+            <div v-for="model in models" :key="model.id" class="model-item" :class="model.status">
+              <div class="model-head">
+                <div class="model-icon-box" :style="{ borderColor: model.color }">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1L14 4.5v7L8 15 2 11.5v-7L8 1z" :stroke="model.color" stroke-width="1" />
+                  </svg>
+                </div>
+                <div class="model-info">
+                  <span class="model-name">{{ model.name }}</span>
+                  <span class="model-version">v{{ model.version }}</span>
+                </div>
+                <span class="model-badge" :class="model.status">{{ model.statusText }}</span>
+              </div>
+              <div class="model-perf">
+                <div class="perf-row">
+                  <span class="perf-label">准确率</span>
+                  <div class="perf-bar"><div class="perf-fill" :style="{ width: model.accuracy + '%', background: model.color }"></div></div>
+                  <span class="perf-val">{{ model.accuracy }}%</span>
+                </div>
+                <div class="perf-row">
+                  <span class="perf-label">效率</span>
+                  <div class="perf-bar"><div class="perf-fill" :style="{ width: model.efficiency + '%', background: model.color, opacity: 0.6 }"></div></div>
+                  <span class="perf-val">{{ model.efficiency }}%</span>
+                </div>
+              </div>
+              <div class="model-btns">
+                <button class="model-btn" @click="evaluateModel(model)">评估</button>
+                <button class="model-btn primary" @click="optimizeModel(model)">优化</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card version-panel">
+          <div class="panel-card-header">
+            <div class="panel-title-group">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <circle cx="9" cy="9" r="7" stroke="#6366f1" stroke-width="1.2" />
+                <path d="M9 5v4l2.5 1.5" stroke="#6366f1" stroke-width="1" stroke-linecap="round" />
+              </svg>
+              <h2>版本历史</h2>
+            </div>
+          </div>
+          <div class="version-list">
+            <div v-for="ver in versionHistory" :key="ver.version" class="version-item" :class="{ latest: ver.isLatest }">
+              <div class="version-dot"></div>
+              <div class="version-body">
+                <div class="version-top">
+                  <span class="version-tag">v{{ ver.version }}</span>
+                  <span v-if="ver.isLatest" class="latest-badge">最新</span>
+                </div>
+                <div class="version-meta">
+                  <span>准确率 {{ ver.accuracy }}%</span>
+                  <span>·</span>
+                  <span>{{ ver.clients }} 节点</span>
+                  <span>·</span>
+                  <span>{{ ver.time }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="demoRunning" class="demo-overlay">
+        <div class="demo-card">
+          <div class="demo-card-header">
+            <h3>联邦学习交互演示</h3>
+            <button class="close-btn" @click="stopDemo">✕</button>
+          </div>
+          <div class="demo-steps">
+            <div class="demo-step" v-for="(step, idx) in demoSteps" :key="idx">
+              <div class="step-num">{{ idx + 1 }}</div>
+              <div class="step-body">
+                <span class="step-text">{{ step.label }}</span>
+                <div class="step-progress">
+                  <div class="step-fill" :style="{ width: step.progress + '%' }"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-
-    <div v-if="demoRunning" class="demo-box glass-panel">
-      <div class="section-header compact">
-        <h3>演示进行中</h3>
-        <el-button size="small" @click="stopDemo">
-          <el-icon><Close /></el-icon>
-          停止
-        </el-button>
-      </div>
-      <div class="demo-steps">
-        <div class="step">
-          <span>1. 客户端接入</span>
-          <el-progress :percentage="demoProgress.clientConnect" />
-        </div>
-        <div class="step">
-          <span>2. 本地训练</span>
-          <el-progress :percentage="demoProgress.localTraining" />
-        </div>
-        <div class="step">
-          <span>3. 全局聚合</span>
-          <el-progress :percentage="demoProgress.globalAggregation" />
-        </div>
-      </div>
-    </div>
-
-    <el-dialog v-model="clientDialog.visible" title="客户端详情" width="560px">
-      <div v-if="clientDialog.data" class="client-dialog-content">
-        <p><strong>名称：</strong>{{ clientDialog.data.info?.name || clientDialog.data.client_id }}</p>
-        <p><strong>ID：</strong>{{ clientDialog.data.client_id }}</p>
-        <p><strong>上传次数：</strong>{{ clientDialog.data.upload_count }}</p>
-        <p><strong>最后上传：</strong>{{ formatTime(clientDialog.data.last_upload) }}</p>
-        <p><strong>数据量：</strong>{{ clientDialog.data.data_size }} MB</p>
-      </div>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  VideoPlay,
-  Refresh,
-  Top,
-  Bottom,
-  Download,
-  Search,
-  Close,
-  Document,
-  ZoomIn,
-  ZoomOut,
-  FullScreen,
-  ScaleToOriginal,
-  Message
-} from '@element-plus/icons-vue'
-
-type TimelineView = 'all' | 'latest' | 'significant'
-
-interface ModelVersion {
-  version_id: string
-  version: string
-  created_at: string
-  clients_count: number
-  accuracy: number
-  loss: number
-  isLatest: boolean
-  significant: boolean
-  accuracy_trend: number
-  training_duration: string
-}
-
-interface ClientNode {
-  client_id: string
-  upload_count: number
-  last_upload: string | null
-  info: { name: string }
-  data_size: number
-  is_online: boolean
-  contribution: number
-  accuracy: number
-  training_progress: number
-}
+import FederatedTopologyGraph from '@/components/federated/FederatedTopologyGraph.vue'
+import TrainingCurveChart from '@/components/federated/TrainingCurveChart.vue'
+import ModelAggregationCard from '@/components/federated/ModelAggregationCard.vue'
+import { federatedModelApi } from '@/services/api/federatedModel'
 
 const demoRunning = ref(false)
-const autoRefresh = ref(true)
-const clientSearch = ref('')
-const timelineView = ref<TimelineView>('all')
-const selectedVersions = ref<string[]>([])
-const selectedClients = ref<string[]>([])
-const zoomLevel = ref(1)
-let refreshInterval: ReturnType<typeof setInterval> | null = null
-let demoInterval: ReturnType<typeof setInterval> | null = null
-
-const demoProgress = ref({
-  clientConnect: 0,
-  localTraining: 0,
-  globalAggregation: 0
-})
-
-const clientDialog = ref<{ visible: boolean; data: ClientNode | null }>({
-  visible: false,
-  data: null
-})
+const trainingRunning = ref(true)
+const aggregating = ref(false)
+const globalVersion = ref('3.2')
+const currentRound = ref(32)
+const trainingTime = ref('12m 34s')
+const convergenceSpeed = ref('0.82/round')
 
 const systemStats = ref([
-  { icon: '节点', label: '活跃节点', value: '5', trend: 25 },
-  { icon: '版本', label: '模型版本', value: '8', trend: 12 },
-  { icon: '轮次', label: '训练轮次', value: '32', trend: 8 },
-  { icon: '精度', label: '平均准确率', value: '92.5%', trend: 3 }
-])
-
-const modelHistory = ref<ModelVersion[]>([
   {
-    version_id: 'v1.0.0',
-    version: '1.0.0',
-    created_at: new Date(Date.now() - 2592000000).toISOString(),
-    clients_count: 3,
-    accuracy: 85.2,
-    loss: 0.45,
-    isLatest: false,
-    significant: false,
-    accuracy_trend: 0,
-    training_duration: '34m'
+    label: '活跃节点',
+    value: '5',
+    trend: 25,
+    bgColor: 'rgba(99, 102, 241, 0.1)',
+    svgPath: '<circle cx="10" cy="10" r="7" stroke="#6366f1" stroke-width="1.2"/><circle cx="10" cy="10" r="3" fill="#6366f1" opacity="0.3"/><circle cx="10" cy="10" r="1.5" fill="#6366f1"/>'
   },
   {
-    version_id: 'v1.1.0',
-    version: '1.1.0',
-    created_at: new Date(Date.now() - 1728000000).toISOString(),
-    clients_count: 5,
-    accuracy: 88.7,
-    loss: 0.38,
-    isLatest: false,
-    significant: true,
-    accuracy_trend: 3.5,
-    training_duration: '29m'
+    label: '模型版本',
+    value: '8',
+    trend: 12,
+    bgColor: 'rgba(34, 211, 238, 0.1)',
+    svgPath: '<path d="M10 2L18 6v8l-8 4-8-4V6l8-4z" stroke="#22d3ee" stroke-width="1.2"/>'
   },
   {
-    version_id: 'v1.2.0',
-    version: '1.2.0',
-    created_at: new Date(Date.now() - 864000000).toISOString(),
-    clients_count: 7,
-    accuracy: 91.3,
-    loss: 0.29,
-    isLatest: false,
-    significant: true,
-    accuracy_trend: 2.6,
-    training_duration: '24m'
+    label: '训练轮次',
+    value: '32',
+    trend: 8,
+    bgColor: 'rgba(167, 139, 250, 0.1)',
+    svgPath: '<circle cx="10" cy="10" r="7" stroke="#a78bfa" stroke-width="1.2"/><path d="M10 6v4l2.5 1.5" stroke="#a78bfa" stroke-width="1" stroke-linecap="round"/>'
   },
   {
-    version_id: 'v1.3.0',
-    version: '1.3.0',
-    created_at: new Date().toISOString(),
-    clients_count: 8,
-    accuracy: 92.5,
-    loss: 0.25,
-    isLatest: true,
-    significant: true,
-    accuracy_trend: 1.2,
-    training_duration: '22m'
+    label: '全局准确率',
+    value: '93.2%',
+    trend: 3,
+    bgColor: 'rgba(52, 211, 153, 0.1)',
+    svgPath: '<path d="M3 14L7 8L11 11L17 3" stroke="#34d399" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
   }
 ])
 
-const clients = ref<ClientNode[]>([
-  {
-    client_id: 'client_001',
-    upload_count: 12,
-    last_upload: new Date().toISOString(),
-    info: { name: '北京节点' },
-    data_size: 245,
-    is_online: true,
-    contribution: 24,
-    accuracy: 93,
-    training_progress: 100
-  },
-  {
-    client_id: 'client_002',
-    upload_count: 8,
-    last_upload: new Date(Date.now() - 86400000).toISOString(),
-    info: { name: '上海节点' },
-    data_size: 187,
-    is_online: true,
-    contribution: 18,
-    accuracy: 90,
-    training_progress: 86
-  },
-  {
-    client_id: 'client_003',
-    upload_count: 0,
-    last_upload: null,
-    info: { name: '广州节点' },
-    data_size: 0,
-    is_online: false,
-    contribution: 0,
-    accuracy: 0,
-    training_progress: 0
-  },
-  {
-    client_id: 'client_004',
-    upload_count: 15,
-    last_upload: new Date().toISOString(),
-    info: { name: '深圳节点' },
-    data_size: 312,
-    is_online: true,
-    contribution: 32,
-    accuracy: 95,
-    training_progress: 100
-  },
-  {
-    client_id: 'client_005',
-    upload_count: 6,
-    last_upload: new Date(Date.now() - 172800000).toISOString(),
-    info: { name: '杭州节点' },
-    data_size: 134,
-    is_online: false,
-    contribution: 12,
-    accuracy: 88,
-    training_progress: 72
-  }
+const topologyClients = ref([
+  { id: 'c1', label: '律师节点', active: true, accuracy: 92.5, dataSize: 245 },
+  { id: 'c2', label: '教师节点', active: true, accuracy: 88.7, dataSize: 187 },
+  { id: 'c3', label: '程序员节点', active: true, accuracy: 91.3, dataSize: 312 },
+  { id: 'c4', label: '作家节点', active: true, accuracy: 89.1, dataSize: 156 },
+  { id: 'c5', label: '风控节点', active: false, accuracy: 85.2, dataSize: 0 },
+  { id: 'c6', label: 'NLP节点', active: true, accuracy: 90.4, dataSize: 278 }
 ])
 
-const activeNodesCount = computed(() => clients.value.filter(client => client.upload_count > 0).length)
-const inactiveNodesCount = computed(() => clients.value.filter(client => client.upload_count === 0).length)
+const accuracyHistory = ref([72.3, 78.5, 83.1, 86.4, 88.9, 90.2, 91.5, 92.1, 92.8, 93.2])
+const lossHistory = ref([0.68, 0.55, 0.44, 0.36, 0.29, 0.24, 0.20, 0.17, 0.15, 0.13])
+const roundHistory = ref([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
-const dataTransfers = computed(() => {
-  const base = clients.value.reduce((sum, client) => sum + Math.min(client.upload_count, 3), 0)
-  if (!demoRunning.value) return base
-  return base + Math.round((demoProgress.value.clientConnect + demoProgress.value.localTraining) / 20)
-})
+const aggClients = ref([
+  { id: 'c1', label: '律师节点', weight: 0.25, uploaded: true },
+  { id: 'c2', label: '教师节点', weight: 0.20, uploaded: true },
+  { id: 'c3', label: '程序员节点', weight: 0.25, uploaded: true },
+  { id: 'c4', label: '作家节点', weight: 0.15, uploaded: true },
+  { id: 'c5', label: '风控节点', weight: 0.15, uploaded: false }
+])
 
-const filteredModelHistory = computed(() => {
-  if (timelineView.value === 'latest') {
-    return modelHistory.value.filter(version => version.isLatest)
-  }
-  if (timelineView.value === 'significant') {
-    return modelHistory.value.filter(version => version.significant)
-  }
-  return modelHistory.value
-})
+const privacyMechanisms = ref([
+  { label: '差分隐私 (DP-SGD)', enabled: true },
+  { label: '同态加密 (HE)', enabled: true },
+  { label: '安全聚合 (SecAgg)', enabled: true },
+  { label: '梯度裁剪 (Clip)', enabled: true },
+  { label: '噪声注入 (Noise)', enabled: false }
+])
 
-const filteredClients = computed(() => {
-  if (!clientSearch.value.trim()) return clients.value
-  const keyword = clientSearch.value.trim().toLowerCase()
-  return clients.value.filter(client => {
-    const name = client.info?.name || client.client_id
-    return name.toLowerCase().includes(keyword) || client.client_id.toLowerCase().includes(keyword)
-  })
-})
+const versionHistory = ref([
+  { version: '3.2', accuracy: 93.2, clients: 6, time: '刚刚', isLatest: true },
+  { version: '3.1', accuracy: 92.1, clients: 5, time: '2小时前', isLatest: false },
+  { version: '3.0', accuracy: 91.5, clients: 5, time: '1天前', isLatest: false },
+  { version: '2.8', accuracy: 90.2, clients: 4, time: '3天前', isLatest: false },
+  { version: '2.5', accuracy: 88.9, clients: 4, time: '1周前', isLatest: false }
+])
 
-const activeRate = computed(() => {
-  if (!clients.value.length) return 0
-  return Math.round((activeNodesCount.value / clients.value.length) * 100)
-})
+const models = ref([
+  { id: 'lawyer', name: '法学认知增强模型', version: '3.2', status: 'online', statusText: '在线', accuracy: 98, efficiency: 92, color: '#3b82f6' },
+  { id: 'teacher', name: '教育逻辑协同模型', version: '2.8', status: 'online', statusText: '在线', accuracy: 94, efficiency: 88, color: '#10b981' },
+  { id: 'programmer', name: '工程代码优化模型', version: '4.1', status: 'training', statusText: '训练中', accuracy: 91, efficiency: 98, color: '#8b5cf6' },
+  { id: 'writer', name: '创意写作增强模型', version: '2.3', status: 'ready', statusText: '就绪', accuracy: 89, efficiency: 85, color: '#f59e0b' }
+])
 
-const totalDataSize = computed(() => clients.value.reduce((total, client) => total + (client.data_size || 0), 0))
+const demoSteps = ref([
+  { label: '模拟客户端连接和数据上传', progress: 0 },
+  { label: '本地模型训练和参数更新', progress: 0 },
+  { label: '全局模型聚合和版本发布', progress: 0 }
+])
 
-const networkCanvas = ref<HTMLElement | null>(null)
+const systemStatus = computed(() => aggregating.value ? 'aggregating' : trainingRunning.value ? 'training' : 'paused')
+const systemStatusText = computed(() => aggregating.value ? '聚合中' : trainingRunning.value ? '训练中' : '已暂停')
+const currentAccuracy = computed(() => accuracyHistory.value.length ? accuracyHistory.value[accuracyHistory.value.length - 1].toFixed(1) : '--')
+const currentLoss = computed(() => lossHistory.value.length ? lossHistory.value[lossHistory.value.length - 1].toFixed(3) : '--')
 
-const applyCanvasZoom = () => {
-  if (!networkCanvas.value) return
-  networkCanvas.value.style.transform = `scale(${zoomLevel.value})`
-  networkCanvas.value.style.transformOrigin = 'center center'
+function toggleTraining() {
+  trainingRunning.value = !trainingRunning.value
 }
 
-const renderNetwork = () => {
-  if (!networkCanvas.value) return
-
-  const canvas = networkCanvas.value
-  canvas.innerHTML = ''
-
-  const centerNode = document.createElement('div')
-  centerNode.className = 'network-node center-node'
-  centerNode.innerHTML = `
-    <div class="node-pulse"></div>
-    <div class="node-content">
-      <span class="node-icon">AI</span>
-      <span class="node-label">联邦中心</span>
-    </div>
-  `
-  canvas.appendChild(centerNode)
-
-  clients.value.forEach((client, index) => {
-    const angle = (index / clients.value.length) * 2 * Math.PI
-    const radius = 180
-    const isActive = client.upload_count > 0
-
-    const line = document.createElement('div')
-    line.className = `network-line ${isActive ? 'active' : ''}`
-    line.style.width = `${radius}px`
-    line.style.left = '50%'
-    line.style.top = '50%'
-    line.style.transform = `rotate(${angle}rad)`
-    if (isActive) line.innerHTML = '<div class="data-flow"></div>'
-
-    const clientNode = document.createElement('div')
-    clientNode.className = `network-node client-node ${isActive ? 'active' : ''}`
-    clientNode.style.left = `calc(50% + ${radius * Math.cos(angle)}px)`
-    clientNode.style.top = `calc(50% + ${radius * Math.sin(angle)}px)`
-    clientNode.innerHTML = `
-      <div class="node-content">
-        <span class="node-icon">${getClientIcon(client.info?.name)}</span>
-        <span class="node-label">${client.info?.name || client.client_id}</span>
-      </div>
-      <div class="node-status ${isActive ? 'active' : ''}"></div>
-    `
-
-    canvas.appendChild(line)
-    canvas.appendChild(clientNode)
-  })
-
-  applyCanvasZoom()
+function resetTraining() {
+  accuracyHistory.value = [72.3, 78.5, 83.1, 86.4, 88.9, 90.2, 91.5, 92.1, 92.8, 93.2]
+  lossHistory.value = [0.68, 0.55, 0.44, 0.36, 0.29, 0.24, 0.20, 0.17, 0.15, 0.13]
+  roundHistory.value = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  trainingRunning.value = true
 }
 
-const startDemo = async () => {
+function refreshNetwork() {
+  ElMessage.success('网络拓扑已刷新')
+}
+
+async function handleAggregate() {
+  aggregating.value = true
+  ElMessage.info('开始联邦聚合...')
+  try {
+    const result = await federatedModelApi.optimizeModel('advanced', 'federated', 'quality', 1)
+    if (result.success) {
+      ElMessage.success('联邦聚合完成！模型已更新')
+      globalVersion.value = (parseFloat(globalVersion.value) + 0.1).toFixed(1)
+      currentRound.value++
+      versionHistory.value.unshift({
+        version: globalVersion.value,
+        accuracy: parseFloat(currentAccuracy.value),
+        clients: topologyClients.value.filter(c => c.active).length,
+        time: '刚刚',
+        isLatest: true
+      })
+      if (versionHistory.value.length > 1) versionHistory.value[1].isLatest = false
+    }
+  } catch {
+    ElMessage.warning('聚合服务暂不可用，使用本地模拟')
+    setTimeout(() => {
+      globalVersion.value = (parseFloat(globalVersion.value) + 0.1).toFixed(1)
+      currentRound.value++
+      ElMessage.success('本地模拟聚合完成')
+    }, 2000)
+  } finally {
+    aggregating.value = false
+  }
+}
+
+async function fetchAggregationStatus() {
+  try {
+    const result = await federatedModelApi.getOptimizationStatus()
+    if (result.success) ElMessage.success('聚合状态已刷新')
+  } catch {
+    ElMessage.info('使用本地缓存数据')
+  }
+}
+
+async function evaluateModel(model: any) {
+  ElMessage.info(`正在评估 ${model.name}...`)
+  try {
+    const result = await federatedModelApi.evaluateModel(model.id)
+    if (result.success) ElMessage.success(`${model.name} 评估完成`)
+  } catch {
+    ElMessage.warning('评估服务暂不可用')
+  }
+}
+
+async function optimizeModel(model: any) {
+  ElMessage.info(`正在优化 ${model.name}...`)
+  try {
+    const result = await federatedModelApi.optimizeModel(model.id, 'federated', 'quality', 5)
+    if (result.success) ElMessage.success(`${model.name} 优化完成`)
+  } catch {
+    ElMessage.warning('优化服务暂不可用')
+  }
+}
+
+function startDemo() {
   demoRunning.value = true
-  ElMessage.success('演示已启动')
-
-  if (demoInterval) clearInterval(demoInterval)
-  demoProgress.value = { clientConnect: 0, localTraining: 0, globalAggregation: 0 }
-
-  demoInterval = setInterval(() => {
-    if (demoProgress.value.clientConnect < 100) {
-      demoProgress.value.clientConnect += 10
-      return
+  demoSteps.value = [
+    { label: '模拟客户端连接和数据上传', progress: 0 },
+    { label: '本地模型训练和参数更新', progress: 0 },
+    { label: '全局模型聚合和版本发布', progress: 0 }
+  ]
+  const interval = setInterval(() => {
+    const steps = demoSteps.value
+    if (steps[0].progress < 100) {
+      steps[0].progress += 10
+    } else if (steps[1].progress < 100) {
+      steps[1].progress += 10
+    } else if (steps[2].progress < 100) {
+      steps[2].progress += 10
+    } else {
+      clearInterval(interval)
+      ElMessage.success('演示完成！')
     }
-    if (demoProgress.value.localTraining < 100) {
-      demoProgress.value.localTraining += 10
-      return
-    }
-    if (demoProgress.value.globalAggregation < 100) {
-      demoProgress.value.globalAggregation += 10
-      return
-    }
-
-    stopDemo()
-    ElMessage.success('演示完成')
   }, 800)
 }
 
-const stopDemo = () => {
+function stopDemo() {
   demoRunning.value = false
-  demoProgress.value = { clientConnect: 0, localTraining: 0, globalAggregation: 0 }
-  if (demoInterval) {
-    clearInterval(demoInterval)
-    demoInterval = null
-  }
+  ElMessage.info('演示已停止')
 }
 
-const resetSystem = async () => {
+async function resetSystem() {
   try {
-    await ElMessageBox.confirm('确定要重置联邦学习面板吗？', '确认重置', {
-      confirmButtonText: '重置',
+    await ElMessageBox.confirm('确定要重置系统吗？', '确认重置', {
+      confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
     })
     stopDemo()
-    selectedVersions.value = []
-    selectedClients.value = []
-    zoomLevel.value = 1
-    renderNetwork()
+    resetTraining()
+    globalVersion.value = '3.2'
+    currentRound.value = 32
     ElMessage.success('系统已重置')
-  } catch {
-    // ignore cancel
-  }
+  } catch {}
 }
 
-const refreshNetwork = () => {
-  renderNetwork()
-  ElMessage.success('拓扑已刷新')
-}
-
-const exportReport = () => {
-  ElMessage.success('报告导出成功')
-}
-
-const exportHistory = () => {
-  ElMessage.success('模型历史导出成功')
-}
-
-const zoomIn = () => {
-  zoomLevel.value = Math.min(1.8, Number((zoomLevel.value + 0.1).toFixed(2)))
-  applyCanvasZoom()
-}
-
-const zoomOut = () => {
-  zoomLevel.value = Math.max(0.6, Number((zoomLevel.value - 0.1).toFixed(2)))
-  applyCanvasZoom()
-}
-
-const resetView = () => {
-  zoomLevel.value = 1
-  applyCanvasZoom()
-}
-
-const toggleFullscreen = async () => {
-  if (!networkCanvas.value) return
+onMounted(async () => {
   try {
-    if (!document.fullscreenElement) {
-      await networkCanvas.value.requestFullscreen()
-    } else {
-      await document.exitFullscreen()
+    const result = await federatedModelApi.listModels()
+    if (result.success && result.data) {
+      const remoteModels: any[] = []
+      Object.entries(result.data || {}).forEach(([, groupModels]) => {
+        Object.entries(groupModels || {}).forEach(([modelKey, model]: [string, any]) => {
+          remoteModels.push({
+            id: modelKey,
+            name: model.name || modelKey,
+            version: model.version || '1.0.0',
+            status: model.status === 'active' ? 'online' : 'ready',
+            statusText: model.status === 'active' ? '在线' : '就绪',
+            accuracy: Math.round((model.performance?.accuracy || 0.85) * 100),
+            efficiency: Math.round((model.performance?.efficiency || 0.80) * 100),
+            color: '#6366f1'
+          })
+        })
+      })
+      if (remoteModels.length > 0) models.value = remoteModels
     }
-  } catch {
-    ElMessage.warning('当前环境不支持全屏')
-  }
-}
-
-const toggleVersionSelection = (version: ModelVersion) => {
-  const id = version.version_id
-  if (selectedVersions.value.includes(id)) {
-    selectedVersions.value = selectedVersions.value.filter(item => item !== id)
-    return
-  }
-  if (selectedVersions.value.length >= 2) {
-    selectedVersions.value = [selectedVersions.value[1], id]
-    return
-  }
-  selectedVersions.value = [...selectedVersions.value, id]
-}
-
-const compareVersions = () => {
-  if (selectedVersions.value.length < 2) {
-    ElMessage.warning('请先选择两个版本')
-    return
-  }
-
-  const [aId, bId] = selectedVersions.value
-  const a = modelHistory.value.find(item => item.version_id === aId)
-  const b = modelHistory.value.find(item => item.version_id === bId)
-
-  if (!a || !b) {
-    ElMessage.warning('版本数据不存在')
-    return
-  }
-
-  const acc = (b.accuracy - a.accuracy).toFixed(2)
-  const loss = (b.loss - a.loss).toFixed(3)
-  ElMessage.info(`v${a.version} -> v${b.version}，准确率变化 ${acc}%，损失变化 ${loss}`)
-}
-
-const showVersionDetails = (version: ModelVersion) => {
-  ElMessage.info(`版本 v${version.version}，客户端 ${version.clients_count}，准确率 ${version.accuracy}%`)
-}
-
-const toggleClientSelection = (client: ClientNode) => {
-  const id = client.client_id
-  if (selectedClients.value.includes(id)) {
-    selectedClients.value = selectedClients.value.filter(item => item !== id)
-    return
-  }
-  selectedClients.value = [...selectedClients.value, id]
-}
-
-const sendMessageToClient = (client: ClientNode) => {
-  ElMessage.success(`已向 ${client.info?.name || client.client_id} 下发指令`)
-}
-
-const showClientDetails = (client: ClientNode) => {
-  clientDialog.value = { visible: true, data: client }
-}
-
-const getClientIcon = (name: string) => {
-  if (!name) return 'N'
-  if (name.includes('北京')) return '京'
-  if (name.includes('上海')) return '沪'
-  if (name.includes('广州')) return '穗'
-  if (name.includes('深圳')) return '深'
-  if (name.includes('杭州')) return '杭'
-  return 'N'
-}
-
-const formatTime = (time: string | null) => {
-  if (!time) return '从未上传'
-  return new Date(time).toLocaleString('zh-CN')
-}
-
-onMounted(() => {
-  renderNetwork()
-  refreshInterval = setInterval(() => {
-    if (autoRefresh.value) renderNetwork()
-  }, 5000)
-})
-
-onUnmounted(() => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-    refreshInterval = null
-  }
-  if (demoInterval) {
-    clearInterval(demoInterval)
-    demoInterval = null
-  }
+  } catch {}
 })
 </script>
 
 <style scoped>
 .federated-learning-view {
-  min-height: 100%;
-  padding: 16px;
-  background: var(--bg-app);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  min-height: 100vh;
+  background: #f8fafc;
+  position: relative;
+  overflow-x: hidden;
 }
 
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid var(--border-light);
-  border-radius: 12px;
+.ambient-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
 }
 
-.page-header {
-  padding: 16px;
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+}
+
+.orb-1 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.15), transparent);
+  top: -100px;
+  left: -100px;
+  animation: orbFloat 20s ease-in-out infinite;
+}
+
+.orb-2 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.12), transparent);
+  bottom: -50px;
+  right: -50px;
+  animation: orbFloat 25s ease-in-out infinite reverse;
+}
+
+.orb-3 {
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.1), transparent);
+  top: 40%;
+  left: 50%;
+  animation: orbFloat 18s ease-in-out infinite 5s;
+}
+
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 30px) scale(0.95); }
+}
+
+.grid-pattern {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.view-container {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.view-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  margin-bottom: 24px;
 }
 
-.page-header h1 {
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
+}
+
+.brand-text h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #1e1b4b;
+  letter-spacing: -0.5px;
 }
 
-.page-header p {
-  margin: 6px 0 0;
-  color: var(--text-secondary);
+.brand-text p {
+  margin: 0;
+  font-size: 12px;
+  color: #6366f1;
+  font-weight: 500;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.system-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-indicator.training {
+  background: rgba(34, 211, 238, 0.1);
+  color: #0891b2;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+}
+
+.status-indicator.aggregating {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.status-indicator.paused {
+  background: rgba(100, 116, 139, 0.08);
+  color: #64748b;
+  border: 1px solid rgba(100, 116, 139, 0.15);
+}
+
+.indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: blink 2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.round-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.06);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.1);
 }
 
 .header-actions {
@@ -723,355 +745,715 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.overview-cards {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  background: white;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.overview-card {
-  padding: 12px;
+.action-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.06);
+  color: #6366f1;
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 16px;
+  background: white;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 102, 241, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
 }
 
-.stat-icon {
+.stat-card:hover {
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.08);
+  transform: translateY(-1px);
+}
+
+.stat-icon-wrap {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: var(--primary-fade);
-  display: grid;
-  place-items: center;
-  color: var(--primary-color);
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.stat-content {
+.stat-body {
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .stat-value {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 800;
+  color: #1e293b;
+  line-height: 1;
 }
 
 .stat-label {
-  color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
 }
 
 .stat-trend {
-  font-size: 12px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
 }
 
-.stat-trend.positive {
-  color: #16a34a;
+.stat-trend.up {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.08);
 }
 
-.stat-trend.negative {
+.stat-trend.down {
   color: #dc2626;
+  background: rgba(239, 68, 68, 0.08);
 }
 
-.main-content {
+.viz-row {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 12px;
-  min-height: 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
 }
 
-.network-section,
-.detail-card {
-  padding: 12px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.section-header h2,
-.section-header h3 {
-  margin: 0;
-}
-
-.section-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.network-toolbar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.network-canvas {
-  height: 360px;
-  background: #f8fafc;
-  border-radius: 10px;
-  position: relative;
-  overflow: hidden;
-}
-
-.network-status {
-  margin-top: 10px;
-  display: flex;
+.detail-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  flex-wrap: wrap;
-  color: var(--text-secondary);
+  align-items: stretch;
 }
 
-.details-section {
+.panel-card {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 102, 241, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-height: 0;
+  height: 100%;
 }
 
-.timeline-wrap,
-.clients-wrap {
-  max-height: 280px;
-  overflow-y: auto;
+.panel-card:hover {
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.06);
 }
 
-.version-card {
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 8px;
-  cursor: pointer;
-  background: #fff;
-}
-
-.version-card.selected {
-  border-color: var(--primary-color);
-  background: var(--primary-fade);
-}
-
-.version-top,
-.version-metrics {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.version-metrics {
-  margin-top: 8px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.clients-overview {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 10px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.client-card {
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 10px;
-  background: #fff;
-  margin-bottom: 8px;
-}
-
-.client-card.active {
-  border-color: #86efac;
-}
-
-.client-card.selected {
-  border-color: var(--primary-color);
-  background: var(--primary-fade);
-}
-
-.client-top {
+.panel-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.02), rgba(34, 211, 238, 0.01));
+  flex-shrink: 0;
 }
 
-.name {
-  font-weight: 600;
-}
-
-.meta {
-  color: var(--text-secondary);
-  font-size: 12px;
+.panel-title-group {
   display: flex;
-  gap: 8px;
-}
-
-.online {
-  color: #16a34a;
-}
-
-.offline {
-  color: #6b7280;
-}
-
-.client-stats {
-  margin-top: 8px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  display: grid;
-  gap: 4px;
-}
-
-.progress-row {
-  margin-top: 6px;
-  display: grid;
-  grid-template-columns: 52px 1fr 42px;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
 }
 
-.demo-box {
-  padding: 12px;
+.panel-title-group h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e1b4b;
 }
 
-.section-header.compact {
-  margin-bottom: 8px;
-}
-
-.demo-steps {
-  display: grid;
-  gap: 10px;
-}
-
-.step {
-  display: grid;
+.panel-actions {
+  display: flex;
   gap: 6px;
 }
 
-.client-dialog-content p {
-  margin: 8px 0;
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
-.network-node {
-  position: absolute;
-  width: 96px;
-  height: 96px;
-  border-radius: 999px;
-  transform: translate(-50%, -50%);
+.icon-btn:hover {
+  background: rgba(99, 102, 241, 0.06);
+  color: #6366f1;
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.topology-panel {
+  padding-bottom: 12px;
+}
+
+.topology-panel :deep(.topology-graph) {
+  padding: 0 12px;
+}
+
+.training-panel {
+  padding-bottom: 12px;
+}
+
+.training-panel :deep(.training-curve) {
+  padding: 0 12px;
+}
+
+.training-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.ctrl-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  background: rgba(99, 102, 241, 0.04);
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ctrl-btn:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: #475569;
+}
+
+.ctrl-btn.active {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.training-metrics-row {
   display: grid;
-  place-items: center;
-  text-align: center;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 0 12px;
+  margin-top: 10px;
+}
+
+.mini-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  background: rgba(99, 102, 241, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(99, 102, 241, 0.05);
+}
+
+.mini-metric-label {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.mini-metric-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mini-metric-value.cyan { color: #0891b2; }
+.mini-metric-value.pink { color: #db2777; }
+.mini-metric-value.purple { color: #7c3aed; }
+.mini-metric-value.green { color: #059669; }
+
+.aggregation-panel :deep(.aggregation-card) {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 4px 8px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.privacy-panel .privacy-content {
+  padding: 4px 8px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.privacy-visual {
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.privacy-svg {
+  display: block;
+}
+
+.privacy-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  padding-top: 4px;
+}
+
+.privacy-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  padding: 4px 0;
+}
+
+.privacy-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  flex-shrink: 0;
+}
+
+.privacy-dot.active {
+  background: #34d399;
+  box-shadow: 0 0 4px rgba(52, 211, 153, 0.4);
+}
+
+.privacy-label {
+  flex: 1;
+  color: #475569;
+}
+
+.privacy-status {
+  font-size: 9px;
+  color: #94a3b8;
+}
+
+.privacy-status.on {
+  color: #059669;
+}
+
+.models-panel .models-list {
+  padding: 4px 8px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  align-content: start;
+}
+
+.model-item {
+  padding: 6px;
+  background: rgba(99, 102, 241, 0.02);
+  border-radius: 6px;
+  border: 1px solid rgba(99, 102, 241, 0.06);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.model-item:hover {
+  border-color: rgba(99, 102, 241, 0.15);
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.05);
+}
+
+.model-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.model-icon-box {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.04);
+  flex-shrink: 0;
+}
+
+.model-icon-box svg {
+  width: 11px;
+  height: 11px;
+}
+
+.model-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.model-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-version {
+  font-size: 8px;
+  color: #94a3b8;
+}
+
+.model-badge {
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.model-badge.online {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+.model-badge.training {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+}
+
+.model-badge.ready {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.model-perf {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+
+.perf-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+}
+
+.perf-label {
+  width: 28px;
+  color: #94a3b8;
+  font-size: 8px;
+  flex-shrink: 0;
+}
+
+.perf-bar {
+  flex: 1;
+  height: 3px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.perf-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.8s ease;
+}
+
+.perf-val {
+  width: 26px;
+  text-align: right;
+  font-weight: 600;
+  color: #475569;
+  font-size: 8px;
+  flex-shrink: 0;
+}
+
+.model-btns {
+  display: flex;
+  gap: 3px;
+}
+
+.model-btn {
+  flex: 1;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.model-btn:hover {
+  background: rgba(99, 102, 241, 0.04);
+  color: #475569;
+}
+
+.model-btn.primary {
+  background: rgba(99, 102, 241, 0.06);
+  color: #6366f1;
+  border-color: rgba(99, 102, 241, 0.15);
+}
+
+.model-btn.primary:hover {
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.version-panel .version-list {
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  gap: 4px;
+}
+
+.version-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+  border-left: 2px solid #e2e8f0;
+  padding-left: 10px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.version-item::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  border: 2px solid white;
+}
+
+.version-item.latest {
+  border-left-color: #6366f1;
+}
+
+.version-item.latest::before {
+  background: #6366f1;
+  box-shadow: 0 0 4px rgba(99, 102, 241, 0.4);
+}
+
+.version-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.version-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.version-item.latest .version-tag {
+  color: #6366f1;
+}
+
+.latest-badge {
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  font-weight: 600;
+}
+
+.version-meta {
+  display: flex;
+  gap: 3px;
+  font-size: 9px;
+  color: #94a3b8;
+  flex-wrap: wrap;
+}
+
+.demo-overlay {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.demo-card {
+  width: 360px;
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  overflow: hidden;
+}
+
+.demo-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  color: white;
+}
+
+.demo-card-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
 }
 
-.network-node.center-node {
-  left: 50%;
-  top: 50%;
-  background: #e0f2fe;
-  border: 1px solid #7dd3fc;
-  z-index: 2;
+.demo-steps {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.network-node.client-node {
-  background: #fff;
-  border: 1px solid #dbeafe;
-  z-index: 2;
+.demo-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
 }
 
-.network-node.client-node.active {
-  border-color: #86efac;
-}
-
-.node-status {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #9ca3af;
-}
-
-.node-status.active {
-  background: #22c55e;
-}
-
-.node-icon {
+.step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.node-label {
+.step-body {
+  flex: 1;
+}
+
+.step-text {
+  font-size: 12px;
+  color: #475569;
   display: block;
-  margin-top: 4px;
-  color: var(--text-secondary);
+  margin-bottom: 6px;
 }
 
-.network-line {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  height: 1px;
-  background: #cbd5e1;
-  transform-origin: left center;
+.step-progress {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
 }
 
-.network-line.active {
-  background: #22c55e;
-}
-
-.data-flow {
-  width: 18px;
+.step-fill {
   height: 100%;
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.9), transparent);
-  animation: flow 1.8s linear infinite;
-}
-
-.node-pulse {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(14, 165, 233, 0.4);
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes flow {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(900%); }
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.15); opacity: 0.5; }
+  background: linear-gradient(90deg, #6366f1, #22d3ee);
+  border-radius: 2px;
+  transition: width 0.5s ease;
 }
 
 @media (max-width: 1200px) {
-  .overview-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .viz-row {
+    grid-template-columns: 1fr;
   }
 
-  .main-content {
-    grid-template-columns: 1fr;
+  .detail-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 760px) {
-  .page-header {
+@media (max-width: 768px) {
+  .view-header {
     flex-direction: column;
+    gap: 16px;
     align-items: flex-start;
   }
 
-  .header-actions {
-    flex-wrap: wrap;
+  .viz-row {
+    grid-template-columns: 1fr;
   }
 
-  .overview-cards {
+  .detail-row {
     grid-template-columns: 1fr;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .training-metrics-row {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>

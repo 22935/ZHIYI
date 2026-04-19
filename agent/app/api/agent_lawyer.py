@@ -113,12 +113,13 @@ async def lawyer_agent_chat(request: AgentLawyerRequest):
 
     try:
         history = session_memory_store.get_history(session_id)
-        plan = planner.plan(user_text, history)
+        plan = planner.plan(user_text, history, role="lawyer")
         trace, skills_used, observations = await executor.execute(
             plan=plan,
             session_id=session_id,
             text=user_text,
             memory={"history": history},
+            role="lawyer",
         )
 
         if _is_hearing_intent(user_text):

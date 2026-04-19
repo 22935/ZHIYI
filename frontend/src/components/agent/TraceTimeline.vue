@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="trace-timeline">
     <div v-if="!trace.length" class="empty">暂无执行轨迹</div>
     <div v-else class="trace-list">

@@ -1,0 +1,152 @@
+[
+  {
+    "id": "q_math_7_001",
+    "question_text": "计算：-7 + 12 - 5 = ?",
+    "answer": "0。先算-7+12=5，再减5得到0。",
+    "knowledge_points": ["有理数加减运算"],
+    "difficulty": "easy",
+    "question_type": "计算题",
+    "grade": "七年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_7_002",
+    "question_text": "解方程：3x - 5 = 16",
+    "answer": "x=7。两边加5得3x=21，再除以3。",
+    "knowledge_points": ["一元一次方程求解"],
+    "difficulty": "easy",
+    "question_type": "方程题",
+    "grade": "七年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_7_003",
+    "question_text": "若两条直线被截得内错角相等，判断两条直线关系。",
+    "answer": "两直线平行。内错角相等可判定平行。",
+    "knowledge_points": ["平行线性质与判定"],
+    "difficulty": "medium",
+    "question_type": "判断题",
+    "grade": "七年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_8_004",
+    "question_text": "判断下列表达式是否为一次函数：y=2x-3。",
+    "answer": "是。符合y=kx+b且k=2不为0。",
+    "knowledge_points": ["一次函数定义与表达"],
+    "difficulty": "easy",
+    "question_type": "概念题",
+    "grade": "八年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_8_005",
+    "question_text": "已知一次函数y=-x+2，写出其与坐标轴交点。",
+    "answer": "与y轴交点(0,2)；与x轴交点(2,0)。",
+    "knowledge_points": ["一次函数图像绘制"],
+    "difficulty": "medium",
+    "question_type": "作图题",
+    "grade": "八年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_8_006",
+    "question_text": "等腰三角形一个底角为40°，顶角是多少？",
+    "answer": "100°。两个底角共80°，顶角=180°-80°。",
+    "knowledge_points": ["等腰三角形性质"],
+    "difficulty": "easy",
+    "question_type": "计算题",
+    "grade": "八年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_8_007",
+    "question_text": "直角三角形两直角边为6和8，斜边长是多少？",
+    "answer": "10。由勾股定理c=根号(6²+8²)=10。",
+    "knowledge_points": ["勾股定理应用"],
+    "difficulty": "easy",
+    "question_type": "计算题",
+    "grade": "八年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_8_008",
+    "question_text": "数据2,3,3,4,10的中位数和众数分别是什么？",
+    "answer": "中位数3，众数3。",
+    "knowledge_points": ["平均数中位数众数"],
+    "difficulty": "medium",
+    "question_type": "统计题",
+    "grade": "八年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_9_009",
+    "question_text": "解方程：x²-5x+6=0",
+    "answer": "x=2或x=3。因式分解为(x-2)(x-3)=0。",
+    "knowledge_points": ["一元二次方程求根"],
+    "difficulty": "easy",
+    "question_type": "方程题",
+    "grade": "九年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_9_010",
+    "question_text": "二次函数y=x²-4x+3的对称轴是什么？",
+    "answer": "x=2。由x=-b/2a=4/2=2。",
+    "knowledge_points": ["二次函数图像与性质"],
+    "difficulty": "medium",
+    "question_type": "函数题",
+    "grade": "九年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_math_9_011",
+    "question_text": "同弧所对的圆周角有什么关系？",
+    "answer": "相等。",
+    "knowledge_points": ["圆的基本性质"],
+    "difficulty": "easy",
+    "question_type": "概念题",
+    "grade": "九年级",
+    "subject": "数学"
+  },
+  {
+    "id": "q_phys_8_012",
+    "question_text": "某物体5秒内通过20米，平均速度是多少？",
+    "answer": "4 m/s。v=s/t=20/5。",
+    "knowledge_points": ["速度与平均速度"],
+    "difficulty": "easy",
+    "question_type": "计算题",
+    "grade": "八年级",
+    "subject": "物理"
+  },
+  {
+    "id": "q_phys_8_013",
+    "question_text": "静止放在桌面上的书主要受哪两个力？",
+    "answer": "重力和桌面对书的支持力。",
+    "knowledge_points": ["力与受力分析"],
+    "difficulty": "easy",
+    "question_type": "概念题",
+    "grade": "八年级",
+    "subject": "物理"
+  },
+  {
+    "id": "q_phys_8_014",
+    "question_text": "一块面积0.2平方米的木板受力100牛，压强是多少？",
+    "answer": "500 Pa。p=F/S=100/0.2。",
+    "knowledge_points": ["压强与液体压强"],
+    "difficulty": "medium",
+    "question_type": "计算题",
+    "grade": "八年级",
+    "subject": "物理"
+  },
+  {
+    "id": "q_phys_9_015",
+    "question_text": "某电阻两端电压6V，通过电流0.5A，电阻是多少？",
+    "answer": "12Ω。由R=U/I=6/0.5。",
+    "knowledge_points": ["欧姆定律与电路计算"],
+    "difficulty": "medium",
+    "question_type": "计算题",
+    "grade": "九年级",
+    "subject": "物理"
+  }
+]

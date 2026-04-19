@@ -26,4 +26,22 @@ public class AgentController {
         AgentChatResponse response = agentGatewayService.chatWithLawyerAgent(request);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/teacher/chat")
+    public ResponseEntity<AgentChatResponse> teacherChat(@Valid @RequestBody AgentChatRequest request) {
+        AgentChatResponse response = agentGatewayService.chatWithTeacherAgent(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/programmer/chat")
+    public ResponseEntity<AgentChatResponse> programmerChat(@Valid @RequestBody AgentChatRequest request) {
+        AgentChatResponse response = agentGatewayService.chatWithProgrammerAgent(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/writer/chat")
+    public ResponseEntity<AgentChatResponse> writerChat(@Valid @RequestBody AgentChatRequest request) {
+        AgentChatResponse response = agentGatewayService.chatWithWriterAgent(request);
+        return ResponseEntity.ok(response);
+    }
 }

@@ -101,6 +101,10 @@ class ChromaLegalClient:
         metadatas = [item["metadata"] for item in documents]
         collection.upsert(ids=ids, documents=texts, metadatas=metadatas)
 
+    def add_documents(self, collection_name: str, documents: List[Dict[str, str]]) -> None:
+        """Compatibility helper used by index builders."""
+        self.upsert_documents(collection_name=collection_name, documents=documents)
+
     def query(self, collection_name: str, query_text: str, top_k: int = 5) -> List[Dict[str, object]]:
         if not self.is_available():
             return []
@@ -132,3 +136,4 @@ class ChromaLegalClient:
 
 
 chroma_legal_client = ChromaLegalClient()
+chroma_client = chroma_legal_client

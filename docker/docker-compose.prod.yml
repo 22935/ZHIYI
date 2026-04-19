@@ -18,8 +18,12 @@ services:
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - AI_SERVICE_URL=http://ai-service:8000
+      - AI_SERVICE_TIMEOUT=240000
       - AGENT_PYTHON_LAWYER_CHAT_URL=http://ai-service:8000/ai/agent/lawyer/chat
-      - AGENT_TIMEOUT_MS=120000
+      - AGENT_PYTHON_TEACHER_CHAT_URL=http://ai-service:8000/ai/agent/teacher/chat
+      - AGENT_PYTHON_PROGRAMMER_CHAT_URL=http://ai-service:8000/ai/agent/programmer/chat
+      - AGENT_PYTHON_WRITER_CHAT_URL=http://ai-service:8000/ai/agent/writer/chat
+      - AGENT_TIMEOUT_MS=240000
     depends_on:
       - postgres
       - redis
@@ -43,6 +47,9 @@ services:
     environment:
       - ENVIRONMENT=production
       - LOG_LEVEL=INFO
+      - AGENT_FEDERATED_ENABLED=true
+      - AGENT_FEDERATED_BASE_URL=http://localhost:8000/ai
+      - AGENT_FEDERATED_TIMEOUT_MS=1500
       - ANONYMIZED_TELEMETRY=False
       - CHROMA_TELEMETRY_ENABLED=false
     volumes:
@@ -64,6 +71,8 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
     container_name: kinlin-ai-frontend-prod
+    ports:
+      - "80:80"
     environment:
       - VITE_API_BASE_URL=http://localhost:8080/api
       - VITE_AI_SERVICE_URL=http://localhost:8000
@@ -117,7 +126,7 @@ services:
     image: nginx:alpine
     container_name: kinlin-ai-nginx-prod
     ports:
-      - "80:80"
+      - "8081:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:

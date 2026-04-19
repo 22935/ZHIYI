@@ -1,0 +1,137 @@
+[
+  {
+    "id": "tpl_math_8_new_001",
+    "template_name": "八年级数学新授课-一次函数",
+    "subject": "数学",
+    "grade": "八年级",
+    "lesson_type": "新授课",
+    "structure": ["情境导入", "概念建构", "例题讲解", "分层练习", "课堂小结", "作业布置"],
+    "sample_content": "导入用出租车计费问题引出y=kx+b，强调k和b的实际意义，最后安排基础与提高两层练习。"
+  },
+  {
+    "id": "tpl_math_8_practice_002",
+    "template_name": "八年级数学习题课-一次函数图像",
+    "subject": "数学",
+    "grade": "八年级",
+    "lesson_type": "习题课",
+    "structure": ["错题回顾", "方法提炼", "变式训练", "同伴互评", "达标检测"],
+    "sample_content": "从作业错题中归纳描点法常见错误，组织两轮变式图像题并进行同伴纠错。"
+  },
+  {
+    "id": "tpl_math_8_new_003",
+    "template_name": "八年级数学新授课-勾股定理",
+    "subject": "数学",
+    "grade": "八年级",
+    "lesson_type": "新授课",
+    "structure": ["问题情境", "实验探究", "定理表述", "例题应用", "迁移提升"],
+    "sample_content": "通过方格纸拼图探索边长关系，形成a²+b²=c²，安排生活场景测距应用题。"
+  },
+  {
+    "id": "tpl_math_8_review_004",
+    "template_name": "八年级数学复习课-三角形专题",
+    "subject": "数学",
+    "grade": "八年级",
+    "lesson_type": "复习课",
+    "structure": ["知识网络", "典型题串", "限时训练", "讲评反思"],
+    "sample_content": "先构建等腰三角形与勾股定理关系图，再完成题串训练并用错因标签讲评。"
+  },
+  {
+    "id": "tpl_math_7_new_005",
+    "template_name": "七年级数学新授课-一元一次方程",
+    "subject": "数学",
+    "grade": "七年级",
+    "lesson_type": "新授课",
+    "structure": ["旧知唤醒", "方程建模", "解法示范", "当堂训练", "退出卡"],
+    "sample_content": "从购物找零问题建模，重点讲移项与检验步骤，用退出卡检查学生是否会验算。"
+  },
+  {
+    "id": "tpl_math_7_practice_006",
+    "template_name": "七年级数学习题课-有理数运算",
+    "subject": "数学",
+    "grade": "七年级",
+    "lesson_type": "习题课",
+    "structure": ["规则回顾", "口算热身", "分层计算", "错题诊断"],
+    "sample_content": "通过正负数卡片游戏热身，按A/B层练习难度推送并现场纠正符号错误。"
+  },
+  {
+    "id": "tpl_math_9_new_007",
+    "template_name": "九年级数学新授课-二次函数",
+    "subject": "数学",
+    "grade": "九年级",
+    "lesson_type": "新授课",
+    "structure": ["情境导入", "图像观察", "性质归纳", "参数变化", "应用题训练"],
+    "sample_content": "借抛物线运动视频导入，观察a变化对开口和宽窄影响，最后解决最值情境题。"
+  },
+  {
+    "id": "tpl_math_9_review_008",
+    "template_name": "九年级数学复习课-方程与函数联动",
+    "subject": "数学",
+    "grade": "九年级",
+    "lesson_type": "复习课",
+    "structure": ["知识串联", "综合例题", "小组对讲", "限时测评", "讲评提升"],
+    "sample_content": "围绕二次函数与一元二次方程根的关系，开展小组讲题并进行定时达标测。"
+  },
+  {
+    "id": "tpl_phys_8_new_009",
+    "template_name": "八年级物理新授课-速度",
+    "subject": "物理",
+    "grade": "八年级",
+    "lesson_type": "新授课",
+    "structure": ["生活情境", "公式建立", "单位换算", "实验演示", "分层练习"],
+    "sample_content": "用校园跑步数据引入v=s/t，强调单位换算，安排基础计算与应用判断两类任务。"
+  },
+  {
+    "id": "tpl_phys_8_exp_010",
+    "template_name": "八年级物理实验课-压强影响因素",
+    "subject": "物理",
+    "grade": "八年级",
+    "lesson_type": "实验课",
+    "structure": ["实验假设", "器材准备", "分组实验", "数据记录", "结论汇报"],
+    "sample_content": "用海绵和砝码实验比较压力与受力面积，指导学生完整记录并解释结论。"
+  },
+  {
+    "id": "tpl_phys_8_practice_011",
+    "template_name": "八年级物理习题课-受力分析",
+    "subject": "物理",
+    "grade": "八年级",
+    "lesson_type": "习题课",
+    "structure": ["易错点回顾", "受力图规范", "题组训练", "同伴讲解", "错因归档"],
+    "sample_content": "重点训练是否漏画支持力和摩擦力，采用同伴讲解提高受力图表达准确性。"
+  },
+  {
+    "id": "tpl_phys_9_new_012",
+    "template_name": "九年级物理新授课-欧姆定律",
+    "subject": "物理",
+    "grade": "九年级",
+    "lesson_type": "新授课",
+    "structure": ["实验导入", "数据分析", "规律建构", "例题应用", "课堂检测"],
+    "sample_content": "通过电压电流实验表格归纳U=IR，训练串并联电路中的多步计算。"
+  },
+  {
+    "id": "tpl_phys_9_review_013",
+    "template_name": "九年级物理复习课-电学综合",
+    "subject": "物理",
+    "grade": "九年级",
+    "lesson_type": "复习课",
+    "structure": ["知识框架", "典型题拆解", "分层训练", "当堂反馈"],
+    "sample_content": "构建电流、电压、电阻、电功率知识网络，按基础和拔高题分组训练。"
+  },
+  {
+    "id": "tpl_math_8_flipped_014",
+    "template_name": "八年级数学翻转课-数据统计",
+    "subject": "数学",
+    "grade": "八年级",
+    "lesson_type": "翻转课",
+    "structure": ["课前任务", "课堂答疑", "小组任务", "成果展示", "教师点评"],
+    "sample_content": "课前观看微课学习平均数中位数众数，课堂完成班级数据分析项目并展示。"
+  },
+  {
+    "id": "tpl_phys_8_activity_015",
+    "template_name": "八年级物理活动课-测速度挑战",
+    "subject": "物理",
+    "grade": "八年级",
+    "lesson_type": "活动课",
+    "structure": ["规则说明", "任务分工", "实测记录", "结果比较", "反思改进"],
+    "sample_content": "以小组竞赛方式测量校园短跑速度，比较误差来源并提出改进方案。"
+  }
+]

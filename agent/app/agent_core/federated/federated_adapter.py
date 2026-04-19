@@ -22,7 +22,7 @@ class FederatedAdapter:
         self.optimize_paths = ["/federated-models/optimize", "/federated-model/optimize"]
         self.clients_path = "/global-model/clients"
 
-    def _post_optimize(self, client: httpx.Client, case_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _post_optimize(self, client: httpx.AsyncClient, case_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         payload = {
             "model_type": "advanced",
             "optimization_method": "federated",
@@ -31,18 +31,18 @@ class FederatedAdapter:
             "case_features": case_info,
         }
         for path in self.optimize_paths:
-            response = client.post(f"{self.base_url}{path}", json=payload)
+            response = await client.post(f"{self.base_url}{path}", json=payload)
             if response.status_code == 200:
                 return response.json()
         return None
 
-    def _get_clients(self, client: httpx.Client) -> Optional[Dict[str, Any]]:
-        response = client.get(f"{self.base_url}{self.clients_path}")
+    async def _get_clients(self, client: httpx.AsyncClient) -> Optional[Dict[str, Any]]:
+        response = await client.get(f"{self.base_url}{self.clients_path}")
         if response.status_code == 200:
             return response.json()
         return None
 
-    def get_risk_enhancement(self, case_info: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_risk_enhancement(self, case_info: Dict[str, Any]) -> Dict[str, Any]:
         """
         Return federated enhancement payload.
         Any failure must not break the main pipeline, so this method returns {} on errors.
@@ -51,9 +51,9 @@ class FederatedAdapter:
             return {}
 
         try:
-            with httpx.Client(timeout=self.timeout) as client:
-                optimize_data = self._post_optimize(client, case_info or {}) or {}
-                clients_data = self._get_clients(client) or {}
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                optimize_data = await self._post_optimize(client, case_info or {}) or {}
+                clients_data = await self._get_clients(client) or {}
 
             optimize_block = optimize_data.get("data", optimize_data) if isinstance(optimize_data, dict) else {}
             improvements = optimize_block.get("improvements", {}) if isinstance(optimize_block, dict) else {}

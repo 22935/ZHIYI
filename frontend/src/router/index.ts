@@ -1,4 +1,4 @@
-﻿import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import ChatView from '@/views/ChatView.vue'
 import RoleView from '@/views/RoleView.vue'
@@ -176,7 +176,7 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
-  // 宸茬櫥褰曟椂璁块棶鐧诲綍椤碉紝鍥炲埌鏉ユ簮椤碉紙濡傛灉鏈夛級鎴栭粯璁よ亰澶╅〉銆?
+  // 已登录时访问登录页，回到来源页（如果有）或默认聊天页。
   if (to.path === '/login' && token) {
     try {
       const result = await authApi.verifyToken()

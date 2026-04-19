@@ -203,7 +203,8 @@ class KylinSDKClient:
                     system_prompt=system_prompt,
                     temperature=kwargs.get("temperature", 0.7),
                     max_tokens=kwargs.get("max_tokens", 2000),
-                    top_p=kwargs.get("top_p", 0.9)
+                    top_p=kwargs.get("top_p", 0.9),
+                    request_timeout=kwargs.get("request_timeout", 10),
                 )
                 
                 logger.debug(f"通义千问生成成功: {len(result.get('text', ''))} 字符")

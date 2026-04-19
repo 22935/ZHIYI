@@ -1,4 +1,4 @@
-﻿import { defineStore } from 'pinia'
+import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { chatApi, type ChatRequest } from '@/services/api/chat'
 import {
@@ -6,6 +6,27 @@ import {
   type AgentTraceStep,
   type FederatedInfo
 } from '@/services/api/agentLawyer'
+import {
+  agentTeacherApi,
+  type StudentDiagnosisResult,
+  type LessonPlanResult,
+  type HomeworkGradingResult,
+  type ErrorQuestionPushResult
+} from '@/services/api/agentTeacher'
+import {
+  agentProgrammerApi,
+  type RequirementAnalysisResult,
+  type CodebaseSemanticSearchResult,
+  type CodeGenerationResult,
+  type DiagramGenerationResult
+} from '@/services/api/agentProgrammer'
+import {
+  agentWriterApi,
+  type InspirationExpandResult,
+  type OutlineGenerateResult,
+  type ContentWriteResult,
+  type CharacterRelationResult
+} from '@/services/api/agentWriter'
 
 export interface EvidenceAnalysisResult {
   evidence_items: Array<{ name: string; type: string; strength: string; notes: string }>
@@ -44,9 +65,13 @@ export interface HearingOutlineResult {
   risk_focus?: string[]
 }
 
-const parseTraceObservation = (trace: AgentTraceStep[] | undefined, action: string) => {
+const parseTraceObservation = (
+  trace: AgentTraceStep[] | undefined,
+  action: string | string[]
+) => {
   if (!trace?.length) return undefined
-  const target = [...trace].reverse().find(item => item.action === action)
+  const actionList = Array.isArray(action) ? action : [action]
+  const target = [...trace].reverse().find(item => actionList.includes(item.action))
   if (!target?.observation) return undefined
   try {
     const parsed = JSON.parse(target.observation)
@@ -78,7 +103,19 @@ export interface Message {
   limitationCalc?: LimitationCalcResult
   jurisdiction?: JurisdictionResult
   hearingOutline?: HearingOutlineResult
-  agentMode?: 'default' | 'lawyer'
+  studentDiagnosis?: StudentDiagnosisResult
+  lessonPlan?: LessonPlanResult
+  homeworkGrading?: HomeworkGradingResult
+  errorQuestionPush?: ErrorQuestionPushResult
+  requirementAnalysis?: RequirementAnalysisResult
+  codebaseSemanticSearch?: CodebaseSemanticSearchResult
+  codeGeneration?: CodeGenerationResult
+  diagramGeneration?: DiagramGenerationResult
+  inspirationExpand?: InspirationExpandResult
+  outlineGenerate?: OutlineGenerateResult
+  contentWrite?: ContentWriteResult
+  characterRelationMap?: CharacterRelationResult
+  agentMode?: 'default' | 'lawyer' | 'teacher' | 'programmer' | 'writer'
 }
 
 export const useChatStore = defineStore('chat', () => {
@@ -86,6 +123,9 @@ export const useChatStore = defineStore('chat', () => {
   const loading = ref(false)
   const contextId = ref<string | null>(null)
   const lawyerSessionId = ref<string | null>(null)
+  const teacherSessionId = ref<string | null>(null)
+  const programmerSessionId = ref<string | null>(null)
+  const writerSessionId = ref<string | null>(null)
   const currentRoleId = ref<string | null>(null)
 
   const pushUserMessage = (text: string, fileUrl?: string) => {
@@ -180,6 +220,132 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  const sendTeacherMessage = async (text: string) => {
+    if (!text.trim() || loading.value) return
+
+    pushUserMessage(text)
+
+    loading.value = true
+    try {
+      const response = await agentTeacherApi.chat({
+        text,
+        sessionId: teacherSessionId.value || undefined
+      })
+
+      teacherSessionId.value = response.sessionId || teacherSessionId.value
+      const traceDiagnosis = parseTraceObservation(response.trace, ['student_diagnosis'])
+      const traceLessonPlan = parseTraceObservation(response.trace, ['lesson_plan_generation', 'lesson_plan'])
+      const traceGrading = parseTraceObservation(response.trace, ['homework_grading', 'grading'])
+      const tracePush = parseTraceObservation(response.trace, ['error_analysis_question_push', 'error_attribution'])
+
+      const assistantMessage: Message = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: response.answer || '',
+        createdAt: new Date(),
+        modelInfo: 'Teacher Agent',
+        skillsUsed: response.skillsUsed || [],
+        trace: response.trace || [],
+        federated: response.federated || {},
+        riskLevel: response.riskLevel,
+        studentDiagnosis: response.studentDiagnosis || response.student_diagnosis || traceDiagnosis,
+        lessonPlan: response.lessonPlan || response.lesson_plan_generation || traceLessonPlan,
+        homeworkGrading: response.homeworkGrading || response.homework_grading || traceGrading,
+        errorQuestionPush: response.errorQuestionPush || response.error_analysis_question_push || tracePush,
+        agentMode: 'teacher'
+      }
+      messages.value.push(assistantMessage)
+
+      return response
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const sendProgrammerMessage = async (text: string) => {
+    if (!text.trim() || loading.value) return
+
+    pushUserMessage(text)
+
+    loading.value = true
+    try {
+      const response = await agentProgrammerApi.chat({
+        text,
+        sessionId: programmerSessionId.value || undefined
+      })
+
+      programmerSessionId.value = response.sessionId || programmerSessionId.value
+      const traceRequirement = parseTraceObservation(response.trace, 'requirement_analysis')
+      const traceSearch = parseTraceObservation(response.trace, 'codebase_semantic_search')
+      const traceCodeGeneration = parseTraceObservation(response.trace, 'code_generation')
+      const traceDiagram = parseTraceObservation(response.trace, 'diagram_generation')
+
+      const assistantMessage: Message = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: response.answer || '',
+        createdAt: new Date(),
+        modelInfo: 'Programmer Agent',
+        skillsUsed: response.skillsUsed || [],
+        trace: response.trace || [],
+        federated: response.federated || {},
+        riskLevel: response.riskLevel,
+        requirementAnalysis: response.requirementAnalysis || response.requirement_analysis || traceRequirement,
+        codebaseSemanticSearch: response.codebaseSemanticSearch || response.codebase_semantic_search || traceSearch,
+        codeGeneration: response.codeGeneration || response.code_generation || traceCodeGeneration,
+        diagramGeneration: response.diagramGeneration || response.diagram_generation || traceDiagram,
+        agentMode: 'programmer'
+      }
+      messages.value.push(assistantMessage)
+
+      return response
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const sendWriterMessage = async (text: string) => {
+    if (!text.trim() || loading.value) return
+
+    pushUserMessage(text)
+
+    loading.value = true
+    try {
+      const response = await agentWriterApi.chat({
+        text,
+        sessionId: writerSessionId.value || undefined
+      })
+
+      writerSessionId.value = response.sessionId || writerSessionId.value
+      const traceInspiration = parseTraceObservation(response.trace, 'inspiration_expand')
+      const traceOutline = parseTraceObservation(response.trace, 'outline_generate')
+      const traceContent = parseTraceObservation(response.trace, 'content_write')
+      const traceRelation = parseTraceObservation(response.trace, 'character_relation_map')
+
+      const assistantMessage: Message = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: response.answer || '',
+        createdAt: new Date(),
+        modelInfo: 'Writer Agent',
+        skillsUsed: response.skillsUsed || [],
+        trace: response.trace || [],
+        federated: response.federated || {},
+        riskLevel: response.riskLevel,
+        inspirationExpand: response.inspirationExpand || response.inspiration_expand || traceInspiration,
+        outlineGenerate: response.outlineGenerate || response.outline_generate || traceOutline,
+        contentWrite: response.contentWrite || response.content_write || traceContent,
+        characterRelationMap: response.characterRelationMap || response.character_relation_map || traceRelation,
+        agentMode: 'writer'
+      }
+      messages.value.push(assistantMessage)
+
+      return response
+    } finally {
+      loading.value = false
+    }
+  }
+
   const clearHistory = async () => {
     if (contextId.value) {
       await chatApi.clearHistory(contextId.value)
@@ -187,6 +353,9 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = []
     contextId.value = null
     lawyerSessionId.value = null
+    teacherSessionId.value = null
+    programmerSessionId.value = null
+    writerSessionId.value = null
   }
 
   const setRole = (roleId: string | null) => {
@@ -250,6 +419,9 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = []
     contextId.value = null
     lawyerSessionId.value = null
+    teacherSessionId.value = null
+    programmerSessionId.value = null
+    writerSessionId.value = null
   }
 
   return {
@@ -257,9 +429,15 @@ export const useChatStore = defineStore('chat', () => {
     loading,
     contextId,
     lawyerSessionId,
+    teacherSessionId,
+    programmerSessionId,
+    writerSessionId,
     currentRoleId,
     sendMessage,
     sendLawyerMessage,
+    sendTeacherMessage,
+    sendProgrammerMessage,
+    sendWriterMessage,
     clearHistory,
     setRole,
     loadHistory,
@@ -269,3 +447,4 @@ export const useChatStore = defineStore('chat', () => {
     clearMessages
   }
 })
+

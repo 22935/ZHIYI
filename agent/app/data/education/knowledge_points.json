@@ -1,0 +1,137 @@
+[
+  {
+    "id": "math_g7_num_001",
+    "name": "有理数加减运算",
+    "subject": "数学",
+    "grade": "七年级",
+    "prerequisites": ["正负数意义", "数轴表示"],
+    "mastery_criteria": "能正确进行同号异号有理数加减并解释符号变化",
+    "vector_content": "有理数加减法核心是转化：减去一个数等于加上这个数的相反数。结合数轴理解方向变化，可提升正确率。"
+  },
+  {
+    "id": "math_g7_eq_002",
+    "name": "一元一次方程求解",
+    "subject": "数学",
+    "grade": "七年级",
+    "prerequisites": ["等式性质", "去括号与移项"],
+    "mastery_criteria": "能独立完成一步和两步一元一次方程并检验解",
+    "vector_content": "解一元一次方程遵循等式两边同时进行同一变换。常见流程为去分母、去括号、移项、合并同类项、系数化1。"
+  },
+  {
+    "id": "math_g7_geo_003",
+    "name": "平行线性质与判定",
+    "subject": "数学",
+    "grade": "七年级",
+    "prerequisites": ["角的概念", "同位角与内错角"],
+    "mastery_criteria": "能用角关系判断两直线平行并进行简单证明",
+    "vector_content": "平行线中同位角相等、内错角相等、同旁内角互补。反向也可作为判定条件，在几何证明中高频使用。"
+  },
+  {
+    "id": "math_g8_func_004",
+    "name": "一次函数定义与表达",
+    "subject": "数学",
+    "grade": "八年级",
+    "prerequisites": ["变量与常量", "坐标平面"],
+    "mastery_criteria": "能识别y=kx+b形式并区分k、b的意义",
+    "vector_content": "一次函数是形如y=kx+b(k不等于0)的函数。k决定增减性和倾斜程度，b决定与y轴交点位置。"
+  },
+  {
+    "id": "math_g8_graph_005",
+    "name": "一次函数图像绘制",
+    "subject": "数学",
+    "grade": "八年级",
+    "prerequisites": ["一次函数定义", "描点法"],
+    "mastery_criteria": "能通过两点法准确绘制一次函数图像并读图",
+    "vector_content": "一次函数图像是直线。常用两点法：取x=0求截距点，再取另一点，连线即可。应强调坐标书写规范。"
+  },
+  {
+    "id": "math_g8_tri_006",
+    "name": "等腰三角形性质",
+    "subject": "数学",
+    "grade": "八年级",
+    "prerequisites": ["三角形内角和", "轴对称初步"],
+    "mastery_criteria": "能运用底角相等和三线合一解决计算与证明题",
+    "vector_content": "等腰三角形两底角相等，顶角平分线、底边中线、底边高重合。该性质是几何证明常用切入点。"
+  },
+  {
+    "id": "math_g8_pyth_007",
+    "name": "勾股定理应用",
+    "subject": "数学",
+    "grade": "八年级",
+    "prerequisites": ["直角三角形识别", "平方与开方"],
+    "mastery_criteria": "能在直角三角形中正确列式a²+b²=c²并求边长",
+    "vector_content": "在直角三角形中，两条直角边平方和等于斜边平方。应用时先判断直角位置，再对应边。"
+  },
+  {
+    "id": "math_g8_stats_008",
+    "name": "平均数中位数众数",
+    "subject": "数学",
+    "grade": "八年级",
+    "prerequisites": ["数据收集", "有序排列"],
+    "mastery_criteria": "能根据题意选择合适统计量描述数据特征",
+    "vector_content": "平均数反映总体水平，中位数受极端值影响小，众数反映出现最频繁数据。应结合情境理解。"
+  },
+  {
+    "id": "math_g9_quad_009",
+    "name": "一元二次方程求根",
+    "subject": "数学",
+    "grade": "九年级",
+    "prerequisites": ["因式分解", "配方法"],
+    "mastery_criteria": "能选择合适方法求根并判断根的个数",
+    "vector_content": "一元二次方程可通过直接开平方法、配方法、公式法、因式分解法求解，方法选择取决于方程结构。"
+  },
+  {
+    "id": "math_g9_quadf_010",
+    "name": "二次函数图像与性质",
+    "subject": "数学",
+    "grade": "九年级",
+    "prerequisites": ["函数概念", "平方运算"],
+    "mastery_criteria": "能确定开口方向、对称轴、顶点并分析增减性",
+    "vector_content": "二次函数y=ax²+bx+c图像为抛物线。a决定开口方向和宽窄，对称轴x=-b/2a，顶点坐标可由配方得到。"
+  },
+  {
+    "id": "math_g9_circle_011",
+    "name": "圆的基本性质",
+    "subject": "数学",
+    "grade": "九年级",
+    "prerequisites": ["垂径定理", "弧与弦概念"],
+    "mastery_criteria": "能利用圆心角、弧、弦关系完成计算与证明",
+    "vector_content": "同弧所对圆周角相等，圆心角是圆周角的2倍。垂径定理在弦长与距离计算中非常关键。"
+  },
+  {
+    "id": "phys_g8_motion_012",
+    "name": "速度与平均速度",
+    "subject": "物理",
+    "grade": "八年级",
+    "prerequisites": ["路程与时间单位", "比例关系"],
+    "mastery_criteria": "能用v=s/t计算速度并区分瞬时与平均速度",
+    "vector_content": "速度表示物体运动快慢，公式v=s/t。平均速度要用总路程除以总时间，不能对分段速度简单平均。"
+  },
+  {
+    "id": "phys_g8_force_013",
+    "name": "力与受力分析",
+    "subject": "物理",
+    "grade": "八年级",
+    "prerequisites": ["相互作用概念", "矢量初步"],
+    "mastery_criteria": "能识别重力支持力摩擦力并画简单受力图",
+    "vector_content": "力的三要素是大小、方向、作用点。受力分析应先选研究对象，再逐一判断是否存在接触力与非接触力。"
+  },
+  {
+    "id": "phys_g8_pressure_014",
+    "name": "压强与液体压强",
+    "subject": "物理",
+    "grade": "八年级",
+    "prerequisites": ["力的概念", "面积单位换算"],
+    "mastery_criteria": "能用p=F/S计算压强并解释增减压强策略",
+    "vector_content": "压强是单位面积上受到的压力，公式p=F/S。液体压强与深度和液体密度有关，随深度增加而增大。"
+  },
+  {
+    "id": "phys_g9_ohm_015",
+    "name": "欧姆定律与电路计算",
+    "subject": "物理",
+    "grade": "九年级",
+    "prerequisites": ["电流电压电阻概念", "串并联电路"],
+    "mastery_criteria": "能在串并联电路中应用U=IR进行基础计算",
+    "vector_content": "欧姆定律表达为U=IR。解题时先确定电路结构，再结合串并联规律列式，注意单位统一。"
+  }
+]

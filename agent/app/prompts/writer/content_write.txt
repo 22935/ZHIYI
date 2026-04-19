@@ -1,0 +1,20 @@
+You are a professional fiction writer.
+
+Task:
+Write the requested chapter content based on outline context and style.
+
+Outline context:
+{outline_context}
+
+Chapter index:
+{chapter_index}
+
+Style:
+{style}
+
+Output rules:
+1. Return prose text only.
+2. Keep chapter continuity with the provided outline context.
+3. Reflect the requested writing style while preserving readability.
+4. End with a clear hook into the next chapter.
+

@@ -11,7 +11,7 @@ import uvicorn
 import logging
 
 from fastapi.exceptions import RequestValidationError
-from app.api import chat, tts, agent_lawyer
+from app.api import chat, tts, agent_lawyer, agent_teacher, agent_programmer, agent_writer
 from app.services.aiservice import AIService
 from app.config import settings
 from app.utils.logger import setup_logger
@@ -60,6 +60,9 @@ ai_service = AIService()
 app.include_router(chat.router, prefix="/ai", tags=["AI"])
 app.include_router(tts.router, prefix="/ai", tags=["TTS"])
 app.include_router(agent_lawyer.router, prefix="/ai", tags=["AgentLawyer"])
+app.include_router(agent_teacher.router, prefix="/ai", tags=["AgentTeacher"])
+app.include_router(agent_programmer.router, prefix="/ai", tags=["AgentProgrammer"])
+app.include_router(agent_writer.router, prefix="/ai", tags=["AgentWriter"])
 
 # 注册静态文件服务（用于访问数字人图像和其他数据文件）
 _project_root = Path(__file__).resolve().parent.parent.parent

@@ -1,221 +1,302 @@
 <template>
-  <div class="voice-chat-view" :class="{ 'is-speaking': isSpeaking, 'is-recording': isRecording }">
-    <div class="ambient-background">
-      <div class="wave-layer wave-1"></div>
-      <div class="wave-layer wave-2"></div>
-      <div class="wave-layer wave-3"></div>
-      <div class="particle-layer">
-        <div class="particle" v-for="i in 30" :key="i" :style="getParticleStyle(i)"></div>
+  <div class="voice-view">
+    <header class="voice-header">
+      <div class="header-left">
+        <el-button class="back-button" text @click="handleBack">
+          <el-icon><ArrowLeft /></el-icon>
+          返回对话
+        </el-button>
+        <div class="title-block">
+          <h1>语音对话</h1>
+          <p>保留数字皮套人，语音对话流程与主界面交互风格保持一致</p>
+        </div>
       </div>
-      <div class="glow-orb orb-1" :class="{ 'active': isRecording || isSpeaking }"></div>
-      <div class="glow-orb orb-2" :class="{ 'active': isRecording || isSpeaking }"></div>
-      <div class="glow-orb orb-3" :class="{ 'active': isRecording || isSpeaking }"></div>
-    </div>
-
-    <div class="glass-header">
-      <button class="back-button" @click="handleBack" title="返回">
-        <el-icon><ArrowLeft /></el-icon>
-      </button>
-      <div class="header-info">
-        <h1 class="header-title">语音对话</h1>
-        <p class="header-subtitle">与 {{ roleStore.currentRole?.name || '智能助手' }} 对话</p>
+      <div class="header-right">
+        <el-select
+          v-model="selectedRoleId"
+          class="role-select"
+          placeholder="选择角色"
+          size="small"
+          :disabled="processing || isRecording"
+          @change="handleRoleChange"
+        >
+          <el-option
+            v-for="role in allRoles"
+            :key="role.id"
+            :label="role.name"
+            :value="role.id"
+          />
+        </el-select>
       </div>
-      <div class="header-spacer"></div>
-    </div>
+    </header>
 
-    <div class="main-content">
-      <div class="digital-human-container">
-        <div class="digital-human-wrapper" :class="{ 'speaking': isSpeaking, 'recording': isRecording }">
-          <div class="digital-human-frame">
-            <div class="frame-decoration top-left"></div>
-            <div class="frame-decoration top-right"></div>
-            <div class="frame-decoration bottom-left"></div>
-            <div class="frame-decoration bottom-right"></div>
+    <div class="voice-main">
+      <section class="left-column">
+        <article class="panel-card avatar-card">
+          <div class="card-header">
+            <div class="header-title">
+              <h2>数字皮套人</h2>
+              <p>{{ currentRoleName }}</p>
+            </div>
+            <el-tag size="small" :type="statusTagType" effect="light">
+              {{ statusText }}
+            </el-tag>
+          </div>
+
+          <div class="avatar-stage" :class="{ speaking: isSpeaking, recording: isRecording }">
             <DigitalHuman
+              class="digital-human"
               :role-id="roleStore.currentRole?.id"
               :is-speaking="isSpeaking"
               :audio-url="currentAudioUrl"
               :transparent="true"
-              class="digital-human-entity"
+            />
+            <div class="stage-overlay">
+              <span class="stage-chip" :class="{ active: isRecording }">录音</span>
+              <span class="stage-chip" :class="{ active: isSpeaking }">播报</span>
+              <span class="stage-chip" :class="{ active: processing }">处理中</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel-card transcript-card">
+          <div class="card-header">
+            <div class="header-title">
+              <h2>语音会话记录</h2>
+              <p>每次录音会自动转文字并展示模型回复</p>
+            </div>
+            <el-button size="small" text @click="clearSession">清空会话</el-button>
+          </div>
+
+          <div ref="transcriptRef" class="transcript-list">
+            <div v-if="!messages.length" class="empty-state">
+              <el-icon><Microphone /></el-icon>
+              <span>按住右侧麦克风开始语音对话</span>
+            </div>
+
+            <div
+              v-for="msg in messages"
+              :key="msg.id"
+              class="message-item"
+              :class="msg.role"
+            >
+              <template v-if="msg.role === 'system'">
+                <div class="system-tip">{{ msg.text }}</div>
+              </template>
+              <template v-else>
+                <div class="message-meta">
+                  <span class="sender">{{ msg.role === 'assistant' ? currentRoleName : '你' }}</span>
+                  <span class="time">{{ formatTime(msg.createdAt) }}</span>
+                </div>
+                <div class="message-bubble" v-html="renderMessageHtml(msg)" />
+                <div v-if="msg.role === 'user' && msg.confidence !== undefined" class="confidence">
+                  识别置信度 {{ (msg.confidence * 100).toFixed(1) }}%
+                </div>
+              </template>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <aside class="right-column">
+        <article class="panel-card control-card">
+          <div class="card-header">
+            <div class="header-title">
+              <h2>语音输入</h2>
+              <p>按住录音，松开发送</p>
+            </div>
+          </div>
+
+          <div class="recorder-area">
+            <VoiceRecorder
+              :disabled="processing"
+              :enable-realtime="false"
+              @recorded="handleVoiceRecorded"
+              @recording-start="handleRecordingStart"
+              @recording-end="handleRecordingEnd"
+              @realtime-text="handleRealtimeText"
             />
           </div>
-        </div>
-        
-        <transition name="fade-scale">
-          <div class="status-indicator" v-if="processing || isRecording">
-            <div class="status-dot" :class="{ 'pulse': isRecording, 'thinking': processing }"></div>
-            <span class="status-text">
-              {{ isRecording ? '聆听中...' : (processing ? '思考中...' : '') }}
-            </span>
+
+          <el-alert
+            :title="statusText"
+            :type="statusTagType"
+            :closable="false"
+            show-icon
+            class="status-alert"
+          />
+
+          <div v-if="recognizedText" class="recognized-preview">
+            <span class="label">识别文本</span>
+            <p>{{ recognizedText }}</p>
           </div>
-        </transition>
 
-        <transition name="fade-scale">
-          <div class="audio-visualizer" v-if="isSpeaking || isRecording">
-            <div class="wave-bar" v-for="i in 30" :key="i" :style="getWaveBarStyle(i)"></div>
+          <div class="button-row">
+            <el-button :disabled="!canReplay" @click="replayLastAudio">
+              <el-icon><RefreshRight /></el-icon>
+              重播回复
+            </el-button>
+            <el-button :disabled="!isSpeaking" @click="stopPlayback">
+              <el-icon><VideoPause /></el-icon>
+              停止播放
+            </el-button>
           </div>
-        </transition>
-      </div>
+        </article>
 
-      <transition name="slide-up-fade">
-        <div class="transcription-area" v-if="recognizedText">
-          <div class="transcription-bubble glass-panel">
-            <div class="transcription-icon-wrapper">
-              <el-icon class="transcription-icon"><Microphone /></el-icon>
-            </div>
-            <div class="transcription-text">{{ recognizedText }}</div>
-          </div>
-        </div>
-      </transition>
-
-      <div class="control-bar glass-panel" :class="{ 'settings-expanded': showSettings, 'pulse-glow': isRecording || isSpeaking }">
-  <div class="control-core">
-    <div class="recorder-wrapper">
-      <div class="recorder-ring" :class="{ 'recording': isRecording }"></div>
-      <div class="recorder-glow" :class="{ 'active': isRecording || isSpeaking }"></div>
-      <VoiceRecorder
-        @recorded="handleVoiceRecorded"
-        @recording-start="handleRecordingStart"
-        @recording-end="handleRecordingEnd"
-        @realtime-text="handleRealtimeText"
-        :disabled="processing"
-        :enable-realtime="false"
-        class="main-recorder-btn"
-      />
-    </div>
-    
-    <VoicePlayer
-      v-if="responseAudioUrl"
-      :audio-url="responseAudioUrl"
-      @playing="handlePlaying"
-      @stopped="handleStopped"
-      v-show="false" 
-    />
-  </div>
-
-  <button class="settings-toggle" @click="showSettings = !showSettings" :class="{ 'active': showSettings }">
-    <el-icon class="toggle-icon" :class="{ 'rotated': showSettings }"><Setting /></el-icon>
-    <span class="toggle-text">{{ showSettings ? '收起设置' : '语音设置' }}</span>
-  </button>
-
-        <transition name="expand">
-          <div class="voice-params-panel" v-if="showSettings">
-            <div class="panel-header">
-              <div class="panel-icon">
-                <el-icon><Microphone /></el-icon>
-              </div>
-              <div class="panel-title-group">
-                <h3 class="panel-title">语音参数</h3>
-                <p class="panel-subtitle">调整语音输出效果</p>
-              </div>
-            </div>
-            
-            <div class="params-content">
-              <div class="param-item">
-                <div class="param-header">
-                  <div class="param-label-wrapper">
-                    <el-icon class="param-icon"><VideoPlay /></el-icon>
-                    <span class="param-label">语速</span>
-                  </div>
-                  <span class="param-value">{{ voiceSpeed.toFixed(1) }}x</span>
-                </div>
-                <el-slider
-                  v-model="voiceSpeed"
-                  :min="0.5"
-                  :max="2.0"
-                  :step="0.1"
-                  size="small"
-                  class="custom-slider"
-                />
-              </div>
-              
-              <div class="param-item">
-                <div class="param-header">
-                  <div class="param-label-wrapper">
-                    <el-icon class="param-icon"><TrendCharts /></el-icon>
-                    <span class="param-label">音调</span>
-                  </div>
-                  <span class="param-value">{{ voicePitch.toFixed(1) }}x</span>
-                </div>
-                <el-slider
-                  v-model="voicePitch"
-                  :min="0.5"
-                  :max="2.0"
-                  :step="0.1"
-                  size="small"
-                  class="custom-slider"
-                />
-              </div>
-
-              <div class="param-item">
-                <div class="param-header">
-                  <div class="param-label-wrapper">
-                    <el-icon class="param-icon"><User /></el-icon>
-                    <span class="param-label">语音类型</span>
-                  </div>
-                </div>
-                <el-select v-model="voiceType" size="small" class="voice-select">
-                  <el-option label="默认" value="default" />
-                  <el-option label="女声" value="female" />
-                  <el-option label="男声" value="male" />
-                  <el-option label="温柔" value="gentle" />
-                  <el-option label="活泼" value="lively" />
-                </el-select>
-              </div>
-
-              <button class="test-button" @click="handleTestVoice">
-                <el-icon><VideoPlay /></el-icon>
-                <span>试听效果</span>
-              </button>
+        <article class="panel-card settings-card">
+          <div class="card-header">
+            <div class="header-title">
+              <h2>语音设置</h2>
+              <p>调整播报速度、音调和音色</p>
             </div>
           </div>
-        </transition>
-      </div>
+
+          <div class="settings-body">
+            <div class="setting-item">
+              <div class="setting-line">
+                <span>语速</span>
+                <strong>{{ voiceSpeed.toFixed(1) }}x</strong>
+              </div>
+              <el-slider v-model="voiceSpeed" :min="0.5" :max="2" :step="0.1" />
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-line">
+                <span>音调</span>
+                <strong>{{ voicePitch.toFixed(1) }}x</strong>
+              </div>
+              <el-slider v-model="voicePitch" :min="0.5" :max="2" :step="0.1" />
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-line">
+                <span>音色</span>
+              </div>
+              <el-select v-model="voiceType" class="voice-type-select">
+                <el-option label="默认" value="default" />
+                <el-option label="女声" value="female" />
+                <el-option label="男声" value="male" />
+                <el-option label="温柔" value="gentle" />
+                <el-option label="活力" value="lively" />
+              </el-select>
+            </div>
+
+            <el-button :disabled="processing" type="primary" plain @click="handleTestVoice">
+              <el-icon><VideoPlay /></el-icon>
+              试听当前设置
+            </el-button>
+          </div>
+        </article>
+
+        <article class="panel-card tips-card">
+          <div class="card-header">
+            <div class="header-title">
+              <h2>使用建议</h2>
+            </div>
+          </div>
+          <ul>
+            <li>尽量在安静环境中录音，提升识别准确率。</li>
+            <li>长问题建议分段提问，回复会更稳定。</li>
+            <li>如果播放失败，可点击“重播回复”。</li>
+          </ul>
+        </article>
+      </aside>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Microphone, Setting, VideoPlay, ArrowLeft, User, TrendCharts } from '@element-plus/icons-vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  ArrowLeft,
+  Microphone,
+  RefreshRight,
+  VideoPause,
+  VideoPlay
+} from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useRoleStore } from '@/stores/role'
 import DigitalHuman from '@/components/DigitalHuman.vue'
 import VoiceRecorder from '@/components/VoiceRecorder.vue'
-import VoicePlayer from '@/components/VoicePlayer.vue'
 import { voiceApi } from '@/services/api/voice'
+
+type VoiceMessageRole = 'user' | 'assistant' | 'system'
+
+interface VoiceMessage {
+  id: string
+  role: VoiceMessageRole
+  text: string
+  createdAt: number
+  confidence?: number
+}
 
 const router = useRouter()
 const roleStore = useRoleStore()
-const isSpeaking = ref(false)
+
+const selectedRoleId = ref<string>('')
 const isRecording = ref(false)
+const isSpeaking = ref(false)
 const processing = ref(false)
-const showSettings = ref(false)
 const recognizedText = ref('')
-const currentAudioUrl = ref<string>('')
-const responseAudioUrl = ref<string>('')
 const voiceSpeed = ref(1.0)
 const voicePitch = ref(1.0)
 const voiceType = ref('default')
-const waveAnimationFrame = ref<number>()
+const contextId = ref('')
+const currentAudioUrl = ref('')
+const messages = ref<VoiceMessage[]>([])
+const transcriptRef = ref<HTMLElement | null>(null)
+const lastResponseAudioBlob = ref<Blob | null>(null)
 
-onMounted(async () => {
-  await roleStore.loadBuiltinRoles()
-  if (roleStore.builtinRoles.length > 0 && !roleStore.currentRole) {
-    roleStore.selectRole(roleStore.builtinRoles[0])
-  }
-  startWaveAnimation()
+let playbackAudio: HTMLAudioElement | null = null
+let recognizedTextTimer: number | null = null
+
+const allRoles = computed(() => roleStore.roles)
+const currentRoleName = computed(() => roleStore.currentRole?.name || '智能助手')
+const canReplay = computed(() => Boolean(lastResponseAudioBlob.value) && !processing.value)
+
+const statusText = computed(() => {
+  if (isRecording.value) return '正在录音，松开发送'
+  if (processing.value) return '语音处理中，请稍候'
+  if (isSpeaking.value) return '数字人正在播报回复'
+  return '准备就绪，可以开始语音对话'
 })
 
-onUnmounted(() => {
-  if (waveAnimationFrame.value) {
-    cancelAnimationFrame(waveAnimationFrame.value)
-  }
+const statusTagType = computed<'success' | 'warning' | 'danger' | 'info'>(() => {
+  if (isRecording.value) return 'danger'
+  if (processing.value) return 'warning'
+  if (isSpeaking.value) return 'success'
+  return 'info'
 })
+
+const handleBack = () => {
+  router.push('/chat')
+}
+
+const pushMessage = (role: VoiceMessageRole, text: string, confidence?: number) => {
+  const payload: VoiceMessage = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    role,
+    text,
+    createdAt: Date.now(),
+    confidence
+  }
+  messages.value.push(payload)
+}
+
+const handleRoleChange = async (roleId: string) => {
+  const target = allRoles.value.find(role => role.id === roleId)
+  if (!target) return
+
+  await roleStore.setCurrentRole(target)
+  contextId.value = ''
+  pushMessage('system', `已切换到角色「${target.name}」，会话上下文已重置。`)
+}
 
 const handleRecordingStart = () => {
   isRecording.value = true
+  recognizedText.value = ''
+  clearRecognizedTimer()
 }
 
 const handleRecordingEnd = () => {
@@ -223,1122 +304,940 @@ const handleRecordingEnd = () => {
 }
 
 const handleRealtimeText = (text: string) => {
-  if (text) {
-    recognizedText.value = text
-  }
+  if (!text) return
+  recognizedText.value = text
 }
 
 const handleVoiceRecorded = async (audioBlob: Blob) => {
   isRecording.value = false
   processing.value = true
-  recognizedText.value = ''
+  clearRecognizedTimer()
 
   try {
-    const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' })
-    
-    const response = await voiceApi.sendVoiceMessage({
-      audio: audioFile,
-      roleId: roleStore.currentRole?.id || ''
+    const audioFile = new File([audioBlob], `voice-${Date.now()}.webm`, {
+      type: audioBlob.type || 'audio/webm'
     })
 
-    recognizedText.value = response.recognizedText || response.text
+    const response = await voiceApi.sendVoiceMessage({
+      audio: audioFile,
+      roleId: roleStore.currentRole?.id || '',
+      contextId: contextId.value || undefined
+    })
 
-    if (response.text) {
-      try {
-        console.log('开始TTS合成，文本:', response.text)
-        const audioBlob = await voiceApi.textToSpeech(
-          response.text, 
-          voiceType.value,
-          voiceSpeed.value, 
-          voicePitch.value
-        )
-        
-        console.log('TTS合成成功，音频大小:', audioBlob.size, 'bytes')
-        
-        if (!audioBlob || audioBlob.size === 0) {
-          throw new Error('TTS返回的音频为空')
-        }
-        
-        const audioUrl = URL.createObjectURL(audioBlob)
-        responseAudioUrl.value = audioUrl
-        currentAudioUrl.value = audioUrl
-        
-        console.log('创建音频URL:', audioUrl)
-        
-        const audio = new Audio(audioUrl)
-        audio.preload = 'auto'
-        audio.volume = 1.0
-        
-        audio.addEventListener('loadedmetadata', () => {
-          console.log('音频元数据加载完成，时长:', audio.duration, '秒')
-        })
-        
-        audio.addEventListener('canplay', () => {
-          console.log('音频可以播放')
-          audio.play().then(() => {
-            console.log('音频播放成功')
-            isSpeaking.value = true
-          }).catch((playError) => {
-            console.error('播放失败:', playError)
-            if (playError.name === 'NotAllowedError' || playError.name === 'NotSupportedError') {
-              ElMessage.warning('请点击页面后重试播放音频')
-            } else {
-              ElMessage.error('音频播放失败: ' + (playError.message || '未知错误'))
-            }
-            isSpeaking.value = false
-          })
-        })
-        
-        audio.addEventListener('play', () => {
-          console.log('音频开始播放')
-          isSpeaking.value = true
-        })
-        
-        audio.addEventListener('ended', () => {
-          console.log('音频播放结束')
-          isSpeaking.value = false
-          URL.revokeObjectURL(audioUrl)
-          responseAudioUrl.value = ''
-          currentAudioUrl.value = ''
-        })
-        
-        audio.addEventListener('error', (error) => {
-          console.error('音频加载/播放失败:', error, audio.error)
-          isSpeaking.value = false
-          
-          if (audio.error) {
-            const errorMessages: Record<number, string> = {
-              1: '音频加载被中止',
-              2: '网络错误',
-              3: '音频解码失败',
-              4: '不支持的音频格式'
-            }
-            const errorMsg = errorMessages[audio.error.code] || '未知错误'
-            ElMessage.error(`音频播放失败: ${errorMsg}`)
-          } else {
-            ElMessage.error('音频播放失败: ' + (error.message || '未知错误'))
-          }
-          
-          URL.revokeObjectURL(audioUrl)
-          responseAudioUrl.value = ''
-          currentAudioUrl.value = ''
-        })
-        
-        audio.load()
-      } catch (ttsError: any) {
-        console.error('语音合成失败:', ttsError)
-        ElMessage.error('语音合成失败: ' + (ttsError.message || '未知错误'))
-      }
+    if (response.contextId) {
+      contextId.value = response.contextId
+    }
+
+    const userText = (response.recognizedText || recognizedText.value || '已发送语音消息').trim()
+    const assistantText = (response.text || '').trim()
+
+    pushMessage('user', userText, response.confidence)
+    recognizedText.value = userText
+
+    if (assistantText) {
+      pushMessage('assistant', assistantText)
+      await synthesizeAndPlay(assistantText)
+    } else {
+      pushMessage('system', '模型未返回文本回复，请稍后重试。')
     }
   } catch (error: any) {
-    console.error('语音处理失败:', error)
-    ElMessage.error('语音处理失败: ' + (error.message || '未知错误'))
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      '语音处理失败，请检查后端服务状态。'
+    pushMessage('system', `请求失败：${message}`)
+    ElMessage.error(message)
   } finally {
     processing.value = false
-    setTimeout(() => {
+    recognizedTextTimer = window.setTimeout(() => {
       recognizedText.value = ''
-    }, 3000)
+    }, 6000)
   }
 }
 
-const handlePlaying = () => {
-  isSpeaking.value = true
+const synthesizeAndPlay = async (text: string) => {
+  try {
+    const audioBlob = await voiceApi.textToSpeech(
+      text,
+      voiceType.value,
+      voiceSpeed.value,
+      voicePitch.value
+    )
+    lastResponseAudioBlob.value = audioBlob
+    await playAudioBlob(audioBlob)
+  } catch (error: any) {
+    const message = error?.message || '语音合成失败'
+    ElMessage.warning(`文本已返回，但语音播放失败：${message}`)
+  }
 }
 
-const handleStopped = () => {
+const playAudioBlob = async (audioBlob: Blob) => {
+  stopPlayback()
+  releaseCurrentAudioUrl()
+
+  const audioUrl = URL.createObjectURL(audioBlob)
+  currentAudioUrl.value = audioUrl
+  playbackAudio = new Audio(audioUrl)
+  playbackAudio.preload = 'auto'
+
+  playbackAudio.onplay = () => {
+    isSpeaking.value = true
+  }
+
+  playbackAudio.onpause = () => {
+    isSpeaking.value = false
+  }
+
+  playbackAudio.onended = () => {
+    isSpeaking.value = false
+    releaseCurrentAudioUrl()
+    if (playbackAudio) {
+      playbackAudio.src = ''
+      playbackAudio = null
+    }
+  }
+
+  playbackAudio.onerror = () => {
+    isSpeaking.value = false
+    ElMessage.error('音频播放失败，请点击“重播回复”重试。')
+  }
+
+  try {
+    await playbackAudio.play()
+  } catch (error: any) {
+    isSpeaking.value = false
+    releaseCurrentAudioUrl()
+    if (playbackAudio) {
+      playbackAudio.src = ''
+      playbackAudio = null
+    }
+    throw error
+  }
+}
+
+const replayLastAudio = async () => {
+  if (!lastResponseAudioBlob.value) {
+    ElMessage.info('当前没有可重播音频。')
+    return
+  }
+
+  try {
+    await playAudioBlob(lastResponseAudioBlob.value)
+  } catch (error: any) {
+    ElMessage.warning(error?.message || '重播失败，请稍后重试。')
+  }
+}
+
+const stopPlayback = () => {
+  if (!playbackAudio) return
+  playbackAudio.pause()
+  playbackAudio.currentTime = 0
+  playbackAudio.src = ''
+  playbackAudio = null
   isSpeaking.value = false
+  releaseCurrentAudioUrl()
 }
 
 const handleTestVoice = async () => {
+  if (processing.value) return
+  processing.value = true
+
   try {
-    const testText = '这是语音测试，请听效果。'
-    const audioBlob = await voiceApi.textToSpeech(
-      testText, 
+    const sampleText = '你好，这是语音设置试听。'
+    const sampleAudio = await voiceApi.textToSpeech(
+      sampleText,
       voiceType.value,
-      voiceSpeed.value, 
+      voiceSpeed.value,
       voicePitch.value
     )
-    const audioUrl = URL.createObjectURL(audioBlob)
-    const audio = new Audio(audioUrl)
-    audio.play()
-    
-    audio.onended = () => {
-      URL.revokeObjectURL(audioUrl)
-    }
-    ElMessage.success('正在播放试听')
+    await playAudioBlob(sampleAudio)
+    ElMessage.success('正在试听当前语音设置。')
   } catch (error: any) {
-    ElMessage.error('试听失败: ' + (error.message || '未知错误'))
+    ElMessage.error(error?.message || '试听失败，请检查语音服务。')
+  } finally {
+    processing.value = false
   }
 }
 
-const handleBack = () => {
-  router.push('/chat')
+const clearSession = () => {
+  messages.value = []
+  contextId.value = ''
+  recognizedText.value = ''
+  stopPlayback()
+  pushMessage('system', '语音会话已清空。')
 }
 
-const getParticleStyle = (index: number) => {
-  const delay = (index * 0.08) % 3
-  const duration = 4 + (index % 4)
-  const size = 2 + (index % 4)
-  const left = (index * 3.5) % 100
-  return {
-    left: `${left}%`,
-    width: `${size}px`,
-    height: `${size}px`,
-    animationDelay: `${delay}s`,
-    animationDuration: `${duration}s`
-  }
+const releaseCurrentAudioUrl = () => {
+  if (!currentAudioUrl.value) return
+  URL.revokeObjectURL(currentAudioUrl.value)
+  currentAudioUrl.value = ''
 }
 
-const getWaveBarStyle = (index: number) => {
-  const delay = index * 0.03
-  const height = 25 + Math.sin(index * 0.6) * 20
-  return {
-    animationDelay: `${delay}s`,
-    height: `${height}%`
-  }
+const clearRecognizedTimer = () => {
+  if (recognizedTextTimer === null) return
+  window.clearTimeout(recognizedTextTimer)
+  recognizedTextTimer = null
 }
 
-const startWaveAnimation = () => {
-  const animate = () => {
-    waveAnimationFrame.value = requestAnimationFrame(animate)
-  }
-  animate()
+const formatTime = (timestamp: number) => {
+  return new Date(timestamp).toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
+
+const escapeHtml = (raw: string) =>
+  raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+const escapeAttr = (raw: string) => raw.replace(/"/g, '&quot;')
+
+const isSafeUrl = (url: string) => /^(https?:\/\/|mailto:|\/)/i.test(url)
+
+const applyInlineMarkdown = (value: string) => {
+  let text = value
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_all, label, url) => {
+    const safe = String(url || '').trim()
+    if (!isSafeUrl(safe)) return label
+    return `<a href="${escapeAttr(safe)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+  })
+  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>')
+  return text
+}
+
+const markdownToHtml = (raw: string) => {
+  if (!raw) return ''
+
+  const codeBlocks: string[] = []
+  const stripped = raw.replace(/```([a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, (_m, lang, code) => {
+    const language = (lang || '').trim()
+    const escapedCode = escapeHtml(String(code || '').replace(/\n$/, ''))
+    const className = language ? ` class="language-${escapeAttr(language)}"` : ''
+    const token = `@@CODE_BLOCK_${codeBlocks.length}@@`
+    codeBlocks.push(`<pre><code${className}>${escapedCode}</code></pre>`)
+    return token
+  })
+
+  const lines = stripped.split(/\r?\n/)
+  const output: string[] = []
+  let inUl = false
+  let inOl = false
+
+  const closeLists = () => {
+    if (inUl) {
+      output.push('</ul>')
+      inUl = false
+    }
+    if (inOl) {
+      output.push('</ol>')
+      inOl = false
+    }
+  }
+
+  lines.forEach(line => {
+    const trimmed = line.trim()
+    if (!trimmed) {
+      closeLists()
+      return
+    }
+
+    if (/^@@CODE_BLOCK_\d+@@$/.test(trimmed)) {
+      closeLists()
+      output.push(trimmed)
+      return
+    }
+
+    const escaped = escapeHtml(trimmed)
+    const heading = escaped.match(/^(#{1,6})\s+(.+)$/)
+    if (heading) {
+      closeLists()
+      const level = Math.min(6, heading[1].length)
+      output.push(`<h${level}>${applyInlineMarkdown(heading[2])}</h${level}>`)
+      return
+    }
+
+    const ul = escaped.match(/^[-*]\s+(.+)$/)
+    if (ul) {
+      if (!inUl) {
+        closeLists()
+        output.push('<ul>')
+        inUl = true
+      }
+      output.push(`<li>${applyInlineMarkdown(ul[1])}</li>`)
+      return
+    }
+
+    const ol = escaped.match(/^\d+\.\s+(.+)$/)
+    if (ol) {
+      if (!inOl) {
+        closeLists()
+        output.push('<ol>')
+        inOl = true
+      }
+      output.push(`<li>${applyInlineMarkdown(ol[1])}</li>`)
+      return
+    }
+
+    closeLists()
+    output.push(`<p>${applyInlineMarkdown(escaped)}</p>`)
+  })
+
+  closeLists()
+  let html = output.join('\n')
+  codeBlocks.forEach((block, index) => {
+    html = html.replace(`@@CODE_BLOCK_${index}@@`, block)
+  })
+  return html
+}
+
+const renderMessageHtml = (msg: VoiceMessage) => {
+  if (msg.role === 'assistant') return markdownToHtml(msg.text)
+  return escapeHtml(msg.text).replace(/\n/g, '<br />')
+}
+
+watch(
+  () => messages.value.length,
+  async () => {
+    await nextTick()
+    if (!transcriptRef.value) return
+    transcriptRef.value.scrollTo({
+      top: transcriptRef.value.scrollHeight,
+      behavior: 'smooth'
+    })
+  }
+)
+
+onMounted(async () => {
+  await roleStore.loadRoles()
+  if (roleStore.currentRole) {
+    selectedRoleId.value = roleStore.currentRole.id
+  } else if (allRoles.value.length > 0) {
+    const defaultRole = allRoles.value[0]
+    await roleStore.setCurrentRole(defaultRole)
+    selectedRoleId.value = defaultRole.id
+  }
+
+  pushMessage('system', '语音会话已就绪，按住麦克风即可开始。')
+})
+
+onUnmounted(() => {
+  clearRecognizedTimer()
+  stopPlayback()
+  releaseCurrentAudioUrl()
+})
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-.voice-chat-view {
+.voice-view {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
   position: relative;
-  height: 100vh;
-  width: 100vw;
   overflow: hidden;
-  background: linear-gradient(135deg, #0a0d14 0%, #111827 50%, #0f172a 100%);
-  color: #ffffff;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-.glass-panel {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.voice-view::before,
+.voice-view::after {
+  content: '';
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.25;
+  pointer-events: none;
+  z-index: 0;
 }
 
-.glass-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
+.voice-view::before {
+  top: -200px;
+  left: -150px;
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.35), transparent 60%);
+}
+
+.voice-view::after {
+  bottom: -200px;
+  right: -150px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.25), transparent 60%);
+}
+
+.voice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+}
+
+.header-left {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  background: rgba(10, 13, 20, 0.6);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 12px;
+  min-width: 0;
 }
 
 .back-button {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
+  padding-left: 0;
+  transition: all 0.2s ease;
 }
 
 .back-button:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.25);
-  transform: translateX(-3px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  color: var(--primary-color);
+  transform: translateX(-2px);
 }
 
-.back-button:active {
-  transform: scale(0.95);
+.title-block {
+  min-width: 0;
 }
 
-.header-info {
-  text-align: center;
-  flex: 1;
-}
-
-.header-title {
+.title-block h1 {
   font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 2px 0;
-  background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.header-subtitle {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
   margin: 0;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.2px;
 }
 
-.header-spacer {
-  width: 44px;
-}
-
-.ambient-background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
+.title-block p {
+  margin: 3px 0 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.wave-layer {
-  position: absolute;
-  width: 200%;
-  height: 100%;
-  opacity: 0.12;
-  background: linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.4), transparent);
-  animation: wave-flow 20s linear infinite;
+.role-select {
+  width: 220px;
 }
 
-.wave-1 {
-  top: 15%;
-  animation-duration: 22s;
-  animation-delay: 0s;
-}
-
-.wave-2 {
-  top: 45%;
-  animation-duration: 28s;
-  animation-delay: -8s;
-  opacity: 0.08;
-}
-
-.wave-3 {
-  top: 75%;
-  animation-duration: 32s;
-  animation-delay: -4s;
-  opacity: 0.06;
-}
-
-@keyframes wave-flow {
-  0% { transform: translateX(-50%) translateY(0); }
-  100% { transform: translateX(0) translateY(0); }
-}
-
-.particle-layer {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.particle {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 50%;
-  animation: particle-float linear infinite;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
-}
-
-@keyframes particle-float {
-  0% {
-    transform: translateY(100vh) translateX(0) rotate(0deg);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-15vh) translateX(150px) rotate(360deg);
-    opacity: 0;
-  }
-}
-
-.glow-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.15;
-  transition: opacity 0.8s ease, transform 0.8s ease;
-}
-
-.orb-1 {
-  top: -20%;
-  left: -15%;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(64, 158, 255, 0.5) 0%, transparent 70%);
-  animation: orb-float-1 18s ease-in-out infinite;
-}
-
-.orb-2 {
-  bottom: -20%;
-  right: -15%;
-  width: 550px;
-  height: 550px;
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%);
-  animation: orb-float-2 20s ease-in-out infinite;
-  animation-delay: -6s;
-}
-
-.orb-3 {
-  top: 40%;
-  right: -5%;
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(34, 197, 94, 0.3) 0%, transparent 70%);
-  animation: orb-float-3 22s ease-in-out infinite;
-  animation-delay: -10s;
-}
-
-.glow-orb.active {
-  opacity: 0.3;
-  transform: scale(1.15);
-}
-
-@keyframes orb-float-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(40px, 50px) scale(1.08); }
-  66% { transform: translate(-30px, 30px) scale(0.92); }
-}
-
-@keyframes orb-float-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-40px, -50px) scale(1.08); }
-  66% { transform: translate(30px, -30px) scale(0.92); }
-}
-
-@keyframes orb-float-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-20px, 30px) scale(1.05); }
-  66% { transform: translate(25px, -25px) scale(0.95); }
-}
-
-.main-content {
+.voice-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 370px;
+  gap: 16px;
+  padding: 16px;
   position: relative;
   z-index: 1;
-  height: 100%;
+}
+
+.left-column {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(300px, 1.1fr) minmax(280px, 0.9fr);
+  gap: 16px;
+}
+
+.right-column {
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.right-column::-webkit-scrollbar {
+  width: 6px;
+}
+
+.right-column::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.right-column::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 3px;
+}
+
+.panel-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.panel-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.card-header {
+  display: flex;
   justify-content: space-between;
-  padding: 100px 24px 140px;
-}
-
-.digital-human-container {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  min-height: 450px;
-}
-
-.digital-human-wrapper {
-  position: relative;
-  transition: transform 0.4s ease;
-}
-
-.digital-human-frame {
-  position: relative;
-  padding: 20px;
-}
-
-.frame-decoration {
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  border: 2px solid;
-  opacity: 0.3;
-  transition: all 0.3s ease;
-}
-
-.frame-decoration.top-left {
-  top: 0;
-  left: 0;
-  border-right: none;
-  border-bottom: none;
-  border-color: rgba(129, 140, 248, 0.5);
-  border-radius: 12px 0 0 0;
-}
-
-.frame-decoration.top-right {
-  top: 0;
-  right: 0;
-  border-left: none;
-  border-bottom: none;
-  border-color: rgba(129, 140, 248, 0.5);
-  border-radius: 0 12px 0 0;
-}
-
-.frame-decoration.bottom-left {
-  bottom: 0;
-  left: 0;
-  border-right: none;
-  border-top: none;
-  border-color: rgba(129, 140, 248, 0.5);
-  border-radius: 0 0 0 12px;
-}
-
-.frame-decoration.bottom-right {
-  bottom: 0;
-  right: 0;
-  border-left: none;
-  border-top: none;
-  border-color: rgba(129, 140, 248, 0.5);
-  border-radius: 0 0 12px 0;
-}
-
-.digital-human-wrapper.speaking .frame-decoration {
-  opacity: 0.6;
-  border-color: rgba(34, 197, 94, 0.7);
-  animation: frame-glow 1.5s ease-in-out infinite;
-}
-
-.digital-human-wrapper.recording .frame-decoration {
-  opacity: 0.6;
-  border-color: rgba(239, 68, 68, 0.7);
-  animation: frame-glow 1.2s ease-in-out infinite;
-}
-
-@keyframes frame-glow {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.1); opacity: 0.8; }
-}
-
-.digital-human-wrapper.speaking {
-  animation: speaking-pulse 2s ease-in-out infinite;
-}
-
-.digital-human-wrapper.recording {
-  animation: recording-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes speaking-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.03); }
-}
-
-@keyframes recording-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.04); }
-}
-
-.digital-human-entity {
-  max-height: 65vh;
-  transition: opacity 0.3s ease;
-}
-
-.status-indicator {
-  position: absolute;
-  top: 12%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  z-index: 10;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-light);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 1));
 }
 
-.status-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+.header-title h2 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.1px;
 }
 
-.status-dot.pulse {
-  background: #ef4444;
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
-  animation: pulse-red 1.5s ease-in-out infinite;
+.header-title p {
+  margin: 5px 0 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
-.status-dot.thinking {
-  background: #3b82f6;
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
-  animation: thinking-bounce 1.2s ease-in-out infinite;
-}
-
-.status-text {
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-
-@keyframes pulse-red {
-  0%, 100% { 
-    transform: scale(1);
-    opacity: 1;
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
-  }
-  50% { 
-    transform: scale(1.4);
-    opacity: 0.7;
-    box-shadow: 0 0 40px rgba(239, 68, 68, 0.8);
-  }
-}
-
-@keyframes thinking-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-.audio-visualizer {
-  position: absolute;
-  bottom: 15%;
-  left: 50%;
-  transform: translateX(-50%);
+.avatar-card {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  height: 50px;
+  flex-direction: column;
+}
+
+.avatar-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 25% 15%, rgba(79, 70, 229, 0.18), transparent 50%),
+    radial-gradient(circle at 75% 85%, rgba(37, 99, 235, 0.16), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.08), transparent 60%),
+    linear-gradient(145deg, #f8fafc, #eff6ff);
+  overflow: hidden;
+}
+
+.avatar-stage::before {
+  content: '';
+  position: absolute;
+  inset: 20px;
+  border-radius: 16px;
+  border: 1.5px dashed rgba(79, 70, 229, 0.25);
+  pointer-events: none;
+  transition: border-color 0.3s ease;
+}
+
+.avatar-stage.recording::before {
+  border-color: rgba(220, 38, 38, 0.4);
+  animation: border-pulse 1.5s ease-in-out infinite;
+}
+
+.avatar-stage.speaking::before {
+  border-color: rgba(5, 150, 105, 0.4);
+  animation: border-pulse 2s ease-in-out infinite;
+}
+
+@keyframes border-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.digital-human {
+  position: absolute;
+  inset: 0;
+}
+
+.stage-overlay {
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  display: flex;
+  gap: 8px;
   z-index: 5;
 }
 
-.wave-bar {
-  width: 4px;
-  background: linear-gradient(180deg, #818cf8 0%, #4f46e5 100%);
-  border-radius: 4px;
-  animation: wave-animate 1.2s ease-in-out infinite;
-  box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
+.stage-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
 }
 
-@keyframes wave-animate {
-  0%, 100% { transform: scaleY(0.2); }
-  50% { transform: scaleY(1); }
+.stage-chip.active {
+  color: var(--primary-color);
+  border-color: rgba(79, 70, 229, 0.4);
+  background: rgba(79, 70, 229, 0.08);
+  transform: scale(1.02);
 }
 
-.transcription-area {
-  margin-bottom: 40px;
-  width: 90%;
-  max-width: 700px;
-  text-align: center;
-  min-height: 80px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+.avatar-stage.recording .stage-chip.active {
+  color: var(--danger);
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(220, 38, 38, 0.08);
 }
 
-.transcription-bubble {
-  padding: 20px 28px;
-  border-radius: 20px;
-  font-size: 16px;
-  line-height: 1.7;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  max-width: 100%;
-  word-wrap: break-word;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+.avatar-stage.speaking .stage-chip.active {
+  color: var(--success);
+  border-color: rgba(5, 150, 105, 0.4);
+  background: rgba(5, 150, 105, 0.08);
 }
 
-.transcription-icon-wrapper {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.2) 0%, rgba(129, 140, 248, 0.2) 100%);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.transcription-icon {
-  color: #818cf8;
-  font-size: 20px;
-}
-
-.transcription-text {
-  flex: 1;
-  text-align: left;
-  font-weight: 400;
-}
-
-.control-bar {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 92%;
-  max-width: 600px;
-  border-radius: 28px;
-  padding: 28px 32px;
+.transcript-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 100;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    0 25px 80px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-    0 1px 0 0 rgba(255, 255, 255, 0.1) inset;
-  animation: control-bar-float 6s ease-in-out infinite;
+  min-height: 0;
 }
 
-.control-bar.settings-expanded {
-  padding-bottom: 32px;
-  animation: control-bar-expanded 0.4s ease-out;
-}
-
-@keyframes control-bar-float {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-4px); }
-}
-
-@keyframes control-bar-expanded {
-  0% { transform: translateX(-50%) scale(0.98); opacity: 0.8; }
-  100% { transform: translateX(-50%) scale(1); opacity: 1; }
-}
-
-.control-core {
+.transcript-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px;
   display: flex;
-  justify-content: center;
-  width: 100%;
-  position: relative;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.recorder-wrapper {
-  position: relative;
+.transcript-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.transcript-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.transcript-list::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 3px;
+}
+
+.empty-state {
+  margin: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.recorder-ring {
-  position: absolute;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  border: 3px solid transparent;
-  border-top-color: rgba(129, 140, 248, 0.6);
-  border-right-color: rgba(129, 140, 248, 0.3);
-  animation: ring-spin 1.8s linear infinite;
-  opacity: 0;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.3));
-}
-
-.recorder-ring.recording {
-  opacity: 1;
-  border-top-color: rgba(239, 68, 68, 0.8);
-  border-right-color: rgba(239, 68, 68, 0.4);
-  filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.5));
-  animation: ring-spin-recording 1.2s linear infinite;
-}
-
-@keyframes ring-spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes ring-spin-recording {
-  to { transform: rotate(360deg); }
-}
-
-.recorder-glow {
-  position: absolute;
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.2) 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  filter: blur(20px);
-}
-
-.recorder-glow.active {
-  opacity: 0.6;
-  animation: glow-pulse 2s ease-in-out infinite;
-}
-
-@keyframes glow-pulse {
-  0%, 100% { 
-    transform: scale(1);
-    opacity: 0.4;
-  }
-  50% { 
-    transform: scale(1.1);
-    opacity: 0.8;
-  }
-}
-
-.control-bar.pulse-glow {
-  animation: control-bar-pulse 3s ease-in-out infinite;
-}
-
-@keyframes control-bar-pulse {
-  0%, 100% { 
-    box-shadow: 
-      0 25px 80px rgba(0, 0, 0, 0.5),
-      0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-      0 1px 0 0 rgba(255, 255, 255, 0.1) inset;
-  }
-  50% { 
-    box-shadow: 
-      0 30px 100px rgba(0, 0, 0, 0.6),
-      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
-      0 1px 0 0 rgba(255, 255, 255, 0.15) inset,
-      0 0 0 0 rgba(129, 140, 248, 0.2);
-  }
-}
-
-.settings-toggle.active {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(129, 140, 248, 0.08) 100%);
-  border-color: rgba(129, 140, 248, 0.3);
-  box-shadow: 
-    0 8px 24px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(129, 140, 248, 0.2) inset;
-}
-
-:deep(.voice-recorder-btn) {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
-  border: 4px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 12px 32px rgba(59, 130, 246, 0.5),
-    0 0 0 0 rgba(59, 130, 246, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  position: relative;
-  overflow: hidden;
-}
-
-:deep(.voice-recorder-btn::before) {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.6s ease;
-}
-
-:deep(.voice-recorder-btn:hover) {
-  transform: scale(1.12);
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
-  box-shadow: 
-    0 16px 40px rgba(59, 130, 246, 0.6),
-    0 0 0 4px rgba(59, 130, 246, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-:deep(.voice-recorder-btn:hover::before) {
-  left: 100%;
-}
-
-:deep(.voice-recorder-btn:active) {
-  transform: scale(0.96);
-  box-shadow: 
-    0 8px 24px rgba(59, 130, 246, 0.4),
-    0 0 0 0 rgba(59, 130, 246, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.voice-chat-view.is-recording :deep(.voice-recorder-btn) {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
-  border-color: rgba(255, 255, 255, 0.3);
-  animation: recording-pulse 1.2s ease-in-out infinite;
-  box-shadow: 
-    0 12px 32px rgba(239, 68, 68, 0.5),
-    0 0 0 0 rgba(239, 68, 68, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-@keyframes recording-pulse {
-  0%, 100% { 
-    transform: scale(1);
-    box-shadow: 
-      0 12px 32px rgba(239, 68, 68, 0.5),
-      0 0 0 0 rgba(239, 68, 68, 0.4);
-  }
-  50% { 
-    transform: scale(1.08);
-    box-shadow: 
-      0 16px 40px rgba(239, 68, 68, 0.6),
-      0 0 0 12px rgba(239, 68, 68, 0);
-  }
-}
-
-.settings-toggle {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 14px 20px;
-  border-radius: 16px;
-  font-size: 15px;
-  font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  position: relative;
-  overflow: hidden;
+  color: var(--text-secondary);
+  padding: 40px 20px;
 }
 
-.settings-toggle::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transition: left 0.6s ease;
-}
-
-.settings-toggle:hover {
-  color: #ffffff;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
-  box-shadow: 
-    0 8px 24px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-}
-
-.settings-toggle:hover::before {
-  left: 100%;
-}
-
-.settings-toggle:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.toggle-icon {
-  font-size: 20px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  filter: drop-shadow(0 0 4px rgba(129, 140, 248, 0.3));
-}
-
-.settings-toggle:hover .toggle-icon {
-  filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.5));
-  transform: rotate(15deg);
-}
-
-.toggle-icon.rotated {
-  transform: rotate(180deg);
-}
-
-.settings-toggle:hover .toggle-icon.rotated {
-  transform: rotate(195deg);
-}
-
-.toggle-text {
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.3px;
-  background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.voice-params-panel {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 16px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.empty-state .el-icon {
+  font-size: 36px;
+  opacity: 0.7;
   margin-bottom: 4px;
 }
 
-.panel-icon {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(79, 70, 229, 0.2) 100%);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: #818cf8;
-}
-
-.panel-title-group {
-  flex: 1;
-}
-
-.panel-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-  margin: 0 0 4px 0;
-  letter-spacing: -0.01em;
-}
-
-.panel-subtitle {
+.empty-state span {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0;
 }
 
-.params-content {
+.message-item {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 6px;
+  max-width: 80%;
+  animation: message-in 0.3s ease-out;
 }
 
-.param-item {
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-item.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.message-item.assistant {
+  align-self: flex-start;
+}
+
+.message-item.system {
+  align-self: center;
+  max-width: 100%;
+}
+
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.message-item.user .message-meta {
+  flex-direction: row-reverse;
+}
+
+.message-bubble {
+  border: 1px solid var(--border-light);
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px 14px;
+  line-height: 1.7;
+  font-size: 14px;
+  color: var(--text-primary);
+  word-break: break-word;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.message-bubble:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.message-item.user .message-bubble {
+  background: linear-gradient(135deg, var(--primary-color), #4338ca);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+}
+
+.confidence {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 0 4px;
+}
+
+.system-tip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border: 1px dashed var(--border-light);
+  backdrop-filter: blur(4px);
+}
+
+.control-card,
+.settings-card,
+.tips-card {
+  padding-bottom: 16px;
+}
+
+.recorder-area {
+  display: flex;
+  justify-content: center;
+  padding: 20px 16px 12px;
+}
+
+.status-alert {
+  margin: 0 18px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.recognized-preview {
+  margin: 14px 18px 0;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-input);
+  padding: 12px 14px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.recognized-preview .label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.recognized-preview p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.button-row {
+  margin: 14px 18px 0;
+  display: flex;
+  gap: 10px;
+}
+
+.button-row .el-button {
+  flex: 1;
+  border-radius: 10px;
+  height: 40px;
+  font-weight: 500;
+}
+
+.settings-body {
+  padding: 16px 18px 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.param-header {
+.setting-item {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  background: linear-gradient(180deg, #fff, var(--bg-input));
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.setting-item:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.setting-line {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--text-regular);
+  font-weight: 500;
 }
 
-.param-label-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.setting-line strong {
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
-.param-icon {
-  color: rgba(129, 140, 248, 0.8);
+.voice-type-select {
+  width: 100%;
+}
+
+.tips-card ul {
+  margin: 14px 18px 0;
+  padding-left: 20px;
+  color: var(--text-regular);
+  line-height: 1.9;
+  font-size: 13px;
+}
+
+.tips-card li {
+  position: relative;
+}
+
+.tips-card li::marker {
+  color: var(--primary-color);
+}
+
+.tips-card li + li {
+  margin-top: 6px;
+}
+
+.message-bubble :deep(h1),
+.message-bubble :deep(h2),
+.message-bubble :deep(h3) {
+  margin: 10px 0 6px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.message-bubble :deep(h1) {
+  font-size: 18px;
+}
+
+.message-bubble :deep(h2) {
   font-size: 16px;
 }
 
-.param-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
+.message-bubble :deep(h3) {
+  font-size: 15px;
 }
 
-.param-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: #818cf8;
-  min-width: 45px;
-  text-align: right;
+.message-bubble :deep(p) {
+  margin: 8px 0;
 }
 
-.custom-slider {
-  --el-slider-main-bg-color: linear-gradient(90deg, #818cf8 0%, #6366f1 100%);
-  --el-slider-runway-bg-color: rgba(255, 255, 255, 0.12);
-  --el-slider-button-size: 18px;
+.message-bubble :deep(ul),
+.message-bubble :deep(ol) {
+  margin: 10px 0;
+  padding-left: 20px;
 }
 
-.voice-select {
-  width: 100%;
+.message-bubble :deep(li) {
+  margin: 6px 0;
 }
 
-.test-button {
-  width: 100%;
-  padding: 14px;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(79, 70, 229, 0.2) 100%);
-  border: 1px solid rgba(129, 140, 248, 0.35);
-  border-radius: 12px;
-  color: #818cf8;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all 0.2s ease;
-  margin-top: 4px;
+.message-bubble :deep(pre) {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow-x: auto;
+  font-size: 13px;
 }
 
-.test-button:hover {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.3) 0%, rgba(79, 70, 229, 0.3) 100%);
-  border-color: rgba(129, 140, 248, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(129, 140, 248, 0.2);
+.message-bubble :deep(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(100, 116, 139, 0.12);
+  font-size: 13px;
 }
 
-.test-button:active {
-  transform: translateY(0);
+.message-bubble :deep(pre code) {
+  background: transparent;
+  padding: 0;
 }
 
-.fade-scale-enter-active,
-.fade-scale-leave-active {
-  transition: all 0.3s ease;
+.message-bubble :deep(a) {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-all;
 }
 
-.fade-scale-enter-from,
-.fade-scale-leave-to {
-  opacity: 0;
-  transform: scale(0.85);
+:deep(.voice-recorder-btn) {
+  width: 96px;
+  height: 96px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.slide-up-fade-enter-active,
-.slide-up-fade-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+:deep(.voice-recorder-btn:hover) {
+  transform: scale(1.05);
 }
 
-.slide-up-fade-enter-from,
-.slide-up-fade-leave-to {
-  opacity: 0;
-  transform: translateY(25px);
+:deep(.voice-recorder .recording-indicator),
+:deep(.voice-recorder .realtime-text) {
+  display: none;
 }
 
-.expand-enter-active,
-.expand-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+@media (max-width: 1280px) {
+  .voice-main {
+    grid-template-columns: minmax(0, 1fr) 330px;
+  }
 }
 
-.expand-enter-from,
-.expand-leave-to {
-  max-height: 0;
-  opacity: 0;
-  margin-top: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-}
+@media (max-width: 1024px) {
+  .voice-main {
+    grid-template-columns: 1fr;
+  }
 
-.expand-enter-to,
-.expand-leave-from {
-  max-height: 550px;
-  opacity: 1;
+  .right-column {
+    max-height: 52vh;
+  }
+
+  .title-block p {
+    white-space: normal;
+  }
 }
 </style>

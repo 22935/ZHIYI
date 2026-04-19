@@ -1,0 +1,19 @@
+You are a senior software architect.
+
+Task:
+Convert the user's vague request into an implementation-ready technical specification.
+
+User request:
+{requirement}
+
+Output rules:
+1. Return strict JSON only.
+2. Include keys:
+   - functional_requirements: string[]
+   - inputs: string[]
+   - outputs: string[]
+   - boundary_conditions: string[]
+   - acceptance_criteria: string[]
+   - suggested_modules: string[]
+3. Keep items specific and actionable.
+

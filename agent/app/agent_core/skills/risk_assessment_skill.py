@@ -1,4 +1,4 @@
-﻿from typing import Any, Dict, List
+from typing import Any, Dict, List
 
 from app.agent_core.federated.federated_adapter import FederatedAdapter
 from app.agent_core.schema.agent_types import SkillRequest, SkillResult
@@ -116,8 +116,8 @@ class RiskAssessmentSkill(BaseSkill):
             "mitigation_suggestions": suggestions,
         }
 
-    def _merge_federated_enhancement(self, base_output: Dict[str, Any], case_info: Dict[str, Any]) -> Dict[str, Any]:
-        enhancement = self.federated_adapter.get_risk_enhancement(case_info)
+    async def _merge_federated_enhancement(self, base_output: Dict[str, Any], case_info: Dict[str, Any]) -> Dict[str, Any]:
+        enhancement = await self.federated_adapter.get_risk_enhancement(case_info)
 
         federated_info = {
             "enabled": self.federated_adapter.enabled,
@@ -170,7 +170,7 @@ class RiskAssessmentSkill(BaseSkill):
             evidence_analysis=evidence_analysis if isinstance(evidence_analysis, dict) else {},
             limitation_result=limitation_result if isinstance(limitation_result, dict) else {},
         )
-        output = self._merge_federated_enhancement(output, case_info)
+        output = await self._merge_federated_enhancement(output, case_info)
 
         federated_tag = "federated:on" if output.get("federated", {}).get("applied") else "federated:off"
         return SkillResult(
