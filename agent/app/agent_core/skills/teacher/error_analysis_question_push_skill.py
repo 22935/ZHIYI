@@ -139,7 +139,7 @@ class ErrorAnalysisQuestionPushSkill(BaseSkill):
 
     async def run(self, request: SkillRequest) -> SkillResult:
         try:
-            return await asyncio.wait_for(self.execute(request), timeout=10)
+            return await asyncio.wait_for(self.execute(request), timeout=45)
         except asyncio.TimeoutError:
             action_input = request.action_input or {}
             fallback = self._fallback_output(

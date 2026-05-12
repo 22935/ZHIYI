@@ -65,7 +65,7 @@ class HearingOutlineGenerationSkill(BaseSkill):
 
     async def run(self, request: SkillRequest) -> SkillResult:
         try:
-            return await asyncio.wait_for(self._run_impl(request), timeout=14)
+            return await asyncio.wait_for(self._run_impl(request), timeout=45)
         except asyncio.TimeoutError:
             return SkillResult(
                 skillName=self.name,
@@ -110,7 +110,7 @@ class HearingOutlineGenerationSkill(BaseSkill):
 
         draft = ""
         try:
-            response = await asyncio.wait_for(_ai_service.generate_text(text=prompt), timeout=10)
+            response = await asyncio.wait_for(_ai_service.generate_text(text=prompt), timeout=45)
             draft = (response.get("text", "") or "").strip()
         except Exception:
             draft = ""

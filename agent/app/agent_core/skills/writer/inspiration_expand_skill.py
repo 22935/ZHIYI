@@ -24,15 +24,15 @@ class InspirationExpandSkill(BaseSkill):
 
     async def execute(self, request: SkillRequest) -> SkillResult:
         action_input = request.action_input or {}
-        premise = str(action_input.get("premise", request.text or "")).strip() or "Story idea"
+        premise = str(action_input.get("premise", request.text or "")).strip() or "故事创意"
 
         prompt = WriterSkillHelper.load_prompt(
             "inspiration_expand.txt",
             (
-                "You are a creative writing assistant.\n"
-                "Given premise: {premise}\n"
-                "Return strict JSON only with key creative_tree.\n"
-                "creative_tree must be an object with id,label,description,children.\n"
+                "你是一名创意写作助手，请始终使用简体中文（JSON 键名保持原样）。\n"
+                "给定前提：{premise}\n"
+                "请仅返回严格 JSON，顶层键为 creative_tree。\n"
+                "creative_tree 必须包含 id、label、description、children。\n"
             ),
         ).replace("{premise}", premise)
 
@@ -56,20 +56,20 @@ class InspirationExpandSkill(BaseSkill):
             skillName=self.name,
             success=True,
             output=output,
-            message="Inspiration expansion completed.",
+            message="灵感扩展完成。",
         )
 
     async def run(self, request: SkillRequest) -> SkillResult:
         action_input = request.action_input or {}
-        premise = str(action_input.get("premise", request.text or "")).strip() or "Story idea"
+        premise = str(action_input.get("premise", request.text or "")).strip() or "故事创意"
         try:
-            return await asyncio.wait_for(self.execute(request), timeout=10)
+            return await asyncio.wait_for(self.execute(request), timeout=45)
         except asyncio.TimeoutError:
             return SkillResult(
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(premise=premise, reason="timeout"),
-                message="Inspiration expansion timeout, fallback returned.",
+                message="灵感扩展超时，已返回降级结果。",
             )
         except Exception as exc:
             logger.error("InspirationExpandSkill failed: %s", exc, exc_info=True)
@@ -77,5 +77,5 @@ class InspirationExpandSkill(BaseSkill):
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(premise=premise, reason="error"),
-                message="Inspiration expansion error, fallback returned.",
+                message="灵感扩展执行异常，已返回降级结果。",
             )

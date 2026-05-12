@@ -34,20 +34,20 @@ class OutlineGenerateSkill(BaseSkill):
         return str(request.text or "").strip()
 
     def _fallback_markdown(self, creative_selection: str, chapters_count: int) -> str:
-        safe_selection = creative_selection or "Story concept"
+        safe_selection = creative_selection or "故事概念"
         count = max(3, min(20, chapters_count or 6))
         lines = [
-            "# Story Outline",
+            "# 故事大纲",
             "",
-            f"## Core Idea",
+            "## 核心创意",
             safe_selection,
             "",
         ]
         for index in range(1, count + 1):
-            lines.append(f"## Chapter {index}")
-            lines.append(f"- Goal: Advance the core conflict in Chapter {index}.")
-            lines.append("- Key event: Escalate stakes and reveal new information.")
-            lines.append("- Emotional beat: Show character decision and change.")
+            lines.append(f"## 第{index}章")
+            lines.append(f"- 章节目标：推进本章核心冲突。")
+            lines.append("- 关键事件：抬升风险并揭示新信息。")
+            lines.append("- 情绪节拍：呈现角色抉择与变化。")
             lines.append("")
         return "\n".join(lines).strip()
 
@@ -60,10 +60,10 @@ class OutlineGenerateSkill(BaseSkill):
         prompt = WriterSkillHelper.load_prompt(
             "outline_generate.txt",
             (
-                "You are a story architect.\n"
-                "Input creative selection:\n{creative_selection}\n"
-                "Target chapter count: {chapters_count}\n"
-                "Return markdown only. Include chapter sections with clear progression.\n"
+                "你是一名故事架构师，请始终使用简体中文。\n"
+                "创意方向：\n{creative_selection}\n"
+                "目标章节数：{chapters_count}\n"
+                "请仅返回 Markdown，并按章节清晰递进。\n"
             ),
         )
         prompt = prompt.replace("{creative_selection}", creative_selection)
@@ -94,21 +94,21 @@ class OutlineGenerateSkill(BaseSkill):
             skillName=self.name,
             success=True,
             output=output,
-            message="Outline generation completed.",
+            message="大纲生成完成。",
         )
 
     async def run(self, request: SkillRequest) -> SkillResult:
         creative_selection = self._derive_creative_selection(request)
         chapters_count = WriterSkillHelper.to_int((request.action_input or {}).get("chapters_count"), 6)
         try:
-            return await asyncio.wait_for(self.execute(request), timeout=10)
+            return await asyncio.wait_for(self.execute(request), timeout=45)
         except asyncio.TimeoutError:
             fallback = self._fallback_markdown(creative_selection=creative_selection, chapters_count=chapters_count)
             return SkillResult(
                 skillName=self.name,
                 success=True,
                 output={"outline_markdown": fallback, "creative_selection": creative_selection},
-                message="Outline generation timeout, fallback returned.",
+                message="大纲生成超时，已返回降级结果。",
             )
         except Exception as exc:
             logger.error("OutlineGenerateSkill failed: %s", exc, exc_info=True)
@@ -117,5 +117,5 @@ class OutlineGenerateSkill(BaseSkill):
                 skillName=self.name,
                 success=True,
                 output={"outline_markdown": fallback, "creative_selection": creative_selection},
-                message="Outline generation error, fallback returned.",
+                message="大纲生成执行异常，已返回降级结果。",
             )

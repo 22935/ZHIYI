@@ -9,8 +9,6 @@ import com.kinlin.ai.repository.ConversationRepository;
 import com.kinlin.ai.repository.MessageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -195,7 +193,6 @@ public class ChatService {
     /**
      * 获取对话历史
      */
-    @Cacheable(value = "conversationHistory", key = "#contextId")
     public List<Message> getHistory(String contextId) {
         return conversationRepository.findByContextId(contextId)
                 .map(conversation -> messageRepository.findByConversationIdOrderByCreatedAtAsc(conversation.getId()))
@@ -206,7 +203,6 @@ public class ChatService {
      * 清除对话历史
      */
     @Transactional
-    @CacheEvict(value = "conversationHistory", key = "#contextId")
     public void clearHistory(String contextId) {
         conversationRepository.findByContextId(contextId)
                 .ifPresent(conversation -> {

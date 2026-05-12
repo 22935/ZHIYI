@@ -5,9 +5,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 /**
- * Kinlin AI 后端应用主类
+ * 联邦智枢 后端应用主类
  * 
- * @author Kinlin AI Team
+ * @author 联邦智枢 Team
  * @version 1.0.0
  */
 @SpringBootApplication

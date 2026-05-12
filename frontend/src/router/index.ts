@@ -3,7 +3,6 @@ import type { RouteRecordRaw } from 'vue-router'
 import ChatView from '@/views/ChatView.vue'
 import RoleView from '@/views/RoleView.vue'
 import SettingsView from '@/views/SettingsView.vue'
-import VoiceChatView from '@/views/VoiceChatView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RagView from '@/views/RagView.vue'
 import { authApi } from '@/services/api/auth'
@@ -59,24 +58,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/digital-human',
-    name: 'DigitalHumanChat',
-    component: () => import('@/views/DigitalHumanChatView.vue'),
-    meta: {
-      title: '数字人对话',
-      requiresAuth: true
-    }
-  },
-  {
-    path: '/voice',
-    name: 'VoiceChat',
-    component: VoiceChatView,
-    meta: {
-      title: '语音对话',
-      requiresAuth: true
-    }
-  },
-  {
     path: '/roles',
     name: 'Roles',
     component: RoleView,
@@ -127,6 +108,33 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/FederatedLearningView.vue'),
     meta: {
       title: '联邦学习管理',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/federated-agent-workbench',
+    name: 'FederatedAgentWorkbench',
+    component: () => import('@/views/FederatedAgentWorkbenchView.vue'),
+    meta: {
+      title: '联邦智能体工作台',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/contract-clause-planner',
+    name: 'ContractClausePlanner',
+    component: () => import('@/views/ContractClausePlannerView.vue'),
+    meta: {
+      title: '软件开发合同起草',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/voice-chat',
+    name: 'VoiceChat',
+    component: () => import('@/views/VoiceChatView.vue'),
+    meta: {
+      title: '语音讲解',
       requiresAuth: true
     }
   }

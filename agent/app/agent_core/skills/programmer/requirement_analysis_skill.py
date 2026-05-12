@@ -16,25 +16,25 @@ class RequirementAnalysisSkill(BaseSkill):
         self.ai_service = ai_service or AIService()
 
     def _fallback_output(self, requirement_text: str, reason: str) -> Dict[str, Any]:
-        requirement = requirement_text or "Implement requested feature."
+        requirement = requirement_text or "实现用户请求的功能。"
         return {
             "requirement": requirement,
             "functional_requirements": [
-                "Clarify user-facing behavior and success criteria.",
-                "Define API or interface input/output contracts.",
-                "Handle validation and error paths.",
+                "明确用户可见行为与成功标准。",
+                "定义 API 或接口的输入输出契约。",
+                "覆盖参数校验与异常路径处理。",
             ],
-            "inputs": ["User request", "Optional context from codebase search"],
-            "outputs": ["Structured technical plan", "Implementation-ready steps"],
+            "inputs": ["用户请求", "来自代码库检索的可选上下文"],
+            "outputs": ["结构化技术方案", "可直接实施的步骤"],
             "boundary_conditions": [
-                "Empty input or invalid parameters",
-                "Dependency unavailable or timeout",
-                "Backward compatibility constraints",
+                "输入为空或参数非法",
+                "依赖不可用或超时",
+                "向后兼容约束",
             ],
             "acceptance_criteria": [
-                "Feature path works as specified",
-                "Error path is predictable and documented",
-                "Output can be implemented directly",
+                "功能路径按规格可用",
+                "错误路径可预期且可追踪",
+                "输出内容可直接用于实现",
             ],
             "suggested_modules": [],
             "fallback_reason": reason,
@@ -47,11 +47,11 @@ class RequirementAnalysisSkill(BaseSkill):
         prompt = ProgrammerSkillHelper.load_prompt(
             "requirement_analysis.txt",
             (
-                "You are a senior software architect.\n"
-                "Analyze requirement and return strict JSON with keys:\n"
+                "你是一名资深软件架构师，请始终使用简体中文（JSON 键名保持原样）。\n"
+                "请分析需求并返回严格 JSON，包含键：\n"
                 "functional_requirements, inputs, outputs, boundary_conditions, "
-                "acceptance_criteria, suggested_modules.\n"
-                "Requirement:\n{requirement}\n"
+                "acceptance_criteria, suggested_modules。\n"
+                "需求：\n{requirement}\n"
             ),
         ).replace("{requirement}", requirement_text)
 
@@ -73,19 +73,19 @@ class RequirementAnalysisSkill(BaseSkill):
             skillName=self.name,
             success=True,
             output=output,
-            message="Requirement analysis completed.",
+            message="需求分析完成。",
         )
 
     async def run(self, request: SkillRequest) -> SkillResult:
         requirement_text = str((request.action_input or {}).get("requirement", request.text or "")).strip()
         try:
-            return await asyncio.wait_for(self.execute(request), timeout=10)
+            return await asyncio.wait_for(self.execute(request), timeout=45)
         except asyncio.TimeoutError:
             return SkillResult(
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(requirement_text, reason="timeout"),
-                message="Requirement analysis timeout, fallback returned.",
+                message="需求分析超时，已返回降级结果。",
             )
         except Exception as exc:
             logger.error("RequirementAnalysisSkill failed: %s", exc, exc_info=True)
@@ -93,5 +93,5 @@ class RequirementAnalysisSkill(BaseSkill):
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(requirement_text, reason="error"),
-                message="Requirement analysis error, fallback returned.",
+                message="需求分析执行异常，已返回降级结果。",
             )

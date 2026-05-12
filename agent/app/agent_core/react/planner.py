@@ -816,6 +816,24 @@ class ReactPlanner:
                 )
             return self._slice_plan(actions)
 
+        if needs_diagnosis and not any(
+            [
+                needs_lesson_plan,
+                needs_path,
+                needs_report,
+                needs_parent,
+                needs_error_push,
+                needs_qa,
+                needs_interaction,
+            ]
+        ):
+            add_action(
+                thought="This request focuses on learner diagnosis, so avoid extra planning subtasks.",
+                action="student_diagnosis",
+                action_input={"enableFederated": True},
+            )
+            return self._slice_plan(actions)
+
         if needs_lesson_plan:
             if needs_diagnosis or self._contains_any(text, ["薄弱", "基础差", "学习困难", "弱项"]):
                 add_action(

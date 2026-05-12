@@ -1,11 +1,13 @@
 import asyncio
 import json
 import logging
+import os
 from typing import Any, Dict, List
 from uuid import uuid4
 
 from fastapi import APIRouter
 
+from app.api.language_guard import ensure_simplified_chinese
 from app.agent_core.memory.session_memory import session_memory_store
 from app.agent_core.react.executor import ReactExecutor
 from app.agent_core.react.planner import ReactPlanner
@@ -18,8 +20,9 @@ router = APIRouter()
 
 ai_service = AIService()
 planner = ReactPlanner()
-tool_router = ToolRouter()
+tool_router = ToolRouter(enabled_roles=["lawyer"])
 executor = ReactExecutor(tool_router=tool_router)
+AGENT_SYNTHESIS_TIMEOUT = float(os.getenv("AGENT_SYNTHESIS_TIMEOUT", "180"))
 
 
 def _collect_top_items(items: List[Dict[str, Any]], max_count: int = 3) -> List[Dict[str, Any]]:
@@ -101,7 +104,7 @@ def _build_fallback_answer(user_text: str, observations: Dict[str, Any]) -> str:
         f"3) 时效状态：{limitation.get('status', '未计算')}\n"
         f"4) 管辖建议数量：{len(jurisdiction.get('recommended_courts', []))}\n"
         f"5) 法条命中：{len(statutes)}，判例命中：{len(cases)}\n"
-        f"6) 风险等级：{risk.get('risk_level', 'unknown')}（{risk.get('risk_score', 'N/A')}）\n"
+        f"6) 风险等级：{risk.get('risk_level', '未知')}（{risk.get('risk_score', 'N/A')}）\n"
         "建议：补充关键证据和日期信息后再次提问，可获得更精准结果。"
     )
 
@@ -131,7 +134,7 @@ async def lawyer_agent_chat(request: AgentLawyerRequest):
         else:
             context_text = _build_agent_context(observations)
             synthesis_prompt = (
-                "你是专业律师智能体，请基于结构化结果输出最终回答。\n"
+                "你是专业律师智能体，请基于结构化结果输出最终回答，并且必须始终使用简体中文。\n"
                 "要求：\n"
                 "1. 先给结论，再给依据（法条/判例/证据/程序）。\n"
                 "2. 若涉及时效或管辖，必须单独列出行动建议。\n"
@@ -141,11 +144,13 @@ async def lawyer_agent_chat(request: AgentLawyerRequest):
             try:
                 llm_response = await asyncio.wait_for(
                     ai_service.generate_text(text=synthesis_prompt, context=history[-8:] if history else None),
-                    timeout=15,
+                    timeout=AGENT_SYNTHESIS_TIMEOUT,
                 )
                 answer = (llm_response.get("text", "") or "").strip() or _build_fallback_answer(user_text, observations)
             except Exception:
                 answer = _build_fallback_answer(user_text, observations)
+
+        answer = await ensure_simplified_chinese(answer, ai_service=ai_service, history=history)
 
         session_memory_store.append_message(session_id, "user", user_text)
         session_memory_store.append_message(session_id, "assistant", answer)
@@ -161,7 +166,7 @@ async def lawyer_agent_chat(request: AgentLawyerRequest):
             trace=trace,
             riskLevel=risk_info.get("risk_level") if isinstance(risk_info, dict) else None,
             federated=federated_info if isinstance(federated_info, dict) else {},
-            message="Lawyer agent workflow completed.",
+            message="律师 Agent 工作流执行完成。",
         )
     except Exception as exc:
         logger.error("Lawyer agent chat failed", exc_info=True)
@@ -172,6 +177,6 @@ async def lawyer_agent_chat(request: AgentLawyerRequest):
             skillsUsed=[],
             trace=[],
             federated={},
-            message="Lawyer agent execution failed.",
+            message="律师 Agent 执行失败。",
             error=str(exc),
         )

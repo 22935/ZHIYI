@@ -991,20 +991,11 @@ const sendMessage = async () => {
   inputText.value = ''
 
   try {
-    let response: any
     if (isLawyerMode.value) {
-      response = await chatStore.sendLawyerMessage(userText)
-    } else if (isTeacherMode.value) {
-      response = await chatStore.sendTeacherMessage(userText)
-    } else if (isProgrammerMode.value) {
-      response = await chatStore.sendProgrammerMessage(userText)
-    } else if (isWriterMode.value) {
-      response = await chatStore.sendWriterMessage(userText)
+      await chatStore.sendLawyerMessageStream(userText)
     } else {
-      response = await chatStore.sendMessage(userText)
+      await chatStore.sendMessageStream(userText)
     }
-
-    if (!response) throw new Error('消息发送失败')
     scrollToBottom()
   } catch (err: any) {
     ElMessage.error(err.message || '发送消息失败')
@@ -1146,6 +1137,14 @@ watch(
 
     pendingMessageCount.value = Math.min(99, pendingMessageCount.value + 1)
   }
+)
+
+watch(
+  () => chatStore.messages[chatStore.messages.length - 1]?.content,
+  () => {
+    if (isNearBottom.value) scrollToBottom()
+  },
+  { flush: 'post' }
 )
 
 watch(
@@ -1861,4 +1860,3 @@ onUnmounted(() => {
   }
 }
 </style>
-

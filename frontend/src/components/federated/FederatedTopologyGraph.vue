@@ -9,47 +9,52 @@
     >
       <defs>
         <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.6" />
-          <stop offset="60%" stop-color="#6366f1" stop-opacity="0.15" />
+          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3" />
+          <stop offset="60%" stop-color="#6366f1" stop-opacity="0.08" />
           <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
         </radialGradient>
         <radialGradient id="clientGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.5" />
+          <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.25" />
           <stop offset="100%" stop-color="#22d3ee" stop-opacity="0" />
         </radialGradient>
         <filter id="glow">
-          <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+          <feGaussianBlur stdDeviation="2" result="coloredBlur" />
           <feMerge>
             <feMergeNode in="coloredBlur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <filter id="strongGlow">
-          <feGaussianBlur stdDeviation="6" result="coloredBlur" />
-          <feMerge>
-            <feMergeNode in="coloredBlur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
+        <filter id="softShadow">
+          <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#6366f1" flood-opacity="0.15" />
         </filter>
         <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.8" />
-          <stop offset="50%" stop-color="#22d3ee" stop-opacity="0.4" />
+          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.5" />
+          <stop offset="50%" stop-color="#22d3ee" stop-opacity="0.3" />
           <stop offset="100%" stop-color="#6366f1" stop-opacity="0.1" />
         </linearGradient>
         <linearGradient id="lineGradReverse" x1="100%" y1="0%" x2="0%" y2="0%">
-          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.8" />
-          <stop offset="50%" stop-color="#22d3ee" stop-opacity="0.4" />
+          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.5" />
+          <stop offset="50%" stop-color="#22d3ee" stop-opacity="0.3" />
           <stop offset="100%" stop-color="#6366f1" stop-opacity="0.1" />
         </linearGradient>
-        <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#6366f1" opacity="0.6" />
-        </marker>
+        <linearGradient id="centerFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#4f46e5" />
+          <stop offset="100%" stop-color="#6366f1" />
+        </linearGradient>
+        <linearGradient id="clientFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0e7490" />
+          <stop offset="100%" stop-color="#0891b2" />
+        </linearGradient>
+        <linearGradient id="clientFillInactive" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#94a3b8" />
+          <stop offset="100%" stop-color="#cbd5e1" />
+        </linearGradient>
       </defs>
 
       <g class="background-rings">
-        <circle :cx="cx" :cy="cy" :r="orbitRadius * 0.5" fill="none" stroke="#6366f1" stroke-opacity="0.06" stroke-width="1" stroke-dasharray="4 6" />
-        <circle :cx="cx" :cy="cy" :r="orbitRadius * 0.75" fill="none" stroke="#6366f1" stroke-opacity="0.04" stroke-width="1" stroke-dasharray="4 6" />
-        <circle :cx="cx" :cy="cy" :r="orbitRadius" fill="none" stroke="#6366f1" stroke-opacity="0.03" stroke-width="1" stroke-dasharray="4 6" />
+        <circle :cx="cx" :cy="cy" :r="orbitRadius * 0.5" fill="none" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3 5" />
+        <circle :cx="cx" :cy="cy" :r="orbitRadius * 0.75" fill="none" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3 5" />
+        <circle :cx="cx" :cy="cy" :r="orbitRadius" fill="none" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3 5" />
       </g>
 
       <g class="connections">
@@ -59,9 +64,8 @@
             :y1="cy"
             :x2="client.x"
             :y2="client.y"
-            stroke="url(#lineGrad)"
-            stroke-width="1.5"
-            stroke-opacity="0.3"
+            stroke="#e2e8f0"
+            stroke-width="1"
           />
           <line
             v-if="client.active"
@@ -70,8 +74,8 @@
             :x2="client.x"
             :y2="client.y"
             stroke="url(#lineGrad)"
-            stroke-width="2"
-            stroke-opacity="0.6"
+            stroke-width="1.5"
+            stroke-opacity="0.5"
             class="data-flow-line"
             :style="{ animationDelay: `${idx * 0.4}s` }"
           />
@@ -79,7 +83,7 @@
             v-if="client.active"
             :cx="interpolateX(cx, client.x, flowProgress[idx] || 0)"
             :cy="interpolateY(cy, client.y, flowProgress[idx] || 0)"
-            r="3"
+            r="2.5"
             fill="#22d3ee"
             filter="url(#glow)"
             class="flow-particle"
@@ -89,7 +93,7 @@
             v-if="client.active"
             :cx="interpolateX(client.x, cx, flowProgress[idx] || 0)"
             :cy="interpolateY(client.y, cy, flowProgress[idx] || 0)"
-            r="2.5"
+            r="2"
             fill="#a78bfa"
             filter="url(#glow)"
             class="flow-particle-reverse"
@@ -99,15 +103,15 @@
       </g>
 
       <g class="center-node" :transform="`translate(${cx}, ${cy})`">
-        <circle r="55" fill="url(#centerGlow)" class="center-pulse-ring" />
-        <circle r="40" fill="#1e1b4b" stroke="#6366f1" stroke-width="2" filter="url(#strongGlow)" />
-        <circle r="36" fill="none" stroke="#818cf8" stroke-width="0.5" stroke-dasharray="3 3" class="center-rotate" />
-        <text y="-8" text-anchor="middle" fill="white" font-size="11" font-weight="600">全局模型</text>
-        <text y="8" text-anchor="middle" fill="#a78bfa" font-size="9">FedAvg</text>
-        <text y="20" text-anchor="middle" fill="#818cf8" font-size="8">v{{ globalVersion }}</text>
-        <g class="aggregation-arcs">
-          <path d="M -28 -28 A 40 40 0 0 1 28 -28" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" :stroke-dasharray="aggregationDash" class="arc-anim-1" />
-          <path d="M 28 28 A 40 40 0 0 1 -28 28" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" :stroke-dasharray="aggregationDash" class="arc-anim-2" />
+        <circle r="50" fill="url(#centerGlow)" class="center-pulse-ring" />
+        <circle r="36" fill="url(#centerFill)" filter="url(#softShadow)" />
+        <circle r="33" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.5" stroke-dasharray="2 3" class="center-rotate" />
+        <text y="-7" text-anchor="middle" fill="white" font-size="10" font-weight="600">全局模型</text>
+        <text y="6" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="8">FedAvg</text>
+        <text y="17" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="7">v{{ globalVersion }}</text>
+        <g class="aggregation-arcs" v-if="aggregating">
+          <path d="M -25 -25 A 36 36 0 0 1 25 -25" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" class="arc-anim-1" />
+          <path d="M 25 25 A 36 36 0 0 1 -25 25" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" class="arc-anim-2" />
         </g>
       </g>
 
@@ -119,34 +123,45 @@
         @mouseenter="hoveredClient = idx"
         @mouseleave="hoveredClient = -1"
       >
-        <circle r="30" :fill="client.active ? 'url(#clientGlow)' : 'transparent'" class="client-pulse" v-if="client.active" />
+        <circle r="26" :fill="client.active ? 'url(#clientGlow)' : 'transparent'" class="client-pulse" v-if="client.active" />
         <circle
-          :r="24"
-          :fill="client.active ? '#0f172a' : '#1e293b'"
-          :stroke="client.active ? '#22d3ee' : '#475569'"
-          :stroke-width="hoveredClient === idx ? 2.5 : 1.5"
-          :filter="client.active ? 'url(#glow)' : ''"
+          :r="22"
+          :fill="client.active ? 'url(#clientFill)' : 'url(#clientFillInactive)'"
+          :stroke="client.active ? '#22d3ee' : '#cbd5e1'"
+          :stroke-width="hoveredClient === idx ? 2 : 1"
+          filter="url(#softShadow)"
           class="client-circle"
         />
-        <circle r="21" fill="none" :stroke="client.active ? '#22d3ee' : '#475569'" stroke-width="0.5" stroke-dasharray="2 2" class="client-rotate" v-if="client.active" />
-        <text y="-4" text-anchor="middle" :fill="client.active ? 'white' : '#94a3b8'" font-size="9" font-weight="500">{{ client.label }}</text>
-        <text y="8" text-anchor="middle" :fill="client.active ? '#22d3ee' : '#64748b'" font-size="7">{{ client.active ? '活跃' : '离线' }}</text>
-        <circle cx="16" cy="-16" r="4" :fill="client.active ? '#10b981' : '#64748b'" class="status-blink" v-if="client.active" />
+        <circle r="19" fill="none" :stroke="client.active ? 'rgba(255,255,255,0.15)' : '#e2e8f0'" stroke-width="0.5" stroke-dasharray="2 2" class="client-rotate" v-if="client.active" />
+        <text y="-3" text-anchor="middle" fill="white" font-size="8" font-weight="500">{{ client.label }}</text>
+        <text y="8" text-anchor="middle" :fill="client.active ? 'rgba(255,255,255,0.7)' : '#94a3b8'" font-size="6.5">{{ client.active ? '活跃' : '离线' }}</text>
+        <circle cx="14" cy="-14" r="3.5" :fill="client.active ? '#10b981' : '#94a3b8'" class="status-blink" v-if="client.active" />
+        <circle cx="14" cy="-14" r="5" :fill="client.active ? 'rgba(16,185,129,0.2)' : 'transparent'" class="status-ring" v-if="client.active" />
+
+        <g v-if="hoveredClient === idx" class="tooltip-group">
+          <rect x="-48" y="-52" width="96" height="24" rx="6" fill="white" stroke="#e2e8f0" stroke-width="0.5" filter="url(#softShadow)" />
+          <text x="0" y="-40" text-anchor="middle" fill="#1e293b" font-size="7" font-weight="500">
+            精度: {{ client.accuracy?.toFixed(1) || '--' }}%
+          </text>
+          <text x="0" y="-32" text-anchor="middle" fill="#94a3b8" font-size="6">
+            数据: {{ client.dataSize?.toLocaleString() || '--' }}条
+          </text>
+        </g>
       </g>
     </svg>
 
     <div class="topology-legend">
       <div class="legend-item">
         <span class="legend-dot center"></span>
-        <span>全局聚合节点</span>
+        <span>全局聚合</span>
       </div>
       <div class="legend-item">
         <span class="legend-dot active"></span>
-        <span>活跃客户端</span>
+        <span>活跃Agent</span>
       </div>
       <div class="legend-item">
         <span class="legend-dot inactive"></span>
-        <span>离线客户端</span>
+        <span>离线Agent</span>
       </div>
       <div class="legend-item">
         <span class="legend-line"></span>
@@ -173,12 +188,10 @@ const props = withDefaults(defineProps<{
   aggregating?: boolean
 }>(), {
   clients: () => [
-    { id: 'c1', label: '律师节点', active: true, accuracy: 92.5, dataSize: 245 },
-    { id: 'c2', label: '教师节点', active: true, accuracy: 88.7, dataSize: 187 },
-    { id: 'c3', label: '程序员节点', active: true, accuracy: 91.3, dataSize: 312 },
-    { id: 'c4', label: '作家节点', active: true, accuracy: 89.1, dataSize: 156 },
-    { id: 'c5', label: '风控节点', active: false, accuracy: 85.2, dataSize: 0 },
-    { id: 'c6', label: 'NLP节点', active: true, accuracy: 90.4, dataSize: 278 }
+    { id: 'c1', label: '律师Agent', active: true, accuracy: 87.3, dataSize: 12450 },
+    { id: 'c2', label: '教师Agent', active: true, accuracy: 84.6, dataSize: 8920 },
+    { id: 'c3', label: '程序员Agent', active: true, accuracy: 86.1, dataSize: 15380 },
+    { id: 'c4', label: '作家Agent', active: true, accuracy: 83.2, dataSize: 6740 }
   ],
   globalVersion: '3.2',
   aggregating: false
@@ -206,10 +219,6 @@ const clientPositions = computed(() => {
   })
 })
 
-const aggregationDash = computed(() => {
-  return props.aggregating ? '20 10' : '50 0'
-})
-
 function interpolateX(x1: number, x2: number, t: number) {
   return x1 + (x2 - x1) * t
 }
@@ -220,7 +229,7 @@ function interpolateY(y1: number, y2: number, t: number) {
 
 function animate() {
   const progresses = flowProgress.value.map((p, i) => {
-    const speed = 0.008 + (i % 3) * 0.003
+    const speed = 0.006 + (i % 3) * 0.002
     const next = p + speed
     return next > 1 ? 0 : next
   })
@@ -240,6 +249,21 @@ onUnmounted(() => {
 
 <style scoped>
 .topology-graph {
+  --primary: #6366f1;
+  --primary-light: #818cf8;
+  --primary-bg: rgba(99, 102, 241, 0.06);
+  --cyan: #22d3ee;
+  --cyan-dark: #0891b2;
+  --purple: #a78bfa;
+  --green: #34d399;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --radius-sm: 8px;
+  --transition-base: 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+
   position: relative;
   width: 100%;
 }
@@ -255,8 +279,8 @@ onUnmounted(() => {
 }
 
 @keyframes centerPulse {
-  0%, 100% { r: 55; opacity: 0.6; }
-  50% { r: 65; opacity: 0.2; }
+  0%, 100% { r: 50; opacity: 0.5; }
+  50% { r: 60; opacity: 0.15; }
 }
 
 .center-rotate {
@@ -279,18 +303,18 @@ onUnmounted(() => {
 }
 
 @keyframes clientPulse {
-  0%, 100% { r: 30; opacity: 0.5; }
-  50% { r: 38; opacity: 0.1; }
+  0%, 100% { r: 26; opacity: 0.4; }
+  50% { r: 34; opacity: 0.08; }
 }
 
 .data-flow-line {
-  stroke-dasharray: 8 12;
+  stroke-dasharray: 6 10;
   animation: flowLine 2s linear infinite;
 }
 
 @keyframes flowLine {
   from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: -40; }
+  to { stroke-dashoffset: -32; }
 }
 
 .flow-particle {
@@ -302,17 +326,26 @@ onUnmounted(() => {
 }
 
 @keyframes particleFade {
-  0% { opacity: 0.3; r: 2; }
-  100% { opacity: 1; r: 4; }
+  0% { opacity: 0.2; r: 1.5; }
+  100% { opacity: 0.9; r: 3; }
 }
 
 .status-blink {
   animation: statusBlink 2s ease-in-out infinite;
 }
 
+.status-ring {
+  animation: statusRing 2s ease-in-out infinite;
+}
+
 @keyframes statusBlink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes statusRing {
+  0%, 100% { opacity: 0.3; r: 5; }
+  50% { opacity: 0; r: 8; }
 }
 
 .arc-anim-1 {
@@ -324,17 +357,21 @@ onUnmounted(() => {
 }
 
 @keyframes arcDraw {
-  0% { stroke-dashoffset: 50; }
+  0% { stroke-dashoffset: 40; }
   50% { stroke-dashoffset: 0; }
-  100% { stroke-dashoffset: -50; }
+  100% { stroke-dashoffset: -40; }
 }
 
 .client-circle {
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
 }
 
 .client-node-group {
   cursor: pointer;
+}
+
+.tooltip-group {
+  pointer-events: none;
 }
 
 .topology-legend {
@@ -343,9 +380,9 @@ onUnmounted(() => {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 16px;
-  font-size: 11px;
-  color: #94a3b8;
+  gap: 14px;
+  font-size: 10px;
+  color: var(--text-muted);
 }
 
 .legend-item {
@@ -355,29 +392,30 @@ onUnmounted(() => {
 }
 
 .legend-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 
 .legend-dot.center {
-  background: #6366f1;
-  box-shadow: 0 0 6px #6366f1;
+  background: var(--primary);
+  box-shadow: 0 0 4px rgba(99, 102, 241, 0.4);
 }
 
 .legend-dot.active {
-  background: #22d3ee;
-  box-shadow: 0 0 6px #22d3ee;
+  background: var(--cyan-dark);
+  box-shadow: 0 0 4px rgba(34, 211, 238, 0.4);
 }
 
 .legend-dot.inactive {
-  background: #475569;
+  background: #cbd5e1;
 }
 
 .legend-line {
-  width: 16px;
+  width: 14px;
   height: 2px;
-  background: linear-gradient(90deg, #6366f1, #22d3ee);
+  background: linear-gradient(90deg, var(--primary), var(--cyan));
   border-radius: 1px;
+  opacity: 0.6;
 }
 </style>

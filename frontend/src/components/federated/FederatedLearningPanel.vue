@@ -262,24 +262,21 @@ const tabs = [
 ]
 
 const topologyClients = ref([
-  { id: 'c1', label: '律师节点', active: true, accuracy: 92.5, dataSize: 245 },
-  { id: 'c2', label: '教师节点', active: true, accuracy: 88.7, dataSize: 187 },
-  { id: 'c3', label: '程序员节点', active: true, accuracy: 91.3, dataSize: 312 },
-  { id: 'c4', label: '作家节点', active: true, accuracy: 89.1, dataSize: 156 },
-  { id: 'c5', label: '风控节点', active: false, accuracy: 85.2, dataSize: 0 },
-  { id: 'c6', label: 'NLP节点', active: true, accuracy: 90.4, dataSize: 278 }
+  { id: 'c1', label: '律师Agent', active: true, accuracy: 87.3, dataSize: 12450 },
+  { id: 'c2', label: '教师Agent', active: true, accuracy: 84.6, dataSize: 8920 },
+  { id: 'c3', label: '程序员Agent', active: true, accuracy: 86.1, dataSize: 15380 },
+  { id: 'c4', label: '作家Agent', active: true, accuracy: 83.2, dataSize: 6740 }
 ])
 
-const accuracyHistory = ref([72.3, 78.5, 83.1, 86.4, 88.9, 90.2, 91.5, 92.1, 92.8, 93.2])
-const lossHistory = ref([0.68, 0.55, 0.44, 0.36, 0.29, 0.24, 0.20, 0.17, 0.15, 0.13])
+const accuracyHistory = ref([62.1, 68.4, 73.7, 77.9, 81.2, 83.5, 85.1, 86.3, 87.0, 87.3])
+const lossHistory = ref([1.24, 1.05, 0.89, 0.76, 0.64, 0.55, 0.48, 0.42, 0.38, 0.35])
 const roundHistory = ref([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
 const aggClients = ref([
-  { id: 'c1', label: '律师节点', weight: 0.25, uploaded: true },
-  { id: 'c2', label: '教师节点', weight: 0.20, uploaded: true },
-  { id: 'c3', label: '程序员节点', weight: 0.25, uploaded: true },
-  { id: 'c4', label: '作家节点', weight: 0.15, uploaded: true },
-  { id: 'c5', label: '风控节点', weight: 0.15, uploaded: false }
+  { id: 'c1', label: '律师Agent', weight: 0.30, uploaded: true },
+  { id: 'c2', label: '教师Agent', weight: 0.22, uploaded: true },
+  { id: 'c3', label: '程序员Agent', weight: 0.30, uploaded: true },
+  { id: 'c4', label: '作家Agent', weight: 0.18, uploaded: true }
 ])
 
 const privacyMechanisms = ref([
@@ -291,17 +288,17 @@ const privacyMechanisms = ref([
 ])
 
 const versionHistory = ref([
-  { version: '3.2', accuracy: 93.2, clients: 6, time: '刚刚', isLatest: true },
-  { version: '3.1', accuracy: 92.1, clients: 5, time: '2小时前', isLatest: false },
-  { version: '3.0', accuracy: 91.5, clients: 5, time: '1天前', isLatest: false },
-  { version: '2.8', accuracy: 90.2, clients: 4, time: '3天前', isLatest: false }
+  { version: '3.2', accuracy: 85.3, clients: 4, time: '刚刚', isLatest: true },
+  { version: '3.1', accuracy: 84.1, clients: 4, time: '2小时前', isLatest: false },
+  { version: '3.0', accuracy: 82.7, clients: 4, time: '1天前', isLatest: false },
+  { version: '2.8', accuracy: 80.5, clients: 4, time: '3天前', isLatest: false }
 ])
 
 const models = ref([
-  { id: 'lawyer', name: '法学认知增强模型', version: '3.2', status: 'online', statusText: '在线', accuracy: 98, efficiency: 92, color: '#3b82f6' },
-  { id: 'teacher', name: '教育逻辑协同模型', version: '2.8', status: 'online', statusText: '在线', accuracy: 94, efficiency: 88, color: '#10b981' },
-  { id: 'programmer', name: '工程代码优化模型', version: '4.1', status: 'training', statusText: '训练中', accuracy: 91, efficiency: 98, color: '#8b5cf6' },
-  { id: 'writer', name: '创意写作增强模型', version: '2.3', status: 'ready', statusText: '就绪', accuracy: 89, efficiency: 85, color: '#f59e0b' }
+  { id: 'lawyer', name: '律师Agent模型', version: '3.2', status: 'online', statusText: '在线', accuracy: 87.3, efficiency: 82, color: '#3b82f6' },
+  { id: 'teacher', name: '教师Agent模型', version: '2.8', status: 'online', statusText: '在线', accuracy: 84.6, efficiency: 79, color: '#10b981' },
+  { id: 'programmer', name: '程序员Agent模型', version: '4.1', status: 'training', statusText: '训练中', accuracy: 86.1, efficiency: 85, color: '#8b5cf6' },
+  { id: 'writer', name: '作家Agent模型', version: '2.3', status: 'ready', statusText: '就绪', accuracy: 83.2, efficiency: 76, color: '#f59e0b' }
 ])
 
 const activeClientsCount = computed(() => topologyClients.value.filter(c => c.active).length)
@@ -333,8 +330,8 @@ function toggleTraining() {
 }
 
 function resetTraining() {
-  accuracyHistory.value = [72.3, 78.5, 83.1, 86.4, 88.9, 90.2, 91.5, 92.1, 92.8, 93.2]
-  lossHistory.value = [0.68, 0.55, 0.44, 0.36, 0.29, 0.24, 0.20, 0.17, 0.15, 0.13]
+  accuracyHistory.value = [62.1, 68.4, 73.7, 77.9, 81.2, 83.5, 85.1, 86.3, 87.0, 87.3]
+  lossHistory.value = [1.24, 1.05, 0.89, 0.76, 0.64, 0.55, 0.48, 0.42, 0.38, 0.35]
   roundHistory.value = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   trainingRunning.value = true
 }

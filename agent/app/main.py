@@ -1,5 +1,6 @@
 """
-Kinlin AI - Python AI服务主程序
+联邦智枢 - Python AI服务主程序
+联邦智枢 - 多角色智能体系统
 提供AI能力：文本生成、语音识别、语音合成
 """
 from contextlib import asynccontextmanager
@@ -34,8 +35,8 @@ async def lifespan(app: FastAPI):
     pass
 
 app = FastAPI(
-    title="Kinlin AI Service",
-    description="Kinlin AI Python AI Service",
+    title="联邦智枢 AI Service",
+    description="联邦智枢 - 多角色智能体系统 Python AI Service",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -126,7 +127,7 @@ async def health_check():
     """健康检查端点"""
     return {
         "status": "healthy",
-        "service": "Kinlin AI Agent",
+        "service": "联邦智枢 Agent",
         "version": "1.0.0"
     }
 
@@ -141,7 +142,7 @@ except ImportError:
 
 @app.get("/")
 async def root():
-    return {"message": "Kinlin AI Service", "version": "1.0.0"}
+    return {"message": "联邦智枢 AI Service", "version": "1.0.0"}
 
 if __name__ == "__main__":
     uvicorn.run(

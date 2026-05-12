@@ -73,7 +73,7 @@ class HomeworkGradingSkill(BaseSkill):
         try:
             llm_response = await asyncio.wait_for(
                 self.ai_service.generate_text(text=prompt, context=request.memory.get("history", [])[-6:]),
-                timeout=6,
+                timeout=45,
             )
             llm_json = TeacherSkillHelper.extract_json_obj(llm_response.get("text", ""))
         except asyncio.TimeoutError:
@@ -134,7 +134,7 @@ class HomeworkGradingSkill(BaseSkill):
 
     async def run(self, request: SkillRequest) -> SkillResult:
         try:
-            return await asyncio.wait_for(self.execute(request), timeout=10)
+            return await asyncio.wait_for(self.execute(request), timeout=45)
         except asyncio.TimeoutError:
             action_input = request.action_input or {}
             fallback = self._fallback_output(

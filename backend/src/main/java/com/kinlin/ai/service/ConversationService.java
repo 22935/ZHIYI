@@ -26,13 +26,18 @@ public class ConversationService {
     /**
      * 获取用户的对话列表（包含预览内容）
      */
+    @Transactional
     public List<Conversation> getUserConversations(UUID userId) {
-        List<Conversation> conversations = conversationRepository.findByUserId(userId);
+        List<Conversation> conversations = conversationRepository.findRecentConversationsByUserId(userId);
         // 为每个对话自动生成标题（如果还没有）
         conversations.forEach(conv -> {
+            String preview = getPreviewContent(conv.getId());
+            conv.setPreview(preview);
             if (conv.getTitle() == null || conv.getTitle().isEmpty()) {
                 try {
-                    autoGenerateTitle(conv.getId());
+                    String title = preview.length() > 30 ? preview.substring(0, 30) + "..." : preview;
+                    conv.setTitle(title);
+                    conversationRepository.save(conv);
                 } catch (Exception e) {
                     // 忽略错误，继续处理
                 }

@@ -63,6 +63,13 @@ agent/data/rag/chroma_db/
 .m2/
 .gradle/
 
+# Local generated vector index artifacts
+agent/app/data/legal_chroma/*/
+!agent/app/data/legal_chroma/chroma.sqlite3
+
+# Temporary images
+tmp_*.png
+
 # Archives and large binary artifacts
 *.zip
 *.tar

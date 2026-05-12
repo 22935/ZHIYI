@@ -1,10 +1,10 @@
 import json
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from app.agent_core.retrieval.chroma_client import chroma_client
 from app.agent_core.retrieval.education_index_builder import education_index_builder
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,29 @@ _COLLECTION_TO_JSON = {
 
 class TeacherSkillHelper:
     _collection_ready: Dict[str, bool] = {}
+    _use_chroma: bool = str(os.getenv("TEACHER_USE_CHROMA", "false")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    _chroma_client: Any = None
+
+    @classmethod
+    def _get_chroma_client(cls):
+        if not cls._use_chroma:
+            return None
+        if cls._chroma_client is not None:
+            return cls._chroma_client
+
+        try:
+            from app.agent_core.retrieval.chroma_client import chroma_client
+
+            cls._chroma_client = chroma_client
+        except Exception as exc:
+            logger.warning("Failed to import chroma client for teacher retrieval: %s", exc)
+            cls._chroma_client = None
+        return cls._chroma_client
 
     @staticmethod
     def load_prompt(filename: str, fallback: str) -> str:
@@ -150,8 +173,15 @@ class TeacherSkillHelper:
         if cls._collection_ready.get(collection_name):
             return
 
+        # Teacher retrieval data is small. Prefer deterministic local JSON retrieval by default
+        # to avoid blocking on vector index/model initialization in constrained environments.
+        if not cls._use_chroma:
+            cls._collection_ready[collection_name] = True
+            return
+
         try:
-            if not chroma_client.is_available():
+            chroma_client = cls._get_chroma_client()
+            if chroma_client is None or not chroma_client.is_available():
                 cls._collection_ready[collection_name] = True
                 return
 
@@ -180,11 +210,16 @@ class TeacherSkillHelper:
         cls._ensure_collection_index(collection_name)
 
         rows: List[Dict[str, Any]] = []
-        try:
-            rows = chroma_client.query(collection_name=collection_name, query_text=query_text, top_k=top_k)
-        except Exception as exc:
-            logger.warning("Chroma query failed for %s: %s", collection_name, exc)
-            rows = []
+        if cls._use_chroma:
+            try:
+                chroma_client = cls._get_chroma_client()
+                if chroma_client is None:
+                    rows = []
+                else:
+                    rows = chroma_client.query(collection_name=collection_name, query_text=query_text, top_k=top_k)
+            except Exception as exc:
+                logger.warning("Chroma query failed for %s: %s", collection_name, exc)
+                rows = []
 
         if rows:
             for row in rows:

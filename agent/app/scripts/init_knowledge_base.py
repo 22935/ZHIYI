@@ -47,6 +47,19 @@ def init_knowledge_base():
             continue
         
         try:
+            # 清理同名同角色的旧种子文档，避免重复导入
+            duplicate_ids = [
+                doc_id
+                for doc_id, doc_data in rag_service.documents.items()
+                if doc_data.get("filename") == file_path.name
+                and doc_data.get("role_id") == role_id
+                and doc_data.get("metadata", {}).get("source") == "knowledge_base"
+            ]
+            for duplicate_id in duplicate_ids:
+                rag_service.documents.pop(duplicate_id, None)
+            if duplicate_ids:
+                rag_service._save_documents()
+
             # 读取文件内容
             with open(file_path, 'r', encoding='utf-8') as f:
                 file_data = f.read().encode('utf-8')

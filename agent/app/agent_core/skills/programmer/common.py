@@ -105,26 +105,26 @@ class ProgrammerSkillHelper:
         if normalized in {"sequence", "sequence_diagram", "sequence diagram"}:
             return (
                 "sequenceDiagram\n"
-                "  participant U as User\n"
-                "  participant S as Service\n"
-                "  U->>S: Request\n"
-                "  S-->>U: Response"
+                "  participant U as 用户\n"
+                "  participant S as 服务\n"
+                "  U->>S: 发起请求\n"
+                "  S-->>U: 返回结果"
             )
         if normalized in {"class", "class_diagram", "class diagram"}:
             return (
                 "classDiagram\n"
-                "  class Controller\n"
-                "  class Service\n"
-                "  class Repository\n"
+                "  class Controller[控制器]\n"
+                "  class Service[服务层]\n"
+                "  class Repository[仓储层]\n"
                 "  Controller --> Service\n"
                 "  Service --> Repository"
             )
         return (
             "flowchart TD\n"
-            "  A[Start] --> B[Analyze Requirement]\n"
-            "  B --> C[Search Codebase]\n"
-            "  C --> D[Generate Code]\n"
-            "  D --> E[Render Diagram]"
+            "  A[开始] --> B[分析需求]\n"
+            "  B --> C[检索代码库]\n"
+            "  C --> D[生成代码]\n"
+            "  D --> E[渲染图示]"
         )
 
     @staticmethod

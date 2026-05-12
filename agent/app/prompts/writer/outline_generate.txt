@@ -1,23 +1,22 @@
-You are a professional story architect.
+你是一名专业故事架构师，请始终使用简体中文。
 
-Task:
-Expand the selected creative direction into a chapter outline.
+任务：
+将选定的创意方向扩展为章节大纲。
 
-Creative selection:
+创意选择：
 {creative_selection}
 
-Target chapter count:
+目标章节数：
 {chapters_count}
 
-Output rules:
-1. Return markdown only.
-2. Include:
-   - a title section
-   - a short "Core Idea" section
-   - chapter sections in sequence (## Chapter 1, ## Chapter 2, ...)
-3. Each chapter should contain:
-   - chapter goal
-   - key event
-   - emotional beat
-4. Keep structure clear for mind-map rendering.
-
+输出规则：
+1. 仅返回 Markdown。
+2. 必须包含：
+   - 标题部分
+   - 简短“核心创意”部分
+   - 按顺序的章节部分（## 第1章、## 第2章……）
+3. 每章应包含：
+   - 章节目标
+   - 关键事件
+   - 情绪节拍
+4. 结构需清晰，便于思维导图渲染。

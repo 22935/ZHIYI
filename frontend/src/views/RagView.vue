@@ -199,6 +199,7 @@ import RagQuery from '@/components/RagQuery.vue'
 import KnowledgeGraphVisualization from '@/components/KnowledgeGraphVisualization.vue'
 import { ragApi } from '@/services/api/rag'
 import { useRoleStore } from '@/stores/role'
+import { resolveKnowledgeRoleId } from '@/utils/knowledgeRole'
 
 const roleStore = useRoleStore()
 const showUploadDialog = ref(false)
@@ -244,7 +245,7 @@ const handleUploadSuccess = () => {
   loadDocuments()
 }
 
-const currentRoleId = computed(() => roleStore.currentRole?.id)
+const currentRoleId = computed(() => resolveKnowledgeRoleId(roleStore.currentRole))
 
 const handleUploadError = (error?: any) => {
   ElMessage.error('文档上传失败' + (error?.message ? `: ${error.message}` : ''))

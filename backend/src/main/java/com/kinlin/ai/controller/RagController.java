@@ -29,8 +29,12 @@ public class RagController {
                 ((Number) request.get("top_k")).intValue() : 5;
         String contextId = request.get("context_id") != null ? 
                 (String) request.get("context_id") : null;
+        String roleId = request.get("role_id") != null ?
+                request.get("role_id").toString() : null;
+        Boolean useKnowledgeGraph = request.get("use_knowledge_graph") != null ?
+                Boolean.valueOf(request.get("use_knowledge_graph").toString()) : null;
 
-        RagService.RagResponse response = ragService.query(query, topK, contextId);
+        RagService.RagResponse response = ragService.query(query, topK, contextId, roleId, useKnowledgeGraph);
         return ResponseEntity.ok(response);
     }
 
@@ -39,10 +43,11 @@ public class RagController {
      */
     @PostMapping("/documents")
     public ResponseEntity<Map<String, String>> uploadDocument(
-            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "role_id", required = false) String roleId
     ) {
         try {
-            String documentId = ragService.uploadDocument(file);
+            String documentId = ragService.uploadDocument(file, roleId);
             return ResponseEntity.ok(Map.of("document_id", documentId));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
@@ -54,9 +59,11 @@ public class RagController {
      * 获取文档列表
      */
     @GetMapping("/documents")
-    public ResponseEntity<Map<String, Object>> listDocuments() {
+    public ResponseEntity<Map<String, Object>> listDocuments(
+            @RequestParam(value = "role_id", required = false) String roleId
+    ) {
         try {
-            Map<String, Object> response = ragService.listDocuments();
+            Map<String, Object> response = ragService.listDocuments(roleId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.internalServerError()

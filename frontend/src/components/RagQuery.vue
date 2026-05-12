@@ -88,6 +88,7 @@ import { ElMessage } from 'element-plus'
 import { Search, ArrowRight, Link, Loading } from '@element-plus/icons-vue'
 import { ragApi } from '@/services/api/rag'
 import { useRoleStore } from '@/stores/role'
+import { resolveKnowledgeRoleId } from '@/utils/knowledgeRole'
 
 const emit = defineEmits<{
   refresh: []
@@ -100,7 +101,7 @@ const result = ref<any>(null)
 
 
 const roleStore = useRoleStore()
-const currentRoleId = computed(() => roleStore.currentRole?.id)
+const currentRoleId = computed(() => resolveKnowledgeRoleId(roleStore.currentRole))
 
 const handleQuery = async () => {
   if (!queryText.value.trim()) {

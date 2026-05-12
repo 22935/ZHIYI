@@ -1,4 +1,4 @@
-# Kinlin AI Backend
+# 联邦智枢 Backend
 
 Spring Boot后端服务
 

@@ -115,13 +115,13 @@ class EvidenceAnalysisSkill(BaseSkill):
             f"用户问题: {text}\n"
             f"结构化信息: {json.dumps(payload, ensure_ascii=False)}"
         )
-        response = await asyncio.wait_for(_ai_service.generate_text(text=prompt), timeout=8)
+        response = await asyncio.wait_for(_ai_service.generate_text(text=prompt), timeout=45)
         result = (response.get("text", "") or "").strip()
         return result or payload.get("overall_assessment", "")
 
     async def run(self, request: SkillRequest) -> SkillResult:
         try:
-            return await asyncio.wait_for(self._run_impl(request), timeout=10)
+            return await asyncio.wait_for(self._run_impl(request), timeout=45)
         except asyncio.TimeoutError:
             return SkillResult(
                 skillName=self.name,

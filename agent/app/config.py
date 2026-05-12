@@ -2,6 +2,7 @@
 配置管理
 所有配置统一从主目录的.env文件读取
 """
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from typing import List
 from pathlib import Path
@@ -18,27 +19,38 @@ _env_file_path = _current_dir_env
 if _current_dir_env.exists():
     # 加载当前目录的.env文件
     result = load_dotenv(dotenv_path=str(_current_dir_env), override=True)
-    print(f"✅ 从当前目录加载.env文件: {_current_dir_env}")
+    print(f"[config] Loaded .env from current directory: {_current_dir_env}")
 else:
     # 回退到主目录的.env文件
     _project_root = _config_path.parent.parent.parent  # 从 agent/app/ 到主目录
     _env_file_path = _project_root / ".env"
     if _env_file_path.exists():
         result = load_dotenv(dotenv_path=str(_env_file_path), override=True)
-        print(f"✅ 从主目录加载.env文件: {_env_file_path}")
+        print(f"[config] Loaded .env from project root: {_env_file_path}")
     else:
-        print(f"⚠️ .env文件不存在: {_env_file_path}")
+        print(f"[config] .env file not found: {_env_file_path}")
         _env_file_path = None
 
 class Settings(BaseSettings):
     # 应用配置
-    APP_NAME: str = "Kinlin AI Service"
+    APP_NAME: str = "联邦智枢 AI Service"
     DEBUG: bool = False
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def normalize_debug_flag(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "prod", "production", "false", "0", "off", "no"}:
+                return False
+            if normalized in {"debug", "dev", "development", "true", "1", "on", "yes"}:
+                return True
+        return value
     
     # 麒麟AI SDK配置（兼容旧配置）
     KYLIN_AI_API_KEY: str = ""  # 默认空字符串，可通过环境变量或.env文件设置
     KYLIN_AI_ENDPOINT: str = "https://api.kylin.ai"
-    KYLIN_AI_TIMEOUT: int = 30
+    KYLIN_AI_TIMEOUT: int = 240
     
     # 通义千问配置（推荐使用）
     # 所有配置都从.env文件读取，系统全局只保留这一个配置来源
@@ -51,7 +63,16 @@ class Settings(BaseSettings):
     QWEN_MODEL_ADVANCED: str = "qwen-max"  # 高级模型，可在.env文件中配置
     QWEN_MODEL_LATEST: str = "qwen3-max"  # 最新模型（推荐用于高质量场景），可在.env文件中配置
     QWEN_ENABLED: bool = True  # 是否启用通义千问（如果设置了API密钥则自动启用），可在.env文件中配置
-    
+
+    # DeepSeek 配置（文本生成主引擎，速度快）
+    DEEPSEEK_API_KEY: str = ""  # DeepSeek API密钥，从 https://platform.deepseek.com/ 获取
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"  # DeepSeek API基础URL
+    DEEPSEEK_MODEL: str = "deepseek-chat"  # DeepSeek模型名称
+    DEEPSEEK_ENABLED: bool = True  # 是否启用DeepSeek
+
+    # 文本生成引擎选择: "deepseek" | "qwen" | "auto"
+    TEXT_ENGINE: str = "auto"  # auto=优先DeepSeek，未配置key则回退Qwen
+
     # 模型配置
     TEXT_MODEL_NAME: str = "default"
     ASR_MODEL_NAME: str = "default"
@@ -118,9 +139,9 @@ try:
         import logging
         _info_logger = logging.getLogger(__name__)
         if settings.DASHSCOPE_API_KEY:
-            _info_logger.info(f"✅ 通义千问API密钥已配置 (DASHSCOPE_API_KEY)")
+            _info_logger.info("DashScope API key loaded from config.")
         else:
-            _info_logger.info(f"✅ 通义千问API密钥已配置 (QWEN_API_KEY)")
+            _info_logger.info("Qwen API key loaded from config.")
         
 except Exception as e:
     import logging

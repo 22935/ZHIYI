@@ -127,7 +127,7 @@ class CaseUnderstandingSkill(BaseSkill):
         try:
             llm_response = await asyncio.wait_for(
                 _ai_service.generate_text(text=prompt, context=history[-6:]),
-                timeout=10,
+                timeout=45,
             )
             raw = llm_response.get("text", "")
             parsed = self._extract_json_obj(raw)

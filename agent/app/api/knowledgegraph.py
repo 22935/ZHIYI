@@ -1,12 +1,15 @@
 """
 知识图谱API路由
 """
+import logging
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 from app.services.knowledgegraphservice import knowledge_graph_service
+from app.services.ragservice import RAGService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class BuildGraphRequest(BaseModel):
@@ -22,6 +25,24 @@ class HybridSearchRequest(BaseModel):
 
 class ReasonRequest(BaseModel):
     question: str
+
+
+def _ensure_knowledge_graph_built(role_id: Optional[str] = None):
+    """Lazily build the graph from persisted RAG documents when needed."""
+    rag_service = RAGService()
+    candidate_documents = []
+
+    for doc in rag_service.documents.values():
+        doc_role_id = doc.get("role_id") or doc.get("metadata", {}).get("role_id")
+        if role_id and doc_role_id != role_id:
+            continue
+        doc_id = doc.get("doc_id")
+        if doc_id and doc_id in knowledge_graph_service.indexed_doc_ids:
+            continue
+        candidate_documents.append(doc)
+
+    if candidate_documents:
+        knowledge_graph_service.build_from_documents(candidate_documents, role_id)
 
 
 @router.post("/knowledge-graph/build")
@@ -73,6 +94,7 @@ async def hybrid_search(request: HybridSearchRequest):
     }
     """
     try:
+        _ensure_knowledge_graph_built()
         result = knowledge_graph_service.hybrid_retrieval(
             question=request.question,
             vector_db_results=request.vector_db_results,
@@ -98,6 +120,7 @@ async def reason_with_kg(request: ReasonRequest):
     }
     """
     try:
+        _ensure_knowledge_graph_built()
         result = knowledge_graph_service.reason_with_kg(request.question)
         
         return {
@@ -112,6 +135,7 @@ async def reason_with_kg(request: ReasonRequest):
 async def get_graph_stats():
     """获取知识图谱统计信息"""
     try:
+        _ensure_knowledge_graph_built()
         kg = knowledge_graph_service.kg
         stats = {
             "entities_count": len(kg.entities),
@@ -132,6 +156,7 @@ async def get_graph_stats():
 async def get_entity_info(entity_id: str, relation: Optional[str] = None, limit: int = 10):
     """查询实体相关信息"""
     try:
+        _ensure_knowledge_graph_built()
         kg = knowledge_graph_service.kg
         related = kg.query_entity(entity_id, relation, limit)
         
@@ -157,6 +182,7 @@ async def get_graph_data(role_id: Optional[str] = None):
     - role_id: 角色ID，如果提供则只返回该角色的知识图谱
     """
     try:
+        _ensure_knowledge_graph_built(role_id)
         kg = knowledge_graph_service.kg
         
         # 如果知识图谱为空，返回空数据而不是错误
@@ -184,7 +210,7 @@ async def get_graph_data(role_id: Optional[str] = None):
                 
             nodes.append({
                 "id": entity_id,
-                "label": entity_id,
+                "label": entity_data.get("properties", {}).get("name") or entity_id,
                 "type": entity_data.get("type", "unknown"),
                 "properties": entity_data.get("properties", {})
             })

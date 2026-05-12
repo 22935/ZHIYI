@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # 创建部署包（不包含Docker镜像，仅配置文件）
 # 适用于已有Docker环境的快速部署
@@ -11,7 +11,7 @@ PACKAGE_DIR="$PROJECT_DIR/deployment-package/kinlin-ai-$VERSION"
 BUILD_DATE=$(date +%Y%m%d_%H%M%S)
 
 echo "=========================================="
-echo "创建Kinlin AI部署包"
+echo "创建联邦智枢部署包"
 echo "版本: $VERSION"
 echo "=========================================="
 
@@ -28,7 +28,7 @@ cp docker/docker-compose.yml "$PACKAGE_DIR/docker/" 2>/dev/null || true
 echo "创建配置模板..."
 cat > "$PACKAGE_DIR/config/.env.template" << 'EOF'
 # ============================================
-# Kinlin AI 环境配置
+# 联邦智枢 环境配置
 # ============================================
 
 # 数据库配置
@@ -54,12 +54,12 @@ EOF
 cat > "$PACKAGE_DIR/deploy.sh" << 'SCRIPT_EOF'
 #!/bin/bash
 
-# Kinlin AI 快速部署脚本
+# 联邦智枢 快速部署脚本
 
 set -e
 
 echo "=========================================="
-echo "Kinlin AI 快速部署"
+echo "联邦智枢 快速部署"
 echo "=========================================="
 
 # 检查Docker
@@ -167,7 +167,7 @@ chmod +x "$PACKAGE_DIR/deploy.sh"
 
 # 4. 创建README
 cat > "$PACKAGE_DIR/README.md" << 'EOF'
-# Kinlin AI 部署包
+# 联邦智枢 部署包
 
 ## 快速开始
 

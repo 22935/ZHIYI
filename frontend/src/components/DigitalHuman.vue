@@ -89,6 +89,20 @@ let lipSyncMixer: THREE.AnimationMixer | null = null
 let lipSyncAction: THREE.AnimationAction | null = null
 let isLipSyncing = false
 
+const normalizeDigitalHumanAssetUrl = (rawUrl?: string): string => {
+  if (!rawUrl) return ''
+
+  const url = rawUrl.replace(/\\/g, '/')
+  if (url.startsWith('http')) return url
+
+  if (url.includes('/api/static/digital-human') || url.includes('/static/digital-human')) {
+    const filename = url.split('/').filter(Boolean).pop()
+    return filename ? `/ai/digital-human/image/${filename}` : ''
+  }
+
+  return url.startsWith('/') ? url : `/${url}`
+}
+
 onMounted(async () => {
   await initThreeJS()
   if (props.roleId) {
@@ -130,7 +144,7 @@ watch(() => props.style, async (newStyle, oldStyle) => {
         // 优先使用2D图像（如果存在）
         // 优先使用avatar字段，如果没有则使用local_image_url或image_url
         // 确保URL是完整的API路径（/ai/digital-human/image/...）
-        let imageUrl = modelData.avatar || modelData.local_image_url || modelData.image_url
+        let imageUrl = normalizeDigitalHumanAssetUrl(modelData.avatar || modelData.local_image_url || modelData.image_url)
         if (imageUrl) {
           // 如果URL是静态文件路径（/api/static/...），转换为API路径
           if (imageUrl.includes('/api/static/digital-human')) {
@@ -295,7 +309,7 @@ const loadDigitalHuman = async () => {
       console.log('📦 数字人数据:', JSON.stringify(modelData, null, 2))
       
       // 优先使用2D图像（如果存在）
-      const imageUrl = modelData.avatar || modelData.local_image_url || modelData.image_url
+      const imageUrl = normalizeDigitalHumanAssetUrl(modelData.avatar || modelData.local_image_url || modelData.image_url)
       console.log('🖼️ 图像URL检查:', {
         avatar: modelData.avatar,
         local_image_url: modelData.local_image_url,

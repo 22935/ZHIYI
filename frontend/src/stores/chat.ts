@@ -141,6 +141,12 @@ export const useChatStore = defineStore('chat', () => {
     messages.value.push(userMessage)
   }
 
+  const emitHistoryRefresh = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('history-refresh'))
+    }
+  }
+
   const sendMessage = async (text: string, fileUrl?: string) => {
     if ((!text.trim() && !fileUrl) || loading.value) return
 
@@ -171,6 +177,7 @@ export const useChatStore = defineStore('chat', () => {
         agentMode: 'default'
       }
       messages.value.push(assistantMessage)
+      emitHistoryRefresh()
 
       return response
     } finally {
@@ -213,8 +220,146 @@ export const useChatStore = defineStore('chat', () => {
         agentMode: 'lawyer'
       }
       messages.value.push(assistantMessage)
+      emitHistoryRefresh()
 
       return response
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // ---- 流式发送（SSE）----
+  const sendLawyerMessageStream = async (text: string) => {
+    if (!text.trim() || loading.value) return
+
+    pushUserMessage(text)
+    loading.value = true
+
+    const streamMsg: Message = {
+      id: Date.now() + 1,
+      role: 'assistant',
+      content: '',
+      createdAt: new Date(),
+      modelInfo: 'Lawyer Agent (streaming)',
+      agentMode: 'lawyer'
+    }
+    messages.value.push(streamMsg)
+    const streamIndex = messages.value.length - 1
+    const setStreamContent = (content: string) => {
+      const message = messages.value[streamIndex]
+      if (message) message.content = content
+    }
+    const appendStreamContent = (delta: string) => {
+      const message = messages.value[streamIndex]
+      if (message) message.content = (message.content || '') + delta
+    }
+
+    const token = localStorage.getItem('token')
+    try {
+      const resp = await fetch('/ai/chat/text/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({ text, role_id: currentRoleId.value || undefined })
+      })
+
+      const reader = resp.body?.getReader()
+      if (!reader) { setStreamContent('流式读取失败'); return }
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+            if (data === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(data)
+              if (parsed.delta) {
+                appendStreamContent(parsed.delta)
+              }
+            } catch { /* skip parse errors */ }
+          }
+        }
+      }
+      emitHistoryRefresh()
+    } catch (e) {
+      setStreamContent('流式请求失败: ' + (e as Error).message)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const sendMessageStream = async (text: string) => {
+    if ((!text.trim()) || loading.value) return
+
+    pushUserMessage(text)
+    loading.value = true
+
+    const streamMsg: Message = {
+      id: Date.now() + 1,
+      role: 'assistant',
+      content: '',
+      createdAt: new Date(),
+      modelInfo: 'AI (streaming)',
+      agentMode: 'default'
+    }
+    messages.value.push(streamMsg)
+    const streamIndex = messages.value.length - 1
+    const setStreamContent = (content: string) => {
+      const message = messages.value[streamIndex]
+      if (message) message.content = content
+    }
+    const appendStreamContent = (delta: string) => {
+      const message = messages.value[streamIndex]
+      if (message) message.content = (message.content || '') + delta
+    }
+
+    const token = localStorage.getItem('token')
+    try {
+      const resp = await fetch('/ai/chat/text/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({ text, role_id: currentRoleId.value || undefined })
+      })
+
+      const reader = resp.body?.getReader()
+      if (!reader) { setStreamContent('流式读取失败'); return }
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+            if (data === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(data)
+              if (parsed.delta) {
+                appendStreamContent(parsed.delta)
+              }
+            } catch { /* skip parse errors */ }
+          }
+        }
+      }
+      emitHistoryRefresh()
+    } catch (e) {
+      setStreamContent('流式请求失败: ' + (e as Error).message)
     } finally {
       loading.value = false
     }
@@ -255,6 +400,7 @@ export const useChatStore = defineStore('chat', () => {
         agentMode: 'teacher'
       }
       messages.value.push(assistantMessage)
+      emitHistoryRefresh()
 
       return response
     } finally {
@@ -297,6 +443,7 @@ export const useChatStore = defineStore('chat', () => {
         agentMode: 'programmer'
       }
       messages.value.push(assistantMessage)
+      emitHistoryRefresh()
 
       return response
     } finally {
@@ -339,6 +486,7 @@ export const useChatStore = defineStore('chat', () => {
         agentMode: 'writer'
       }
       messages.value.push(assistantMessage)
+      emitHistoryRefresh()
 
       return response
     } finally {
@@ -435,6 +583,8 @@ export const useChatStore = defineStore('chat', () => {
     currentRoleId,
     sendMessage,
     sendLawyerMessage,
+    sendLawyerMessageStream,
+    sendMessageStream,
     sendTeacherMessage,
     sendProgrammerMessage,
     sendWriterMessage,

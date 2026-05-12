@@ -48,10 +48,10 @@ class CodeGenerationSkill(BaseSkill):
         return {
             "target_language": language,
             "code": code,
-            "explanation": "Fallback code generated due to unavailable model response.",
+            "explanation": "模型结果不可用，已返回降级代码。",
             "suggested_tests": [
-                "Validate null and empty input behavior.",
-                "Validate success response schema.",
+                "校验空输入与异常输入行为。",
+                "校验成功响应结构与字段完整性。",
             ],
             "context_refs": [
                 {
@@ -106,13 +106,13 @@ class CodeGenerationSkill(BaseSkill):
         prompt = ProgrammerSkillHelper.load_prompt(
             "code_generation.txt",
             (
-                "You are a senior software engineer.\n"
-                "Generate implementation code from specification and code context.\n"
-                "Return strict JSON keys: code, explanation, suggested_tests, mermaid_code(optional).\n"
-                "Target language: {target_language}\n"
-                "Include diagram: {include_diagram}\n"
-                "Specification:\n{specification}\n\n"
-                "Code context:\n{code_context}\n"
+                "你是一名资深软件工程师，请始终使用简体中文说明（代码与 JSON 键名保持原样）。\n"
+                "请根据规格与代码上下文生成实现代码。\n"
+                "返回严格 JSON，键为：code, explanation, suggested_tests, mermaid_code(optional)。\n"
+                "目标语言：{target_language}\n"
+                "是否包含图示：{include_diagram}\n"
+                "规格：\n{specification}\n\n"
+                "代码上下文：\n{code_context}\n"
             ),
         )
         prompt = prompt.replace("{target_language}", target_language)
@@ -158,7 +158,7 @@ class CodeGenerationSkill(BaseSkill):
             skillName=self.name,
             success=True,
             output=output,
-            message="Code generation completed.",
+            message="代码生成完成。",
         )
 
     async def run(self, request: SkillRequest) -> SkillResult:
@@ -166,7 +166,7 @@ class CodeGenerationSkill(BaseSkill):
         target_language = str((request.action_input or {}).get("target_language", "python")).strip() or "python"
         context_hits = self._resolve_context_hits(request)
         try:
-            return await asyncio.wait_for(self.execute(request), timeout=10)
+            return await asyncio.wait_for(self.execute(request), timeout=45)
         except asyncio.TimeoutError:
             return SkillResult(
                 skillName=self.name,
@@ -177,7 +177,7 @@ class CodeGenerationSkill(BaseSkill):
                     context_hits=context_hits,
                     reason="timeout",
                 ),
-                message="Code generation timeout, fallback returned.",
+                message="代码生成超时，已返回降级结果。",
             )
         except Exception as exc:
             logger.error("CodeGenerationSkill failed: %s", exc, exc_info=True)
@@ -190,5 +190,5 @@ class CodeGenerationSkill(BaseSkill):
                     context_hits=context_hits,
                     reason="error",
                 ),
-                message="Code generation error, fallback returned.",
+                message="代码生成执行异常，已返回降级结果。",
             )

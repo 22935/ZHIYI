@@ -34,6 +34,9 @@ public class Conversation {
     @Column(name = "title", length = 200)
     private String title; // 对话标题
 
+    @Transient
+    private String preview;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

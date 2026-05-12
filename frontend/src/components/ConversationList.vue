@@ -135,40 +135,27 @@ const loadConversations = async () => {
     return
   }
 
+  if (loading.value) {
+    return
+  }
+
   try {
     loading.value = true
     const apiConversations = await conversationApi.getUserConversations(userId)
     
-    // 转换为组件需要的格式，并获取预览内容
-    const conversationsWithPreview = await Promise.all(
-      apiConversations.map(async (conv) => {
-        try {
-          const detail = await conversationApi.getConversationDetail(conv.id)
-          const resolvedContextId = detail.conversation.contextId || conv.contextId || conv.id
+    // 转换为组件需要的格式，预览内容由列表接口直接返回，避免逐条请求详情触发限流。
+    const conversationsWithPreview = apiConversations.map((conv) => {
+      const resolvedContextId = conv.contextId || conv.id
 
-          return {
-            id: conv.id,
-            contextId: resolvedContextId,
-            title: detail.conversation.title || conv.title || `对话 ${resolvedContextId.substring(0, 8)}`,
-            preview: detail.preview || '暂无预览内容...',
-            avatar: undefined,
-            updatedAt: new Date(conv.updatedAt || conv.createdAt)
-          }
-        } catch {
-          // 如果获取详情失败，使用默认值
-          const resolvedContextId = conv.contextId || conv.id
-
-          return {
-            id: conv.id,
-            contextId: resolvedContextId,
-            title: conv.title || `对话 ${resolvedContextId.substring(0, 8)}`,
-            preview: conv.preview || `上下文ID: ${resolvedContextId}`,
-            avatar: undefined,
-            updatedAt: new Date(conv.updatedAt || conv.createdAt)
-          }
-        }
-      })
-    )
+      return {
+        id: conv.id,
+        contextId: resolvedContextId,
+        title: conv.title || `对话 ${resolvedContextId.substring(0, 8)}`,
+        preview: conv.preview || `上下文ID: ${resolvedContextId}`,
+        avatar: undefined,
+        updatedAt: new Date(conv.updatedAt || conv.createdAt)
+      }
+    })
     
     conversations.value = conversationsWithPreview
   } catch (error: any) {

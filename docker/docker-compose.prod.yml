@@ -6,17 +6,18 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    container_name: kinlin-ai-backend-prod
+    container_name: federal-hub-backend-prod
     ports:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SERVER_PORT=8080
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/kinlin_ai
-      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-kinlin_ai}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-kinlin_ai_password}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/federal_hub
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-federal_hub}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-federal_hub_password}
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=${REDIS_PASSWORD:-redis_password}
       - AI_SERVICE_URL=http://ai-service:8000
       - AI_SERVICE_TIMEOUT=240000
       - AGENT_PYTHON_LAWYER_CHAT_URL=http://ai-service:8000/ai/agent/lawyer/chat
@@ -28,7 +29,7 @@ services:
       - postgres
       - redis
     networks:
-      - kinlin-network
+      - federal-hub-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health >/dev/null || exit 1"]
@@ -41,12 +42,17 @@ services:
     build:
       context: ../agent
       dockerfile: Dockerfile
-    container_name: kinlin-ai-service-prod
+    container_name: federal-hub-ai-service-prod
     ports:
       - "8000:8000"
+    env_file:
+      - ../.env
     environment:
       - ENVIRONMENT=production
       - LOG_LEVEL=INFO
+      - KYLIN_AI_TIMEOUT=${KYLIN_AI_TIMEOUT:-240}
+      - QWEN_REQUEST_TIMEOUT=${QWEN_REQUEST_TIMEOUT:-240}
+      - AGENT_SYNTHESIS_TIMEOUT=${AGENT_SYNTHESIS_TIMEOUT:-180}
       - AGENT_FEDERATED_ENABLED=true
       - AGENT_FEDERATED_BASE_URL=http://localhost:8000/ai
       - AGENT_FEDERATED_TIMEOUT_MS=1500
@@ -57,7 +63,7 @@ services:
       - ../agent/data:/app/data
       - ../agent/logs:/app/logs
     networks:
-      - kinlin-network
+      - federal-hub-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -70,7 +76,7 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    container_name: kinlin-ai-frontend-prod
+    container_name: federal-hub-frontend-prod
     ports:
       - "80:80"
     environment:
@@ -80,25 +86,25 @@ services:
       - backend
       - ai-service
     networks:
-      - kinlin-network
+      - federal-hub-network
     restart: unless-stopped
 
   # PostgreSQL数据库
   postgres:
     image: postgres:15-alpine
-    container_name: kinlin-ai-postgres-prod
+    container_name: federal-hub-postgres-prod
     environment:
-      - POSTGRES_DB=kinlin_ai
-      - POSTGRES_USER=${DB_USERNAME:-kinlin_ai}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-kinlin_ai_password}
+      - POSTGRES_DB=federal_hub
+      - POSTGRES_USER=${DB_USERNAME:-federal_hub}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-federal_hub_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../backend/src/main/resources/db/migration:/docker-entrypoint-initdb.d
     networks:
-      - kinlin-network
+      - federal-hub-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-kinlin_ai}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-federal_hub}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -106,13 +112,13 @@ services:
   # Redis缓存
   redis:
     image: redis:7-alpine
-    container_name: kinlin-ai-redis-prod
+    container_name: federal-hub-redis-prod
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - kinlin-network
+      - federal-hub-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -124,7 +130,7 @@ services:
   # Nginx反向代理（可选）
   nginx:
     image: nginx:alpine
-    container_name: kinlin-ai-nginx-prod
+    container_name: federal-hub-nginx-prod
     ports:
       - "8081:80"
     volumes:
@@ -133,18 +139,13 @@ services:
       - frontend
       - backend
     networks:
-      - kinlin-network
+      - federal-hub-network
     restart: unless-stopped
 
 networks:
-  kinlin-network:
+  federal-hub-network:
     driver: bridge
 
 volumes:
   postgres_data:
   redis_data:
-
-
-
-
-

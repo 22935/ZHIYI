@@ -237,7 +237,7 @@ async def test_config():
 async def main():
     """主测试函数"""
     print("\n" + "="*60)
-    print("Kinlin AI - 麒麟SDK和增强RAG功能测试")
+    print("联邦智枢 - 麒麟SDK和增强RAG功能测试")
     print("="*60)
     
     tests = [

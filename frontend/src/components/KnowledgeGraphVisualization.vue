@@ -32,6 +32,13 @@
       <div v-else-if="error" class="error-overlay">
         <el-alert :title="error" type="error" :closable="false" />
       </div>
+      <div v-else-if="isEmptyGraph" class="empty-overlay">
+        <el-empty :description="emptyDescription">
+          <template #image>
+            <div class="empty-icon">KG</div>
+          </template>
+        </el-empty>
+      </div>
       <div v-else class="graph-canvas" ref="graphCanvasRef"></div>
     </div>
     
@@ -69,17 +76,28 @@ import { Loading, Refresh, FullScreen } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { knowledgeGraphApi } from '@/services/api/knowledgeGraph'
 import { useRoleStore } from '@/stores/role'
+import { resolveKnowledgeRoleId } from '@/utils/knowledgeRole'
 
 const graphContainerRef = ref<HTMLElement>()
 const graphCanvasRef = ref<HTMLElement>()
 const loading = ref(false)
+const initialized = ref(false)
 const error = ref<string>('')
 const stats = ref<Record<string, any>>({})
 const entitySearch = ref('')
 const layout = ref('hierarchical')
 
 const roleStore = useRoleStore()
-const currentRoleId = computed(() => roleStore.currentRole?.id)
+const currentRoleId = computed(() => resolveKnowledgeRoleId(roleStore.currentRole))
+const isEmptyGraph = computed(() => initialized.value && !loading.value && !error.value && nodes.length === 0)
+const emptyDescription = computed(() => {
+  if (currentRoleId.value) {
+    const roleName = roleStore.currentRole?.name || '当前角色'
+    return `${roleName} 暂无知识图谱数据。内置图谱仅包含律师、教师、程序员、作家角色；如果你使用的是自定义角色，需要先上传该角色的知识文档。`
+  }
+
+  return '当前还没有可展示的知识图谱数据。请先上传文档，或切换到律师、教师、程序员、作家等已内置知识的角色。'
+})
 
 let network: Network | null = null
 let nodes = new DataSet<any>([])
@@ -126,6 +144,7 @@ const refreshGraph = async () => {
     ElMessage.error(error.value)
   } finally {
     loading.value = false
+    initialized.value = true
   }
 }
 
@@ -460,7 +479,8 @@ const searchEntity = async () => {
 }
 
 .loading-overlay,
-.error-overlay {
+.error-overlay,
+.empty-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -474,6 +494,21 @@ const searchEntity = async () => {
   backdrop-filter: blur(8px);
   gap: 16px;
   z-index: 10;
+}
+
+.empty-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #6366f1;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(34, 211, 238, 0.18));
+  border: 1px solid rgba(99, 102, 241, 0.18);
 }
 
 .is-loading {

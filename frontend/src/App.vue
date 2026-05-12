@@ -6,8 +6,18 @@
         <el-aside width="260px" class="app-sidebar" v-if="!isImmersive">
           <!-- Logo Section -->
           <div class="sidebar-header" @click="router.push('/chat')">
-            <div class="logo-icon">K</div>
-            <span class="logo-text">联邦智能枢</span>
+            <div class="logo-icon">
+              <svg viewBox="0 0 32 32" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="16" cy="16" r="14" stroke="white" stroke-width="1.8" fill="none"/>
+                <circle cx="16" cy="11" r="4" fill="white"/>
+                <circle cx="9" cy="22" r="3.2" fill="white" opacity="0.7"/>
+                <circle cx="23" cy="22" r="3.2" fill="white" opacity="0.7"/>
+                <line x1="16" y1="15" x2="9" y2="19" stroke="white" stroke-width="1.2" opacity="0.6"/>
+                <line x1="16" y1="15" x2="23" y2="19" stroke="white" stroke-width="1.2" opacity="0.6"/>
+                <line x1="9" y1="22" x2="23" y2="22" stroke="white" stroke-width="1.2" opacity="0.4"/>
+              </svg>
+            </div>
+            <span class="logo-text">联邦智枢</span>
           </div>
 
           <!-- Main Navigation -->
@@ -23,13 +33,13 @@
                 <el-icon><ChatDotRound /></el-icon>
                 <span>{{ $t('nav.chat') }}</span>
               </el-menu-item>
-              <el-menu-item index="/voice">
-                <el-icon><Microphone /></el-icon>
-                <span>{{ $t('nav.voice') }}</span>
+              <el-menu-item index="/federated-agent-workbench">
+                <el-icon><DataAnalysis /></el-icon>
+                <span>智能体工作台</span>
               </el-menu-item>
-              <el-menu-item index="/digital-human">
-                <el-icon><User /></el-icon>
-                <span>数字人对话</span>
+              <el-menu-item index="/contract-clause-planner">
+                <el-icon><DataAnalysis /></el-icon>
+                <span>合同起草规划</span>
               </el-menu-item>
 
               <div class="menu-group-title">{{ $t('nav.knowledge') }}</div>
@@ -116,7 +126,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { 
-  ChatDotRound, User, Microphone, Search, 
+  ChatDotRound, User, Search, 
   Clock, Setting, SwitchButton, DataAnalysis
 } from '@element-plus/icons-vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
@@ -157,14 +167,19 @@ const isImmersive = computed(() => {
 
 const isRouteScrollable = computed(() => {
   const path = route.path
-  return path.startsWith('/federated-learning') || path.startsWith('/federated-models')
+  return (
+    path.startsWith('/federated-learning') ||
+    path.startsWith('/federated-models') ||
+    path.startsWith('/federated-agent-workbench') ||
+    path.startsWith('/contract-clause-planner')
+  )
 })
 
 const activeMenu = computed(() => {
   const path = route.path
   if (path === '/chat' || path.startsWith('/chat')) return '/chat'
-  if (path === '/voice' || path.startsWith('/voice')) return '/voice'
-  if (path === '/digital-human' || path.startsWith('/digital-human')) return '/digital-human'
+  if (path.startsWith('/federated-agent-workbench')) return '/federated-agent-workbench'
+  if (path.startsWith('/contract-clause-planner')) return '/contract-clause-planner'
   if (path === '/roles' || path.startsWith('/roles')) return '/roles'
   if (path === '/rag' || path.startsWith('/rag')) return '/rag'
   if (path === '/settings' || path.startsWith('/settings')) return '/settings'
@@ -469,7 +484,7 @@ onUnmounted(() => {
 
 /* Immersive Mode Overrides */
 .immersive-mode .main-container {
-  background-color: #0f1115; /* Match VoiceChatView background */
+  background-color: #0f1115;
 }
 
 .immersive-mode .app-main {

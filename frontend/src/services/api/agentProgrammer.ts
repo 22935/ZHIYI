@@ -1,7 +1,7 @@
 import request from '@/utils/request'
 import type { AgentTraceStep, FederatedInfo } from './agentLawyer'
 
-const PROGRAMMER_AGENT_TIMEOUT_MS = 120000
+const PROGRAMMER_AGENT_TIMEOUT_MS = 240000
 
 export interface RequirementAnalysisResult {
   requirement?: string

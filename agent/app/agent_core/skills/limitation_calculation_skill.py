@@ -89,7 +89,7 @@ class LimitationCalculationSkill(BaseSkill):
 
     async def run(self, request: SkillRequest) -> SkillResult:
         try:
-            return await asyncio.wait_for(self._run_impl(request), timeout=8)
+            return await asyncio.wait_for(self._run_impl(request), timeout=45)
         except asyncio.TimeoutError:
             return SkillResult(
                 skillName=self.name,

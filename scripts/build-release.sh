@@ -1,6 +1,6 @@
-#!/bin/bash
+﻿#!/bin/bash
 
-# Kinlin AI 发布包构建脚本
+# 联邦智枢 发布包构建脚本
 # 用于构建可部署的发布包，包含所有必要的文件和配置
 
 set -e
@@ -11,7 +11,7 @@ RELEASE_DIR="$PROJECT_DIR/release/kinlin-ai-$VERSION"
 BUILD_DATE=$(date +%Y%m%d_%H%M%S)
 
 echo "=========================================="
-echo "Kinlin AI 发布包构建脚本"
+echo "联邦智枢 发布包构建脚本"
 echo "版本: $VERSION"
 echo "构建时间: $BUILD_DATE"
 echo "=========================================="
@@ -76,7 +76,7 @@ echo "创建部署脚本..."
 cat > "$RELEASE_DIR/install.sh" << 'SCRIPT_EOF'
 #!/bin/bash
 
-# Kinlin AI 一键安装脚本
+# 联邦智枢 一键安装脚本
 
 set -e
 
@@ -84,7 +84,7 @@ INSTALL_DIR="/opt/kinlin_ai"
 VERSION="__VERSION__"
 
 echo "=========================================="
-echo "Kinlin AI 安装程序"
+echo "联邦智枢 安装程序"
 echo "版本: $VERSION"
 echo "=========================================="
 
@@ -150,7 +150,7 @@ chmod +x "$RELEASE_DIR/install.sh"
 cat > "$RELEASE_DIR/uninstall.sh" << 'EOF'
 #!/bin/bash
 
-echo "卸载Kinlin AI..."
+echo "卸载联邦智枢..."
 
 cd /opt/kinlin_ai/docker 2>/dev/null || exit 0
 docker-compose -f docker-compose.prod.yml down -v
@@ -166,7 +166,7 @@ cp README.md "$RELEASE_DIR/docs/README.md" 2>/dev/null || true
 
 # 7. 创建README
 cat > "$RELEASE_DIR/README.md" << EOF
-# Kinlin AI 发布包
+# 联邦智枢 发布包
 
 版本: $VERSION
 构建时间: $BUILD_DATE

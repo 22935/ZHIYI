@@ -9,13 +9,23 @@
       <div class="promo-side">
         <div class="promo-content">
           <div class="brand">
-            <div class="logo-box">K</div>
-            <span class="brand-name">Kinlin AI</span>
+            <div class="logo-box">
+              <svg viewBox="0 0 40 40" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="18" stroke="white" stroke-width="2" fill="none"/>
+                <circle cx="20" cy="14" r="5" fill="white"/>
+                <circle cx="12" cy="28" r="4" fill="white" opacity="0.7"/>
+                <circle cx="28" cy="28" r="4" fill="white" opacity="0.7"/>
+                <line x1="20" y1="19" x2="12" y2="24" stroke="white" stroke-width="1.5" opacity="0.6"/>
+                <line x1="20" y1="19" x2="28" y2="24" stroke="white" stroke-width="1.5" opacity="0.6"/>
+                <line x1="12" y1="28" x2="28" y2="28" stroke="white" stroke-width="1.5" opacity="0.4"/>
+              </svg>
+            </div>
+            <span class="brand-name">联邦智枢</span>
           </div>
           
           <div class="hero-text">
-            <h1 class="title">智能数字人交互</h1>
-            <p class="subtitle">开启全感知、沉浸式的 AI 对话新纪元</p>
+            <h1 class="title">联邦智枢 · 多角色智能体</h1>
+            <p class="subtitle">聚智联邦，枢联万物 —— 让 AI 像专家一样思考与行动</p>
           </div>
           
           <div class="visual-area">

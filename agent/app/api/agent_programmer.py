@@ -1,11 +1,13 @@
 import asyncio
 import json
 import logging
+import os
 from typing import Any, Dict, List
 from uuid import uuid4
 
 from fastapi import APIRouter
 
+from app.api.language_guard import ensure_simplified_chinese
 from app.agent_core.federated.federated_adapter import FederatedAdapter
 from app.agent_core.memory.session_memory import session_memory_store
 from app.agent_core.react.executor import ReactExecutor
@@ -19,8 +21,9 @@ router = APIRouter()
 
 ai_service = AIService()
 planner = ReactPlanner()
-tool_router = ToolRouter()
+tool_router = ToolRouter(enabled_roles=["programmer"])
 executor = ReactExecutor(tool_router=tool_router)
+AGENT_SYNTHESIS_TIMEOUT = float(os.getenv("AGENT_SYNTHESIS_TIMEOUT", "180"))
 federated_adapter = FederatedAdapter()
 
 
@@ -90,7 +93,7 @@ def _build_programmer_context(observations: Dict[str, Any]) -> str:
 def _summarize_search(payload: Dict[str, Any]) -> str:
     hits = payload.get("hits", []) if isinstance(payload.get("hits"), list) else []
     if not hits:
-        return "Code search completed with no direct matches."
+        return "代码检索完成，未发现直接匹配项。"
 
     top_paths: List[str] = []
     for item in hits[:3]:
@@ -100,25 +103,25 @@ def _summarize_search(payload: Dict[str, Any]) -> str:
         if path and path not in top_paths:
             top_paths.append(path)
     if top_paths:
-        return f"Code search found {len(hits)} hits. Top files: {', '.join(top_paths)}."
-    return f"Code search found {len(hits)} hits."
+        return f"代码检索命中 {len(hits)} 条，Top 文件：{', '.join(top_paths)}。"
+    return f"代码检索命中 {len(hits)} 条。"
 
 
 def _summarize_requirement(payload: Dict[str, Any]) -> str:
-    requirement = str(payload.get("requirement", "")).strip() or "Requirement"
+    requirement = str(payload.get("requirement", "")).strip() or "未命名需求"
     fr = payload.get("functional_requirements", []) if isinstance(payload.get("functional_requirements"), list) else []
     io_inputs = payload.get("inputs", []) if isinstance(payload.get("inputs"), list) else []
     io_outputs = payload.get("outputs", []) if isinstance(payload.get("outputs"), list) else []
 
     lines = [
-        f"Technical specification for: {requirement}",
-        f"- Functional requirements: {len(fr)}",
-        f"- Inputs: {len(io_inputs)}",
-        f"- Outputs: {len(io_outputs)}",
+        f"需求技术规格：{requirement}",
+        f"- 功能需求数：{len(fr)}",
+        f"- 输入项数：{len(io_inputs)}",
+        f"- 输出项数：{len(io_outputs)}",
     ]
     if fr:
         preview = "; ".join(str(item) for item in fr[:3])
-        lines.append(f"- Key points: {preview}")
+        lines.append(f"- 关键要点：{preview}")
     return "\n".join(lines)
 
 
@@ -130,7 +133,7 @@ def _extract_preferred_answer(skills_used: List[str], observations: Dict[str, An
         if isinstance(payload, dict):
             mermaid_code = str(payload.get("mermaid_code", "")).strip()
             diagram_type = str(payload.get("diagram_type", "")).strip()
-            title = str(payload.get("title", "")).strip() or "Generated Diagram"
+            title = str(payload.get("title", "")).strip() or "生成图示"
             if mermaid_code:
                 prefix = f"{title} ({diagram_type})" if diagram_type else title
                 return f"{prefix}\n\n```mermaid\n{mermaid_code}\n```"
@@ -166,9 +169,9 @@ def _extract_preferred_answer(skills_used: List[str], observations: Dict[str, An
 
 def _build_fallback_answer(user_text: str, skills_used: List[str], observations: Dict[str, Any]) -> str:
     lines = [
-        "ProgrammerAgent structured fallback result:",
-        f"1) User request: {user_text}",
-        f"2) Skills used: {', '.join(skills_used) if skills_used else 'none'}",
+        "程序员 Agent 结构化降级结果：",
+        f"1) 用户请求：{user_text}",
+        f"2) 已调用技能：{', '.join(skills_used) if skills_used else '无'}",
     ]
 
     for index, action in enumerate(skills_used, start=3):
@@ -177,7 +180,7 @@ def _build_fallback_answer(user_text: str, skills_used: List[str], observations:
             preview = json.dumps(payload, ensure_ascii=False)[:260]
         else:
             preview = str(payload)[:260]
-        lines.append(f"{index}) {action}: {preview}")
+        lines.append(f"{index}) {action}：{preview}")
 
     return "\n".join(lines)
 
@@ -202,20 +205,20 @@ async def programmer_agent_chat(request: AgentProgrammerRequest):
         if not answer:
             context_text = _build_programmer_context(observations)
             synthesis_prompt = (
-                "You are a professional software engineering assistant. "
-                "Synthesize a concise, actionable response from the structured outputs.\n"
-                "Requirements:\n"
-                "1. Return practical output first.\n"
-                "2. If code is generated, include only essential explanation.\n"
-                "3. If Mermaid is generated, include the mermaid code block.\n"
-                "4. If information is missing, list exact fields needed.\n\n"
-                f"User request: {user_text}\n\n"
-                f"Structured outputs:\n{context_text}"
+                "你是一名专业软件工程助手。请基于结构化结果生成简洁、可执行的答复，"
+                "并且必须始终使用简体中文。\n"
+                "要求：\n"
+                "1. 优先给出可落地结果。\n"
+                "2. 若包含代码，仅保留必要说明。\n"
+                "3. 若生成 Mermaid，请保留 mermaid 代码块。\n"
+                "4. 信息不足时，明确列出缺失字段。\n\n"
+                f"用户请求：{user_text}\n\n"
+                f"结构化结果：\n{context_text}"
             )
             try:
                 llm_response = await asyncio.wait_for(
                     ai_service.generate_text(text=synthesis_prompt, context=history[-8:] if history else None),
-                    timeout=15,
+                    timeout=AGENT_SYNTHESIS_TIMEOUT,
                 )
                 answer = (llm_response.get("text", "") or "").strip()
             except Exception:
@@ -223,6 +226,8 @@ async def programmer_agent_chat(request: AgentProgrammerRequest):
 
         if not answer:
             answer = _build_fallback_answer(user_text=user_text, skills_used=skills_used, observations=observations)
+
+        answer = await ensure_simplified_chinese(answer, ai_service=ai_service, history=history)
 
         session_memory_store.append_message(session_id, "user", user_text)
         session_memory_store.append_message(session_id, "assistant", answer)
@@ -239,7 +244,7 @@ async def programmer_agent_chat(request: AgentProgrammerRequest):
             skillsUsed=skills_used,
             trace=trace,
             federated=federated_info,
-            message="Programmer agent workflow completed.",
+            message="程序员 Agent 工作流执行完成。",
             requirement_analysis=observations.get("requirement_analysis") if isinstance(observations, dict) else None,
             codebase_semantic_search=observations.get("codebase_semantic_search") if isinstance(observations, dict) else None,
             code_generation=observations.get("code_generation") if isinstance(observations, dict) else None,
@@ -249,11 +254,11 @@ async def programmer_agent_chat(request: AgentProgrammerRequest):
         logger.error("Programmer agent chat failed", exc_info=True)
         return AgentProgrammerResponse(
             success=False,
-            answer="Sorry, programmer agent is temporarily unavailable. Please try again later.",
+            answer="抱歉，程序员 Agent 当前不可用，请稍后重试。",
             sessionId=session_id,
             skillsUsed=[],
             trace=[],
             federated=_default_federated_info(),
-            message="Programmer agent execution failed.",
+            message="程序员 Agent 执行失败。",
             error=str(exc),
         )

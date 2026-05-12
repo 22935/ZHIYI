@@ -13,10 +13,10 @@
     </parent>
 
     <groupId>com.kinlin</groupId>
-    <artifactId>kinlin-ai-backend</artifactId>
+    <artifactId>federal-hub-backend</artifactId>
     <version>1.0.0</version>
-    <name>Kinlin AI Backend</name>
-    <description>Kinlin AI System Backend Service</description>
+    <name>联邦智枢 Backend</name>
+    <description>联邦智枢 - 多角色智能体系统 Backend Service</description>
 
     <properties>
         <java.version>17</java.version>
@@ -153,12 +153,6 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
-
         <!-- Micrometer指标监控 -->
         <dependency>
             <groupId>io.micrometer</groupId>

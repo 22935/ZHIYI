@@ -3,7 +3,7 @@ import type { Message } from '@/stores/chat'
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 30000
+  timeout: 240000
 })
 
 // 请求拦截器：添加Token

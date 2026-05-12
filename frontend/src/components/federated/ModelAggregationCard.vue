@@ -1,76 +1,57 @@
 <template>
   <div class="aggregation-card">
     <div class="aggregation-header">
-      <div class="header-icon">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="4" r="2.5" fill="#6366f1" />
-          <circle cx="4" cy="14" r="2.5" fill="#22d3ee" />
-          <circle cx="16" cy="14" r="2.5" fill="#a78bfa" />
-          <line x1="10" y1="6.5" x2="4" y2="11.5" stroke="#6366f1" stroke-width="1" opacity="0.5" />
-          <line x1="10" y1="6.5" x2="16" y2="11.5" stroke="#6366f1" stroke-width="1" opacity="0.5" />
-          <line x1="4" y1="14" x2="16" y2="14" stroke="#22d3ee" stroke-width="1" stroke-dasharray="2 2" opacity="0.4" />
-        </svg>
+      <div class="header-left">
+        <div class="header-icon">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="4" r="2.5" fill="#6366f1" />
+            <circle cx="4" cy="14" r="2.5" fill="#22d3ee" />
+            <circle cx="16" cy="14" r="2.5" fill="#a78bfa" />
+            <line x1="10" y1="6.5" x2="4" y2="11.5" stroke="#6366f1" stroke-width="1" opacity="0.4" />
+            <line x1="10" y1="6.5" x2="16" y2="11.5" stroke="#6366f1" stroke-width="1" opacity="0.4" />
+          </svg>
+        </div>
+        <span class="header-title">模型聚合</span>
       </div>
-      <span class="header-title">模型聚合</span>
       <span class="header-badge" :class="statusClass">{{ statusText }}</span>
     </div>
 
-    <div class="aggregation-visual">
-      <svg width="100%" height="100" viewBox="0 0 280 100" class="agg-svg">
-        <defs>
-          <linearGradient id="aggBarGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stop-color="#6366f1" />
-            <stop offset="100%" stop-color="#22d3ee" />
-          </linearGradient>
-          <filter id="aggGlow">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feMerge>
-              <feMerge in="blur" />
-              <feMerge in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+    <div class="client-list">
+      <div v-for="(client, idx) in clients" :key="client.id" class="client-row">
+        <div class="client-info">
+          <span class="client-label">{{ client.label }}</span>
+          <span class="client-weight">{{ (client.weight * 100).toFixed(0) }}%</span>
+        </div>
+        <div class="weight-track">
+          <div
+            class="weight-fill"
+            :style="{ width: (client.weight * 100).toFixed(0) + '%' }"
+          ></div>
+        </div>
+        <div class="upload-status" :class="{ uploaded: client.uploaded }">
+          <svg v-if="client.uploaded" width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M2 5l2.5 2.5L8 3" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span v-else class="upload-waiting">...</span>
+        </div>
+      </div>
+    </div>
 
-        <g v-for="(client, idx) in clients" :key="`agg-${idx}`" :transform="`translate(20, ${8 + idx * 16})`">
-          <text x="0" y="9" fill="#94a3b8" font-size="8">{{ client.label }}</text>
-          <rect x="55" y="1" width="165" height="10" rx="2" fill="#1e293b" />
-          <rect
-            x="55" y="1"
-            :width="client.weight * 165"
-            height="10"
-            rx="2"
-            fill="url(#aggBarGrad)"
-            :opacity="0.6 + client.weight * 0.4"
-            class="weight-bar"
-            :style="{ animationDelay: `${idx * 0.15}s` }"
-          />
-          <text :x="55 + client.weight * 165 + 5" y="9" fill="#e2e8f0" font-size="7" font-weight="500">
-            {{ (client.weight * 100).toFixed(0) }}%
-          </text>
-          <g :transform="`translate(225, 1)`">
-            <rect width="30" height="10" rx="2" :fill="client.uploaded ? '#064e3b' : '#1e293b'" />
-            <text x="15" y="8" text-anchor="middle" :fill="client.uploaded ? '#34d399' : '#475569'" font-size="6">
-              {{ client.uploaded ? '✓' : '...' }}
-            </text>
-          </g>
-        </g>
-
-        <g transform="translate(20, 88)">
-          <line x1="0" y1="0" x2="280" y2="0" stroke="#334155" stroke-width="0.5" />
-          <text x="0" y="9" fill="#64748b" font-size="7">聚合方法: FedAvg | 最小客户端: {{ minClients }}</text>
-          <g v-if="aggregating" transform="translate(200, 2)">
-            <circle r="2.5" fill="#6366f1" class="agg-pulse" />
-            <text x="6" y="2" fill="#a78bfa" font-size="7">聚合中...</text>
-          </g>
-        </g>
-      </svg>
+    <div class="aggregation-meta">
+      <span class="meta-item">FedAvg</span>
+      <span class="meta-divider">·</span>
+      <span class="meta-item">最少 {{ minClients }} 客户端</span>
+      <div v-if="aggregating" class="aggregating-indicator">
+        <span class="pulse-dot"></span>
+        <span>聚合中</span>
+      </div>
     </div>
 
     <div class="aggregation-actions">
       <button class="agg-btn primary" @click="$emit('aggregate')" :disabled="!canAggregate">
         <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
           <path d="M7 1v4M7 9v4M1 7h4M9 7h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-          <circle cx="7" cy="7" r="3" stroke="currentColor" stroke-width="1" opacity="0.5" />
+          <circle cx="7" cy="7" r="3" stroke="currentColor" stroke-width="1" opacity="0.4" />
         </svg>
         执行聚合
       </button>
@@ -79,7 +60,7 @@
           <path d="M2 7a5 5 0 0 1 9-3M12 7a5 5 0 0 1-9 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
           <path d="M11 1v3h-3M3 13v-3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
-        刷新状态
+        刷新
       </button>
     </div>
   </div>
@@ -101,11 +82,10 @@ const props = withDefaults(defineProps<{
   minClients?: number
 }>(), {
   clients: () => [
-    { id: 'c1', label: '律师节点', weight: 0.25, uploaded: true },
-    { id: 'c2', label: '教师节点', weight: 0.20, uploaded: true },
-    { id: 'c3', label: '程序员节点', weight: 0.25, uploaded: true },
-    { id: 'c4', label: '作家节点', weight: 0.15, uploaded: true },
-    { id: 'c5', label: '风控节点', weight: 0.15, uploaded: false }
+    { id: 'c1', label: '律师Agent', weight: 0.30, uploaded: true },
+    { id: 'c2', label: '教师Agent', weight: 0.22, uploaded: true },
+    { id: 'c3', label: '程序员Agent', weight: 0.30, uploaded: true },
+    { id: 'c4', label: '作家Agent', weight: 0.18, uploaded: true }
   ],
   aggregating: false,
   minClients: 3
@@ -133,120 +113,233 @@ const statusClass = computed(() => {
 
 <style scoped>
 .aggregation-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(99, 102, 241, 0.15);
-  border-radius: 8px;
-  padding: 6px;
-  backdrop-filter: blur(12px);
+  --primary: #6366f1;
+  --primary-bg: rgba(99, 102, 241, 0.06);
+  --primary-border: rgba(99, 102, 241, 0.12);
+  --cyan: #22d3ee;
+  --green: #34d399;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  background: var(--surface);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
 .aggregation-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-xs, 8px);
+  margin-bottom: var(--gap-md, 12px);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
 }
 
 .header-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-bg);
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .header-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  color: #e2e8f0;
-  flex: 1;
+  color: var(--text-primary);
 }
 
 .header-badge {
-  font-size: 8px;
-  padding: 2px 6px;
-  border-radius: 6px;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
   font-weight: 500;
 }
 
 .header-badge.ready {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.15);
 }
 
 .header-badge.running {
-  background: rgba(99, 102, 241, 0.15);
-  color: #a78bfa;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--primary-bg);
+  color: var(--primary);
+  border: 1px solid rgba(99, 102, 241, 0.15);
 }
 
 .header-badge.waiting {
-  background: rgba(100, 116, 139, 0.15);
-  color: #94a3b8;
-  border: 1px solid rgba(100, 116, 139, 0.3);
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  border: 1px solid #f1f5f9;
 }
 
-.agg-svg {
-  display: block;
+.client-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-xs, 8px);
 }
 
-.weight-bar {
-  animation: barGrow 0.8s ease-out forwards;
-  transform-origin: left;
+.client-row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-xs, 8px);
 }
 
-@keyframes barGrow {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
+.client-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 90px;
 }
 
-.agg-pulse {
-  animation: aggPulse 1.5s ease-in-out infinite;
+.client-label {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
-@keyframes aggPulse {
-  0%, 100% { opacity: 1; r: 2.5; }
-  50% { opacity: 0.4; r: 4; }
+.client-weight {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.weight-track {
+  flex: 1;
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.weight-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--cyan));
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.upload-status {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-alt);
+  border: 1px solid #f1f5f9;
+  transition: all var(--transition-fast);
+}
+
+.upload-status.uploaded {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.15);
+}
+
+.upload-waiting {
+  font-size: 8px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.aggregation-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--gap-sm, 10px);
+  padding-top: var(--gap-sm, 10px);
+  border-top: 1px solid #f1f5f9;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.meta-divider {
+  color: #e2e8f0;
+}
+
+.aggregating-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: pulseDot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.3); }
 }
 
 .aggregation-actions {
   display: flex;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: var(--gap-md, 12px);
 }
 
 .agg-btn {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 10px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
   font-weight: 500;
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  background: rgba(30, 41, 59, 0.6);
-  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .agg-btn:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.1);
-  color: #e2e8f0;
-  border-color: rgba(99, 102, 241, 0.4);
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  border-color: #cbd5e1;
 }
 
 .agg-btn.primary {
-  background: rgba(99, 102, 241, 0.15);
-  color: #a78bfa;
-  border-color: rgba(99, 102, 241, 0.3);
+  background: var(--primary-bg);
+  color: var(--primary);
+  border-color: rgba(99, 102, 241, 0.15);
 }
 
 .agg-btn.primary:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.25);
-  color: #c4b5fd;
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.25);
 }
 
 .agg-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.agg-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 </style>

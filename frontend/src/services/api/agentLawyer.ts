@@ -1,6 +1,6 @@
 import request from '@/utils/request'
 
-const LAWYER_AGENT_TIMEOUT_MS = 120000
+const LAWYER_AGENT_TIMEOUT_MS = 240000
 
 export interface AgentTraceStep {
   step: number

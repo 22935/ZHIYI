@@ -1,8 +1,11 @@
 # 开发环境配置
+server:
+  port: ${SERVER_PORT:5000}
+
 spring:
   # 使用H2内存数据库
   datasource:
-    url: jdbc:h2:mem:testdb
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS JSON
     driver-class-name: org.h2.Driver
     username: sa
     password: 
@@ -33,3 +36,14 @@ logging:
     com.kinlin.ai: DEBUG
     org.springframework.web: INFO
     org.hibernate: INFO
+
+ai:
+  service:
+    url: ${AI_SERVICE_URL:http://localhost:9000}
+
+agent:
+  python:
+    lawyer-chat-url: ${AGENT_PYTHON_LAWYER_CHAT_URL:http://localhost:9000/ai/agent/lawyer/chat}
+    teacher-chat-url: ${AGENT_PYTHON_TEACHER_CHAT_URL:http://localhost:9000/ai/agent/teacher/chat}
+    programmer-chat-url: ${AGENT_PYTHON_PROGRAMMER_CHAT_URL:http://localhost:9000/ai/agent/programmer/chat}
+    writer-chat-url: ${AGENT_PYTHON_WRITER_CHAT_URL:http://localhost:9000/ai/agent/writer/chat}

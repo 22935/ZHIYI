@@ -1,4 +1,4 @@
-# Kinlin AI Frontend
+# 联邦智枢 Frontend
 
 Vue 3前端应用
 

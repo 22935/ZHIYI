@@ -65,7 +65,7 @@ async def list_federated_models():
                     "optimized": True,
                     "version": "v3.2",
                     "performance": {
-                        "accuracy": 0.98,
+                        "accuracy": 0.873,
                         "speed": 0.85,
                         "efficiency": 0.92
                     }
@@ -77,7 +77,7 @@ async def list_federated_models():
                     "optimized": True,
                     "version": "v2.8",
                     "performance": {
-                        "accuracy": 0.94,
+                        "accuracy": 0.846,
                         "speed": 0.90,
                         "efficiency": 0.88
                     }
@@ -89,7 +89,7 @@ async def list_federated_models():
                     "optimized": True,
                     "version": "v4.1",
                     "performance": {
-                        "accuracy": 0.91,
+                        "accuracy": 0.861,
                         "speed": 0.98,
                         "efficiency": 0.95
                     }
@@ -101,7 +101,7 @@ async def list_federated_models():
                     "optimized": False,
                     "version": "v1.5",
                     "performance": {
-                        "accuracy": 0.88,
+                        "accuracy": 0.832,
                         "speed": 0.75,
                         "efficiency": 0.82
                     }
@@ -115,7 +115,7 @@ async def list_federated_models():
                     "optimized": True,
                     "version": "v1.8",
                     "performance": {
-                        "accuracy": 0.95,
+                        "accuracy": 0.887,
                         "speed": 0.88,
                         "efficiency": 0.90
                     }
@@ -127,7 +127,7 @@ async def list_federated_models():
                     "optimized": True,
                     "version": "v1.6",
                     "performance": {
-                        "accuracy": 0.92,
+                        "accuracy": 0.874,
                         "speed": 0.95,
                         "efficiency": 0.85
                     }
@@ -141,7 +141,7 @@ async def list_federated_models():
                     "optimized": True,
                     "version": "v1.2",
                     "performance": {
-                        "accuracy": 0.85,
+                        "accuracy": 0.821,
                         "speed": 0.99,
                         "efficiency": 0.94
                     }
@@ -153,7 +153,7 @@ async def list_federated_models():
                     "optimized": True,
                     "version": "v1.5",
                     "performance": {
-                        "accuracy": 0.97,
+                        "accuracy": 0.892,
                         "speed": 0.72,
                         "efficiency": 0.80
                     }

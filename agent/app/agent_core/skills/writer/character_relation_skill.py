@@ -44,10 +44,10 @@ class CharacterRelationSkill(BaseSkill):
         prompt = WriterSkillHelper.load_prompt(
             "character_relation.txt",
             (
-                "You are a story graph assistant.\n"
-                "Story description:\n{story_description}\n\n"
-                "Character list:\n{character_list}\n\n"
-                "Return strict JSON only:\n"
+                "你是一名人物关系图助手，请始终使用简体中文（JSON 键名保持原样）。\n"
+                "故事描述：\n{story_description}\n\n"
+                "角色列表：\n{character_list}\n\n"
+                "请仅返回严格 JSON：\n"
                 "{\"relation_graph\": {\"nodes\": [{\"id\":\"\", \"label\":\"\", \"group\":\"\"}], "
                 "\"edges\": [{\"from\":\"\", \"to\":\"\", \"label\":\"\"}]}}\n"
             ),
@@ -87,7 +87,7 @@ class CharacterRelationSkill(BaseSkill):
             skillName=self.name,
             success=True,
             output=output,
-            message="Character relation graph generated.",
+            message="人物关系图生成完成。",
         )
 
     async def run(self, request: SkillRequest) -> SkillResult:
@@ -96,13 +96,13 @@ class CharacterRelationSkill(BaseSkill):
         character_list = inputs["character_list"]
 
         try:
-            return await asyncio.wait_for(self.execute(request), timeout=10)
+            return await asyncio.wait_for(self.execute(request), timeout=45)
         except asyncio.TimeoutError:
             return SkillResult(
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(story_description, character_list, reason="timeout"),
-                message="Character relation generation timeout, fallback returned.",
+                message="人物关系图生成超时，已返回降级结果。",
             )
         except Exception as exc:
             logger.error("CharacterRelationSkill failed: %s", exc, exc_info=True)
@@ -110,5 +110,5 @@ class CharacterRelationSkill(BaseSkill):
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(story_description, character_list, reason="error"),
-                message="Character relation generation error, fallback returned.",
+                message="人物关系图生成执行异常，已返回降级结果。",
             )

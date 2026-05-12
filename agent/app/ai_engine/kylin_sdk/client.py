@@ -4,6 +4,7 @@
 智能选择：麒麟操作系统使用麒麟SDK，其他系统使用通义千问
 """
 import logging
+import asyncio
 from typing import List, Dict, Optional
 import httpx
 import platform
@@ -19,30 +20,47 @@ _kylin_sdk_logged = False
 
 class KylinSDKClient:
     """麒麟AI SDK客户端 - 智能选择SDK策略"""
-    
-    def __init__(self, api_key: str, api_endpoint: str, timeout: int = 30, qwen_api_key: Optional[str] = None, qwen_model: str = "qwen-plus"):
+
+    def __init__(self, api_key: str, api_endpoint: str, timeout: int = 240, qwen_api_key: Optional[str] = None, qwen_model: str = "qwen-plus",
+                 deepseek_api_key: Optional[str] = None, deepseek_model: str = "deepseek-chat"):
         """
         初始化客户端
-        
+
         Args:
             api_key: 麒麟AI API密钥（兼容旧配置）
             api_endpoint: API端点
             timeout: 超时时间（秒）
             qwen_api_key: 通义千问API密钥（如果提供则使用通义千问）
             qwen_model: 通义千问模型名称
+            deepseek_api_key: DeepSeek API密钥（文本生成优先使用）
+            deepseek_model: DeepSeek模型名称
         """
         self.api_key = api_key
         self.api_endpoint = api_endpoint.rstrip('/')
         self.timeout = timeout
-        
+
         # 检测操作系统类型
         self.is_kylin_os = self._detect_kylin_os()
-        
+
         # 智能选择SDK策略
         self.qwen_adapter = None
+        self.deepseek_adapter = None
         self.use_qwen = False
+        self.use_deepseek = False
         self.use_kylin_sdk = False
-        
+
+        # DeepSeek 优先初始化（文本生成主引擎，速度快）
+        if deepseek_api_key:
+            try:
+                from app.ai_engine.deepseekadapter import DeepSeekAdapter
+                from app.config import settings
+                ds_base_url = getattr(settings, 'DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1')
+                self.deepseek_adapter = DeepSeekAdapter(deepseek_api_key, deepseek_model, base_url=ds_base_url)
+                self.use_deepseek = True
+                logger.info(f"DeepSeek 文本引擎已启用: {deepseek_model}")
+            except Exception as e:
+                logger.warning(f"DeepSeek 适配器初始化失败: {e}，将使用Qwen")
+
         # 策略选择：麒麟OS优先使用麒麟SDK，其他系统使用通义千问
         if self.is_kylin_os and self.api_key:
             # 麒麟OS系统：尝试使用麒麟SDK
@@ -55,24 +73,18 @@ class KylinSDKClient:
             except Exception as e:
                 logger.warning(f"麒麟SDK初始化失败: {e}，降级到通义千问")
                 self.use_kylin_sdk = False
-        
-        # 如果不是麒麟OS或麒麟SDK不可用，使用通义千问
+
+        # Qwen 作为备用引擎（图像/语音/多模态 + 文本回退）
         if not self.use_kylin_sdk and qwen_api_key:
             try:
                 from app.ai_engine.qwenadapter import QwenAdapter
-                # 从配置读取base_url（如果可用）
-                qwen_base_url = None
-                try:
-                    from app.config import settings
-                    qwen_base_url = getattr(settings, 'QWEN_BASE_URL', None)
-                except:
-                    pass
+                from app.config import settings
+                qwen_base_url = getattr(settings, 'QWEN_BASE_URL', None)
                 self.qwen_adapter = QwenAdapter(qwen_api_key, qwen_model, base_url=qwen_base_url)
                 self.use_qwen = True
-                # 只在第一次启用时打印日志，避免重复
                 global _qwen_enabled_logged
                 if not _qwen_enabled_logged:
-                    logger.info(f"使用通义千问大模型: {qwen_model}")
+                    logger.info(f"通义千问备用引擎: {qwen_model}")
                     _qwen_enabled_logged = True
             except Exception as e:
                 logger.warning(f"初始化通义千问适配器失败: {e}，将使用模拟响应")
@@ -149,7 +161,36 @@ class KylinSDKClient:
             生成的文本和元数据
         """
         try:
-            # 如果启用了通义千问，使用通义千问API
+            # 优先使用 DeepSeek（文本生成主引擎，速度快）
+            if self.use_deepseek and self.deepseek_adapter:
+                system_prompt = None
+                if role_config:
+                    system_prompt = role_config.get("system_prompt")
+
+                messages = []
+                if system_prompt:
+                    messages.append({"role": "system", "content": system_prompt})
+                if context:
+                    for msg in context:
+                        if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                            messages.append({"role": msg["role"], "content": msg["content"]})
+                messages.append({"role": "user", "content": prompt})
+
+                try:
+                    resp = self.deepseek_adapter.chat(
+                        messages=messages,
+                        temperature=kwargs.get("temperature", 0.7),
+                        max_tokens=kwargs.get("max_tokens", 4096)
+                    )
+                    text = resp.choices[0].message.content if resp.choices else ""
+                    tokens_used = resp.usage.total_tokens if resp.usage else 0
+                    logger.debug(f"DeepSeek 生成成功: {len(text)} 字符, tokens={tokens_used}")
+                    return {"text": text, "confidence": 0.95, "tokens_used": tokens_used}
+                except Exception as e:
+                    logger.warning(f"DeepSeek 调用失败: {e}，回退到 Qwen")
+                    # Fall through to Qwen
+
+            # 通义千问作为备用引擎
             if self.use_qwen and self.qwen_adapter:
                 # 提取系统提示词
                 system_prompt = None
@@ -204,7 +245,7 @@ class KylinSDKClient:
                     temperature=kwargs.get("temperature", 0.7),
                     max_tokens=kwargs.get("max_tokens", 2000),
                     top_p=kwargs.get("top_p", 0.9),
-                    request_timeout=kwargs.get("request_timeout", 10),
+                    request_timeout=kwargs.get("request_timeout", max(self.timeout, 60)),
                 )
                 
                 logger.debug(f"通义千问生成成功: {len(result.get('text', ''))} 字符")
@@ -309,7 +350,60 @@ class KylinSDKClient:
         except Exception as e:
             logger.error(f"Text generation error: {e}", exc_info=True)
             raise
-    
+
+    async def generate_text_stream(self, prompt: str, context=None, role_config=None, **kwargs):
+        """流式文本生成，逐块返回文本"""
+        system_prompt = None
+        if role_config:
+            system_prompt = role_config.get("system_prompt")
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        if context:
+            for msg in context:
+                if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+        messages.append({"role": "user", "content": prompt})
+
+        # 优先 DeepSeek 流式
+        if self.use_deepseek and self.deepseek_adapter:
+            try:
+                stream = self.deepseek_adapter.chat_stream(
+                    messages=messages,
+                    temperature=kwargs.get("temperature", 0.7),
+                    max_tokens=kwargs.get("max_tokens", 4096)
+                )
+                sentinel = object()
+                while True:
+                    chunk = await asyncio.to_thread(next, stream, sentinel)
+                    if chunk is sentinel:
+                        break
+                    delta = chunk.choices[0].delta.content if chunk.choices else ""
+                    if delta:
+                        yield delta
+                return
+            except Exception as e:
+                logger.warning(f"DeepSeek 流式调用失败: {e}，回退到 Qwen")
+
+        # 回退 Qwen 流式
+        if self.use_qwen and self.qwen_adapter:
+            try:
+                async for delta in self.qwen_adapter.generate_stream(
+                    prompt=prompt, context=context, system_prompt=system_prompt,
+                    temperature=kwargs.get("temperature", 0.7),
+                    max_tokens=kwargs.get("max_tokens", 2000),
+                    request_timeout=kwargs.get("request_timeout", 240)
+                ):
+                    yield delta
+                return
+            except Exception as e:
+                logger.warning(f"Qwen 流式调用失败: {e}")
+
+        # 回退非流式
+        result = await self.generate_text(prompt=prompt, context=context, role_config=role_config, **kwargs)
+        yield result.get("text", "")
+
     async def recognize_speech(
         self,
         audio_data: bytes,
@@ -637,28 +731,39 @@ class KylinAIClient:
             from app.config import settings
             self._api_key = api_key or getattr(settings, 'KYLIN_AI_API_KEY', '')
             self._api_endpoint = api_endpoint or getattr(settings, 'KYLIN_AI_ENDPOINT', 'https://api.kylin.ai')
-            self._timeout = timeout or getattr(settings, 'KYLIN_AI_TIMEOUT', 30)
+            self._timeout = timeout or getattr(settings, 'KYLIN_AI_TIMEOUT', 240)
         except Exception as e:
             logger.warning(f"无法从配置读取参数，使用默认值: {e}")
             self._api_key = api_key or ''
             self._api_endpoint = api_endpoint or 'https://api.kylin.ai'
-            self._timeout = timeout or 30
+            self._timeout = timeout or 240
         
-        # 检查通义千问配置
-        # 优先使用 DASHSCOPE_API_KEY（官方推荐），如果没有则使用 QWEN_API_KEY（兼容旧配置）
-        # 所有配置都从主目录的.env文件读取（E:\Project\Kinlin_AI\.env），系统全局只保留这一个配置来源
+        # 检查DeepSeek配置（文本生成主引擎）
+        try:
+            from app.config import settings
+            self._deepseek_api_key = settings.DEEPSEEK_API_KEY or ''
+            self._deepseek_model = settings.DEEPSEEK_MODEL
+        except Exception:
+            self._deepseek_api_key = ''
+            self._deepseek_model = 'deepseek-chat'
+
+        # 检查通义千问配置（备用引擎 + 图像/语音/多模态）
         try:
             from app.config import settings
             dashscope_key = settings.DASHSCOPE_API_KEY or ''
             qwen_key = settings.QWEN_API_KEY or ''
-            # 优先使用 DASHSCOPE_API_KEY
             self._qwen_api_key = dashscope_key if dashscope_key else qwen_key
-            # 从.env文件读取模型配置
             self._qwen_model = settings.QWEN_MODEL_BALANCED
         except Exception as e:
             logger.warning(f"无法读取通义千问配置: {e}")
             self._qwen_api_key = ''
             self._qwen_model = 'qwen-plus'
+
+        # 日志摘要
+        if self._deepseek_api_key:
+            logger.info(f"AI 引擎: DeepSeek({self._deepseek_model}) 文本 + Qwen 图像/语音")
+        elif self._qwen_api_key:
+            logger.info(f"AI 引擎: Qwen({self._qwen_model}) 全功能")
         
         # 如果API key为空，记录信息
         global _api_key_warning_printed
@@ -676,7 +781,9 @@ class KylinAIClient:
             api_endpoint=self._api_endpoint,
             timeout=self._timeout,
             qwen_api_key=self._qwen_api_key,
-            qwen_model=self._qwen_model
+            qwen_model=self._qwen_model,
+            deepseek_api_key=self._deepseek_api_key,
+            deepseek_model=self._deepseek_model
         )
     
     async def generate_text(
@@ -806,6 +913,25 @@ class KylinAIClient:
         
         return full_prompt.strip()
     
+    async def generate_text_stream(self, text=None, prompt=None, role_id=None, context=None, **kwargs):
+        """流式文本生成"""
+        prompt_text = text or prompt
+        if not prompt_text:
+            raise ValueError("必须提供text或prompt参数")
+
+        role_config = None
+        if role_id:
+            role_config = {
+                "role_id": role_id,
+                "system_prompt": f"你是一个专业的AI助手。",
+                "style": "professional"
+            }
+
+        async for chunk in self._sdk_client.generate_text_stream(
+            prompt=prompt_text, context=context, role_config=role_config, **kwargs
+        ):
+            yield chunk
+
     async def recognize_speech(self, audio_data: bytes, **kwargs) -> Dict:
         """
         语音识别

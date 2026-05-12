@@ -1,4 +1,5 @@
-import request from '@/utils/request'
+﻿import request from '@/utils/request'
+import type { AxiosError } from 'axios'
 
 export interface Role {
   id: string
@@ -9,7 +10,7 @@ export interface Role {
   dialogueStyle?: any
   personality?: any
   avatarConfig?: any
-  avatar?: string  // 角色头像URL（可能来自数字人图像）
+  avatar?: string
 }
 
 export interface RoleCreateRequest {
@@ -21,40 +22,54 @@ export interface RoleCreateRequest {
   avatarConfig?: any
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const isRateLimitError = (error: unknown) => {
+  const status = (error as AxiosError)?.response?.status
+  return status === 429
+}
+
 export const roleApi = {
-  // 获取内置角色列表
   async getBuiltinRoles(): Promise<Role[]> {
     const response = await request.get<Role[]>('/roles/builtin')
-    return response.data
+    return Array.isArray(response.data) ? response.data : []
   },
 
-  // 获取自定义角色列表
   async getCustomRoles(): Promise<Role[]> {
-    const response = await request.get<Role[]>('/roles/custom')
-    return response.data
+    try {
+      const response = await request.get<Role[]>('/roles/custom')
+      return Array.isArray(response.data) ? response.data : []
+    } catch (error) {
+      if (!isRateLimitError(error)) throw error
+
+      // Back off once for transient 429s, then fallback to last known empty list.
+      await sleep(700)
+      try {
+        const retryResponse = await request.get<Role[]>('/roles/custom')
+        return Array.isArray(retryResponse.data) ? retryResponse.data : []
+      } catch (retryError) {
+        if (!isRateLimitError(retryError)) throw retryError
+        return []
+      }
+    }
   },
 
-  // 获取角色详情
   async getRole(roleId: string): Promise<Role> {
     const response = await request.get<Role>(`/roles/${roleId}`)
     return response.data
   },
 
-  // 创建自定义角色
   async createRole(roleRequest: RoleCreateRequest): Promise<Role> {
     const response = await request.post<Role>('/roles/custom', roleRequest)
     return response.data
   },
 
-  // 更新角色
   async updateRole(roleId: string, roleRequest: RoleCreateRequest): Promise<Role> {
     const response = await request.put<Role>(`/roles/${roleId}`, roleRequest)
     return response.data
   },
 
-  // 删除角色
   async deleteRole(roleId: string): Promise<void> {
     await request.delete(`/roles/${roleId}`)
-  }
+  },
 }
-

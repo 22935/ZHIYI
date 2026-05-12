@@ -1,5 +1,6 @@
 package com.kinlin.ai.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,8 @@ public class KnowledgeGraphRequest {
     private String question;
     private List<Map<String, Object>> vectorDbResults;
     private Integer topK = 5;
+    @JsonProperty("role_id")
+    private String roleId;
     
     @Data
     public static class DocumentInfo {

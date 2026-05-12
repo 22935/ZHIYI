@@ -23,6 +23,13 @@ public class KnowledgeGraphController {
 
     private final KnowledgeGraphService knowledgeGraphService;
 
+    private ResponseEntity<Map<String, Object>> wrapSuccess(Map<String, Object> data) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("data", data);
+        return ResponseEntity.ok(response);
+    }
+
     /**
      * 从文档构建知识图谱
      */
@@ -30,8 +37,8 @@ public class KnowledgeGraphController {
     public ResponseEntity<Map<String, Object>> buildKnowledgeGraph(
             @Valid @RequestBody KnowledgeGraphRequest request
     ) {
-        Map<String, Object> result = knowledgeGraphService.buildKnowledgeGraph(request.getDocuments());
-        return ResponseEntity.ok(result);
+        Map<String, Object> result = knowledgeGraphService.buildKnowledgeGraph(request.getDocuments(), request.getRoleId());
+        return wrapSuccess(result);
     }
 
     /**
@@ -44,7 +51,7 @@ public class KnowledgeGraphController {
             @RequestParam(value = "topK", defaultValue = "5") Integer topK
     ) {
         Map<String, Object> result = knowledgeGraphService.hybridSearch(question, vectorDbResults, topK);
-        return ResponseEntity.ok(result);
+        return wrapSuccess(result);
     }
 
     /**
@@ -55,7 +62,7 @@ public class KnowledgeGraphController {
             @RequestParam("question") String question
     ) {
         Map<String, Object> result = knowledgeGraphService.reasonWithKnowledgeGraph(question);
-        return ResponseEntity.ok(result);
+        return wrapSuccess(result);
     }
 
     /**
@@ -64,7 +71,7 @@ public class KnowledgeGraphController {
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getGraphStats() {
         Map<String, Object> result = knowledgeGraphService.getGraphStats();
-        return ResponseEntity.ok(result);
+        return wrapSuccess(result);
     }
 
     /**
@@ -77,7 +84,7 @@ public class KnowledgeGraphController {
             @RequestParam(value = "limit", defaultValue = "10") Integer limit
     ) {
         Map<String, Object> result = knowledgeGraphService.getEntityInfo(entityId, relation, limit);
-        return ResponseEntity.ok(result);
+        return wrapSuccess(result);
     }
 
     /**
@@ -88,11 +95,7 @@ public class KnowledgeGraphController {
             @RequestParam(value = "role_id", required = false) String roleId
     ) {
         Map<String, Object> result = knowledgeGraphService.getGraphData(roleId);
-        // 包装为统一的响应格式
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", result);
-        return ResponseEntity.ok(response);
+        return wrapSuccess(result);
     }
 }
 

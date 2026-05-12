@@ -97,7 +97,7 @@ class DocumentGenerationSkill(BaseSkill):
         )
 
         try:
-            llm_response = await asyncio.wait_for(_ai_service.generate_text(text=prompt), timeout=12)
+            llm_response = await asyncio.wait_for(_ai_service.generate_text(text=prompt), timeout=45)
             draft = (llm_response.get("text", "") or "").strip()
             if not draft:
                 draft = self._fallback_draft(document_type, case_understanding, statutes, cases)

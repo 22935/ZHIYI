@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 REM 开发环境快速配置脚本 (Windows)
 REM 自动创建.env文件并配置开发环境
 
@@ -6,7 +6,7 @@ cd /d %~dp0\..
 set PROJECT_DIR=%CD%
 
 echo ==========================================
-echo Kinlin AI 开发环境配置
+echo 联邦智枢 开发环境配置
 echo ==========================================
 
 REM 1. 创建.env文件（如果不存在）

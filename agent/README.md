@@ -1,4 +1,4 @@
-# Kinlin AI Service
+# 联邦智枢 AI Service
 
 Python AI服务，提供AI能力
 

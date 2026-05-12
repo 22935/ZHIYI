@@ -23,7 +23,7 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    @Value("${app.jwt.secret:kinlin-ai-secret-key-change-in-production}")
+    @Value("${app.jwt.secret:federal-hub-secret-key-change-in-production}")
     private String secret;
 
     @Value("${app.jwt.expiration:86400000}")

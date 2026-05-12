@@ -70,11 +70,11 @@ class WriterSkillHelper:
     @staticmethod
     def _normalize_tree_node(node: Any, fallback_id: str, depth: int = 0, max_depth: int = 4) -> Dict[str, Any]:
         if depth > max_depth:
-            return {"id": fallback_id, "label": "Idea", "description": "", "children": []}
+            return {"id": fallback_id, "label": "创意", "description": "", "children": []}
 
         data = node if isinstance(node, dict) else {}
         node_id = str(data.get("id", fallback_id)).strip() or fallback_id
-        label = str(data.get("label", "Idea")).strip() or "Idea"
+        label = str(data.get("label", "创意")).strip() or "创意"
         description = str(data.get("description", "")).strip()
 
         children_raw = data.get("children", [])
@@ -99,34 +99,34 @@ class WriterSkillHelper:
 
     @staticmethod
     def default_creative_tree(premise: str) -> Dict[str, Any]:
-        seed = (premise or "Story idea").strip() or "Story idea"
+        seed = (premise or "故事创意").strip() or "故事创意"
         return {
             "id": "root",
             "label": seed,
-            "description": "Core premise",
+            "description": "核心前提",
             "children": [
                 {
                     "id": "root.world",
-                    "label": "World Setting",
-                    "description": "Where and when the story happens",
+                    "label": "世界设定",
+                    "description": "故事发生的时空背景",
                     "children": [],
                 },
                 {
                     "id": "root.character",
-                    "label": "Main Character Arc",
-                    "description": "Growth path and inner conflict",
+                    "label": "主角成长弧",
+                    "description": "角色成长路径与内在冲突",
                     "children": [],
                 },
                 {
                     "id": "root.conflict",
-                    "label": "Central Conflict",
-                    "description": "Main obstacle and stakes",
+                    "label": "核心冲突",
+                    "description": "主要阻力与风险代价",
                     "children": [],
                 },
                 {
                     "id": "root.ending",
-                    "label": "Possible Endings",
-                    "description": "At least two ending directions",
+                    "label": "可能结局",
+                    "description": "至少两种结局走向",
                     "children": [],
                 },
             ],
@@ -140,9 +140,9 @@ class WriterSkillHelper:
 
         normalized = WriterSkillHelper._normalize_tree_node(tree, fallback_id="root")
         if normalized.get("id") == "root" and not normalized.get("label"):
-            normalized["label"] = premise or "Story idea"
+            normalized["label"] = premise or "故事创意"
         if not normalized.get("label"):
-            normalized["label"] = premise or "Story idea"
+            normalized["label"] = premise or "故事创意"
         return normalized
 
     @staticmethod
@@ -152,7 +152,7 @@ class WriterSkillHelper:
         lines: List[str] = []
         root = str(tree.get("label", "")).strip()
         if root:
-            lines.append(f"Premise: {root}")
+            lines.append(f"前提：{root}")
         children = tree.get("children", [])
         if isinstance(children, list):
             for child in children[:5]:
@@ -161,7 +161,7 @@ class WriterSkillHelper:
                 label = str(child.get("label", "")).strip()
                 description = str(child.get("description", "")).strip()
                 if label and description:
-                    lines.append(f"- {label}: {description}")
+                    lines.append(f"- {label}：{description}")
                 elif label:
                     lines.append(f"- {label}")
         return "\n".join(lines).strip()
@@ -195,14 +195,14 @@ class WriterSkillHelper:
         if not names:
             names = WriterSkillHelper._extract_character_names(story_description)
         if len(names) < 2:
-            names = ["Protagonist", "Companion", "Antagonist"]
+            names = ["主角", "伙伴", "对手"]
 
         nodes = [{"id": name, "label": name, "group": "character"} for name in names]
         edges = []
         if len(names) >= 2:
-            edges.append({"from": names[0], "to": names[1], "label": "ally"})
+            edges.append({"from": names[0], "to": names[1], "label": "同盟"})
         if len(names) >= 3:
-            edges.append({"from": names[0], "to": names[2], "label": "conflict"})
+            edges.append({"from": names[0], "to": names[2], "label": "冲突"})
 
         return {"nodes": nodes, "edges": edges}
 
@@ -253,6 +253,6 @@ class WriterSkillHelper:
         if not nodes:
             return WriterSkillHelper.default_relation_graph(story_description, character_list)
         if not edges and len(nodes) >= 2:
-            edges.append({"from": nodes[0]["id"], "to": nodes[1]["id"], "label": "related"})
+            edges.append({"from": nodes[0]["id"], "to": nodes[1]["id"], "label": "相关"})
 
         return {"nodes": nodes, "edges": edges}

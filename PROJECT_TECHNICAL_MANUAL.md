@@ -1,8 +1,8 @@
-# Kinlin AI 项目技术说明书
+# 联邦智枢 项目技术说明书
 
 > **生成时间**：2025-07-01  
 > **基于代码版本**：Git commit `93ecfa9`（分支 `feat/teacher-federated-stability-20260417`）  
-> **项目全称**：Kinlin AI — 智能多角色交互助手系统
+> **项目全称**：联邦智枢（Federal Hub）— 多角色智能体系统
 
 ---
 
@@ -14,7 +14,7 @@
 
 ### 1.2 目标
 
-Kinlin AI 旨在构建一个**多角色自主智能体系统**，使 AI 能够像律师、教师、程序员、作家一样，通过"思考-规划-执行"的 ReAct 循环自主完成专业任务，同时借助 RAG 知识库保障输出的专业性与可溯源性。
+联邦智枢 旨在构建一个**多角色自主智能体系统**，使 AI 能够像律师、教师、程序员、作家一样，通过"思考-规划-执行"的 ReAct 循环自主完成专业任务，同时借助 RAG 知识库保障输出的专业性与可溯源性。
 
 ### 1.3 整体定位
 
@@ -457,7 +457,7 @@ async def get_risk_enhancement(self, case_info: Dict) -> Dict:
 关键配置（`AgentProperties.java`）：
 ```java
 agent.enabled = true
-agent.timeout-ms = 30000
+agent.timeout-ms = 120000
 agent.python.lawyer-chat-url = http://localhost:8000/ai/agent/lawyer/chat
 agent.python.teacher-chat-url = http://localhost:8000/ai/agent/teacher/chat
 agent.python.programmer-chat-url = http://localhost:8000/ai/agent/programmer/chat

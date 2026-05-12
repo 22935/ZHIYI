@@ -21,7 +21,7 @@ class CodebaseSemanticSearchSkill(BaseSkill):
             "hits": [],
             "index_status": {
                 "success": False,
-                "message": f"fallback: {reason}",
+                "message": f"降级返回：{reason}",
             },
         }
 
@@ -64,19 +64,19 @@ class CodebaseSemanticSearchSkill(BaseSkill):
             skillName=self.name,
             success=True,
             output=output,
-            message=f"Codebase semantic search completed with {len(hits)} hit(s).",
+            message=f"代码语义检索完成，共命中 {len(hits)} 条。",
         )
 
     async def run(self, request: SkillRequest) -> SkillResult:
         query = str((request.action_input or {}).get("query", request.text or "")).strip()
         try:
-            return await asyncio.wait_for(self.execute(request), timeout=10)
+            return await asyncio.wait_for(self.execute(request), timeout=45)
         except asyncio.TimeoutError:
             return SkillResult(
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(query=query, reason="timeout"),
-                message="Codebase semantic search timeout, fallback returned.",
+                message="代码语义检索超时，已返回降级结果。",
             )
         except Exception as exc:
             logger.error("CodebaseSemanticSearchSkill failed: %s", exc, exc_info=True)
@@ -84,5 +84,5 @@ class CodebaseSemanticSearchSkill(BaseSkill):
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(query=query, reason="error"),
-                message="Codebase semantic search error, fallback returned.",
+                message="代码语义检索执行异常，已返回降级结果。",
             )

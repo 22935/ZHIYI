@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 // 创建axios实例
 const request = axios.create({
   baseURL: '/api',
-  timeout: 30000,
+  timeout: 240000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -15,8 +15,12 @@ request.interceptors.request.use(
   (config) => {
     // 可以在这里添加token等
     const token = localStorage.getItem('token')
+    const userId = localStorage.getItem('userId')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    if (userId) {
+      config.headers['X-User-Id'] = userId
     }
     return config
   },

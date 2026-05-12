@@ -5,15 +5,34 @@
         <span class="head-icon">🧠</span>
         <h4>{{ titleText }}</h4>
       </div>
+      <div class="head-actions">
+        <button v-if="sourceMarkdown" class="action-btn" @click="openFullscreen" title="全屏查看">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M1 5V2a1 1 0 0 1 1-1h3M9 1h3a1 1 0 0 1 1 1v3M13 9v3a1 1 0 0 1-1 1H9M5 13H2a1 1 0 0 1-1-1V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <button v-if="sourceMarkdown" class="action-btn" @click="downloadSvg" title="下载图片">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 2v7M4 6.5L7 9.5 10 6.5M2 11v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
     </header>
 
     <div v-if="!sourceMarkdown" class="empty">
       <span>暂无可渲染的思维导图数据</span>
     </div>
 
-    <div v-else class="mindmap-wrap">
+    <div v-else class="mindmap-wrap" @click="openFullscreen" style="cursor: zoom-in;">
       <svg ref="svgRef" class="mindmap-canvas" />
     </div>
+
+    <ImageViewer
+      v-model:visible="viewerVisible"
+      :file-name="titleText + '.png'"
+    >
+      <div ref="fullscreenSvgContainer" class="fullscreen-mindmap" />
+    </ImageViewer>
   </section>
 </template>
 
@@ -21,6 +40,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Transformer } from 'markmap-lib'
 import { Markmap } from 'markmap-view'
+import ImageViewer from '@/components/common/ImageViewer.vue'
 
 interface CreativeTreeNode {
   id: string
@@ -36,8 +56,11 @@ const props = defineProps<{
 }>()
 
 const svgRef = ref<SVGSVGElement | null>(null)
+const fullscreenSvgContainer = ref<HTMLElement | null>(null)
+const viewerVisible = ref(false)
 const transformer = new Transformer()
 let markmap: Markmap | null = null
+let fullscreenMarkmap: Markmap | null = null
 
 const titleText = computed(() => props.title || '思维导图')
 
@@ -76,8 +99,87 @@ const renderMindMap = async () => {
   markmap.fit()
 }
 
+const openFullscreen = async () => {
+  if (!sourceMarkdown.value) return
+  viewerVisible.value = true
+  await nextTick()
+  await nextTick()
+
+  if (fullscreenSvgContainer.value) {
+    fullscreenSvgContainer.value.innerHTML = ''
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.style.width = '90vw'
+    svg.style.height = '85vh'
+    svg.style.minWidth = '800px'
+    fullscreenSvgContainer.value.appendChild(svg)
+
+    if (fullscreenMarkmap) {
+      fullscreenMarkmap.destroy()
+      fullscreenMarkmap = null
+    }
+
+    const { root } = transformer.transform(sourceMarkdown.value)
+    fullscreenMarkmap = Markmap.create(svg, { color: (markmap as any)?.options?.color })
+    fullscreenMarkmap.setData(root)
+    fullscreenMarkmap.fit()
+  }
+}
+
+const downloadSvg = async () => {
+  if (!svgRef.value) return
+  try {
+    const svgClone = svgRef.value.cloneNode(true) as SVGElement
+    const bbox = svgRef.value.getBoundingClientRect()
+    const scale = 2
+    svgClone.setAttribute('width', String(bbox.width * scale))
+    svgClone.setAttribute('height', String(bbox.height * scale))
+
+    const serializer = new XMLSerializer()
+    const svgString = serializer.serializeToString(svgClone)
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+
+    const img = new Image()
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve()
+      img.onerror = reject
+      img.src = url
+    })
+
+    const canvas = document.createElement('canvas')
+    canvas.width = bbox.width * scale
+    canvas.height = bbox.height * scale
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(img, 0, 0)
+    URL.revokeObjectURL(url)
+
+    const link = document.createElement('a')
+    link.href = canvas.toDataURL('image/png')
+    link.download = titleText.value + '.png'
+    link.click()
+  } catch {
+    const serializer = new XMLSerializer()
+    const svgString = serializer.serializeToString(svgRef.value)
+    const blob = new Blob([svgString], { type: 'image/svg+xml' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = titleText.value + '.svg'
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+}
+
 watch(sourceMarkdown, () => {
   renderMindMap()
+})
+
+watch(viewerVisible, (val) => {
+  if (!val && fullscreenMarkmap) {
+    fullscreenMarkmap.destroy()
+    fullscreenMarkmap = null
+  }
 })
 
 onMounted(() => {
@@ -88,6 +190,10 @@ onBeforeUnmount(() => {
   if (markmap) {
     markmap.destroy()
     markmap = null
+  }
+  if (fullscreenMarkmap) {
+    fullscreenMarkmap.destroy()
+    fullscreenMarkmap = null
   }
 })
 </script>
@@ -126,6 +232,32 @@ onBeforeUnmount(() => {
   color: var(--text-primary);
 }
 
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(0, 0, 0, 0.04);
+  color: #92400e;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #78350f;
+  transform: translateY(-1px);
+}
+
 .empty {
   padding: 20px 12px;
   text-align: center;
@@ -138,11 +270,32 @@ onBeforeUnmount(() => {
   min-height: 300px;
   height: 360px;
   overflow: auto;
+  transition: background 0.2s ease;
+}
+
+.mindmap-wrap:hover {
+  background: rgba(251, 191, 36, 0.03);
 }
 
 .mindmap-canvas {
   width: 100%;
   height: 100%;
   min-width: 640px;
+}
+
+.fullscreen-mindmap {
+  width: 90vw;
+  height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.fullscreen-mindmap :deep(svg) {
+  width: 100% !important;
+  height: 100% !important;
 }
 </style>

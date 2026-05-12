@@ -12,10 +12,15 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
+def _default_data_dir() -> Path:
+    """Resolve the canonical RAG data directory regardless of process cwd."""
+    return Path(__file__).resolve().parents[2] / "data" / "rag"
+
 class RAGService:
     """RAG服务类"""
     
-    def __init__(self, data_dir: str = "data/rag", use_vector_db: bool = False):
+    def __init__(self, data_dir: Optional[str] = None, use_vector_db: bool = False):
         """
         初始化RAG服务
         
@@ -23,7 +28,7 @@ class RAGService:
             data_dir: 数据存储目录
             use_vector_db: 是否使用向量数据库（需要安装相应库）
         """
-        self.data_dir = Path(data_dir)
+        self.data_dir = Path(data_dir) if data_dir else _default_data_dir()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         # 文档存储（内存）
@@ -128,6 +133,15 @@ class RAGService:
         已集成easydoc、mineru、pdfplumber等文档处理工具支持
         """
         try:
+            suffix = Path(filename).suffix.lower()
+
+            # 纯文本类文件直接读取，避免无意义地触发高级处理链路
+            if suffix in {'.txt', '.md'}:
+                return file_data.decode('utf-8')
+            if suffix == '.json':
+                data = json.loads(file_data.decode('utf-8'))
+                return json.dumps(data, ensure_ascii=False)
+
             # 优先使用高级文档处理器（集成easydoc、mineru等）
             try:
                 from app.services.documentprocessoradvanced import document_processor_advanced
@@ -170,14 +184,8 @@ class RAGService:
             
             # 最终回退到基础实现
             try:
-                if filename.endswith('.txt') or filename.endswith('.md'):
-                    return file_data.decode('utf-8')
-                elif filename.endswith('.json'):
-                    data = json.loads(file_data.decode('utf-8'))
-                    return json.dumps(data, ensure_ascii=False)
-                else:
-                    logger.warning(f"不支持的文件格式: {filename}")
-                    return f"[文档内容: {filename}]"
+                logger.warning(f"不支持的文件格式: {filename}")
+                return f"[文档内容: {filename}]"
             except Exception as e:
                 logger.error(f"提取文本失败: {e}")
                 return ""

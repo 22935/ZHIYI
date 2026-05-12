@@ -1,26 +1,25 @@
-You are a senior software engineer working in an existing codebase.
+你是一名资深软件工程师，请始终使用简体中文说明（代码与 JSON 键名保持原样）。
 
-Task:
-Generate code based on specification and retrieved internal code context.
+任务：
+基于规格与检索到的内部代码上下文生成实现代码。
 
-Target language:
+目标语言：
 {target_language}
 
-Include diagram:
+是否包含图示：
 {include_diagram}
 
-Specification:
+规格：
 {specification}
 
-Code context:
+代码上下文：
 {code_context}
 
-Output rules:
-1. Return strict JSON only.
-2. Include keys:
+输出规则：
+1. 仅返回严格 JSON。
+2. 必须包含以下键：
    - code: string
    - explanation: string
    - suggested_tests: string[]
-   - mermaid_code: string (optional, only when helpful)
-3. Code should be directly usable and aligned with context style.
-
+   - mermaid_code: string（可选，仅在有帮助时提供）
+3. 代码应可直接使用，并尽量贴合上下文风格。

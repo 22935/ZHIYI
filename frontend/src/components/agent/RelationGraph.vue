@@ -5,14 +5,35 @@
         <span class="head-icon">🕸️</span>
         <h4>人物关系图</h4>
       </div>
-      <span class="meta" v-if="graphStats">{{ graphStats }}</span>
+      <div class="head-right">
+        <span class="meta" v-if="graphStats">{{ graphStats }}</span>
+        <div class="head-actions">
+          <button v-if="hasGraphData" class="action-btn" @click="openFullscreen" title="全屏查看">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M1 5V2a1 1 0 0 1 1-1h3M9 1h3a1 1 0 0 1 1 1v3M13 9v3a1 1 0 0 1-1 1H9M5 13H2a1 1 0 0 1-1-1V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <button v-if="hasGraphData" class="action-btn" @click="downloadGraph" title="下载图片">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 2v7M4 6.5L7 9.5 10 6.5M2 11v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
     </header>
 
     <div v-if="!hasGraphData" class="empty">
       <span>暂无人物关系图数据</span>
     </div>
 
-    <div v-else ref="graphRef" class="graph-canvas" />
+    <div v-else ref="graphRef" class="graph-canvas" @click="openFullscreen" style="cursor: zoom-in;" />
+
+    <ImageViewer
+      v-model:visible="viewerVisible"
+      file-name="人物关系图.png"
+    >
+      <div ref="fullscreenGraphContainer" class="fullscreen-graph" />
+    </ImageViewer>
   </section>
 </template>
 
@@ -20,6 +41,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { DataSet } from 'vis-data'
 import { Network } from 'vis-network'
+import ImageViewer from '@/components/common/ImageViewer.vue'
 
 interface RelationGraphNode {
   id: string
@@ -46,7 +68,10 @@ const props = defineProps<{
 }>()
 
 const graphRef = ref<HTMLElement | null>(null)
+const fullscreenGraphContainer = ref<HTMLElement | null>(null)
+const viewerVisible = ref(false)
 let network: Network | null = null
+let fullscreenNetwork: Network | null = null
 
 const relationGraph = computed(() => props.data?.relation_graph || props.data?.relationGraph)
 const hasGraphData = computed(() => {
@@ -59,6 +84,38 @@ const graphStats = computed(() => {
   const nodes = relationGraph.value?.nodes || []
   const edges = relationGraph.value?.edges || []
   return `${nodes.length} 节点 / ${edges.length} 关系`
+})
+
+const getNetworkOptions = () => ({
+  autoResize: true,
+  physics: {
+    stabilization: true
+  },
+  interaction: {
+    hover: true,
+    dragNodes: true
+  },
+  nodes: {
+    font: {
+      size: 14
+    },
+    borderWidth: 1.5
+  },
+  edges: {
+    font: {
+      size: 12,
+      align: 'middle'
+    },
+    color: {
+      color: '#94a3b8',
+      highlight: '#d97706'
+    }
+  },
+  groups: {
+    character: { color: { background: '#fde68a', border: '#d97706' } },
+    protagonist: { color: { background: '#93c5fd', border: '#2563eb' } },
+    antagonist: { color: { background: '#fca5a5', border: '#dc2626' } }
+  }
 })
 
 const renderGraph = async () => {
@@ -90,44 +147,93 @@ const renderGraph = async () => {
     nodes: new DataSet(nodeRows),
     edges: new DataSet(edgeRows)
   }
-  const options = {
-    autoResize: true,
-    physics: {
-      stabilization: true
-    },
-    interaction: {
-      hover: true,
-      dragNodes: true
-    },
-    nodes: {
-      font: {
-        size: 14
+  network = new Network(graphRef.value, data as any, getNetworkOptions() as any)
+}
+
+const openFullscreen = async () => {
+  if (!hasGraphData.value) return
+  viewerVisible.value = true
+  await nextTick()
+  await nextTick()
+
+  if (fullscreenGraphContainer.value) {
+    fullscreenGraphContainer.value.innerHTML = ''
+
+    const nodeRows = (relationGraph.value?.nodes || []).map(node => ({
+      id: node.id,
+      label: node.label || node.id,
+      group: node.group || 'character',
+      shape: 'dot',
+      size: 24
+    }))
+    const edgeRows = (relationGraph.value?.edges || []).map((edge, index) => ({
+      id: `e-fs-${index}`,
+      from: edge.from,
+      to: edge.to,
+      label: edge.label || '',
+      arrows: 'to',
+      smooth: { enabled: true, type: 'dynamic' }
+    }))
+
+    if (fullscreenNetwork) {
+      fullscreenNetwork.destroy()
+      fullscreenNetwork = null
+    }
+
+    const data = {
+      nodes: new DataSet(nodeRows),
+      edges: new DataSet(edgeRows)
+    }
+    const options = {
+      ...getNetworkOptions(),
+      nodes: {
+        font: { size: 18 },
+        borderWidth: 2
       },
-      borderWidth: 1.5
-    },
-    edges: {
-      font: {
-        size: 12,
-        align: 'middle'
-      },
-      color: {
-        color: '#94a3b8',
-        highlight: '#d97706'
+      edges: {
+        font: { size: 14, align: 'middle' },
+        color: {
+          color: '#94a3b8',
+          highlight: '#d97706'
+        }
       }
-    },
-    groups: {
-      character: { color: { background: '#fde68a', border: '#d97706' } },
-      protagonist: { color: { background: '#93c5fd', border: '#2563eb' } },
-      antagonist: { color: { background: '#fca5a5', border: '#dc2626' } }
+    }
+    fullscreenNetwork = new Network(fullscreenGraphContainer.value, data as any, options as any)
+  }
+}
+
+const downloadGraph = async () => {
+  if (!graphRef.value) return
+  try {
+    const canvasEl = graphRef.value.querySelector('canvas') as HTMLCanvasElement
+    if (canvasEl) {
+      const dataUrl = canvasEl.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.href = dataUrl
+      link.download = '人物关系图.png'
+      link.click()
+    }
+  } catch {
+    const canvasEl = graphRef.value.querySelector('canvas') as HTMLCanvasElement
+    if (canvasEl) {
+      const link = document.createElement('a')
+      link.href = canvasEl.toDataURL('image/png')
+      link.download = '人物关系图.png'
+      link.click()
     }
   }
-
-  network = new Network(graphRef.value, data as any, options as any)
 }
 
 watch(relationGraph, () => {
   renderGraph()
 }, { deep: true })
+
+watch(viewerVisible, (val) => {
+  if (!val && fullscreenNetwork) {
+    fullscreenNetwork.destroy()
+    fullscreenNetwork = null
+  }
+})
 
 onMounted(() => {
   renderGraph()
@@ -137,6 +243,10 @@ onBeforeUnmount(() => {
   if (network) {
     network.destroy()
     network = null
+  }
+  if (fullscreenNetwork) {
+    fullscreenNetwork.destroy()
+    fullscreenNetwork = null
   }
 })
 </script>
@@ -175,10 +285,42 @@ onBeforeUnmount(() => {
   color: var(--text-primary);
 }
 
+.head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .meta {
   font-size: 11px;
   color: #9a3412;
   font-weight: 600;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(0, 0, 0, 0.04);
+  color: #9a3412;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #78350f;
+  transform: translateY(-1px);
 }
 
 .empty {
@@ -192,5 +334,18 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 360px;
   min-height: 280px;
+  transition: background 0.2s ease;
+}
+
+.graph-canvas:hover {
+  background: rgba(217, 119, 6, 0.02);
+}
+
+.fullscreen-graph {
+  width: 90vw;
+  height: 85vh;
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
 }
 </style>

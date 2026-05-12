@@ -46,7 +46,7 @@ class EncryptionService:
     def _generate_key(self) -> bytes:
         """生成对称加密密钥"""
         # 实际应用中应该使用安全的密钥管理
-        key_material = b"kinlin_ai_federated_learning_key_2025"
+        key_material = b"federal_hub_federated_learning_key_2025"
         return hashlib.sha256(key_material).digest()
     
     def add_differential_privacy(

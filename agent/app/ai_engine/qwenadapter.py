@@ -92,7 +92,7 @@ class QwenAdapter:
 
             messages.append({"role": "user", "content": prompt})
 
-            request_timeout = float(kwargs.get("request_timeout", 10))
+            request_timeout = float(kwargs.get("request_timeout", os.getenv("QWEN_REQUEST_TIMEOUT", "60")))
             completion = await asyncio.wait_for(
                 asyncio.to_thread(
                     self.client.chat.completions.create,
@@ -174,17 +174,28 @@ class QwenAdapter:
             })
             
             # 流式调用OpenAI兼容API
-            completion = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=kwargs.get("temperature", 0.7),
-                max_tokens=kwargs.get("max_tokens", 2000),
-                top_p=kwargs.get("top_p", 0.9),
-                stream=True  # 流式输出
+            request_timeout = float(kwargs.get("request_timeout", os.getenv("QWEN_REQUEST_TIMEOUT", "60")))
+            # Run the sync OpenAI-compatible client off the event loop so SSE can flush.
+            completion = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.client.chat.completions.create,
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=kwargs.get("temperature", 0.7),
+                    max_tokens=kwargs.get("max_tokens", 2000),
+                    top_p=kwargs.get("top_p", 0.9),
+                    stream=True,  # 流式输出
+                    timeout=request_timeout,
+                ),
+                timeout=request_timeout + 1.0,
             )
             
             # 流式返回文本片段
-            for chunk in completion:
+            sentinel = object()
+            while True:
+                chunk = await asyncio.to_thread(next, completion, sentinel)
+                if chunk is sentinel:
+                    break
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
                     if delta and delta.content:

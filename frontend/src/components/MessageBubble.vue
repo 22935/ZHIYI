@@ -14,13 +14,18 @@
       <div class="message-content">
         <!-- 文件展示 -->
         <div v-if="message.fileUrl" class="message-file">
-          <el-image
+          <div
             v-if="isImage(message.fileUrl)"
-            :src="message.fileUrl"
-            fit="cover"
-            class="message-image"
-            :preview-src-list="[message.fileUrl]"
-          />
+            class="message-image-wrapper"
+            @click="openImageViewer"
+          >
+            <img :src="message.fileUrl" class="message-image" />
+            <div class="image-overlay">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M1 6V3a2 2 0 0 1 2-2h3M14 1h3a2 2 0 0 1 2 2v3M19 14v3a2 2 0 0 1-2 2h-3M6 19H3a2 2 0 0 1-2-2v-3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </div>
           <div v-else class="file-attachment">
             <el-icon><Document /></el-icon>
             <div class="file-info">
@@ -29,6 +34,12 @@
             </div>
           </div>
         </div>
+
+        <ImageViewer
+          v-model:visible="imageViewerVisible"
+          :src="message.fileUrl"
+          :file-name="'image.png'"
+        />
 
         <!-- 文本内容 -->
         <div
@@ -134,6 +145,7 @@ import { computed, ref } from 'vue'
 import { Document, InfoFilled, Link, CopyDocument, ChatLineSquare, Delete, Microphone, Download } from '@element-plus/icons-vue'
 import { useRoleStore } from '@/stores/role'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import ImageViewer from '@/components/common/ImageViewer.vue'
 
 interface Source {
   title?: string
@@ -166,6 +178,11 @@ const props = defineProps<Props>()
 const emit = defineEmits(['copy', 'quote', 'delete', 'tts', 'export'])
 const roleStore = useRoleStore()
 const activeCollapse = ref<string[]>([])
+const imageViewerVisible = ref(false)
+
+const openImageViewer = () => {
+  imageViewerVisible.value = true
+}
 
 const handleAction = (type: 'copy' | 'quote' | 'delete' | 'tts' | 'export') => {
   if (type === 'copy') {
@@ -505,10 +522,37 @@ const formatTime = (date: Date) => {
 }
 
 /* File Attachments */
+.message-image-wrapper {
+  position: relative;
+  display: inline-block;
+  cursor: zoom-in;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
 .message-image {
   max-width: 100%;
   border-radius: 8px;
   border: 1px solid rgba(0,0,0,0.1);
+  display: block;
+}
+
+.image-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.2s ease;
+  border-radius: 8px;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.message-image-wrapper:hover .image-overlay {
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 1;
 }
 
 .file-attachment {

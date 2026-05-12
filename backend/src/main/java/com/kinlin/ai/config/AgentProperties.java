@@ -14,7 +14,7 @@ public class AgentProperties {
 
     private boolean enabled = true;
 
-    private int timeoutMs = 30000;
+    private int timeoutMs = 240000;
 
     private boolean traceEnabled = false;
 

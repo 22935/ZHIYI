@@ -1,7 +1,7 @@
 import request from '@/utils/request'
 import type { AgentTraceStep, FederatedInfo } from './agentLawyer'
 
-const WRITER_AGENT_TIMEOUT_MS = 120000
+const WRITER_AGENT_TIMEOUT_MS = 240000
 
 export interface CreativeTreeNode {
   id: string

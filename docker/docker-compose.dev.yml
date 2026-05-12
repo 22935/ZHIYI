@@ -4,9 +4,9 @@ services:
   # PostgreSQL数据库
   postgres:
     image: postgres:15
-    container_name: kinlin-postgres-dev
+    container_name: federal-hub-postgres-dev
     environment:
-      POSTGRES_DB: kinlin_ai
+      POSTGRES_DB: federal_hub
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -14,23 +14,23 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - kinlin-network
+      - federal-hub-network
 
   # Redis缓存
   redis:
     image: redis:7-alpine
-    container_name: kinlin-redis-dev
+    container_name: federal-hub-redis-dev
     ports:
       - "6379:6379"
     networks:
-      - kinlin-network
+      - federal-hub-network
 
   # Spring Boot后端（开发模式，挂载源码）
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    container_name: kinlin-backend-dev
+    container_name: federal-hub-backend-dev
     ports:
       - "8080:8080"
     environment:
@@ -47,7 +47,7 @@ services:
       AGENT_PYTHON_TEACHER_CHAT_URL: http://ai-service:8000/ai/agent/teacher/chat
       AGENT_PYTHON_PROGRAMMER_CHAT_URL: http://ai-service:8000/ai/agent/programmer/chat
       AGENT_PYTHON_WRITER_CHAT_URL: http://ai-service:8000/ai/agent/writer/chat
-      AGENT_TIMEOUT_MS: 120000
+      AGENT_TIMEOUT_MS: 240000
       SPRING_PROFILES_ACTIVE: dev
     volumes:
       - ../backend:/app
@@ -56,31 +56,34 @@ services:
       - redis
       - ai-service
     networks:
-      - kinlin-network
+      - federal-hub-network
 
   # Python AI服务（开发模式）
   ai-service:
     build:
       context: ../agent
       dockerfile: Dockerfile
-    container_name: kinlin-ai-service-dev
+    container_name: federal-hub-ai-service-dev
     ports:
       - "8000:8000"
+    env_file:
+      - ../.env
     environment:
-      KYLIN_AI_API_KEY: ${KYLIN_AI_API_KEY:-your_api_key}
       KYLIN_AI_ENDPOINT: ${KYLIN_AI_ENDPOINT:-https://api.kylin.ai}
+      KYLIN_AI_TIMEOUT: ${KYLIN_AI_TIMEOUT:-240}
+      QWEN_REQUEST_TIMEOUT: ${QWEN_REQUEST_TIMEOUT:-240}
+      AGENT_SYNTHESIS_TIMEOUT: ${AGENT_SYNTHESIS_TIMEOUT:-180}
       DEBUG: "True"
       ANONYMIZED_TELEMETRY: "False"
       CHROMA_TELEMETRY_ENABLED: "false"
     volumes:
       - ../agent:/app
     networks:
-      - kinlin-network
+      - federal-hub-network
 
 volumes:
   postgres_data:
 
 networks:
-  kinlin-network:
+  federal-hub-network:
     driver: bridge
-

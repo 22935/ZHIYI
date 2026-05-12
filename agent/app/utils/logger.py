@@ -14,7 +14,7 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 # 全局logger实例
 _global_logger = None
 
-def setup_logger(name: str = "kinlin_ai", log_file: str = "logs/kinlin_ai.log", level: int = logging.INFO):
+def setup_logger(name: str = "federal_hub", log_file: str = "logs/federal_hub.log", level: int = logging.INFO):
     """
     设置统一的日志记录器
     
@@ -70,11 +70,11 @@ def get_logger(name: str = None):
         name: 日志记录器名称，如果为None则使用默认名称
     """
     if _global_logger is None:
-        return setup_logger(name or "kinlin_ai")
+        return setup_logger(name or "federal_hub")
     
     if name:
         # 返回子logger，继承全局logger的配置
-        return logging.getLogger(f"kinlin_ai.{name}")
+        return logging.getLogger(f"federal_hub.{name}")
     
     return _global_logger
 

@@ -1,6 +1,6 @@
-#!/bin/bash
+﻿#!/bin/bash
 
-# Kinlin AI 部署脚本
+# 联邦智枢 部署脚本
 # 使用方法: ./deploy.sh [environment]
 # environment: dev, prod (默认: dev)
 
@@ -10,7 +10,7 @@ ENVIRONMENT=${1:-dev}
 PROJECT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 
 echo "=========================================="
-echo "Kinlin AI 部署脚本"
+echo "联邦智枢 部署脚本"
 echo "环境: $ENVIRONMENT"
 echo "项目目录: $PROJECT_DIR"
 echo "=========================================="

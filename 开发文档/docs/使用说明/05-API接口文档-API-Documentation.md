@@ -1,9 +1,9 @@
-# Kinlin AI 技术文档 - API接口文档
+﻿# 联邦智枢 技术文档 - API接口文档
 
 ## 文档版本
 - **版本号**: v1.0.0
 - **更新日期**: 2025-01-02
-- **文档作者**: Kinlin AI 开发团队
+- **文档作者**: 联邦智枢 开发团队
 
 ---
 
@@ -1019,7 +1019,7 @@ Content-Type: multipart/form-data
   "message": "success",
   "data": {
     "status": "healthy",
-    "service": "Kinlin AI Backend",
+    "service": "联邦智枢 Backend",
     "version": "1.0.0",
     "timestamp": "2025-01-02T10:00:00Z"
   }
@@ -1269,7 +1269,7 @@ const { fusedResponse, contributions } = await fusionResponse.json();
 
 ## 13. 总结
 
-本文档详细介绍了Kinlin AI系统的所有API接口，包括：
+本文档详细介绍了联邦智枢系统的所有API接口，包括：
 
 1. **认证授权**: 用户注册、登录、Token刷新
 2. **对话接口**: 文本对话、流式对话、对话历史

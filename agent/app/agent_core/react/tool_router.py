@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from app.agent_core.schema.agent_types import PlannedAction, SkillRequest, SkillResult
 from app.agent_core.skills.base import BaseSkill, NoOpSkill
@@ -38,13 +38,22 @@ from app.agent_core.skills.writer import (
 class ToolRouter:
     """Routes planned actions to concrete skills by role."""
 
-    def __init__(self, skills: Optional[Dict[str, BaseSkill]] = None):
+    def __init__(self, skills: Optional[Dict[str, BaseSkill]] = None, enabled_roles: Optional[List[str]] = None):
         self.skills_by_role: Dict[str, Dict[str, BaseSkill]] = {}
+        normalized_enabled = {
+            (role or "").strip().lower()
+            for role in (enabled_roles or ["lawyer", "teacher", "programmer", "writer"])
+            if (role or "").strip()
+        }
 
-        self.register_skills_for_role("lawyer", skills or self._build_default_lawyer_skills())
-        self.register_skills_for_role("teacher", self._build_default_teacher_skills())
-        self.register_skills_for_role("programmer", self._build_default_programmer_skills())
-        self.register_skills_for_role("writer", self._build_default_writer_skills())
+        if "lawyer" in normalized_enabled:
+            self.register_skills_for_role("lawyer", skills or self._build_default_lawyer_skills())
+        if "teacher" in normalized_enabled:
+            self.register_skills_for_role("teacher", self._build_default_teacher_skills())
+        if "programmer" in normalized_enabled:
+            self.register_skills_for_role("programmer", self._build_default_programmer_skills())
+        if "writer" in normalized_enabled:
+            self.register_skills_for_role("writer", self._build_default_writer_skills())
 
     def _build_default_lawyer_skills(self) -> Dict[str, BaseSkill]:
         return {

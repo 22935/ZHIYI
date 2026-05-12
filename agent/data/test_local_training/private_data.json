@@ -1,0 +1,16 @@
+[
+  {
+    "input": "测试输入1",
+    "output": "测试输出1",
+    "metadata": {
+      "category": "test"
+    }
+  },
+  {
+    "input": "测试输入2",
+    "output": "测试输出2",
+    "metadata": {
+      "category": "test"
+    }
+  }
+]

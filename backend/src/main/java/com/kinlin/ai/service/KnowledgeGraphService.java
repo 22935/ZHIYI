@@ -43,6 +43,13 @@ public class KnowledgeGraphService {
      * 从文档构建知识图谱
      */
     public Map<String, Object> buildKnowledgeGraph(List<KnowledgeGraphRequest.DocumentInfo> documents) {
+        return buildKnowledgeGraph(documents, null);
+    }
+
+    /**
+     * 从文档构建知识图谱
+     */
+    public Map<String, Object> buildKnowledgeGraph(List<KnowledgeGraphRequest.DocumentInfo> documents, String roleId) {
         try {
             List<Map<String, Object>> docs = documents.stream()
                     .map(doc -> {
@@ -58,9 +65,12 @@ public class KnowledgeGraphService {
 
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("documents", docs);
+            if (roleId != null && !roleId.isBlank()) {
+                requestBody.put("role_id", roleId);
+            }
 
             Map<String, Object> responseMap = webClient.post()
-                    .uri("/ai/knowledge-graph/build")
+                    .uri("/api/knowledge-graph/build")
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -90,7 +100,7 @@ public class KnowledgeGraphService {
             requestBody.put("top_k", topK != null ? topK : 5);
 
             Map<String, Object> responseMap = webClient.post()
-                    .uri("/ai/knowledge-graph/search")
+                    .uri("/api/knowledge-graph/search")
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -118,7 +128,7 @@ public class KnowledgeGraphService {
             requestBody.put("question", question);
 
             Map<String, Object> responseMap = webClient.post()
-                    .uri("/ai/knowledge-graph/reason")
+                    .uri("/api/knowledge-graph/reason")
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -143,7 +153,7 @@ public class KnowledgeGraphService {
     public Map<String, Object> getGraphStats() {
         try {
             Map<String, Object> responseMap = webClient.get()
-                    .uri("/ai/knowledge-graph/stats")
+                    .uri("/api/knowledge-graph/stats")
                     .retrieve()
                     .bodyToMono(Map.class)
                     .timeout(Duration.ofMillis(timeout))
@@ -164,7 +174,7 @@ public class KnowledgeGraphService {
      */
     public Map<String, Object> getEntityInfo(String entityId, String relation, Integer limit) {
         try {
-            StringBuilder uriBuilder = new StringBuilder("/ai/knowledge-graph/entity/").append(entityId);
+            StringBuilder uriBuilder = new StringBuilder("/api/knowledge-graph/entity/").append(entityId);
             if (relation != null) {
                 uriBuilder.append("?relation=").append(relation);
             }

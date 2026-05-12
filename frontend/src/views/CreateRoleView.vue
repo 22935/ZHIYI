@@ -441,15 +441,9 @@ const handleSubmit = async () => {
         // 3. 刷新角色列表（通过事件通知）
         window.dispatchEvent(new CustomEvent('role-created', { detail: { role } }))
         
-        // 4. 跳转到数字人管理页面或返回角色管理页面
+        // 4. 返回角色管理页面
         setTimeout(() => {
-          // 可以选择跳转到数字人页面或返回角色管理页面
-          const shouldGoToDigitalHuman = form.digitalHumanStyle && form.avatarName
-          if (shouldGoToDigitalHuman) {
-            router.push('/digital-human')
-          } else {
-            router.push('/roles')
-          }
+          router.push('/roles')
         }, 500)
         
       } catch (error: any) {

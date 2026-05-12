@@ -6,7 +6,7 @@
     <section class="page-header glass-panel">
       <div>
         <h1>设置中心</h1>
-        <p>与其他页面一致：同页分区切换、同页保存反馈，不弹出新界面。</p>
+        <p>在这里统一管理主题、隐私、对话与语音设置。</p>
       </div>
       <div class="status-chip">
         上次保存：{{ lastSavedText }}
@@ -199,7 +199,7 @@ const defaultSettings = (): AppSettings => ({
 const settings = ref<AppSettings>(defaultSettings())
 const activeTab = ref<TabId>('general')
 const lastSaved = ref<Date | null>(null)
-const inlineHint = ref('修改后点击“保存设置”即可生效，全程在当前页面完成。')
+const inlineHint = ref('修改后点击“保存设置”即可生效。')
 
 const lastSavedText = computed(() => {
   if (!lastSaved.value) return '尚未保存'

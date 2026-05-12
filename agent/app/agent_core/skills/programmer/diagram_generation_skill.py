@@ -19,7 +19,7 @@ class DiagramGenerationSkill(BaseSkill):
     def _fallback_output(self, query: str, diagram_type: str, reason: str) -> Dict[str, Any]:
         normalized_type = diagram_type or "flowchart"
         return {
-            "title": "Generated Diagram",
+            "title": "生成图示",
             "diagram_type": normalized_type,
             "mermaid_code": ProgrammerSkillHelper.default_mermaid(normalized_type),
             "source_query": query,
@@ -44,12 +44,12 @@ class DiagramGenerationSkill(BaseSkill):
         prompt = ProgrammerSkillHelper.load_prompt(
             "diagram_generation.txt",
             (
-                "You are a software architect.\n"
-                "Generate Mermaid diagram code from request and code context.\n"
-                "Return strict JSON with keys: title, diagram_type, mermaid_code.\n"
-                "Request: {query}\n"
-                "Preferred diagram_type: {diagram_type}\n"
-                "Code context:\n{code_context}\n"
+                "你是一名软件架构师，请始终使用简体中文说明（Mermaid 代码与 JSON 键名保持原样）。\n"
+                "请基于需求与代码上下文生成 Mermaid 图。\n"
+                "返回严格 JSON，键为：title, diagram_type, mermaid_code。\n"
+                "需求：{query}\n"
+                "期望图类型：{diagram_type}\n"
+                "代码上下文：\n{code_context}\n"
             ),
         )
         prompt = prompt.replace("{query}", query)
@@ -84,7 +84,7 @@ class DiagramGenerationSkill(BaseSkill):
             skillName=self.name,
             success=True,
             output=output,
-            message="Diagram generation completed.",
+            message="图示生成完成。",
         )
 
     async def run(self, request: SkillRequest) -> SkillResult:
@@ -92,13 +92,13 @@ class DiagramGenerationSkill(BaseSkill):
         diagram_type = str(action_input.get("diagram_type", "flowchart")).strip() or "flowchart"
         query = str(action_input.get("query", request.text or "")).strip()
         try:
-            return await asyncio.wait_for(self.execute(request), timeout=10)
+            return await asyncio.wait_for(self.execute(request), timeout=45)
         except asyncio.TimeoutError:
             return SkillResult(
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(query=query, diagram_type=diagram_type, reason="timeout"),
-                message="Diagram generation timeout, fallback returned.",
+                message="图示生成超时，已返回降级结果。",
             )
         except Exception as exc:
             logger.error("DiagramGenerationSkill failed: %s", exc, exc_info=True)
@@ -106,5 +106,5 @@ class DiagramGenerationSkill(BaseSkill):
                 skillName=self.name,
                 success=True,
                 output=self._fallback_output(query=query, diagram_type=diagram_type, reason="error"),
-                message="Diagram generation error, fallback returned.",
+                message="图示生成执行异常，已返回降级结果。",
             )

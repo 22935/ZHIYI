@@ -3,8 +3,6 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from app.agent_core.retrieval.chroma_client import chroma_client
-
 logger = logging.getLogger(__name__)
 
 
@@ -23,6 +21,19 @@ class EducationIndexBuilder:
         self.question_bank_json = os.path.join(self.data_dir, "question_bank.json")
         self.lesson_templates_json = os.path.join(self.data_dir, "lesson_templates.json")
         self.teaching_methods_json = os.path.join(self.data_dir, "teaching_methods.json")
+        self._chroma_client = None
+
+    def _get_chroma_client(self):
+        if self._chroma_client is not None:
+            return self._chroma_client
+        try:
+            from app.agent_core.retrieval.chroma_client import chroma_client
+
+            self._chroma_client = chroma_client
+        except Exception as exc:
+            logger.warning("Failed to import chroma client for education index builder: %s", exc)
+            self._chroma_client = None
+        return self._chroma_client
 
     def _load_json(self, json_path: str) -> List[Dict[str, Any]]:
         path = json_path
@@ -88,6 +99,10 @@ class EducationIndexBuilder:
             }
             documents.append({"id": row_id, "text": text, "metadata": metadata})
 
+        chroma_client = self._get_chroma_client()
+        if chroma_client is None:
+            logger.warning("Skip %s build: chroma client unavailable", self.KNOWLEDGE_POINTS_COLLECTION)
+            return 0
         chroma_client.add_documents(self.KNOWLEDGE_POINTS_COLLECTION, documents)
         logger.info("Education collection initialized: %s count=%s", self.KNOWLEDGE_POINTS_COLLECTION, len(documents))
         return len(documents)
@@ -123,6 +138,10 @@ class EducationIndexBuilder:
             }
             documents.append({"id": row_id, "text": text, "metadata": metadata})
 
+        chroma_client = self._get_chroma_client()
+        if chroma_client is None:
+            logger.warning("Skip %s build: chroma client unavailable", self.QUESTION_BANK_COLLECTION)
+            return 0
         chroma_client.add_documents(self.QUESTION_BANK_COLLECTION, documents)
         logger.info("Education collection initialized: %s count=%s", self.QUESTION_BANK_COLLECTION, len(documents))
         return len(documents)
@@ -156,6 +175,10 @@ class EducationIndexBuilder:
             }
             documents.append({"id": row_id, "text": text, "metadata": metadata})
 
+        chroma_client = self._get_chroma_client()
+        if chroma_client is None:
+            logger.warning("Skip %s build: chroma client unavailable", self.LESSON_TEMPLATES_COLLECTION)
+            return 0
         chroma_client.add_documents(self.LESSON_TEMPLATES_COLLECTION, documents)
         logger.info("Education collection initialized: %s count=%s", self.LESSON_TEMPLATES_COLLECTION, len(documents))
         return len(documents)
@@ -187,6 +210,10 @@ class EducationIndexBuilder:
             }
             documents.append({"id": row_id, "text": text, "metadata": metadata})
 
+        chroma_client = self._get_chroma_client()
+        if chroma_client is None:
+            logger.warning("Skip %s build: chroma client unavailable", self.TEACHING_METHODS_COLLECTION)
+            return 0
         chroma_client.add_documents(self.TEACHING_METHODS_COLLECTION, documents)
         logger.info("Education collection initialized: %s count=%s", self.TEACHING_METHODS_COLLECTION, len(documents))
         return len(documents)

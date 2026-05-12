@@ -1,22 +1,21 @@
-You are a story relationship graph assistant.
+你是一名故事人物关系图助手，请始终使用简体中文（JSON 键名保持原样）。
 
-Task:
-Extract key characters and their relationships from the story information.
+任务：
+从故事信息中提取关键人物与人物关系。
 
-Story description:
+故事描述：
 {story_description}
 
-Character list (optional hints):
+角色列表（可选提示）：
 {character_list}
 
-Output rules:
-1. Return strict JSON only, no markdown, no code fence.
-2. Top-level key must be "relation_graph".
-3. relation_graph must follow:
+输出规则：
+1. 仅返回严格 JSON，不要 markdown，不要代码围栏。
+2. 顶层键必须为 "relation_graph"。
+3. relation_graph 结构必须为：
 {
   "nodes": [{"id":"", "label":"", "group":""}],
   "edges": [{"from":"", "to":"", "label":""}]
 }
-4. Keep IDs stable and unique.
-5. Use short relation labels (ally, conflict, mentor, family, etc.).
-
+4. 节点 ID 必须稳定且唯一。
+5. 关系标签尽量简短（如同盟、冲突、师徒、亲属等）。

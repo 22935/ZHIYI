@@ -34,11 +34,24 @@ public class RagService {
      * RAG查询
      */
     public RagResponse query(String query, Integer topK, String contextId) {
+        return query(query, topK, contextId, null, null);
+    }
+
+    /**
+     * RAG查询
+     */
+    public RagResponse query(String query, Integer topK, String contextId, String roleId, Boolean useKnowledgeGraph) {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("query", query);
         requestBody.put("top_k", topK != null ? topK : 5);
         if (contextId != null) {
             requestBody.put("context_id", contextId);
+        }
+        if (roleId != null && !roleId.isBlank()) {
+            requestBody.put("role_id", roleId);
+        }
+        if (useKnowledgeGraph != null) {
+            requestBody.put("use_knowledge_graph", useKnowledgeGraph);
         }
 
         try {
@@ -100,12 +113,22 @@ public class RagService {
      * 上传文档（使用MultipartFile）
      */
     public String uploadDocument(org.springframework.web.multipart.MultipartFile file) {
+        return uploadDocument(file, null);
+    }
+
+    /**
+     * 上传文档（使用MultipartFile）
+     */
+    public String uploadDocument(org.springframework.web.multipart.MultipartFile file, String roleId) {
         try {
             MultipartBodyBuilder builder = new MultipartBodyBuilder();
             builder.part("file", file.getResource())
                    .filename(file.getOriginalFilename())
                    .contentType(MediaType.parseMediaType(
-                           file.getContentType() != null ? file.getContentType() : "application/octet-stream"));
+                            file.getContentType() != null ? file.getContentType() : "application/octet-stream"));
+            if (roleId != null && !roleId.isBlank()) {
+                builder.part("role_id", roleId);
+            }
             
             return webClient.post()
                     .uri("/rag/documents")
@@ -139,9 +162,22 @@ public class RagService {
      * 获取文档列表
      */
     public Map<String, Object> listDocuments() {
+        return listDocuments(null);
+    }
+
+    /**
+     * 获取文档列表
+     */
+    public Map<String, Object> listDocuments(String roleId) {
         try {
             return webClient.get()
-                    .uri("/rag/documents")
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder.path("/rag/documents");
+                        if (roleId != null && !roleId.isBlank()) {
+                            builder.queryParam("role_id", roleId);
+                        }
+                        return builder.build();
+                    })
                     .retrieve()
                     .bodyToMono(Map.class)
                     .onErrorResume(e -> {

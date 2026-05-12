@@ -1,13 +1,17 @@
-# Kinlin AI - 智能多角色交互助手
+# 联邦智枢 - 多角色智能体系统
 
 ## 项目概述
 
-Kinlin AI 是一个基于银河麒麟操作系统和通义千问大模型开发的智能多角色交互助手系统。系统采用 **前端(Vue 3) + 后端(Spring Boot) + AI服务(FastAPI)** 三层架构，支持律师、教师、程序员、作家四种专业Agent角色，具备 ReAct 自主规划执行、技能调用、知识检索等核心能力。
+联邦智枢（Federal Hub）是一个多角色智能体系统。系统采用 **前端(Vue 3) + 后端(Spring Boot) + AI服务(FastAPI)** 三层架构，支持律师、教师、程序员、作家四种专业Agent角色，具备 ReAct 自主规划执行、技能调用、知识检索、流式对话等核心能力。AI 引擎采用 DeepSeek + 通义千问双引擎，文本生成由 DeepSeek 主力驱动。
 
 ### 核心特性
 
-- **多Agent角色系统**: 律师/教师/程序员/作家四种专业Agent，支持无缝切换，每种Agent拥有独立的Skill面板和视觉风格
+- **多Agent角色系统**: 律师/教师/程序员/作家四种专业Agent，支持无缝切换，每种Agent拥有独立的Skill面板和视觉风格（蓝/绿/紫/琥珀四色主题）
 - **ReAct推理引擎**: 基于Thought-Action-Observation循环的自主规划执行，可观测、可追踪
+- **流式对话(SSE)**: DeepSeek 主力驱动的文本生成，支持 Server-Sent Events 实时逐字输出
+- **双AI引擎**: DeepSeek(文本主引擎) + 通义千问(图像/语音/多模态备用)，Python SDK 层自动路由与回退
+- **合同起草规划器**: 交互式 markmap 思维树，5 大职业领域 × 31 个细分专业，Demo/API 双模式，四色主题面板
+- **联邦智能体工作台**: 多专业体协同编排，流程步骤可视化，联邦节点状态监控，任务进度追踪
 - **知识检索增强(RAG)**: ChromaDB向量数据库 + sentence-transformers嵌入，支持法条/判例/教育知识检索
 - **联邦学习优化**: 隐私保护的模型持续优化，联邦学习全局最优模型系统（业界首创RAG联邦优化）
 - **数字人系统**: AIGC生成数字人形象，实时语音驱动，多风格切换
@@ -56,9 +60,11 @@ Kinlin AI 是一个基于银河麒麟操作系统和通义千问大模型开发�
 | FastAPI | 0.104.1 | Web框架 |
 | Uvicorn | 0.24.0 | ASGI服务器 |
 | Pydantic | 2.5.0 | 数据验证 |
-| OpenAI SDK | 1.12.0 | 通义千问兼容调用 |
-| DashScope SDK | 1.23.1+ | 阿里云AI服务 |
+| OpenAI SDK | 1.12.0 | DeepSeek + 通义千问兼容调用 |
+| DashScope SDK | 1.23.1+ | 阿里云AI服务（语音/图像/多模态） |
+| DeepSeek API | - | 文本生成主引擎（速度快、成本低） |
 | ChromaDB | 0.4.15 | 向量数据库 |
+| markmap | 0.18.x | 交互式思维导图 |
 | sentence-transformers | 5.x | 文本嵌入 |
 | PyPDF2 | 3.0.1 | PDF解析 |
 | pdfplumber | 0.10.3 | PDF增强解析 |
@@ -124,17 +130,18 @@ kinlin_-ai/
 ├── frontend/                          # 前端项目 (Vue 3 + TypeScript)
 │   ├── src/
 │   │   ├── views/                     # 页面组件
-│   │   │   ├── ChatView.vue           # 对话主页面（4种Agent切换）
-│   │   │   ├── VoiceChatView.vue      # 语音对话页面
-│   │   │   ├── DigitalHumanChatView.vue # 数字人对话页面
-│   │   │   ├── RoleView.vue           # 角色管理页面
-│   │   │   ├── RagView.vue            # 知识库页面
+│   │   │   ├── ChatView.vue              # 对话主页面（4种Agent切换 + 流式输出）
+│   │   │   ├── ContractClausePlannerView.vue  # 合同起草规划器（markmap思维树）
+│   │   │   ├── FederatedAgentWorkbenchView.vue # 联邦智能体工作台
+│   │   │   ├── VoiceChatView.vue         # 语音对话页面
+│   │   │   ├── RoleView.vue              # 角色管理页面
+│   │   │   ├── RagView.vue               # 知识库页面
 │   │   │   ├── FederatedModelManagementView.vue # 联邦模型管理
 │   │   │   ├── FederatedLearningView.vue # 联邦学习管理
-│   │   │   ├── HistoryView.vue        # 历史记录页面
-│   │   │   ├── SettingsView.vue       # 设置页面
-│   │   │   ├── UserView.vue           # 用户中心页面
-│   │   │   └── LoginView.vue          # 登录页面
+│   │   │   ├── HistoryView.vue           # 历史记录页面
+│   │   │   ├── SettingsView.vue          # 设置页面
+│   │   │   ├── UserView.vue              # 用户中心页面
+│   │   │   └── LoginView.vue             # 登录页面
 │   │   ├── components/
 │   │   │   ├── agent/                 # Agent专用组件
 │   │   │   │   ├── LawyerSkillPanel.vue     # 律师技能面板（蓝色主题）
@@ -222,9 +229,11 @@ kinlin_-ai/
 │   │   │   ├── schema/                # 数据模型
 │   │   │   └── federated/             # 联邦学习适配
 │   │   ├── ai_engine/                 # AI引擎
-│   │   │   ├── qwenadapter.py             # 通义千问适配器
-│   │   │   ├── speechadapter.py           # 语音适配器
-│   │   │   └── multimodaladapter.py       # 多模态适配器
+│   │   │   ├── deepseekadapter.py         # DeepSeek适配器（文本主引擎）
+│   │   │   ├── qwenadapter.py             # 通义千问适配器（图像/语音/多模态）
+│   │   │   ├── speechadapter.py           # 语音适配器（ASR/TTS）
+│   │   │   ├── multimodaladapter.py       # 多模态适配器（Qwen-VL）
+│   │   │   └── kylin_sdk/                 # 麒麟SDK客户端（引擎路由）
 │   │   ├── services/                  # 业务服务
 │   │   ├── prompts/                   # Prompt模板
 │   │   └── data/                      # 数据文件
@@ -278,9 +287,14 @@ kinlin_-ai/
 |------|------|------|
 | `/ai/agent/lawyer/chat` | POST | 律师Agent对话 |
 | `/ai/agent/teacher/chat` | POST | 教师Agent对话 |
-| `/ai/chat` | POST | 通用对话 |
+| `/ai/agent/programmer/chat` | POST | 程序员Agent对话 |
+| `/ai/agent/writer/chat` | POST | 作家Agent对话 |
+| `/ai/chat/text` | POST | 通用文本对话 |
+| `/ai/chat/text/stream` | POST | 流式文本对话 (SSE) |
+| `/ai/chat/voice` | POST | 语音对话 |
 | `/ai/tts` | POST | 语音合成 |
 | `/ai/rag/query` | POST | RAG检索 |
+| `/ai/federated-models/list` | GET | 联邦模型列表 |
 
 ### Agent请求/响应格式
 
@@ -325,8 +339,12 @@ kinlin_-ai/
 在项目根目录创建 `.env` 文件：
 
 ```env
-# 通义千问API密钥（必需）
-DASHSCOPE_API_KEY=sk-your_api_key_here
+# DeepSeek API密钥（文本生成主引擎，速度快）
+DEEPSEEK_API_KEY=sk-your_deepseek_key
+DEEPSEEK_MODEL=deepseek-chat
+
+# 通义千问API密钥（图像/语音/多模态 + 文本回退）
+DASHSCOPE_API_KEY=sk-your_qwen_key
 
 # 数据库配置（Docker部署时使用默认值即可）
 DB_USERNAME=kinlin_ai
@@ -410,7 +428,7 @@ ai.service.url: http://localhost:8000
 
 # Agent配置
 agent.enabled: true
-agent.timeout-ms: 30000
+agent.timeout-ms: 120000
 agent.python.lawyer-chat-url: http://localhost:8000/ai/agent/lawyer/chat
 agent.python.teacher-chat-url: http://localhost:8000/ai/agent/teacher/chat
 agent.federated.enabled: false
@@ -423,13 +441,19 @@ app.jwt.expiration: 86400000  # 24小时
 ### AI服务配置 (config.py)
 
 ```python
-# 通义千问
-DASHSCOPE_API_KEY: str = ""           # API密钥
+# DeepSeek（文本生成主引擎）
+DEEPSEEK_API_KEY: str = ""                    # API密钥
+DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
+DEEPSEEK_MODEL: str = "deepseek-chat"
+TEXT_ENGINE: str = "auto"                     # auto/DeepSeek/qwen
+
+# 通义千问（图像/语音/多模态 + 文本回退）
+DASHSCOPE_API_KEY: str = ""                   # API密钥
 QWEN_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-QWEN_MODEL_FAST: str = "qwen-turbo"   # 快速模型
-QWEN_MODEL_BALANCED: str = "qwen-plus" # 平衡模型（推荐）
-QWEN_MODEL_ADVANCED: str = "qwen-max"  # 高级模型
-QWEN_MODEL_LATEST: str = "qwen3-max"  # 最新模型
+QWEN_MODEL_FAST: str = "qwen-turbo"           # 快速模型
+QWEN_MODEL_BALANCED: str = "qwen-plus"        # 平衡模型
+QWEN_MODEL_ADVANCED: str = "qwen-max"         # 高级模型
+QWEN_MODEL_LATEST: str = "qwen3-max"          # 最新模型
 
 # 联邦学习
 AGENT_FEDERATED_ENABLED: bool = False
@@ -551,7 +575,7 @@ AGENT_FEDERATED_TIMEOUT_MS: int = 1500
 - Pydantic命名空间警告：已修复，确保使用最新代码
 
 ### 4. Agent响应超时
-- 检查 `agent.timeout-ms` 配置（默认30秒）
+- 检查 `agent.timeout-ms` 配置（默认120秒）
 - 确认AI服务正常运行：`curl http://localhost:8000/health`
 - 查看AI服务日志排查Skill执行错误
 

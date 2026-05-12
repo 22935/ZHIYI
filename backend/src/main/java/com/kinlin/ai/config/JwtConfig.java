@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 @Configuration
 public class JwtConfig {
 
-    @Value("${app.jwt.secret:kinlin-ai-secret-key-change-in-production}")
+    @Value("${app.jwt.secret:federal-hub-secret-key-change-in-production}")
     private String secret;
 
     @Value("${app.jwt.expiration:86400000}") // 24小时
