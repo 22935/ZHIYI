@@ -1,6 +1,137 @@
 <template>
-  <div class="chat-view">
-    <header class="chat-header" :class="headerClass">
+  <div
+    class="chat-view"
+    :class="{
+      'landing-active': shouldShowLanding,
+      'simple-interface': isSimpleInterface,
+      'detail-interface': isDetailInterface
+    }"
+  >
+    <section v-if="shouldShowLanding" class="simple-chat-home" aria-label="知弈对话中心">
+      <header class="landing-topbar">
+        <section class="landing-brand" aria-label="产品信息">
+          <h1>知弈对话中心</h1>
+          <p>多角色协作 · ReAct Trace · RAG 引用</p>
+        </section>
+
+        <nav class="landing-role-nav" aria-label="角色导航">
+          <button type="button" class="landing-role" @click="switchLandingRole('lawyer')">
+            <span class="landing-role-mark lawyer">法</span>
+            <span>律师</span>
+          </button>
+          <button type="button" class="landing-role" @click="switchLandingRole('teacher')">
+            <span class="landing-role-mark teacher">教</span>
+            <span>教师</span>
+          </button>
+          <button type="button" class="landing-role" @click="switchLandingRole('programmer')">
+            <span class="landing-role-mark programmer">码</span>
+            <span>程序员</span>
+          </button>
+          <button type="button" class="landing-role" @click="switchLandingRole('writer')">
+            <span class="landing-role-mark writer">写</span>
+            <span>作家</span>
+          </button>
+        </nav>
+
+        <div class="interface-switch landing-interface-switch" aria-label="界面模式">
+          <button
+            type="button"
+            :class="{ active: isSimpleInterface }"
+            @click="switchToSimpleInterface"
+          >
+            简单版
+          </button>
+          <button
+            type="button"
+            :class="{ active: isDetailInterface }"
+            @click="switchToDetailInterface"
+          >
+            详情版
+          </button>
+        </div>
+
+        <button class="landing-network-btn" type="button" @click="openLandingNetwork">
+          <span class="landing-network-dot" aria-hidden="true"></span>
+          <span>联邦网络</span>
+        </button>
+      </header>
+
+      <section class="landing-hero">
+        <h2>知识如棋局，Agent 如棋手，任务如推演</h2>
+        <p>迈向全局知识推演智能</p>
+
+        <form class="landing-composer" autocomplete="off" @submit.prevent="submitLandingMessage">
+          <textarea
+            v-model="landingInputText"
+            class="landing-message-input"
+            aria-label="输入消息"
+            placeholder="输入消息或选择任务模板..."
+            @keydown="handleLandingKeydown"
+          ></textarea>
+
+          <div class="landing-composer-footer">
+            <div class="landing-quick-actions" aria-label="任务模板">
+              <button
+                v-for="template in landingTemplates"
+                :key="template"
+                class="landing-chip"
+                type="button"
+                @click="applyLandingTemplate(template)"
+              >
+                <span class="landing-chip-dot" aria-hidden="true"></span>
+                <span>{{ template }}</span>
+              </button>
+            </div>
+
+            <div class="landing-composer-actions">
+              <button class="landing-attach-btn" type="button" aria-label="添加附件" @click="openLandingAttachment">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m21.4 11.1-9.5 9.5a6 6 0 0 1-8.5-8.5l10-10a4 4 0 0 1 5.7 5.7l-10 10a2 2 0 1 1-2.8-2.8l9.4-9.4" />
+                </svg>
+              </button>
+              <button class="landing-send-btn" type="submit" :disabled="loading || !landingInputText.trim()">
+                发送
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+    </section>
+
+    <template v-else>
+    <header v-if="isSimpleInterface" class="simple-session-topbar" :class="headerClass">
+      <div class="simple-session-brand">
+        <span class="simple-session-kicker">简单版对话</span>
+        <h1>{{ agentTitle }}</h1>
+      </div>
+      <div class="simple-session-actions">
+        <div class="interface-switch compact" aria-label="界面模式">
+          <button
+            type="button"
+            :class="{ active: isSimpleInterface }"
+            @click="switchToSimpleInterface"
+          >
+            简单版
+          </button>
+          <button
+            type="button"
+            :class="{ active: isDetailInterface }"
+            @click="switchToDetailInterface"
+          >
+            详情版
+          </button>
+        </div>
+        <button class="simple-session-btn" type="button" @click="showRoleDrawer = true">
+          <el-icon><User /></el-icon>
+          <span>角色</span>
+        </button>
+        <button class="simple-session-btn" type="button" @click="goToAgentOsConsole">
+          AgentOS
+        </button>
+      </div>
+    </header>
+
+    <header v-else class="chat-header" :class="headerClass">
       <div class="left">
         <span class="title">联邦智能体对话中心</span>
         <div class="mode-switcher">
@@ -39,6 +170,22 @@
         </div>
       </div>
       <div class="right">
+        <div class="interface-switch compact" aria-label="界面模式">
+          <button
+            type="button"
+            :class="{ active: isSimpleInterface }"
+            @click="switchToSimpleInterface"
+          >
+            简单版
+          </button>
+          <button
+            type="button"
+            :class="{ active: isDetailInterface }"
+            @click="switchToDetailInterface"
+          >
+            详情版
+          </button>
+        </div>
         <el-button size="small" @click="showRoleDrawer = true">
           <el-icon><User /></el-icon>
           角色
@@ -53,7 +200,7 @@
       </div>
     </header>
 
-    <div class="chat-main" :class="chatMainClass">
+    <div class="chat-main" :class="[chatMainClass, { 'simple-session': isSimpleInterface }]">
       <section class="chat-panel">
         <div class="messages" ref="messagesRef">
           <div v-if="chatStore.messages.length === 0" class="empty-state">
@@ -123,16 +270,35 @@
           </button>
         </div>
 
-        <div class="recommendation-row">
-          <RecommendationPanel
-            title="下一步推荐"
-            subtitle="基于当前角色和最近对话生成"
-            :items="chatRecommendations"
-            :loading="recommendationLoading"
-            refreshable
-            @refresh="loadChatRecommendations"
-            @select="applyChatRecommendation"
-          />
+        <div class="recommendation-row" :class="{ collapsed: recommendationCollapsed }">
+          <button
+            class="recommendation-toggle"
+            type="button"
+            :aria-expanded="!recommendationCollapsed"
+            @click="toggleRecommendationPanel"
+          >
+            <span class="recommendation-toggle-copy">
+              <span class="recommendation-toggle-title">下一步推荐</span>
+              <span class="recommendation-toggle-subtitle">{{ recommendationToggleText }}</span>
+            </span>
+            <span class="recommendation-toggle-side">
+              <span v-if="recommendationLoading" class="recommendation-loading-dot" aria-hidden="true"></span>
+              <span class="recommendation-count">{{ chatRecommendations.length }}</span>
+              <el-icon><component :is="recommendationCollapsed ? ArrowDownBold : ArrowUp" /></el-icon>
+            </span>
+          </button>
+
+          <div v-show="!recommendationCollapsed" class="recommendation-panel-wrap">
+            <RecommendationPanel
+              title="下一步推荐"
+              subtitle="基于当前角色和最近对话生成"
+              :items="chatRecommendations"
+              :loading="recommendationLoading"
+              refreshable
+              @refresh="loadChatRecommendations"
+              @select="applyChatRecommendation"
+            />
+          </div>
         </div>
 
         <div class="composer">
@@ -160,7 +326,7 @@
                 <el-icon><UploadFilled /></el-icon>
                 上传作业
               </el-button>
-              <el-button text :disabled="isWorkflowUpgradeDisabled" @click="upgradeChatToWorkflow">
+              <el-button v-if="isDetailInterface" text :disabled="isWorkflowUpgradeDisabled" @click="upgradeChatToWorkflow">
                 升级 Workflow
               </el-button>
               <input
@@ -185,7 +351,7 @@
         </div>
       </section>
 
-      <aside v-if="isAgentMode" class="agent-panel">
+      <aside v-if="isAgentMode && isDetailInterface" class="agent-panel">
         <LawyerSkillPanel
           v-if="isLawyerMode"
           :skills-used="latestLawyerMeta.skillsUsed"
@@ -481,6 +647,7 @@
     </el-drawer>
 
     <FileManager v-model="showFileManager" @fileSelected="handleFileSelected" />
+    </template>
   </div>
 </template>
 
@@ -538,11 +705,19 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
+type ChatInterfaceMode = 'simple' | 'detail'
+const CHAT_INTERFACE_MODE_KEY = 'chat.interface_mode'
+const CHAT_INTERFACE_MODE_EVENT = 'chat-interface-mode-change'
+const getInitialChatInterfaceMode = (): ChatInterfaceMode => {
+  return localStorage.getItem(CHAT_INTERFACE_MODE_KEY) === 'detail' ? 'detail' : 'simple'
+}
+
 const roleStore = useRoleStore()
 const chatStore = useChatStore()
 
 const selectedRoleId = ref<string | null>(null)
 const inputText = ref('')
+const landingInputText = ref('')
 const loading = ref(false)
 const showRoleDrawer = ref(false)
 const showFileManager = ref(false)
@@ -559,11 +734,21 @@ const activeProgrammerResultPanels = ref<string[]>([])
 const activeWriterResultPanels = ref<string[]>([])
 const chatRecommendations = ref<RecommendationItem[]>([])
 const recommendationLoading = ref(false)
+const recommendationCollapsed = ref(true)
 const ASSIST_TOOL_VISIBLE_KEY = 'chat.assist_tools_visible'
+const RECOMMENDATION_COLLAPSED_KEY = 'chat.recommendation_collapsed'
+const landingTemplates = ['合同纠纷咨询', '劳动仲裁流程', '法律风险评估', '文书草稿生成']
 const debouncedInputText = useDebounce(inputText, 350)
 
 const roles = computed(() => roleStore.roles)
 const currentRole = computed(() => roleStore.currentRole)
+const chatInterfaceMode = ref<ChatInterfaceMode>(getInitialChatInterfaceMode())
+const isSimpleInterface = computed(() => chatInterfaceMode.value === 'simple')
+const isDetailInterface = computed(() => chatInterfaceMode.value === 'detail')
+const showLanding = ref(chatInterfaceMode.value === 'simple')
+const shouldShowLanding = computed(() => {
+  return isSimpleInterface.value && showLanding.value && chatStore.messages.length === 0 && !route.query.contextId
+})
 
 const isLawyerMode = computed(() => {
   const name = (currentRole.value?.name || '').toLowerCase()
@@ -795,6 +980,15 @@ const showScrollToBottom = computed(() => !isNearBottom.value && chatStore.messa
 const isSendDisabled = computed(() => loading.value || (!inputText.value.trim() && !isRecording.value))
 const isWorkflowUpgradeDisabled = computed(() => loading.value || !inputText.value.trim())
 
+const recommendationToggleText = computed(() => {
+  if (recommendationLoading.value) return '正在生成推荐...'
+  const count = chatRecommendations.value.length
+  if (count > 0) {
+    return recommendationCollapsed.value ? `${count} 条建议，点击展开` : `${count} 条建议已展开`
+  }
+  return recommendationCollapsed.value ? '暂无推荐，点击展开或刷新' : '暂无推荐内容'
+})
+
 const currentTemplates = computed(() => {
   const roleName = currentRole.value?.name || ''
   const lower = roleName.toLowerCase()
@@ -977,6 +1171,10 @@ const toggleAssistTools = () => {
   showAssistTools.value = !showAssistTools.value
 }
 
+const toggleRecommendationPanel = () => {
+  recommendationCollapsed.value = !recommendationCollapsed.value
+}
+
 const useTemplate = (text: string) => {
   if (!text) return
   inputText.value = text
@@ -987,6 +1185,77 @@ const useTemplate = (text: string) => {
       textarea.setSelectionRange(text.length, text.length)
     }
   })
+}
+
+const setChatInterfaceMode = async (mode: ChatInterfaceMode) => {
+  chatInterfaceMode.value = mode
+  localStorage.setItem(CHAT_INTERFACE_MODE_KEY, mode)
+  window.dispatchEvent(new CustomEvent(CHAT_INTERFACE_MODE_EVENT, { detail: { mode } }))
+
+  if (mode === 'detail') {
+    showLanding.value = false
+  } else if (chatStore.messages.length === 0 && !route.query.contextId) {
+    showLanding.value = true
+  }
+
+  await nextTick()
+  bindMessagesScroll()
+}
+
+const switchToSimpleInterface = () => {
+  void setChatInterfaceMode('simple')
+}
+
+const switchToDetailInterface = () => {
+  void setChatInterfaceMode('detail')
+}
+
+const revealFullChat = async () => {
+  showLanding.value = false
+  await nextTick()
+  bindMessagesScroll()
+}
+
+const submitLandingMessage = async () => {
+  const text = landingInputText.value.trim()
+  if (!text || loading.value) return
+
+  await revealFullChat()
+  inputText.value = text
+  landingInputText.value = ''
+  await sendMessage()
+}
+
+const handleLandingKeydown = (event: KeyboardEvent) => {
+  if (event.isComposing || event.keyCode === 229) return
+  if (event.key !== 'Enter') return
+  if (event.ctrlKey || event.shiftKey) return
+
+  event.preventDefault()
+  submitLandingMessage()
+}
+
+const applyLandingTemplate = async (text: string) => {
+  await revealFullChat()
+  useTemplate(text)
+}
+
+const switchLandingRole = async (mode: 'lawyer' | 'teacher' | 'programmer' | 'writer') => {
+  await revealFullChat()
+  if (mode === 'lawyer') await toggleLawyerMode()
+  if (mode === 'teacher') await toggleTeacherMode()
+  if (mode === 'programmer') await toggleProgrammerMode()
+  if (mode === 'writer') await toggleWriterMode()
+}
+
+const openLandingNetwork = async () => {
+  await revealFullChat()
+  openFederatedConsole()
+}
+
+const openLandingAttachment = async () => {
+  await revealFullChat()
+  handleControl('folder')
 }
 
 const autoSegment = () => {
@@ -1031,6 +1300,7 @@ const loadChatRecommendations = async () => {
 
 const applyChatRecommendation = (item: RecommendationItem) => {
   useTemplate(item.text)
+  recommendationCollapsed.value = true
 }
 
 const selectRole = async (role: any) => {
@@ -1079,7 +1349,13 @@ const sendMessage = async () => {
 
   try {
     if (isLawyerMode.value) {
-      await chatStore.sendLawyerMessageStream(userText)
+      await chatStore.sendLawyerMessage(userText)
+    } else if (isTeacherMode.value) {
+      await chatStore.sendTeacherMessage(userText)
+    } else if (isProgrammerMode.value) {
+      await chatStore.sendProgrammerMessage(userText)
+    } else if (isWriterMode.value) {
+      await chatStore.sendWriterMessage(userText)
     } else {
       await chatStore.sendMessageStream(userText)
     }
@@ -1302,6 +1578,13 @@ const checkScrollState = () => {
   if (isAtBottom) pendingMessageCount.value = 0
 }
 
+const bindMessagesScroll = () => {
+  if (!messagesRef.value) return
+  messagesRef.value.removeEventListener('scroll', checkScrollState)
+  messagesRef.value.addEventListener('scroll', checkScrollState)
+  checkScrollState()
+}
+
 watch(
   () => route.query.contextId,
   async contextId => {
@@ -1337,12 +1620,26 @@ watch(showAssistTools, visible => {
   localStorage.setItem(ASSIST_TOOL_VISIBLE_KEY, visible ? '1' : '0')
 })
 
+watch(recommendationCollapsed, collapsed => {
+  localStorage.setItem(RECOMMENDATION_COLLAPSED_KEY, collapsed ? '1' : '0')
+})
+
 onMounted(async () => {
+  window.dispatchEvent(new CustomEvent(CHAT_INTERFACE_MODE_EVENT, { detail: { mode: chatInterfaceMode.value } }))
+  if (chatInterfaceMode.value === 'detail') {
+    showLanding.value = false
+  }
+
   await roleStore.loadRoles()
 
   const assistToolVisible = localStorage.getItem(ASSIST_TOOL_VISIBLE_KEY)
   if (assistToolVisible === '0') {
     showAssistTools.value = false
+  }
+
+  const recommendationPanelCollapsed = localStorage.getItem(RECOMMENDATION_COLLAPSED_KEY)
+  if (recommendationPanelCollapsed === '0') {
+    recommendationCollapsed.value = false
   }
 
   if (roles.value.length > 0) {
@@ -1357,10 +1654,7 @@ onMounted(async () => {
     }
   }
 
-  if (messagesRef.value) {
-    messagesRef.value.addEventListener('scroll', checkScrollState)
-    checkScrollState()
-  }
+  bindMessagesScroll()
 })
 
 onUnmounted(() => {
@@ -1377,6 +1671,433 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: transparent;
+}
+
+.chat-view.landing-active {
+  background: #f6f8f5;
+}
+
+.simple-chat-home {
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+  background: #f6f8f5;
+  color: #1f2937;
+}
+
+.landing-topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  min-height: 72px;
+  padding: 12px 14px 0;
+  border-bottom: 1px solid #e2e7e2;
+  background: #f6f8f5;
+}
+
+.landing-brand {
+  width: 300px;
+  min-width: 220px;
+}
+
+.landing-brand h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 750;
+  letter-spacing: 0;
+  color: #1f2937;
+}
+
+.landing-brand p {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 500;
+  color: #6f7885;
+  white-space: nowrap;
+}
+
+.landing-role-nav {
+  position: absolute;
+  left: 50%;
+  top: 34px;
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.landing-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #6f7885;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.landing-role-mark {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.landing-role-mark.lawyer,
+.landing-role-mark.teacher {
+  color: #2f8f83;
+}
+
+.landing-role-mark.programmer {
+  color: #3f566f;
+}
+
+.landing-role-mark.writer {
+  color: #c58a1d;
+}
+
+.landing-network-btn {
+  position: absolute;
+  top: 24px;
+  right: 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 114px;
+  height: 32px;
+  padding: 0 17px;
+  border: 1px solid #2f8f83;
+  border-radius: 999px;
+  background: transparent;
+  color: #2f8f83;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.landing-network-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2f8f83;
+}
+
+.interface-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 34px;
+  padding: 3px;
+  border: 1px solid #dce5df;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 18px rgba(28, 39, 35, 0.06);
+}
+
+.interface-switch button {
+  height: 26px;
+  min-width: 58px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #6f7885;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.interface-switch button.active {
+  background: #2f8f83;
+  color: #fff;
+  box-shadow: 0 6px 12px rgba(47, 143, 131, 0.18);
+}
+
+.interface-switch.compact {
+  height: 32px;
+  box-shadow: none;
+}
+
+.interface-switch.compact button {
+  height: 24px;
+  min-width: 54px;
+  padding: 0 10px;
+}
+
+.landing-interface-switch {
+  position: absolute;
+  top: 23px;
+  right: 145px;
+}
+
+.chat-view.simple-interface .landing-topbar {
+  padding-left: 92px;
+}
+
+.landing-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 220px 24px 80px;
+  text-align: center;
+}
+
+.landing-hero h2 {
+  margin: 0;
+  font-family: "STXingkai", "KaiTi", "FangSong", serif;
+  font-size: 52px;
+  line-height: 1.25;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #1f2937;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.landing-hero p {
+  margin: 35px 0 0;
+  font-size: 21px;
+  line-height: 1.35;
+  font-weight: 760;
+  letter-spacing: 0;
+  color: #1f2937;
+}
+
+.landing-composer {
+  position: relative;
+  width: min(900px, calc(100vw - 48px));
+  height: 164px;
+  margin-top: 58px;
+  border: 1px solid #dde4df;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 16px 24px rgba(28, 39, 35, 0.08);
+  text-align: left;
+}
+
+.landing-message-input {
+  display: block;
+  width: 100%;
+  height: 94px;
+  padding: 28px 23px 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: #1f2937;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.landing-message-input::placeholder {
+  color: #b8c0c4;
+  opacity: 1;
+}
+
+.landing-composer-footer {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 33px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.landing-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.landing-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 126px;
+  height: 34px;
+  padding: 0 17px 0 13px;
+  border: 1.4px solid #8794a3;
+  border-radius: 999px;
+  background: #fff;
+  color: #667280;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.landing-chip-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #6f7d8b;
+}
+
+.landing-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex: 0 0 auto;
+}
+
+.landing-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #b6bcc0;
+  cursor: pointer;
+}
+
+.landing-attach-btn svg {
+  width: 27px;
+  height: 27px;
+  stroke-width: 2.4;
+}
+
+.landing-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 43px;
+  border: 0;
+  border-radius: 8px;
+  background: #2f8f83;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(47, 143, 131, 0.18);
+}
+
+.landing-send-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
+.landing-role,
+.landing-network-btn,
+.landing-chip,
+.landing-attach-btn,
+.landing-send-btn {
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.landing-role:hover,
+.landing-network-btn:hover,
+.landing-chip:hover,
+.landing-attach-btn:hover,
+.landing-send-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.landing-send-btn:not(:disabled):hover {
+  background: #23786e;
+}
+
+.landing-chip:hover,
+.landing-network-btn:hover {
+  border-color: #2f8f83;
+  color: #2f8f83;
+  background: rgba(47, 143, 131, 0.04);
+}
+
+.chat-view.simple-interface:not(.landing-active) {
+  background: #f6f8f5;
+}
+
+.simple-session-topbar {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 22px 12px 92px;
+  border-bottom: 1px solid #e2e7e2;
+  background: rgba(246, 248, 245, 0.92);
+  backdrop-filter: blur(18px);
+}
+
+.simple-session-brand {
+  min-width: 0;
+}
+
+.simple-session-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: #6f7885;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.simple-session-brand h1 {
+  margin: 0;
+  overflow: hidden;
+  color: #1f2937;
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simple-session-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.simple-session-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #dce5df;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #3f566f;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+}
+
+.simple-session-btn:hover {
+  border-color: rgba(47, 143, 131, 0.36);
+  background: #fff;
+  transform: translateY(-1px);
 }
 
 .chat-header {
@@ -1505,6 +2226,16 @@ onUnmounted(() => {
 .chat-main.programmer,
 .chat-main.writer {
   grid-template-columns: 1fr 340px;
+}
+
+.chat-main.simple-session {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 16px 22px 22px;
+}
+
+.chat-main.simple-session .chat-panel {
+  width: min(100%, 980px);
+  margin: 0 auto;
 }
 
 .chat-panel {
@@ -1721,7 +2452,136 @@ onUnmounted(() => {
 }
 
 .recommendation-row {
-  padding: 6px 16px 12px;
+  flex-shrink: 0;
+  padding: 6px 16px 10px;
+}
+
+.recommendation-row.collapsed {
+  padding-bottom: 8px;
+}
+
+.recommendation-toggle {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.recommendation-toggle:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-fade);
+  box-shadow: 0 8px 18px rgba(22, 101, 52, 0.08);
+}
+
+.recommendation-toggle-copy {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  text-align: left;
+}
+
+.recommendation-toggle-title {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.recommendation-toggle-subtitle {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recommendation-toggle-side {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary-color);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.recommendation-count {
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--primary-fade);
+  color: var(--primary-color);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.recommendation-loading-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  box-shadow: 0 0 0 0 rgba(47, 143, 131, 0.42);
+  animation: recommendation-pulse 1.2s ease-out infinite;
+}
+
+.recommendation-panel-wrap {
+  max-height: min(28vh, 260px);
+  margin-top: 8px;
+  padding-right: 2px;
+  overflow-y: auto;
+}
+
+.recommendation-panel-wrap::-webkit-scrollbar {
+  width: 5px;
+}
+
+.recommendation-panel-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recommendation-panel-wrap::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+
+@keyframes recommendation-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(47, 143, 131, 0.42);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(47, 143, 131, 0);
+  }
+}
+
+@media (max-width: 620px) {
+  .recommendation-toggle {
+    align-items: flex-start;
+  }
+
+  .recommendation-toggle-copy {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .recommendation-panel-wrap {
+    max-height: min(34vh, 240px);
+  }
 }
 
 .template-item {
@@ -1975,6 +2835,171 @@ onUnmounted(() => {
 .role-text .desc {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .landing-topbar {
+    min-height: 118px;
+    padding: 14px 18px 0;
+  }
+
+  .chat-view.simple-interface .landing-topbar {
+    padding-left: 78px;
+  }
+
+  .landing-brand {
+    width: auto;
+  }
+
+  .landing-role-nav {
+    top: 78px;
+    gap: 22px;
+  }
+
+  .landing-network-btn {
+    top: 20px;
+  }
+
+  .landing-interface-switch {
+    top: 20px;
+    right: 142px;
+  }
+
+  .simple-session-topbar {
+    align-items: flex-start;
+    padding: 12px 18px 12px 78px;
+  }
+
+  .landing-hero {
+    padding-top: 150px;
+  }
+
+  .landing-hero h2 {
+    max-width: 680px;
+    font-size: 40px;
+  }
+
+  .landing-hero p {
+    margin-top: 24px;
+    font-size: 18px;
+  }
+
+  .landing-composer {
+    height: auto;
+    min-height: 204px;
+  }
+
+  .landing-composer-footer {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 8px 14px 12px;
+  }
+
+  .landing-quick-actions {
+    flex-wrap: wrap;
+  }
+
+  .landing-composer-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 620px) {
+  .landing-topbar {
+    min-height: 136px;
+  }
+
+  .landing-brand h1 {
+    font-size: 20px;
+  }
+
+  .chat-view.simple-interface .landing-topbar {
+    padding-left: 58px;
+  }
+
+  .landing-brand p {
+    white-space: normal;
+  }
+
+  .landing-network-btn {
+    min-width: 42px;
+    width: 42px;
+    padding: 0;
+  }
+
+  .landing-interface-switch {
+    top: 58px;
+    right: 16px;
+  }
+
+  .interface-switch button {
+    min-width: 52px;
+    padding: 0 9px;
+  }
+
+  .landing-network-btn span:last-child {
+    display: none;
+  }
+
+  .landing-role-nav {
+    top: 100px;
+    right: 16px;
+    left: 16px;
+    justify-content: space-between;
+    gap: 8px;
+    transform: none;
+    font-size: 11px;
+  }
+
+  .landing-role {
+    gap: 4px;
+  }
+
+  .landing-hero {
+    padding: 110px 16px 56px;
+  }
+
+  .simple-session-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 118px;
+    padding-left: 58px;
+  }
+
+  .simple-session-actions {
+    justify-content: flex-start;
+  }
+
+  .chat-main.simple-session {
+    padding: 12px 10px 14px;
+  }
+
+  .landing-hero h2 {
+    font-size: 32px;
+  }
+
+  .landing-hero p {
+    font-size: 16px;
+  }
+
+  .landing-composer {
+    width: calc(100vw - 28px);
+    margin-top: 42px;
+    border-radius: 14px;
+  }
+
+  .landing-message-input {
+    height: 104px;
+    padding: 23px 18px 0;
+  }
+
+  .landing-chip {
+    min-width: calc(50% - 6px);
+    padding: 0 10px;
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 1100px) {

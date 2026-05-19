@@ -422,6 +422,141 @@ def test_chat_can_upgrade_message_to_workflow_run():
     assert payload["run"]["currentStepId"] == "risk"
 
 
+def test_legacy_lawyer_agent_chat_endpoint_returns_status_payload():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.agentos_core import create_router
+
+    agent_registry = AgentRegistry()
+    workflow_registry = WorkflowRegistry()
+    register_legal_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+
+    app = FastAPI()
+    app.include_router(create_router(runtime), prefix="/ai")
+    client = TestClient(app)
+
+    response = client.post(
+        "/ai/agent/lawyer/chat",
+        json={"text": "Supplier delayed delivery under a contract.", "sessionId": "session_001"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["sessionId"] == "session_001"
+    assert "法律初步分析" in payload["answer"]
+    assert "风险等级" in payload["answer"]
+    assert "Legal analysis completed" not in payload["answer"]
+    assert "legal basis item" not in payload["answer"]
+    assert "risk_assessment" in payload["skillsUsed"]
+    assert len(payload["trace"]) >= 1
+    assert payload["trace"][0]["action"] == "case_understanding"
+
+
+def test_legacy_programmer_agent_chat_endpoint_returns_full_deliverable():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from agentos.packs.programmer import register_pack as register_programmer_pack
+    from app.api.agentos_core import create_router
+
+    agent_registry = AgentRegistry()
+    workflow_registry = WorkflowRegistry()
+    register_programmer_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+
+    app = FastAPI()
+    app.include_router(create_router(runtime), prefix="/ai")
+    client = TestClient(app)
+
+    response = client.post(
+        "/ai/agent/programmer/chat",
+        json={
+            "text": "开发一个简单的用户认证与权限管理模块，技术栈为 Python FastAPI + JWT。",
+            "sessionId": "programmer_session_001",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["sessionId"] == "programmer_session_001"
+    assert "功能规格" in payload["answer"]
+    assert "```python" in payload["answer"]
+    assert "```mermaid" in payload["answer"]
+    assert "Requirement analysis ready" not in payload["answer"]
+    assert "code_generation" in payload["skillsUsed"]
+    assert "diagram_generation" in payload["skillsUsed"]
+    assert payload["codeGeneration"]["code"].find("def create_access_token") >= 0
+    assert payload["diagramGeneration"]["mermaid_code"].startswith("flowchart")
+    assert any(step["action"] == "code_generation" for step in payload["trace"])
+
+
+def test_legacy_teacher_agent_chat_endpoint_returns_chinese_lesson_plan():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from agentos.packs.education import register_pack as register_education_pack
+    from app.api.agentos_core import create_router
+
+    agent_registry = AgentRegistry()
+    workflow_registry = WorkflowRegistry()
+    register_education_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+
+    app = FastAPI()
+    app.include_router(create_router(runtime), prefix="/ai")
+    client = TestClient(app)
+
+    response = client.post(
+        "/ai/agent/teacher/chat",
+        json={"text": "请为初二数学一次函数设计一节45分钟课程。", "sessionId": "teacher_session_001"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["sessionId"] == "teacher_session_001"
+    assert "教学设计" in payload["answer"]
+    assert "教学目标" in payload["answer"]
+    assert "Lesson plan ready" not in payload["answer"]
+    assert "lesson_plan_generation" in payload["skillsUsed"]
+    assert payload["lessonPlan"]["subject"] == "数学"
+    assert payload["lessonPlan"]["grade"] == "初二"
+
+
+def test_legacy_writer_agent_chat_endpoint_detects_science_fiction_genre():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from agentos.packs.writer import register_pack as register_writer_pack
+    from app.api.agentos_core import create_router
+
+    agent_registry = AgentRegistry()
+    workflow_registry = WorkflowRegistry()
+    register_writer_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+
+    app = FastAPI()
+    app.include_router(create_router(runtime), prefix="/ai")
+    client = TestClient(app)
+
+    response = client.post(
+        "/ai/agent/writer/chat",
+        json={"text": "生成科幻小说的大纲，主题是海底城市和失控AI。", "sessionId": "writer_session_001"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["sessionId"] == "writer_session_001"
+    assert "科幻" in payload["answer"]
+    assert "Story outline ready" not in payload["answer"]
+    assert "outline_generate" in payload["skillsUsed"]
+
+
 def test_agentos_core_api_lists_tasks_and_runs_with_filters():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient

@@ -4,13 +4,34 @@
   "domain": "programmer",
   "intent": "requirement_analysis",
   "version": "1.0.0",
-  "description": "Minimal programmer workflow for requirement analysis.",
+  "description": "Programmer workflow for requirement analysis, code search, code generation, and Mermaid diagrams.",
   "steps": [
     {
       "stepId": "requirement_analysis",
       "name": "Requirement Analysis",
       "agentName": "requirement_analysis",
-      "capability": "requirement_analysis"
+      "capability": "requirement_analysis",
+      "nextStepId": "codebase_semantic_search"
+    },
+    {
+      "stepId": "codebase_semantic_search",
+      "name": "Codebase Semantic Search",
+      "agentName": "codebase_search",
+      "capability": "codebase_semantic_search",
+      "nextStepId": "code_generation"
+    },
+    {
+      "stepId": "code_generation",
+      "name": "Code Generation",
+      "agentName": "code_generation",
+      "capability": "code_generation",
+      "nextStepId": "diagram_generation"
+    },
+    {
+      "stepId": "diagram_generation",
+      "name": "Diagram Generation",
+      "agentName": "diagram_generation",
+      "capability": "diagram_generation"
     }
   ]
 }

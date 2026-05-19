@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
   const BACKEND_PROXY_TARGET =
     env.DEV_BACKEND_PROXY_TARGET ||
     'http://localhost:8080'
+  const AI_SERVICE_PROXY_TARGET =
+    env.DEV_AI_SERVICE_PROXY_TARGET ||
+    'http://localhost:8000'
 
   return {
     plugins: [vue()],
@@ -68,6 +71,23 @@ export default defineConfig(({ mode }) => {
           }
         },
         // 代理 /ai 路径到Python服务（通过Java后端）
+        '/ai/chat/text/stream': {
+          target: AI_SERVICE_PROXY_TARGET,
+          changeOrigin: true,
+          timeout: DEV_PROXY_TIMEOUT_MS,
+          proxyTimeout: DEV_PROXY_TIMEOUT_MS,
+          configure: (proxy, _options) => {
+            proxy.on('error', (err, _req, _res) => {
+              console.log('AI stream proxy error', err)
+            })
+            proxy.on('proxyReq', (_proxyReq, req, _res) => {
+              console.log('Sending AI Stream Request to the Target:', req.method, req.url)
+            })
+            proxy.on('proxyRes', (proxyRes, req, _res) => {
+              console.log('Received AI Stream Response from the Target:', proxyRes.statusCode, req.url)
+            })
+          }
+        },
         '/ai': {
           target: BACKEND_PROXY_TARGET,
           changeOrigin: true,

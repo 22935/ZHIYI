@@ -85,3 +85,6 @@ async def _test_non_legal_packs_register_minimal_workflows():
         assert run.status == WorkflowStatus.COMPLETED
         assert run.workflow_id == workflow_id
         assert run.output["final_answer"]
+        if domain == "writer":
+            assert "小说大纲" in run.output["final_answer"]
+            assert "Story outline ready" not in run.output["final_answer"]

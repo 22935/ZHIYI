@@ -1,6 +1,6 @@
 # 开发环境配置
 server:
-  port: ${SERVER_PORT:5000}
+  port: ${SERVER_PORT:8080}
 
 spring:
   # 使用H2内存数据库
@@ -39,11 +39,11 @@ logging:
 
 ai:
   service:
-    url: ${AI_SERVICE_URL:http://localhost:9000}
+    url: ${AI_SERVICE_URL:http://localhost:8000}
 
 agent:
   python:
-    lawyer-chat-url: ${AGENT_PYTHON_LAWYER_CHAT_URL:http://localhost:9000/ai/agent/lawyer/chat}
-    teacher-chat-url: ${AGENT_PYTHON_TEACHER_CHAT_URL:http://localhost:9000/ai/agent/teacher/chat}
-    programmer-chat-url: ${AGENT_PYTHON_PROGRAMMER_CHAT_URL:http://localhost:9000/ai/agent/programmer/chat}
-    writer-chat-url: ${AGENT_PYTHON_WRITER_CHAT_URL:http://localhost:9000/ai/agent/writer/chat}
+    lawyer-chat-url: ${AGENT_PYTHON_LAWYER_CHAT_URL:http://localhost:8000/ai/agent/lawyer/chat}
+    teacher-chat-url: ${AGENT_PYTHON_TEACHER_CHAT_URL:http://localhost:8000/ai/agent/teacher/chat}
+    programmer-chat-url: ${AGENT_PYTHON_PROGRAMMER_CHAT_URL:http://localhost:8000/ai/agent/programmer/chat}
+    writer-chat-url: ${AGENT_PYTHON_WRITER_CHAT_URL:http://localhost:8000/ai/agent/writer/chat}

@@ -32,6 +32,30 @@ public class AgentChatResponse {
 
     private Map<String, Object> federated;
 
+    @JsonAlias("evidence_analysis")
+    private Map<String, Object> evidenceAnalysis;
+
+    @JsonAlias("limitation_calculation")
+    private Map<String, Object> limitationCalc;
+
+    @JsonAlias("jurisdiction_determination")
+    private Map<String, Object> jurisdiction;
+
+    @JsonAlias("hearing_outline_generation")
+    private Map<String, Object> hearingOutline;
+
+    @JsonAlias("student_diagnosis")
+    private Map<String, Object> studentDiagnosis;
+
+    @JsonAlias("lesson_plan_generation")
+    private Map<String, Object> lessonPlan;
+
+    @JsonAlias("homework_grading")
+    private Map<String, Object> homeworkGrading;
+
+    @JsonAlias("error_analysis_question_push")
+    private Map<String, Object> errorQuestionPush;
+
     @JsonAlias("inspiration_expand")
     private Map<String, Object> inspirationExpand;
 
