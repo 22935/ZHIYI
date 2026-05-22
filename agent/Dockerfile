@@ -1,17 +1,23 @@
 FROM python:3.9-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app:/app/agentOS/src \
+    AGENTOS_PACKS_DIR=/app/packs
+
 WORKDIR /app
 
-# 安装依赖
-COPY requirements_minimal.txt .
+COPY agent/requirements_minimal.txt ./requirements_minimal.txt
 RUN pip install --no-cache-dir -r requirements_minimal.txt
 
-# 复制应用代码
-COPY . .
+COPY agent/app ./app
+COPY agent/packs ./packs
+COPY agent/knowledge ./knowledge
+COPY agent/agentos.py ./agentos.py
+COPY agentOS/src ./agentOS/src
 
-# 暴露端口
+RUN mkdir -p /app/data /app/logs
+
 EXPOSE 8000
 
-# 启动应用
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-

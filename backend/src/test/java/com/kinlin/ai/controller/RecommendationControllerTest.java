@@ -3,11 +3,17 @@ package com.kinlin.ai.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kinlin.ai.dto.RecommendationContextRequest;
 import com.kinlin.ai.dto.RecommendationItem;
+import com.kinlin.ai.interceptor.RateLimitInterceptor;
+import com.kinlin.ai.interceptor.UserContextInterceptor;
 import com.kinlin.ai.service.RecommendationService;
+import com.kinlin.ai.util.JwtUtil;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -20,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(RecommendationController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class RecommendationControllerTest {
 
     @Autowired
@@ -28,8 +35,26 @@ class RecommendationControllerTest {
     @MockBean
     private RecommendationService recommendationService;
 
+    @MockBean
+    private RateLimitInterceptor rateLimitInterceptor;
+
+    @MockBean
+    private UserContextInterceptor userContextInterceptor;
+
+    @MockBean
+    private JwtUtil jwtUtil;
+
+    @MockBean
+    private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
     @Autowired
     private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(userContextInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+    }
 
     @Test
     void getContextualRecommendations_returnsStructuredItems() throws Exception {

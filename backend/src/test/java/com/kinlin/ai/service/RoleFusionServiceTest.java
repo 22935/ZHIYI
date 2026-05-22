@@ -4,7 +4,6 @@ import com.kinlin.ai.dto.RoleFusionRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -25,6 +24,9 @@ import static org.mockito.Mockito.*;
 class RoleFusionServiceTest {
 
     @Mock
+    private WebClient.Builder webClientBuilder;
+
+    @Mock
     private WebClient webClient;
 
     @Mock
@@ -36,11 +38,13 @@ class RoleFusionServiceTest {
     @Mock
     private WebClient.ResponseSpec responseSpec;
 
-    @InjectMocks
     private RoleFusionService roleFusionService;
 
     @BeforeEach
     void setUp() {
+        when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
+        when(webClientBuilder.build()).thenReturn(webClient);
+        roleFusionService = new RoleFusionService(webClientBuilder, "http://localhost:8000", 5000);
         ReflectionTestUtils.setField(roleFusionService, "aiServiceUrl", "http://localhost:8000");
         ReflectionTestUtils.setField(roleFusionService, "timeout", 5000);
     }
@@ -71,7 +75,7 @@ class RoleFusionServiceTest {
 
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestBodySpec).bodyValue(any());
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(Map.class)).thenReturn(Mono.just(responseData));
 
@@ -99,7 +103,7 @@ class RoleFusionServiceTest {
 
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestBodySpec).bodyValue(any());
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(Map.class)).thenReturn(Mono.just(responseData));
 

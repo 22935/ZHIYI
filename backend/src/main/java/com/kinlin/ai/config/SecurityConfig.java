@@ -38,7 +38,10 @@ public class SecurityConfig {
                     "/v3/api-docs/**",
                     "/ws/**",
                     "/auth/**",  // 允许所有 /auth 路径（登录、注册、验证Token）
-                    "/ai/**"     // 允许所有 /ai 路径（Python AI服务代理，包括图像文件）
+                    // Local/demo AgentOS and Python AI proxy allowance.
+                    // Production deployments must require auth for these workflow routes.
+                    "/ai/core/**",
+                    "/ai/chat/workflows/upgrade"
                 ).permitAll()
                 // 其他接口需要认证
                 .anyRequest().authenticated()

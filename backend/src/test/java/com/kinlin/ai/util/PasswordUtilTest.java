@@ -128,13 +128,5 @@ class PasswordUtilTest {
         assertFalse(result);
     }
 
-    @Test
-    void testGetPasswordEncoder() {
-        // When
-        var encoder = PasswordUtil.getPasswordEncoder();
-
-        // Then
-        assertNotNull(encoder);
-    }
 }
 

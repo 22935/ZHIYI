@@ -109,12 +109,24 @@ public class AuthController {
      */
     @GetMapping("/verify")
     public ResponseEntity<Map<String, Object>> verifyToken(
-            @RequestHeader("Authorization") String authHeader
+            @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         Map<String, Object> result = new HashMap<>();
         
         try {
-            String token = authHeader.replace("Bearer ", "");
+            if (authHeader == null || !authHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
+                result.put("valid", false);
+                result.put("message", "Missing or invalid Authorization header");
+                return ResponseEntity.ok(result);
+            }
+
+            String token = authHeader.substring(7).trim();
+            if (token.isEmpty()) {
+                result.put("valid", false);
+                result.put("message", "Token is empty");
+                return ResponseEntity.ok(result);
+            }
+
             String username = jwtUtil.getUsernameFromToken(token);
             UUID userId = jwtUtil.getUserIdFromToken(token);
             

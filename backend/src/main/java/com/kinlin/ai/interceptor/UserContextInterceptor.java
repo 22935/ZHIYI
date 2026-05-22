@@ -1,5 +1,6 @@
 package com.kinlin.ai.interceptor;
 
+import com.kinlin.ai.security.AuthenticatedUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,13 @@ public class UserContextInterceptor implements HandlerInterceptor {
             HttpServletResponse response,
             Object handler
     ) {
+        UUID authenticatedUserId = AuthenticatedUser.currentUserId()
+                .orElseGet(() -> (UUID) request.getAttribute("userId"));
+        if (authenticatedUserId != null) {
+            USER_ID_CONTEXT.set(authenticatedUserId);
+            return true;
+        }
+
         String userIdHeader = request.getHeader("X-User-Id");
         if (userIdHeader != null && !userIdHeader.isEmpty()) {
             try {

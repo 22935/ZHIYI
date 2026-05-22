@@ -2,6 +2,7 @@ package com.kinlin.ai.controller;
 
 import com.kinlin.ai.dto.ChatResponse;
 import com.kinlin.ai.dto.TtsRequest;
+import com.kinlin.ai.security.AuthenticatedUser;
 import com.kinlin.ai.service.VoiceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +35,7 @@ public class VoiceController {
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
         try {
+            userId = AuthenticatedUser.currentUserId().orElse(userId);
             byte[] audioData = audioFile.getBytes();
             ChatResponse response = voiceService.processVoiceMessage(
                     audioData, roleId, contextId, userId

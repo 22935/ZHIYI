@@ -5,10 +5,12 @@ import com.kinlin.ai.dto.ChatRequest;
 import com.kinlin.ai.dto.ChatResponse;
 import com.kinlin.ai.entity.Role;
 import com.kinlin.ai.repository.RoleRepository;
+import com.kinlin.ai.util.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
@@ -20,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 /**
  * 对话功能集成测试
@@ -37,14 +40,22 @@ class ChatIntegrationTest {
     @Autowired
     private RoleRepository roleRepository;
 
+    @MockBean
+    private JwtUtil jwtUtil;
+
     private String baseUrl;
     private UUID userId;
     private UUID roleId;
+    private String token;
 
     @BeforeEach
     void setUp() {
-        baseUrl = "http://localhost:" + port + "/api/chat";
+        baseUrl = "http://localhost:" + port + "/chat/text";
         userId = UUID.randomUUID();
+        token = "test-token";
+        when(jwtUtil.getUsernameFromToken(token)).thenReturn("test-user");
+        when(jwtUtil.getUserIdFromToken(token)).thenReturn(userId);
+        when(jwtUtil.validateToken(token, "test-user")).thenReturn(true);
 
         // 创建测试角色
         Role role = new Role();
@@ -64,6 +75,7 @@ class ChatIntegrationTest {
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-User-Id", userId.toString());
+        headers.setBearerAuth(token);
         HttpEntity<ChatRequest> entity = new HttpEntity<>(request, headers);
 
         ResponseEntity<ChatResponse> response = restTemplate.exchange(

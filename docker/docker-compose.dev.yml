@@ -49,8 +49,6 @@ services:
       AGENT_PYTHON_WRITER_CHAT_URL: http://ai-service:8000/ai/agent/writer/chat
       AGENT_TIMEOUT_MS: 240000
       SPRING_PROFILES_ACTIVE: dev
-    volumes:
-      - ../backend:/app
     depends_on:
       - postgres
       - redis
@@ -61,8 +59,8 @@ services:
   # Python AI服务（开发模式）
   ai-service:
     build:
-      context: ../agent
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: agent/Dockerfile
     container_name: federal-hub-ai-service-dev
     ports:
       - "8000:8000"
@@ -73,11 +71,10 @@ services:
       KYLIN_AI_TIMEOUT: ${KYLIN_AI_TIMEOUT:-240}
       QWEN_REQUEST_TIMEOUT: ${QWEN_REQUEST_TIMEOUT:-240}
       AGENT_SYNTHESIS_TIMEOUT: ${AGENT_SYNTHESIS_TIMEOUT:-180}
+      AGENTOS_PACKS_DIR: /app/packs
       DEBUG: "True"
       ANONYMIZED_TELEMETRY: "False"
       CHROMA_TELEMETRY_ENABLED: "false"
-    volumes:
-      - ../agent:/app
     networks:
       - federal-hub-network
 

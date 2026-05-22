@@ -35,12 +35,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         
-        // 跳过认证路径，避免在登录/注册时验证Token
-        // 同时跳过 /ai 路径（Python AI服务代理，包括图像文件）
+        // Skip public auth paths and local/demo AgentOS proxy paths.
+        // Production deployments must tighten this before deployment.
         String path = request.getRequestURI();
         if (path != null && (
             path.startsWith("/auth/") || path.equals("/auth") ||
-            path.startsWith("/ai/") || path.equals("/ai") ||
+            path.startsWith("/ai/core/") || path.equals("/ai/core") ||
+            path.equals("/ai/chat/workflows/upgrade") ||
             path.startsWith("/health") ||
             path.startsWith("/swagger-ui/") ||
             path.startsWith("/v3/api-docs/") ||

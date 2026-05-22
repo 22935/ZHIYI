@@ -3,11 +3,17 @@ package com.kinlin.ai.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kinlin.ai.dto.ChatRequest;
 import com.kinlin.ai.dto.ChatResponse;
+import com.kinlin.ai.interceptor.RateLimitInterceptor;
+import com.kinlin.ai.interceptor.UserContextInterceptor;
 import com.kinlin.ai.service.ChatService;
+import com.kinlin.ai.util.JwtUtil;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -22,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * ChatController集成测试
  */
 @WebMvcTest(ChatController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class ChatControllerTest {
 
     @Autowired
@@ -30,8 +37,26 @@ class ChatControllerTest {
     @MockBean
     private ChatService chatService;
 
+    @MockBean
+    private RateLimitInterceptor rateLimitInterceptor;
+
+    @MockBean
+    private UserContextInterceptor userContextInterceptor;
+
+    @MockBean
+    private JwtUtil jwtUtil;
+
+    @MockBean
+    private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
     @Autowired
     private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(userContextInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+    }
 
     @Test
     void testSendMessage() throws Exception {
@@ -49,7 +74,7 @@ class ChatControllerTest {
                 .thenReturn(response);
 
         // When & Then
-        mockMvc.perform(post("/api/chat")
+        mockMvc.perform(post("/chat/text")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-User-Id", UUID.randomUUID().toString())
                         .content(objectMapper.writeValueAsString(request)))
@@ -71,7 +96,7 @@ class ChatControllerTest {
                 .thenReturn(response);
 
         // When & Then
-        mockMvc.perform(post("/api/chat")
+        mockMvc.perform(post("/chat/text")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());

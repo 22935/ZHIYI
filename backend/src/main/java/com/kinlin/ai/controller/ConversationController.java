@@ -1,6 +1,7 @@
 package com.kinlin.ai.controller;
 
 import com.kinlin.ai.entity.Conversation;
+import com.kinlin.ai.security.AuthenticatedUser;
 import com.kinlin.ai.service.ConversationService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class ConversationController {
     public ResponseEntity<List<Conversation>> getUserConversations(
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
+        userId = resolveUserId(userId);
         if (userId == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -106,11 +108,16 @@ public class ConversationController {
     public ResponseEntity<Void> deleteAllConversations(
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
+        userId = resolveUserId(userId);
         if (userId == null) {
             return ResponseEntity.badRequest().build();
         }
         conversationService.deleteAllConversations(userId);
         return ResponseEntity.ok().build();
+    }
+
+    private UUID resolveUserId(UUID userIdHeader) {
+        return AuthenticatedUser.currentUserId().orElse(userIdHeader);
     }
 
     @Data

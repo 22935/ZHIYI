@@ -158,7 +158,7 @@ export interface ChatWorkflowUpgradeRequest {
   input?: Record<string, any>
 }
 
-export type ReviewDecision = 'approved' | 'rejected' | 'rerun' | 'cancelled'
+export type ReviewDecision = 'approved' | 'rejected' | 'need_more_info' | 'rerun' | 'cancelled'
 
 export interface ReviewRequest {
   stepId: string

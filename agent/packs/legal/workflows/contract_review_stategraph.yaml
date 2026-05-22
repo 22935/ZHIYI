@@ -1,0 +1,59 @@
+{
+  "workflowId": "legal_contract_review_stategraph_v1",
+  "name": "律师合同审查 StateGraph 工作流",
+  "domain": "legal",
+  "intent": "contract_review_stategraph",
+  "version": "1.0.0",
+  "description": "Runs the lawyer contract review demo through a real LangGraph StateGraph runtime.",
+  "steps": [
+    {
+      "stepId": "parse_contract",
+      "name": "合同文本解析",
+      "agentName": "parse_contract",
+      "capability": "parse_contract",
+      "nextStepId": "classify_clauses"
+    },
+    {
+      "stepId": "classify_clauses",
+      "name": "条款分类",
+      "agentName": "classify_clauses",
+      "capability": "classify_clauses",
+      "nextStepId": "risk_detect"
+    },
+    {
+      "stepId": "risk_detect",
+      "name": "风险识别",
+      "agentName": "risk_detect",
+      "capability": "risk_detect",
+      "nextStepId": "legal_evidence_match"
+    },
+    {
+      "stepId": "legal_evidence_match",
+      "name": "Evidence 依据匹配",
+      "agentName": "legal_evidence_match",
+      "capability": "legal_evidence_match",
+      "nextStepId": "suggestion_generate"
+    },
+    {
+      "stepId": "suggestion_generate",
+      "name": "修改建议生成",
+      "agentName": "suggestion_generate",
+      "capability": "suggestion_generate",
+      "nextStepId": "human_review"
+    },
+    {
+      "stepId": "human_review",
+      "name": "人工审核",
+      "agentName": "human_review",
+      "capability": "human_review_gate",
+      "reviewRequired": true,
+      "nextStepId": "report_generate"
+    },
+    {
+      "stepId": "report_generate",
+      "name": "审查报告生成",
+      "agentName": "report_generate",
+      "capability": "report_generate"
+    }
+  ]
+}

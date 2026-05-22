@@ -47,6 +47,7 @@ export const authApi = {
     try {
       // 清除本地存储的token
       localStorage.removeItem('token')
+      localStorage.removeItem('userId')
       localStorage.removeItem('userInfo')
       
       // 可以调用后端接口进行token失效（如果有的话）

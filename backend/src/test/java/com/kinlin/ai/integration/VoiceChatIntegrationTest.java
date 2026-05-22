@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -25,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 语音对话集成测试
  */
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
 class VoiceChatIntegrationTest {
 
@@ -58,12 +60,12 @@ class VoiceChatIntegrationTest {
         when(voiceService.processVoiceMessage(
                 any(byte[].class),
                 any(UUID.class),
-                anyString(),
+                nullable(String.class),
                 any(UUID.class)
         )).thenReturn(mockResponse);
 
         // 执行和验证
-        mockMvc.perform(multipart("/api/voice/message")
+        mockMvc.perform(multipart("/voice/chat")
                         .file(audioFile)
                         .param("roleId", roleId.toString())
                         .header("X-User-Id", userId.toString())
@@ -86,12 +88,17 @@ class VoiceChatIntegrationTest {
         when(voiceService.textToSpeech(text, voice, speed, pitch)).thenReturn(audioData);
 
         // 执行和验证
-        mockMvc.perform(multipart("/api/voice/tts")
-                        .param("text", text)
-                        .param("voice", voice)
-                        .param("speed", speed.toString())
-                        .param("pitch", pitch.toString())
-                        .contentType(MediaType.MULTIPART_FORM_DATA))
+        String body = String.format(
+                "{\"text\":\"%s\",\"voice\":\"%s\",\"speed\":%s,\"pitch\":%s}",
+                text,
+                voice,
+                speed,
+                pitch
+        );
+
+        mockMvc.perform(MockMvcRequestBuilders.post("/voice/tts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM))
                 .andExpect(content().bytes(audioData));

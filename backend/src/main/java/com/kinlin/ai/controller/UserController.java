@@ -1,6 +1,7 @@
 package com.kinlin.ai.controller;
 
 import com.kinlin.ai.entity.User;
+import com.kinlin.ai.security.AuthenticatedUser;
 import com.kinlin.ai.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,10 +26,11 @@ public class UserController {
     public ResponseEntity<User> getCurrentUser(
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
-        if (userId == null) {
+        UUID currentUserId = resolveUserId(userId);
+        if (currentUserId == null) {
             return ResponseEntity.badRequest().build();
         }
-        return userService.getUserById(userId)
+        return userService.getUserById(currentUserId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -52,6 +54,7 @@ public class UserController {
             @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId,
             @RequestBody User userUpdate
     ) {
+        currentUserId = resolveUserId(currentUserId);
         // 验证用户只能更新自己的信息
         if (currentUserId == null || !currentUserId.equals(userId)) {
             return ResponseEntity.badRequest().build();
@@ -81,6 +84,7 @@ public class UserController {
             @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId,
             @RequestBody PasswordChangeRequest request
     ) {
+        currentUserId = resolveUserId(currentUserId);
         // 验证用户只能修改自己的密码
         if (currentUserId == null || !currentUserId.equals(userId)) {
             return ResponseEntity.badRequest().build();
@@ -97,6 +101,10 @@ public class UserController {
         // 更新密码
         userService.updatePassword(userId, request.getNewPassword());
         return ResponseEntity.ok().build();
+    }
+
+    private UUID resolveUserId(UUID userIdHeader) {
+        return AuthenticatedUser.currentUserId().orElse(userIdHeader);
     }
 
     /**

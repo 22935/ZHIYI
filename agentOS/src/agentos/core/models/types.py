@@ -63,6 +63,7 @@ class TraceEventType(str, Enum):
 class ReviewDecisionType(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
+    NEED_MORE_INFO = "need_more_info"
     RERUN = "rerun"
     CANCELLED = "cancelled"
 

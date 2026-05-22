@@ -26,7 +26,7 @@ public class AgentOsGatewayController {
 
     @PostMapping("/core/tasks")
     public ResponseEntity<Map<String, Object>> createTask(@RequestBody(required = false) Map<String, Object> body) {
-        return ResponseEntity.ok(agentOsGatewayService.post("/ai/core/tasks", body));
+        return gatewayResponse(agentOsGatewayService.post("/ai/core/tasks", body));
     }
 
     @GetMapping("/core/tasks")
@@ -37,7 +37,7 @@ public class AgentOsGatewayController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize
     ) {
-        return ResponseEntity.ok(agentOsGatewayService.get(buildQuery("/ai/core/tasks",
+        return gatewayResponse(agentOsGatewayService.get(buildQuery("/ai/core/tasks",
                 mapOf(
                         "status", status,
                         "domain", domain,
@@ -49,7 +49,7 @@ public class AgentOsGatewayController {
 
     @PostMapping("/core/workflows/runs")
     public ResponseEntity<Map<String, Object>> startWorkflow(@RequestBody(required = false) Map<String, Object> body) {
-        return ResponseEntity.ok(agentOsGatewayService.post("/ai/core/workflows/runs", body));
+        return gatewayResponse(agentOsGatewayService.post("/ai/core/workflows/runs", body));
     }
 
     @GetMapping("/core/workflows/runs")
@@ -61,7 +61,7 @@ public class AgentOsGatewayController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize
     ) {
-        return ResponseEntity.ok(agentOsGatewayService.get(buildQuery("/ai/core/workflows/runs",
+        return gatewayResponse(agentOsGatewayService.get(buildQuery("/ai/core/workflows/runs",
                 mapOf(
                         "status", status,
                         "domain", domain,
@@ -74,7 +74,7 @@ public class AgentOsGatewayController {
 
     @PostMapping("/core/workflows/start")
     public ResponseEntity<Map<String, Object>> startWorkflowFromWorkbench(@RequestBody(required = false) Map<String, Object> body) {
-        return ResponseEntity.ok(agentOsGatewayService.post("/ai/core/workflows/start", body));
+        return gatewayResponse(agentOsGatewayService.post("/ai/core/workflows/start", body));
     }
 
     @GetMapping("/core/workflows/metrics")
@@ -84,7 +84,7 @@ public class AgentOsGatewayController {
             @RequestParam(required = false, name = "workflowId") String workflowId,
             @RequestParam(required = false) String source
     ) {
-        return ResponseEntity.ok(agentOsGatewayService.get(buildQuery("/ai/core/workflows/metrics",
+        return gatewayResponse(agentOsGatewayService.get(buildQuery("/ai/core/workflows/metrics",
                 mapOf(
                         "status", status,
                         "domain", domain,
@@ -95,17 +95,17 @@ public class AgentOsGatewayController {
 
     @PostMapping("/chat/workflows/upgrade")
     public ResponseEntity<Map<String, Object>> upgradeChat(@RequestBody(required = false) Map<String, Object> body) {
-        return ResponseEntity.ok(agentOsGatewayService.post("/ai/chat/workflows/upgrade", body));
+        return gatewayResponse(agentOsGatewayService.post("/ai/chat/workflows/upgrade", body));
     }
 
     @GetMapping("/core/workflows/runs/{runId}")
     public ResponseEntity<Map<String, Object>> getWorkflowRun(HttpServletRequest request) {
-        return ResponseEntity.ok(agentOsGatewayService.get(toPythonPath(request)));
+        return gatewayResponse(agentOsGatewayService.get(toPythonPath(request)));
     }
 
     @GetMapping("/core/workflows/runs/{runId}/checkpoints")
     public ResponseEntity<Map<String, Object>> listCheckpoints(HttpServletRequest request) {
-        return ResponseEntity.ok(agentOsGatewayService.get(toPythonPath(request)));
+        return gatewayResponse(agentOsGatewayService.get(toPythonPath(request)));
     }
 
     @GetMapping("/core/workflows/runs/{runId}/trace")
@@ -115,31 +115,32 @@ public class AgentOsGatewayController {
     ) {
         String path = buildQuery(toPythonPath(request), mapOf("format", format));
         if ("markdown".equalsIgnoreCase(format)) {
-            return ResponseEntity.ok()
+            ResponseEntity<String> response = agentOsGatewayService.getTextResponse(path);
+            return ResponseEntity.status(response.getStatusCode())
                     .contentType(MediaType.parseMediaType("text/markdown;charset=UTF-8"))
-                    .body(agentOsGatewayService.getText(path));
+                    .body(response.getBody());
         }
-        return ResponseEntity.ok(agentOsGatewayService.get(path));
+        return gatewayResponse(agentOsGatewayService.get(path));
     }
 
     @GetMapping("/core/workflows/runs/{runId}/reviews")
     public ResponseEntity<Map<String, Object>> listReviews(HttpServletRequest request) {
-        return ResponseEntity.ok(agentOsGatewayService.get(toPythonPath(request)));
+        return gatewayResponse(agentOsGatewayService.get(toPythonPath(request)));
     }
 
     @PostMapping("/core/workflows/runs/{runId}/reviews")
     public ResponseEntity<Map<String, Object>> applyReview(HttpServletRequest request, @RequestBody(required = false) Map<String, Object> body) {
-        return ResponseEntity.ok(agentOsGatewayService.post(toPythonPath(request), body));
+        return gatewayResponse(agentOsGatewayService.post(toPythonPath(request), body));
     }
 
     @PostMapping("/core/workflows/runs/{runId}/resume")
     public ResponseEntity<Map<String, Object>> resumeWorkflow(HttpServletRequest request, @RequestBody(required = false) Map<String, Object> body) {
-        return ResponseEntity.ok(agentOsGatewayService.post(toPythonPath(request), body));
+        return gatewayResponse(agentOsGatewayService.post(toPythonPath(request), body));
     }
 
     @PostMapping("/core/workflows/runs/{runId}/cancel")
     public ResponseEntity<Map<String, Object>> cancelWorkflow(HttpServletRequest request) {
-        return ResponseEntity.ok(agentOsGatewayService.post(toPythonPath(request), Map.of()));
+        return gatewayResponse(agentOsGatewayService.post(toPythonPath(request), Map.of()));
     }
 
     private String buildQuery(String basePath, Map<String, String> params) {
@@ -177,5 +178,12 @@ public class AgentOsGatewayController {
             map.put(entries[i], entries[i + 1]);
         }
         return map;
+    }
+
+    private ResponseEntity<Map<String, Object>> gatewayResponse(Map<String, Object> body) {
+        Map<String, Object> response = new LinkedHashMap<>(body == null ? Map.of() : body);
+        Object status = response.remove(AgentOsGatewayService.INTERNAL_HTTP_STATUS_KEY);
+        int httpStatus = status instanceof Number ? ((Number) status).intValue() : 200;
+        return ResponseEntity.status(httpStatus).body(response);
     }
 }

@@ -58,8 +58,8 @@ services:
   # Python AI服务
   ai-service:
     build:
-      context: ../agent
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: agent/Dockerfile
     container_name: federal-hub-ai-service
     ports:
       - "8000:8000"
@@ -72,6 +72,7 @@ services:
       KYLIN_AI_TIMEOUT: ${KYLIN_AI_TIMEOUT:-240}
       QWEN_REQUEST_TIMEOUT: ${QWEN_REQUEST_TIMEOUT:-240}
       AGENT_SYNTHESIS_TIMEOUT: ${AGENT_SYNTHESIS_TIMEOUT:-180}
+      AGENTOS_PACKS_DIR: /app/packs
     networks:
       - federal-hub-network
 

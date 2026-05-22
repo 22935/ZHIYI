@@ -215,7 +215,6 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <skipMain>false</skipMain>
-                    <skip>true</skip>
                 </configuration>
             </plugin>
         </plugins>

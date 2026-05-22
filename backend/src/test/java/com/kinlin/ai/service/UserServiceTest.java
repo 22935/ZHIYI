@@ -175,8 +175,7 @@ class UserServiceTest {
         Optional<User> result = userService.validateUser(username, password);
 
         // Then
-        // 兼容模式：无密码用户允许通过
-        assertTrue(result.isPresent());
+        assertFalse(result.isPresent());
     }
 
     @Test

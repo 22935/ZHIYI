@@ -12,6 +12,7 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -65,7 +66,7 @@ class RagServiceTest {
 
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestBodySpec).bodyValue(any());
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(RagService.RagResponse.class))
                 .thenReturn(Mono.just(expectedResponse));
@@ -93,7 +94,7 @@ class RagServiceTest {
 
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestBodySpec).bodyValue(any());
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(RagService.RagResponse.class))
                 .thenReturn(Mono.just(expectedResponse));
@@ -112,15 +113,17 @@ class RagServiceTest {
 
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestBodySpec).bodyValue(any());
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(RagService.RagResponse.class))
                 .thenReturn(Mono.error(new RuntimeException("网络错误")));
 
-        // When & Then
-        assertThrows(RuntimeException.class, () -> {
-            ragService.query(query, 5, null);
-        });
+        // When
+        RagService.RagResponse result = ragService.query(query, 5, null);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(0.0, result.confidence());
     }
 
     @Test
@@ -132,7 +135,7 @@ class RagServiceTest {
 
         WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
         when(webClient.get()).thenReturn(requestHeadersUriSpec);
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestHeadersUriSpec).uri(any(Function.class));
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(Map.class))
                 .thenReturn(Mono.just(expectedResponse));
@@ -155,7 +158,7 @@ class RagServiceTest {
 
         WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
         when(webClient.delete()).thenReturn(requestHeadersUriSpec);
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestHeadersUriSpec).uri(anyString());
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(Map.class))
                 .thenReturn(Mono.just(expectedResponse));

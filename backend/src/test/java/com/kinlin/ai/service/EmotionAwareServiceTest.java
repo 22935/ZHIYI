@@ -5,7 +5,6 @@ import com.kinlin.ai.dto.EmotionAwareResponseRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -27,6 +26,9 @@ import static org.mockito.Mockito.*;
 class EmotionAwareServiceTest {
 
     @Mock
+    private WebClient.Builder webClientBuilder;
+
+    @Mock
     private WebClient webClient;
 
     @Mock
@@ -38,11 +40,13 @@ class EmotionAwareServiceTest {
     @Mock
     private WebClient.ResponseSpec responseSpec;
 
-    @InjectMocks
     private EmotionAwareService emotionAwareService;
 
     @BeforeEach
     void setUp() {
+        when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
+        when(webClientBuilder.build()).thenReturn(webClient);
+        emotionAwareService = new EmotionAwareService(webClientBuilder, "http://localhost:8000", 5000);
         ReflectionTestUtils.setField(emotionAwareService, "aiServiceUrl", "http://localhost:8000");
         ReflectionTestUtils.setField(emotionAwareService, "timeout", 5000);
     }
@@ -59,7 +63,7 @@ class EmotionAwareServiceTest {
 
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestBodySpec).bodyValue(any());
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(Map.class)).thenReturn(Mono.just(responseData));
 
@@ -79,7 +83,7 @@ class EmotionAwareServiceTest {
 
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestBodySpec).bodyValue(any());
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(Map.class)).thenReturn(Mono.error(new RuntimeException("Service error")));
 
@@ -104,7 +108,7 @@ class EmotionAwareServiceTest {
 
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec);
+        doReturn(requestBodySpec).when(requestBodySpec).bodyValue(any());
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(Map.class)).thenReturn(Mono.just(responseData));
 

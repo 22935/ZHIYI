@@ -100,10 +100,9 @@ public class UserService {
         User user = userOpt.get();
         String encodedPassword = user.getPasswordHash();
 
-        // 如果没有设置密码（兼容旧数据），允许通过
         if (encodedPassword == null || encodedPassword.isEmpty()) {
-            log.warn("用户 {} 未设置密码，允许登录（兼容模式）", username);
-            return userOpt;
+            log.warn("User {} has no password hash and cannot log in.", username);
+            return Optional.empty();
         }
 
         // 验证密码

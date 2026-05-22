@@ -5,11 +5,14 @@ import {
   type PageResponse,
   type ReviewRecord,
   type ReviewRequest,
+  type WorkflowStartRequest,
+  type WorkflowStartResponse,
   type ReviewDecision,
   type StepStatus,
   type TraceEvent,
   type WorkflowRun,
   type WorkflowRunQuery,
+  type WorkflowStep,
   type WorkflowStatus,
   type WorkflowTraceExport
 } from './agentos'
@@ -20,16 +23,23 @@ export type {
   PageResponse,
   ReviewRecord,
   ReviewRequest,
+  WorkflowStartRequest,
+  WorkflowStartResponse,
   ReviewDecision,
   StepStatus,
   TraceEvent,
   WorkflowRun,
   WorkflowRunQuery,
+  WorkflowStep,
   WorkflowStatus,
   WorkflowTraceExport
 }
 
 export const workflowApi = {
+  startWorkflow(payload: WorkflowStartRequest): Promise<WorkflowStartResponse> {
+    return agentosApi.startWorkflow(payload)
+  },
+
   listRuns(params: WorkflowRunQuery = {}): Promise<PageResponse<WorkflowRun>> {
     return agentosApi.listWorkflowRuns({ page: 1, pageSize: 20, ...params })
   },

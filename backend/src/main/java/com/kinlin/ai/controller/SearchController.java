@@ -2,6 +2,7 @@ package com.kinlin.ai.controller;
 
 import com.kinlin.ai.entity.Message;
 import com.kinlin.ai.repository.MessageRepository;
+import com.kinlin.ai.security.AuthenticatedUser;
 import com.kinlin.ai.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,7 @@ public class SearchController {
             @RequestParam(value = "contextId", required = false) String contextId,
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
+        userId = resolveUserId(userId);
         if (contextId != null && !contextId.isEmpty()) {
             List<Message> messages = chatService.getHistory(contextId);
             List<Message> results = messages.stream()
@@ -48,6 +50,7 @@ public class SearchController {
             @RequestParam("keyword") String keyword,
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
+        userId = resolveUserId(userId);
         if (userId == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -59,6 +62,10 @@ public class SearchController {
                 .toList();
 
         return ResponseEntity.ok(results);
+    }
+
+    private UUID resolveUserId(UUID userIdHeader) {
+        return AuthenticatedUser.currentUserId().orElse(userIdHeader);
     }
 }
 

@@ -2,6 +2,7 @@ package com.kinlin.ai.controller;
 
 import com.kinlin.ai.dto.agent.AgentChatRequest;
 import com.kinlin.ai.dto.agent.AgentChatResponse;
+import com.kinlin.ai.security.AuthenticatedUser;
 import com.kinlin.ai.service.AgentConversationPersistenceService;
 import com.kinlin.ai.service.AgentGatewayService;
 import jakarta.validation.Valid;
@@ -13,8 +14,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.UUID;
 
@@ -75,29 +74,7 @@ public class AgentController {
     }
 
     private UUID resolveUserId(UUID userIdHeader) {
-        if (userIdHeader != null) {
-            return userIdHeader;
-        }
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getPrincipal() == null) {
-            return null;
-        }
-
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof UUID uuid) {
-            return uuid;
-        }
-
-        if (principal instanceof String text) {
-            try {
-                return UUID.fromString(text);
-            } catch (IllegalArgumentException ignored) {
-                return null;
-            }
-        }
-
-        return null;
+        return AuthenticatedUser.currentUserId().orElse(userIdHeader);
     }
 
     private void persistConversation(UUID userId, AgentChatRequest request, AgentChatResponse response, String agentMode) {

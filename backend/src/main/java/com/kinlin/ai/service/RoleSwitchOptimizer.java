@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
@@ -85,7 +86,7 @@ public class RoleSwitchOptimizer {
      * 构建角色上下文
      */
     private Map<String, Object> buildRoleContext(Role role) {
-        Map<String, Object> context = new ConcurrentHashMap<>();
+        Map<String, Object> context = new HashMap<>();
         
         context.put("role_id", role.getId().toString());
         context.put("name", role.getName());

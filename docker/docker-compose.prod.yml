@@ -40,8 +40,8 @@ services:
   # AI服务
   ai-service:
     build:
-      context: ../agent
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: agent/Dockerfile
     container_name: federal-hub-ai-service-prod
     ports:
       - "8000:8000"
@@ -56,6 +56,7 @@ services:
       - AGENT_FEDERATED_ENABLED=true
       - AGENT_FEDERATED_BASE_URL=http://localhost:8000/ai
       - AGENT_FEDERATED_TIMEOUT_MS=1500
+      - AGENTOS_PACKS_DIR=/app/packs
       - ANONYMIZED_TELEMETRY=False
       - CHROMA_TELEMETRY_ENABLED=false
     volumes:

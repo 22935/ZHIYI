@@ -33,6 +33,10 @@
                 <el-icon><Monitor /></el-icon>
                 <span>AgentOS 控制台</span>
               </el-menu-item>
+              <el-menu-item index="/agentos/legal/contract-review">
+                <el-icon><DocumentChecked /></el-icon>
+                <span>律师合同审查</span>
+              </el-menu-item>
               <el-menu-item index="/contract-clause-planner">
                 <el-icon><DocumentChecked /></el-icon>
                 <span>合同起草规划</span>
@@ -136,6 +140,10 @@
               <el-menu-item index="/agentos-console">
                 <el-icon><Monitor /></el-icon>
                 <span>AgentOS 控制台</span>
+              </el-menu-item>
+              <el-menu-item index="/agentos/legal/contract-review">
+                <el-icon><DocumentChecked /></el-icon>
+                <span>律师合同审查</span>
               </el-menu-item>
               <el-menu-item index="/contract-clause-planner">
                 <el-icon><DocumentChecked /></el-icon>
@@ -283,6 +291,7 @@ const isRouteScrollable = computed(() => {
     path.startsWith('/federated-models') ||
     path.startsWith('/federated-agent-workbench') ||
     path.startsWith('/agentos-console') ||
+    path.startsWith('/agentos/legal/contract-review') ||
     path.startsWith('/contract-clause-planner')
   )
 })
@@ -292,6 +301,7 @@ const activeMenu = computed(() => {
   if (path === '/chat' || path.startsWith('/chat')) return '/chat'
   if (path.startsWith('/federated-agent-workbench')) return '/federated-agent-workbench'
   if (path.startsWith('/agentos-console')) return '/agentos-console'
+  if (path.startsWith('/agentos/legal/contract-review')) return '/agentos/legal/contract-review'
   if (path.startsWith('/contract-clause-planner')) return '/contract-clause-planner'
   if (path === '/roles' || path.startsWith('/roles')) return '/roles'
   if (path === '/rag' || path.startsWith('/rag')) return '/rag'

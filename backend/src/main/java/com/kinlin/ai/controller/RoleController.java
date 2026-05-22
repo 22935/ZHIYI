@@ -2,6 +2,7 @@ package com.kinlin.ai.controller;
 
 import com.kinlin.ai.dto.RoleCreateRequest;
 import com.kinlin.ai.entity.Role;
+import com.kinlin.ai.security.AuthenticatedUser;
 import com.kinlin.ai.service.RoleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class RoleController {
     public ResponseEntity<List<Role>> getCustomRoles(
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
+        userId = resolveUserId(userId);
         List<Role> roles = roleService.getCustomRoles(userId);
         return ResponseEntity.ok(roles);
     }
@@ -94,6 +96,7 @@ public class RoleController {
             @Valid @RequestBody RoleCreateRequest request,
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
+        userId = resolveUserId(userId);
         Role role = roleService.createRole(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(role);
     }
@@ -107,6 +110,7 @@ public class RoleController {
             @Valid @RequestBody RoleCreateRequest request,
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
+        userId = resolveUserId(userId);
         return roleService.updateRole(roleId, request, userId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -120,9 +124,14 @@ public class RoleController {
             @PathVariable UUID roleId,
             @RequestHeader(value = "X-User-Id", required = false) UUID userId
     ) {
+        userId = resolveUserId(userId);
         if (roleService.deleteRole(roleId, userId)) {
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    private UUID resolveUserId(UUID userIdHeader) {
+        return AuthenticatedUser.currentUserId().orElse(userIdHeader);
     }
 }

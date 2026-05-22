@@ -6,6 +6,7 @@ import com.kinlin.ai.service.AgentOsGatewayService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -65,6 +66,12 @@ class AgentOsGatewayControllerTest {
             lastTextPath = path;
             return textResponses.getOrDefault(path, "");
         }
+
+        @Override
+        public ResponseEntity<String> getTextResponse(String path) {
+            lastTextPath = path;
+            return ResponseEntity.ok(textResponses.getOrDefault(path, ""));
+        }
     }
 
     @Test
@@ -111,6 +118,23 @@ class AgentOsGatewayControllerTest {
                 .andExpect(jsonPath("$.run.status").value("waiting_review"));
 
         assertEquals("/ai/core/workflows/start", agentOsGatewayService.lastPostPath);
+    }
+
+    @Test
+    void startWorkflow_propagatesGatewayErrorStatus() throws Exception {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("success", false);
+        response.put("message", "workflow not found");
+        response.put(AgentOsGatewayService.INTERNAL_HTTP_STATUS_KEY, 404);
+
+        agentOsGatewayService.postResponses.put("/ai/core/workflows/start", response);
+
+        mockMvc.perform(post("/api/agentos/core/workflows/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("workflowId", "missing"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("workflow not found"))
+                .andExpect(jsonPath("$._httpStatus").doesNotExist());
     }
 
     @Test
