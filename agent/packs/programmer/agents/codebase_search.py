@@ -1,5 +1,8 @@
-"""程序员 Pack 的智能体实现，负责需求分析、代码检索、代码生成和图表生成步骤。"""
+"""Programmer Pack Agent backed by the real read-only code index."""
 
+from __future__ import annotations
+
+import json
 
 from agentos.agents.base import AgentOutput, AgentProfile, BaseAgent
 
@@ -12,48 +15,46 @@ class CodebaseSearchAgent(BaseAgent):
                 domain="programmer",
                 capabilities=["codebase_semantic_search"],
                 allowedSkills=["codebase_semantic_search"],
-                description="Finds reusable authentication and permission code in the current project.",
+                allowedTools=["codebase_search"],
+                description="Finds reusable code in the current project through its real read-only index.",
             )
         )
 
     async def run(self, context):
-        requirement = str(context.task.input.get("requirement") or context.task.title).strip()
-        hits = [
-            {
-                "file_path": "backend/src/main/java/com/kinlin/ai/config/SecurityConfig.java",
-                "language": "java",
-                "score": 0.84,
-                "content": "已有 Spring Security 过滤链，可借鉴公开路径、鉴权入口和无状态会话配置。",
-            },
-            {
-                "file_path": "backend/src/main/java/com/kinlin/ai/filter/JwtAuthenticationFilter.java",
-                "language": "java",
-                "score": 0.81,
-                "content": "已有 JWT 解析与用户上下文注入逻辑，可迁移为 FastAPI dependency/middleware。",
-            },
-            {
-                "file_path": "backend/src/main/java/com/kinlin/ai/util/JwtUtil.java",
-                "language": "java",
-                "score": 0.79,
-                "content": "已有 Token 生成、校验、过期处理思路，可复用 claims 设计。",
-            },
-            {
-                "file_path": "backend/src/main/java/com/kinlin/ai/controller/AuthController.java",
-                "language": "java",
-                "score": 0.76,
-                "content": "已有登录/注册接口形态，可对齐 /auth/login 的输入输出。",
-            },
-        ]
+        requirement = str(
+            context.task.input.get("requirement") or context.task.title
+        ).strip()
+        if context.tool_runtime is None:
+            raise RuntimeError("codebase search tool runtime is not configured")
+        result = await context.tool_runtime.execute(
+            "codebase_search", {"query": requirement[:500], "top_k": 5}
+        )
+        try:
+            envelope = json.loads(result.text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("codebase search returned an invalid payload") from exc
+        if not envelope.get("ok"):
+            raise RuntimeError(
+                f"codebase search failed: {envelope.get('error') or 'unknown error'}"
+            )
+        hits = list((envelope.get("data") or {}).get("results") or [])
+        sources = [item.public_dict() for item in result.sources]
+        evidence_refs = [item.citation_id for item in result.sources]
         return AgentOutput(
             output={
-                "query": "FastAPI JWT auth permission existing code",
+                "query": requirement[:500],
                 "top_k": 5,
                 "hits": hits,
                 "index_status": {
                     "success": True,
-                    "message": "模拟检索结果：当前仓库已有 Java/Spring 认证代码，可作为 FastAPI 版本的设计参考。",
+                    "message": f"Real code index search completed with {len(hits)} hit(s).",
                 },
                 "source_query": requirement[:160],
+                "sources": sources,
+                "evidence_refs": evidence_refs,
             },
-            summary=f"Codebase search completed with {len(hits)} simulated hit(s).",
+            summary=f"Codebase search completed with {len(hits)} real hit(s).",
+            sources=sources,
+            toolExecutions=[item.public_dict() for item in result.tool_executions],
+            evidenceRefs=evidence_refs,
         )

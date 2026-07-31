@@ -15,6 +15,7 @@ def _workflow_registry() -> WorkflowRegistry:
             name="TestWorkflow",
             domain="legal",
             intent="contract_review",
+            runtimeEngine="acg",
             steps=[
                 WorkflowStepDefinition(
                     stepId="risk",
@@ -30,6 +31,7 @@ def _workflow_registry() -> WorkflowRegistry:
             name="Education Lesson Plan",
             domain="education",
             intent="lesson_plan",
+            runtimeEngine="acg",
             steps=[
                 WorkflowStepDefinition(
                     stepId="plan",

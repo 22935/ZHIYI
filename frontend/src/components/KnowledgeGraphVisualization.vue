@@ -1,3 +1,4 @@
+<!-- 知识图谱可视化面板 — 含统计信息、刷新/适配视图和加载/错误/空状态的丰富知识图谱 -->
 <template>
   <div class="knowledge-graph-viz">
     <div class="graph-header">
@@ -102,12 +103,20 @@ const emptyDescription = computed(() => {
 let network: Network | null = null
 let nodes = new DataSet<any>([])
 let edges = new DataSet<any>([])
+let themeObserver: MutationObserver | null = null
+
+const cssColor = (name: string, fallback: string) =>
+  getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 
 onMounted(async () => {
   await refreshGraph()
+  themeObserver = new MutationObserver(() => renderGraph())
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-scheme'] })
 })
 
 onUnmounted(() => {
+  themeObserver?.disconnect()
+  themeObserver = null
   if (network) {
     network.destroy()
     network = null
@@ -246,6 +255,10 @@ const renderGraph = () => {
     network.destroy()
   }
   
+  const primary = cssColor('--primary-color', '#6366f1')
+  const primaryFade = cssColor('--primary-fade', '#eef2ff')
+  const surface = cssColor('--bg-card', '#ffffff')
+  const edge = cssColor('--text-disabled', '#94a3b8')
   const data = {
     nodes: nodes,
     edges: edges
@@ -262,19 +275,19 @@ const renderGraph = () => {
       borderWidth: 2,
       shadow: true,
       color: {
-        border: '#6366f1',
-        background: '#ffffff',
+        border: primary,
+        background: surface,
         highlight: {
-          border: '#6366f1',
-          background: '#eef2ff'
+          border: primary,
+          background: primaryFade
         }
       }
     },
     edges: {
       width: 2,
       color: {
-        color: '#94a3b8',
-        highlight: '#6366f1'
+        color: edge,
+        highlight: primary
       },
       arrows: {
         to: {
@@ -412,7 +425,7 @@ const searchEntity = async () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #ffffff;
+  background: var(--surface-solid);
   border: 1px solid var(--border-light);
   border-radius: 16px;
   overflow: hidden;
@@ -424,7 +437,7 @@ const searchEntity = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #ffffff;
+  background: var(--surface-solid);
   
   .header-left {
     display: flex;
@@ -453,7 +466,7 @@ const searchEntity = async () => {
           padding: 4px 12px;
           background: rgba(99, 102, 241, 0.1);
           border-radius: 6px;
-          color: #6366f1;
+          color: var(--primary-color);
           font-weight: 600;
         }
       }
@@ -470,7 +483,7 @@ const searchEntity = async () => {
   flex: 1;
   position: relative;
   min-height: 500px;
-  background: #fafafa;
+  background: var(--bg-input);
 }
 
 .graph-canvas {
@@ -490,7 +503,7 @@ const searchEntity = async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.95);
+  background: color-mix(in srgb, var(--bg-card) 95%, transparent);
   backdrop-filter: blur(8px);
   gap: 16px;
   z-index: 10;
@@ -506,7 +519,7 @@ const searchEntity = async () => {
   font-size: 24px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #6366f1;
+  color: var(--primary-color);
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(34, 211, 238, 0.18));
   border: 1px solid rgba(99, 102, 241, 0.18);
 }
@@ -532,7 +545,7 @@ const searchEntity = async () => {
   display: flex;
   gap: 24px;
   align-items: center;
-  background: #ffffff;
+  background: var(--surface-solid);
   
   .control-group {
     display: flex;

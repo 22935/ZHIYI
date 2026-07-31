@@ -304,5 +304,37 @@ class ChatServiceTest {
         assertNotNull(response);
         verify(aiService).sendTextMessage(anyString(), anyString(), argThat(list -> list.size() > 0), anyString());
     }
+
+    @Test
+    void testSendMessage_WithRuntimeModelSettings() {
+        Conversation conversation = new Conversation();
+        conversation.setId(UUID.randomUUID());
+        conversation.setContextId(UUID.randomUUID().toString());
+
+        chatRequest.setModel("qwen3-plus");
+        chatRequest.setBaseUrl("https://example.com/v1");
+        chatRequest.setApiKey("test-key");
+        chatRequest.setReasoningEffort("high");
+        chatRequest.setToolMode("auto");
+
+        ChatResponse aiResponse = new ChatResponse();
+        aiResponse.setText("指定模型回复");
+
+        when(conversationRepository.save(any(Conversation.class))).thenReturn(conversation);
+        when(messageRepository.findByConversationIdOrderByCreatedAtAsc(any(UUID.class)))
+                .thenReturn(Collections.emptyList());
+        when(aiService.sendTextMessage(
+                anyString(), anyString(), anyList(), anyString(),
+                anyString(), anyString(), anyString(), anyString(), anyString()
+        )).thenReturn(aiResponse);
+
+        ChatResponse response = chatService.sendMessage(chatRequest, userId);
+
+        assertEquals("指定模型回复", response.getText());
+        verify(aiService).sendTextMessage(
+                anyString(), anyString(), anyList(), anyString(),
+                eq("qwen3-plus"), eq("https://example.com/v1"), eq("test-key"), eq("high"), eq("auto")
+        );
+    }
 }
 

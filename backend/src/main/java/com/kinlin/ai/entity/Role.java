@@ -38,6 +38,9 @@ public class Role {
     @Column(name = "user_id")
     private UUID userId; // NULL for builtin roles
 
+    @Column(name = "stable_key", unique = true, length = 100)
+    private String stableKey;
+
     @Column(name = "system_prompt", columnDefinition = "TEXT")
     private String systemPrompt;
 

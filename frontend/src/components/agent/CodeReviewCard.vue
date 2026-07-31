@@ -1,3 +1,4 @@
+<!-- 代码审查卡片 — 展示代码审查结果，含严重度分类问题、文件/位置信息和修改建议 -->
 <template>
   <section class="card review-card">
     <header class="card-head">
@@ -138,7 +139,7 @@ const issueSeverityLabel = (severity?: string) => {
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   overflow: hidden;
 }
 
@@ -148,7 +149,7 @@ const issueSeverityLabel = (severity?: string) => {
   align-items: center;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-light);
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
 }
 
 .head-left {
@@ -176,22 +177,22 @@ const issueSeverityLabel = (severity?: string) => {
 }
 
 .quality-pill.excellent {
-  background: #dcfce7;
+  background: var(--success-fade);
   color: #166534;
 }
 
 .quality-pill.good {
-  background: #dbeafe;
+  background: var(--primary-fade);
   color: #1e40af;
 }
 
 .quality-pill.fair {
-  background: #fef3c7;
+  background: var(--warning-fade);
   color: #92400e;
 }
 
 .quality-pill.poor {
-  background: #fee2e2;
+  background: var(--danger-fade);
   color: #991b1b;
 }
 
@@ -213,7 +214,7 @@ const issueSeverityLabel = (severity?: string) => {
 
 .summary-block {
   padding: 10px 12px;
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
   border-bottom: 1px solid #e9e5f5;
 }
 
@@ -243,17 +244,17 @@ const issueSeverityLabel = (severity?: string) => {
 }
 
 .issue-item.critical {
-  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  background: linear-gradient(135deg, var(--danger-fade), var(--danger-fade));
   border-color: #fca5a5;
 }
 
 .issue-item.warning {
-  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  background: linear-gradient(135deg, var(--warning-fade), var(--warning-fade));
   border-color: #fcd34d;
 }
 
 .issue-item.info {
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
   border-color: #c4b5fd;
 }
 
@@ -272,23 +273,23 @@ const issueSeverityLabel = (severity?: string) => {
 }
 
 .severity-badge.critical {
-  background: #fee2e2;
+  background: var(--danger-fade);
   color: #991b1b;
 }
 
 .severity-badge.warning {
-  background: #fef3c7;
+  background: var(--warning-fade);
   color: #92400e;
 }
 
 .severity-badge.info {
-  background: #ede9fe;
+  background: var(--accent-fade);
   color: #5b21b6;
 }
 
 .issue-location {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-family: 'Fira Code', 'Consolas', monospace;
 }
 
@@ -304,7 +305,7 @@ const issueSeverityLabel = (severity?: string) => {
   font-size: 11px;
   color: #6d28d9;
   padding: 4px 8px;
-  background: #f5f3ff;
+  background: var(--accent-fade);
   border-radius: 6px;
   border-left: 3px solid #7c3aed;
 }
@@ -320,7 +321,7 @@ const issueSeverityLabel = (severity?: string) => {
   gap: 8px;
   padding: 10px 12px;
   border-top: 1px solid var(--border-light);
-  background: #faf9ff;
+  background: var(--accent-fade);
 }
 
 .metric-item {

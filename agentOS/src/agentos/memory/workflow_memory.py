@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict
 
 from agentos.core.models.types import WorkflowRun, StepStatus
+from agentos.core.communication.contract import ContextPack
 
 
 @dataclass
@@ -26,3 +27,12 @@ class WorkflowMemory:
 
     def record(self, step_id: str, output: Dict[str, Any]) -> None:
         self.observations[step_id] = dict(output)
+
+    @classmethod
+    def from_context_pack(cls, run: WorkflowRun, pack: ContextPack) -> "WorkflowMemory":
+        """Build the Agent-visible memory from only the fields declared by inputSpec."""
+        return cls(
+            run_id=run.run_id,
+            task_input=dict(run.input),
+            observations={source_id: dict(data) for source_id, data in pack.source_data.items()},
+        )

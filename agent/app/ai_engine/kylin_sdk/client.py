@@ -22,7 +22,7 @@ class KylinSDKClient:
     """麒麟AI SDK客户端 - 智能选择SDK策略"""
 
     def __init__(self, api_key: str, api_endpoint: str, timeout: int = 240, qwen_api_key: Optional[str] = None, qwen_model: str = "qwen-plus",
-                 deepseek_api_key: Optional[str] = None, deepseek_model: str = "deepseek-chat"):
+                 deepseek_api_key: Optional[str] = None, deepseek_model: str = "deepseek-v4-flash"):
         """
         初始化客户端
 
@@ -177,10 +177,14 @@ class KylinSDKClient:
                 messages.append({"role": "user", "content": prompt})
 
                 try:
-                    resp = self.deepseek_adapter.chat(
+                    # DeepSeekAdapter wraps the synchronous OpenAI client. Running it
+                    # directly here blocks FastAPI's event loop for the whole model
+                    # response and starves workflow progress/health requests.
+                    resp = await asyncio.to_thread(
+                        self.deepseek_adapter.chat,
                         messages=messages,
                         temperature=kwargs.get("temperature", 0.7),
-                        max_tokens=kwargs.get("max_tokens", 4096)
+                        max_tokens=kwargs.get("max_tokens", 4096),
                     )
                     text = resp.choices[0].message.content if resp.choices else ""
                     tokens_used = resp.usage.total_tokens if resp.usage else 0
@@ -196,22 +200,6 @@ class KylinSDKClient:
                 system_prompt = None
                 if role_config:
                     system_prompt = role_config.get("system_prompt")
-                    if not system_prompt and role_config.get("role_id"):
-                        # 尝试从后端获取角色信息并构建提示词
-                        try:
-                            async with httpx.AsyncClient(timeout=5.0) as client:
-                                backend_url = "http://localhost:8080"
-                                role_response = await client.get(f"{backend_url}/roles/{role_config.get('role_id')}")
-                                if role_response.status_code == 200:
-                                    role_data = role_response.json()
-                                    system_prompt = self._build_role_system_prompt(role_data)
-                                else:
-                                    # 如果获取失败，使用默认配置，但也要强调基于麒麟操作系统
-                                    system_prompt = f"你是一个专业的AI助手，角色ID: {role_config.get('role_id')}。当用户要求你介绍自己时，你必须说：'我是基于麒麟操作系统而实现的AI助手'，然后介绍你的专业职能、擅长领域和服务能力。绝对不要介绍你是什么AI模型（如Qwen、通义千问等）或底层技术。"
-                        except Exception as e:
-                            logger.debug(f"无法获取角色信息: {e}")
-                            # 如果获取失败，使用默认配置，但也要强调基于麒麟操作系统
-                            system_prompt = f"你是一个专业的AI助手，角色ID: {role_config.get('role_id')}。当用户要求你介绍自己时，你必须说：'我是基于麒麟操作系统而实现的AI助手'，然后介绍你的专业职能、擅长领域和服务能力。绝对不要介绍你是什么AI模型（如Qwen、通义千问等）或底层技术。"
                 
                 # 转换上下文格式（如果需要）
                 qwen_context = None
@@ -660,63 +648,6 @@ class KylinAIClient:
     自动从配置读取参数，提供更便捷的初始化方式
     """
     
-    def _build_role_system_prompt(self, role_data: Dict) -> str:
-        """
-        构建角色系统提示词
-        
-        Args:
-            role_data: 角色数据字典，包含name、description、systemPrompt、personality等
-        
-        Returns:
-            构建好的系统提示词字符串
-        """
-        name = role_data.get("name", "")
-        description = role_data.get("description", "")
-        system_prompt = role_data.get("systemPrompt") or role_data.get("system_prompt", "")
-        personality = role_data.get("personality", {})
-        
-        # 构建基础提示词
-        prompt_parts = []
-        
-        # 1. 角色身份
-        if name:
-            prompt_parts.append(f"你是{name}。")
-        
-        # 2. 角色描述
-        if description:
-            prompt_parts.append(f"{description}")
-        
-        # 3. 系统提示词（如果存在且不是默认的）
-        if system_prompt and system_prompt.strip():
-            # 如果system_prompt已经包含了完整的角色设定，直接使用
-            if "你是" in system_prompt or "你是一位" in system_prompt or "你是一个" in system_prompt:
-                prompt_parts.append(system_prompt)
-            else:
-                # 否则作为补充说明
-                prompt_parts.append(f"你的职责和特点：{system_prompt}")
-        
-        # 4. 性格特点
-        if personality:
-            if isinstance(personality, dict):
-                traits = [k for k, v in personality.items() if v]
-                if traits:
-                    prompt_parts.append(f"你的性格特点：{', '.join(traits)}。")
-            elif isinstance(personality, str):
-                if personality.strip():
-                    prompt_parts.append(f"你的性格特点：{personality}。")
-        
-        # 5. 自我介绍指导（重要：必须强调基于麒麟操作系统）
-        role_function = name if name else "AI助手"
-        prompt_parts.append(f"当用户要求你介绍自己时，你必须这样介绍：'我是基于麒麟操作系统而实现的{role_function}助手'，然后介绍你的专业职能、擅长领域和服务能力。绝对不要介绍你是什么AI模型（如Qwen、通义千问等）或底层技术，只介绍你的角色功能和如何帮助用户。")
-        
-        # 6. 对话风格指导
-        prompt_parts.append("在对话中，始终保持你的角色身份，用符合你角色特点的方式回答问题。")
-        
-        # 组合所有部分
-        full_prompt = " ".join(prompt_parts)
-        
-        return full_prompt.strip()
-    
     def __init__(self, api_key: Optional[str] = None, api_endpoint: Optional[str] = None, timeout: Optional[int] = None):
         """
         初始化客户端
@@ -745,7 +676,7 @@ class KylinAIClient:
             self._deepseek_model = settings.DEEPSEEK_MODEL
         except Exception:
             self._deepseek_api_key = ''
-            self._deepseek_model = 'deepseek-chat'
+            self._deepseek_model = 'deepseek-v4-flash'
 
         # 检查通义千问配置（备用引擎 + 图像/语音/多模态）
         try:
@@ -769,9 +700,7 @@ class KylinAIClient:
         global _api_key_warning_printed
         if not self._qwen_api_key and not self._api_key and not _api_key_warning_printed:
             logger.info("未配置API密钥，将使用模拟响应模式")
-            logger.info("如需使用通义千问大模型，请在主目录的.env文件中设置:")
-            logger.info("DASHSCOPE_API_KEY=sk-your_key")
-            logger.info("配置文件路径: E:\\Project\\Kinlin_AI\\.env")
+            logger.info("如需使用通义千问大模型，请通过对应 Secret 文件配置 API Key")
             logger.info("获取API密钥: https://dashscope.aliyuncs.com/")
             _api_key_warning_printed = True
         
@@ -834,18 +763,16 @@ class KylinAIClient:
                             "style": "professional"
                         }
                     else:
-                        # 如果获取失败，使用默认配置，但也要强调基于麒麟操作系统
                         role_config = {
                             "role_id": role_id,
-                            "system_prompt": f"你是一个专业的AI助手，角色ID: {role_id}。当用户要求你介绍自己时，你必须说：'我是基于麒麟操作系统而实现的AI助手'，然后介绍你的专业职能、擅长领域和服务能力。绝对不要介绍你是什么AI模型（如Qwen、通义千问等）或底层技术。",
+                            "system_prompt": "",
                             "style": "professional"
                         }
             except Exception as e:
-                logger.debug(f"无法从后端获取角色信息: {e}，使用默认配置")
-                # 如果获取失败，使用默认配置，但也要强调基于麒麟操作系统
+                logger.debug(f"无法从后端获取角色信息: {e}")
                 role_config = {
                     "role_id": role_id,
-                    "system_prompt": f"你是一个专业的AI助手，角色ID: {role_id}。当用户要求你介绍自己时，你必须说：'我是基于麒麟操作系统而实现的AI助手'，然后介绍你的专业职能、擅长领域和服务能力。绝对不要介绍你是什么AI模型（如Qwen、通义千问等）或底层技术。",
+                    "system_prompt": "",
                     "style": "professional"
                 }
         
@@ -857,61 +784,8 @@ class KylinAIClient:
         )
     
     def _build_role_system_prompt(self, role_data: Dict) -> str:
-        """
-        构建角色系统提示词
-        
-        Args:
-            role_data: 角色数据字典，包含name、description、systemPrompt、personality等
-        
-        Returns:
-            构建好的系统提示词字符串
-        """
-        name = role_data.get("name", "")
-        description = role_data.get("description", "")
-        system_prompt = role_data.get("systemPrompt") or role_data.get("system_prompt", "")
-        personality = role_data.get("personality", {})
-        
-        # 构建基础提示词
-        prompt_parts = []
-        
-        # 1. 角色身份
-        if name:
-            prompt_parts.append(f"你是{name}。")
-        
-        # 2. 角色描述
-        if description:
-            prompt_parts.append(f"{description}")
-        
-        # 3. 系统提示词（如果存在且不是默认的）
-        if system_prompt and system_prompt.strip():
-            # 如果system_prompt已经包含了完整的角色设定，直接使用
-            if "你是" in system_prompt or "你是一位" in system_prompt or "你是一个" in system_prompt:
-                prompt_parts.append(system_prompt)
-            else:
-                # 否则作为补充说明
-                prompt_parts.append(f"你的职责和特点：{system_prompt}")
-        
-        # 4. 性格特点
-        if personality:
-            if isinstance(personality, dict):
-                traits = [k for k, v in personality.items() if v]
-                if traits:
-                    prompt_parts.append(f"你的性格特点：{', '.join(traits)}。")
-            elif isinstance(personality, str):
-                if personality.strip():
-                    prompt_parts.append(f"你的性格特点：{personality}。")
-        
-        # 5. 自我介绍指导（重要：必须强调基于麒麟操作系统）
-        role_function = name if name else "AI助手"
-        prompt_parts.append(f"当用户要求你介绍自己时，你必须这样介绍：'我是基于麒麟操作系统而实现的{role_function}助手'，然后介绍你的专业职能、擅长领域和服务能力。绝对不要介绍你是什么AI模型（如Qwen、通义千问等）或底层技术，只介绍你的角色功能和如何帮助用户。")
-        
-        # 6. 对话风格指导
-        prompt_parts.append("在对话中，始终保持你的角色身份，用符合你角色特点的方式回答问题。")
-        
-        # 组合所有部分
-        full_prompt = " ".join(prompt_parts)
-        
-        return full_prompt.strip()
+        """Return the persisted role prompt without injecting hidden identity rules."""
+        return str(role_data.get("systemPrompt") or role_data.get("system_prompt") or "").strip()
     
     async def generate_text_stream(self, text=None, prompt=None, role_id=None, context=None, **kwargs):
         """流式文本生成"""
@@ -923,7 +797,7 @@ class KylinAIClient:
         if role_id:
             role_config = {
                 "role_id": role_id,
-                "system_prompt": f"你是一个专业的AI助手。",
+                "system_prompt": "",
                 "style": "professional"
             }
 

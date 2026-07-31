@@ -1,16 +1,7 @@
+<!-- 消息展示组件 — 用户使用紧凑气泡，助手使用无边框阅读流 -->
 <template>
   <div v-if="message && message.role && message.content !== undefined" :class="['message-bubble', message.role]">
-    <div class="message-avatar">
-      <el-avatar :size="36" shape="square" :src="roleAvatar">
-        {{ message.role === 'user' ? 'Me' : roleName?.charAt(0) }}
-      </el-avatar>
-    </div>
     <div class="message-content-wrapper">
-      <div class="message-meta">
-        <span class="sender-name">{{ message.role === 'user' ? '你' : roleName }}</span>
-        <span class="message-time">{{ formatTime(message.createdAt) }}</span>
-      </div>
-      
       <div class="message-content">
         <!-- 文件展示 -->
         <div v-if="message.fileUrl" class="message-file">
@@ -39,62 +30,101 @@
           :file-name="'image.png'"
         />
 
-        <!-- 文本内容 -->
-        <div
-          v-if="message.content"
-          class="message-text markdown-body"
-          v-html="renderedMessageHtml"
-        />
-        
-        <!-- 可解释性信息（仅AI回复显示） -->
-        <div v-if="message.role === 'assistant' && hasExplanation" class="message-explanation">
-          <el-collapse v-model="activeCollapse" class="explanation-collapse">
-            <el-collapse-item name="explanation">
-              <template #title>
-                <div class="explanation-toggle">
-                  <el-icon><InfoFilled /></el-icon>
-                  <span>AI 思考过程与详情</span>
-                </div>
-              </template>
-              
-              <!-- 置信度 -->
+        <!-- DeepSeek 风格的内联思考状态；仅展示真实状态和已有运行详情 -->
+        <section
+          v-if="message.role === 'assistant' && showThinkingStatus"
+          class="thinking-status"
+          :class="{ 'is-thinking': message.thinkingState === 'thinking' }"
+          aria-label="AI 思考状态"
+        >
+          <button
+            v-if="canExpandDetails"
+            type="button"
+            class="thinking-status__trigger"
+            :aria-expanded="detailsOpen"
+            :aria-controls="detailsId"
+            @click="detailsOpen = !detailsOpen"
+          >
+            <span class="thinking-status__identity">
+              <el-icon class="thinking-status__icon"><Cpu /></el-icon>
+              <span>{{ thinkingLabel }}</span>
+            </span>
+            <el-icon class="thinking-status__chevron" :class="{ open: detailsOpen }"><ArrowDown /></el-icon>
+          </button>
+          <div v-else class="thinking-status__summary" role="status" aria-live="polite">
+            <span class="thinking-status__identity">
+              <el-icon class="thinking-status__icon"><Cpu /></el-icon>
+              <span>{{ thinkingLabel }}</span>
+            </span>
+            <span v-if="message.thinkingState === 'thinking'" class="thinking-status__dots" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </span>
+          </div>
+
+          <Transition name="thinking-details">
+            <div v-if="detailsOpen && canExpandDetails" :id="detailsId" class="thinking-status__details">
+              <div v-if="message.modelInfo" class="explanation-item">
+                <span class="explanation-label">模型</span>
+                <span class="explanation-value">{{ message.modelInfo }}</span>
+              </div>
+
+              <div v-if="message.reasoningContent" class="explanation-item vertical">
+                <span class="explanation-label">思考过程</span>
+                <div class="reasoning-content">{{ message.reasoningContent }}</div>
+              </div>
+
+              <div v-if="message.effectiveThinkingMode" class="explanation-item">
+                <span class="explanation-label">思考强度</span>
+                <span class="explanation-value">{{ thinkingModeLabel }}</span>
+              </div>
+
+              <div v-if="message.reasoningTokens" class="explanation-item">
+                <span class="explanation-label">思考消耗</span>
+                <span class="explanation-value">{{ message.reasoningTokens }} tokens</span>
+              </div>
+
               <div v-if="message.confidence" class="explanation-item">
                 <span class="explanation-label">置信度</span>
                 <div class="explanation-value-row">
                   <el-progress
                     :percentage="(message.confidence * 100)"
                     :color="getConfidenceColor(message.confidence)"
-                    :stroke-width="6"
+                    :stroke-width="5"
                     :show-text="false"
-                    style="width: 100px;"
+                    style="width: 96px;"
                   />
                   <span class="value-text">{{ (message.confidence * 100).toFixed(1) }}%</span>
                 </div>
               </div>
-              
-              <!-- Token使用 -->
+
               <div v-if="message.tokensUsed" class="explanation-item">
                 <span class="explanation-label">消耗</span>
                 <span class="explanation-value">{{ message.tokensUsed }} tokens</span>
               </div>
-              
-              <!-- 答案来源（RAG） -->
+
               <div v-if="message.sources && message.sources.length > 0" class="explanation-item vertical">
                 <span class="explanation-label">参考来源</span>
                 <div class="sources-list">
-                  <div
-                    v-for="(source, index) in message.sources"
-                    :key="index"
-                    class="source-tag"
-                  >
-                    <el-icon><Link /></el-icon>
-                    {{ source.title || source.filename || `来源 ${index + 1}` }}
-                  </div>
+                  <template v-for="(source, index) in message.sources" :key="source.citationId || source.url || index">
+                    <a
+                      v-if="source.url && isSafeUrl(source.url)"
+                      class="source-tag"
+                      :href="source.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <el-icon><Link /></el-icon>
+                      {{ source.title || source.filename || `来源 ${index + 1}` }}
+                    </a>
+                    <span v-else class="source-tag">
+                      <el-icon><Link /></el-icon>
+                      {{ source.title || source.filename || `来源 ${index + 1}` }}
+                    </span>
+                  </template>
                 </div>
               </div>
-              
-              <!-- 推理路径 -->
-              <div v-if="message.reasoningPath" class="explanation-item vertical">
+
+              <div v-if="message.reasoningPath && message.reasoningPath.length > 0" class="explanation-item vertical">
                 <span class="explanation-label">推理路径</span>
                 <div class="reasoning-path">
                   <div v-for="(step, index) in message.reasoningPath" :key="index" class="reasoning-step">
@@ -106,28 +136,46 @@
                   </div>
                 </div>
               </div>
-            </el-collapse-item>
-          </el-collapse>
-        </div>
 
-        <!-- Message Actions Area -->
-        <div class="message-actions">
-           <el-tooltip content="复制" placement="top">
-             <div class="action-item" @click="handleAction('copy')"><el-icon><CopyDocument /></el-icon></div>
-           </el-tooltip>
-           <el-tooltip content="引用" placement="top">
-             <div class="action-item" @click="handleAction('quote')"><el-icon><ChatLineSquare /></el-icon></div>
-           </el-tooltip>
-           <el-tooltip content="生成语音" placement="top">
-             <div class="action-item" @click="handleAction('tts')"><el-icon><Microphone /></el-icon></div>
-           </el-tooltip>
-           <el-tooltip content="导出" placement="top">
-             <div class="action-item" @click="handleAction('export')"><el-icon><Download /></el-icon></div>
-           </el-tooltip>
-           <el-tooltip content="删除" placement="top">
-             <div class="action-item delete" @click="handleAction('delete')"><el-icon><Delete /></el-icon></div>
-           </el-tooltip>
-        </div>
+              <div v-if="message.executionSummary && message.executionSummary.length > 0" class="explanation-item vertical">
+                <span class="explanation-label">执行摘要</span>
+                <div class="execution-summary">
+                  <div v-for="item in message.executionSummary" :key="`${item.stage}-${item.status}`" class="execution-summary__item">
+                    <span class="execution-summary__stage">{{ executionStageLabel(item.stage) }}</span>
+                    <span class="execution-summary__description">{{ item.description }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </section>
+
+        <!-- 文本内容 -->
+        <div
+          v-if="message.content"
+          class="message-text markdown-body"
+          v-html="renderedMessageHtml"
+        />
+      </div>
+
+      <!-- Message Actions Area -->
+      <div v-if="message.content" class="message-actions">
+        <el-tooltip content="复制" placement="top">
+          <div class="action-item" @click="handleAction('copy')"><el-icon><CopyDocument /></el-icon></div>
+        </el-tooltip>
+        <el-tooltip content="引用" placement="top">
+          <div class="action-item" @click="handleAction('quote')"><el-icon><ChatLineSquare /></el-icon></div>
+        </el-tooltip>
+        <el-tooltip content="生成语音" placement="top">
+          <div class="action-item" @click="handleAction('tts')"><el-icon><Microphone /></el-icon></div>
+        </el-tooltip>
+        <el-tooltip content="导出" placement="top">
+          <div class="action-item" @click="handleAction('export')"><el-icon><Download /></el-icon></div>
+        </el-tooltip>
+        <el-tooltip content="删除" placement="top">
+          <div class="action-item delete" @click="handleAction('delete')"><el-icon><Delete /></el-icon></div>
+        </el-tooltip>
+        <span class="message-action-time">{{ formatTime(message.createdAt) }}</span>
       </div>
     </div>
   </div>
@@ -140,8 +188,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Document, InfoFilled, Link, CopyDocument, ChatLineSquare, Delete, Microphone, Download, FullScreen } from '@element-plus/icons-vue'
-import { useRoleStore } from '@/stores/role'
+import { ArrowDown, Cpu, Document, Link, CopyDocument, ChatLineSquare, Delete, Microphone, Download, FullScreen } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ImageViewer from '@/components/common/ImageViewer.vue'
 
@@ -150,6 +197,10 @@ interface Source {
   filename?: string
   url?: string
   content?: string
+  snippet?: string
+  provider?: string
+  citationId?: string
+  retrievedAt?: string
 }
 
 interface ReasoningStep {
@@ -169,14 +220,22 @@ interface Props {
     sources?: Source[]
     reasoningPath?: ReasoningStep[]
     modelInfo?: string
+    thinkingState?: 'thinking' | 'complete' | 'error'
+    thinkingDurationMs?: number
+    reasoningContent?: string
+    requestedThinkingMode?: string
+    effectiveThinkingMode?: string
+    effectiveReasoningEffort?: string
+    reasoningTokens?: number
+    executionSummary?: Array<{ stage: string; status: string; description: string; durationMs?: number }>
   }
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits(['copy', 'quote', 'delete', 'tts', 'export'])
-const roleStore = useRoleStore()
-const activeCollapse = ref<string[]>([])
+const detailsOpen = ref(false)
 const imageViewerVisible = ref(false)
+const detailsId = computed(() => `thinking-details-${String(props.message.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`)
 
 const openImageViewer = () => {
   imageViewerVisible.value = true
@@ -317,28 +376,60 @@ const renderedMessageHtml = computed(() => {
   return escapeHtml(content).replace(/\n/g, '<br />')
 })
 
-const roleName = computed(() => {
-  return roleStore.currentRole?.name || 'Assistant'
-})
-
-const roleAvatar = computed(() => {
-  return props.message.role === 'assistant' ? roleStore.currentRole?.avatar : undefined
-})
-
-const hasExplanation = computed(() => {
+const hasDetails = computed(() => {
   return !!(
     props.message.confidence ||
     props.message.tokensUsed ||
     (props.message.sources && props.message.sources.length > 0) ||
     (props.message.reasoningPath && props.message.reasoningPath.length > 0) ||
+    props.message.reasoningContent ||
+    props.message.effectiveThinkingMode ||
+    props.message.reasoningTokens ||
+    (props.message.executionSummary && props.message.executionSummary.length > 0) ||
     props.message.modelInfo
   )
+})
+
+const showThinkingStatus = computed(() => !!props.message.thinkingState || hasDetails.value)
+
+const canExpandDetails = computed(() => {
+  return hasDetails.value && (
+    props.message.thinkingState !== 'thinking' || Boolean(props.message.reasoningContent)
+  )
+})
+
+const thinkingModeLabel = computed(() => {
+  const mode = props.message.effectiveThinkingMode || props.message.requestedThinkingMode
+  if (mode === 'deep') return '深度'
+  if (mode === 'standard') return '标准'
+  return '关闭'
+})
+
+const thinkingDurationSeconds = computed(() => {
+  if (props.message.thinkingDurationMs === undefined) return null
+  return Math.max(1, Math.ceil(props.message.thinkingDurationMs / 1000))
+})
+
+const thinkingLabel = computed(() => {
+  const seconds = thinkingDurationSeconds.value
+  const duration = seconds === null ? '' : `（用时 ${seconds} 秒）`
+  if (props.message.thinkingState === 'thinking') return '思考中'
+  if (props.message.thinkingState === 'complete') return `已思考${duration}`
+  if (props.message.thinkingState === 'error') return `思考已中断${duration}`
+  return '运行详情'
 })
 
 const getConfidenceColor = (confidence: number) => {
   if (confidence >= 0.8) return 'var(--success)'
   if (confidence >= 0.6) return 'var(--warning)'
   return 'var(--danger)'
+}
+
+const executionStageLabel = (stage: string) => {
+  if (stage === 'reasoning') return '思考'
+  if (stage === 'answer_generation') return '回答生成'
+  if (stage.startsWith('tool:')) return `工具 · ${stage.split(':')[1] || 'unknown'}`
+  return stage
 }
 
 const isImage = (url: string) => {
@@ -357,74 +448,58 @@ const formatTime = (date: Date) => {
 
 <style scoped lang="scss">
 .message-bubble {
+  width: 100%;
   display: flex;
-  margin-bottom: 18px;
-  gap: 12px;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 0;
   animation: fadeIn 180ms var(--ease-out);
-  padding: 0 12px;
+  padding: 0 28px;
 }
 
 .message-bubble.user {
-  flex-direction: row-reverse;
-}
-
-.message-avatar {
-  flex-shrink: 0;
-  margin-top: 4px;
+  justify-content: flex-end;
 }
 
 .message-content-wrapper {
-  max-width: 76%;
-  min-width: 120px;
+  width: min(100%, 780px);
+  max-width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
 .message-bubble.user .message-content-wrapper {
+  width: auto;
+  max-width: min(72%, 560px);
   align-items: flex-end;
 }
 
-.message-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.message-bubble.user .message-meta {
-  flex-direction: row-reverse;
-}
-
-.sender-name {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
 .message-content {
-  padding: 13px 15px;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 0;
   word-wrap: break-word;
-  line-height: 1.6;
-  font-size: 15px;
+  line-height: 1.75;
+  font-size: 15.5px;
   position: relative;
   transition: var(--transition);
 }
 
 .message-bubble.user .message-content {
-  background-color: var(--primary-color);
-  color: white;
-  border-top-right-radius: 3px;
+  padding: 9px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
   box-shadow: none;
 }
 
 .message-bubble.assistant .message-content {
-  background-color: #fff;
+  background: transparent;
   color: var(--text-primary);
-  border: 1px solid var(--border-light);
-  border-top-left-radius: 3px;
-  box-shadow: var(--shadow-sm);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* System/History Messages (Placeholder for role='system') */
@@ -468,35 +543,40 @@ const formatTime = (date: Date) => {
 .message-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 4px 0;
-  opacity: 1;
+  gap: 2px;
+  margin-top: 7px;
+  padding: 0;
+  opacity: 0.62;
   transition: opacity 0.2s;
 }
 
 /* 保持悬停效果，但不再控制显示/隐藏 */
-.message-content:hover .message-actions {
+.message-bubble:hover .message-actions,
+.message-actions:focus-within {
   opacity: 1;
 }
 
+.message-bubble.user .message-actions {
+  justify-content: flex-end;
+}
+
 .action-item {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 7px;
   cursor: pointer;
   color: var(--text-disabled);
   transition: var(--transition);
-  background: rgba(29, 36, 34, 0.03);
+  background: transparent;
 }
 
 .action-item:hover {
-  background: rgba(63, 107, 99, 0.08);
-  color: var(--primary-color);
-  transform: translateY(-1px);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  transform: none;
 }
 
 .action-item.delete:hover {
@@ -508,13 +588,25 @@ const formatTime = (date: Date) => {
 }
 
 .message-bubble.user .action-item {
-  color: rgba(255, 255, 255, 0.76);
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-disabled);
+  background: transparent;
 }
 
 .message-bubble.user .action-item:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+  background: var(--bg-panel);
+}
+
+.message-action-time {
+  margin-left: 6px;
+  color: var(--text-disabled);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.message-bubble.user .message-action-time {
+  order: -1;
+  margin: 0 6px 0 0;
 }
 
 /* File Attachments */
@@ -561,7 +653,7 @@ const formatTime = (date: Date) => {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
   border: 1px solid var(--border-light);
   border-radius: 8px;
 }
@@ -577,7 +669,7 @@ const formatTime = (date: Date) => {
 
 .message-text.markdown-body {
   white-space: normal;
-  line-height: 1.7;
+  line-height: 1.78;
 }
 
 .message-text.markdown-body :deep(h1),
@@ -596,7 +688,11 @@ const formatTime = (date: Date) => {
 .message-text.markdown-body :deep(h3) { font-size: 16px; }
 
 .message-text.markdown-body :deep(p) {
-  margin: 8px 0;
+  margin: 0 0 12px;
+}
+
+.message-text.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
 }
 
 .message-text.markdown-body :deep(ul),
@@ -622,7 +718,7 @@ const formatTime = (date: Date) => {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   padding: 0 4px;
   border-radius: 4px;
-  background: rgba(63, 107, 99, 0.12);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
 .message-text.markdown-body :deep(pre code) {
@@ -636,50 +732,112 @@ const formatTime = (date: Date) => {
   word-break: break-all;
 }
 
-/* Explanation Section */
-.message-explanation {
-  margin-top: 12px;
-  border-top: 1px solid rgba(29, 36, 34, 0.06);
-  padding-top: 8px;
+/* Inline thinking status — compact, borderless and theme-token driven */
+.thinking-status {
+  width: 100%;
+  margin: 0 0 14px;
+  color: var(--text-secondary);
 }
 
-.message-bubble.user .message-explanation {
-  border-top-color: rgba(255,255,255,0.18);
-}
-
-.explanation-toggle {
-  display: flex;
+.thinking-status__trigger,
+.thinking-status__summary {
+  min-height: 28px;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  
-  &:hover {
-    color: var(--primary-color);
-  }
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
-.explanation-collapse {
-  --el-collapse-header-height: 32px;
-  --el-collapse-border-color: transparent;
-  
-  :deep(.el-collapse-item__header) {
-    background: transparent;
-    border: none;
-    font-size: 13px;
-  }
-  
-  :deep(.el-collapse-item__content) {
-    background: transparent;
-    padding-bottom: 0;
-  }
+.thinking-status__trigger {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 180ms var(--ease-out);
+}
+
+.thinking-status__trigger:hover {
+  color: var(--primary-color);
+}
+
+.thinking-status__trigger:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 3px;
+}
+
+.thinking-status__identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.thinking-status__icon {
+  flex: 0 0 auto;
+  color: var(--primary-color);
+  font-size: 16px;
+}
+
+.thinking-status.is-thinking .thinking-status__icon {
+  animation: thinkingPulse 1.5s ease-in-out infinite;
+}
+
+.thinking-status__chevron {
+  margin-left: 1px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  transition: transform 180ms var(--ease-out), color 180ms var(--ease-out);
+}
+
+.thinking-status__chevron.open {
+  transform: rotate(180deg);
+}
+
+.thinking-status__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 1px;
+}
+
+.thinking-status__dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  animation: thinkingDot 1.2s ease-in-out infinite;
+}
+
+.thinking-status__dots i:nth-child(2) { animation-delay: 140ms; }
+.thinking-status__dots i:nth-child(3) { animation-delay: 280ms; }
+
+.thinking-status__details {
+  width: min(100%, 720px);
+  margin: 8px 0 2px 7px;
+  padding: 4px 0 2px 16px;
+  border-left: 1px solid color-mix(in srgb, var(--primary-color) 32%, var(--border-light));
+  color: var(--text-secondary);
+}
+
+.thinking-details-enter-active,
+.thinking-details-leave-active {
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+
+.thinking-details-enter-from,
+.thinking-details-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .explanation-item {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 9px;
   gap: 12px;
   font-size: 13px;
   
@@ -696,6 +854,12 @@ const formatTime = (date: Date) => {
   min-width: 60px;
 }
 
+.explanation-value {
+  min-width: 0;
+  color: var(--text-regular);
+  overflow-wrap: anywhere;
+}
+
 .explanation-value-row {
   display: flex;
   align-items: center;
@@ -707,23 +871,63 @@ const formatTime = (date: Date) => {
   color: var(--text-regular);
 }
 
+.reasoning-content {
+  width: 100%;
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.execution-summary {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.execution-summary__item {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.execution-summary__stage {
+  color: var(--text-secondary);
+}
+
+.execution-summary__description {
+  color: var(--text-regular);
+  overflow-wrap: anywhere;
+}
+
 .source-tag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background-color: var(--bg-input);
-  border-radius: 4px;
+  background-color: var(--primary-fade);
+  border-radius: 6px;
   font-size: 12px;
   color: var(--text-regular);
   margin-right: 4px;
   margin-bottom: 4px;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--primary-line);
+  text-decoration: none;
 }
 
 .reasoning-path {
   padding-left: 8px;
-  border-left: 2px solid var(--border-color-light);
+  border-left: 1px solid var(--border-light);
   margin-left: 4px;
 }
 
@@ -742,7 +946,7 @@ const formatTime = (date: Date) => {
     top: 6px;
     width: 8px;
     height: 8px;
-    background-color: var(--border-color-base);
+    background-color: var(--primary-color);
     border-radius: 50%;
   }
   
@@ -762,5 +966,28 @@ const formatTime = (date: Date) => {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes thinkingPulse {
+  0%, 100% { opacity: 0.58; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes thinkingDot {
+  0%, 60%, 100% { opacity: 0.28; transform: translateY(0); }
+  30% { opacity: 0.9; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-status__icon,
+  .thinking-status__dots i {
+    animation: none !important;
+  }
+
+  .thinking-details-enter-active,
+  .thinking-details-leave-active,
+  .thinking-status__chevron {
+    transition: none;
+  }
 }
 </style>

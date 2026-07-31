@@ -1,3 +1,4 @@
+<!-- 图片查看器 — 全屏 Teleport 到 body 的图片预览覆盖层，支持缩放、平移、触摸手势和点击关闭 -->
 <template>
   <Teleport to="body">
     <Transition name="viewer-fade">

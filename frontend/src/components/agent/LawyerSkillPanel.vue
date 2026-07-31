@@ -1,3 +1,4 @@
+<!-- 律师技能面板 — 律师 Agent 技能仪表盘，含风险等级、技能使用次数、联邦增强状态和 Tab 切换 -->
 <template>
   <section class="skill-panel lawyer-panel">
     <div class="panel-header">
@@ -38,19 +39,20 @@
         <div class="sub-section">
           <div class="sub-title">联邦增强状态</div>
           <div class="federated-row">
-            <span class="status-pill" :class="federatedStatusClass">{{ federatedStatusText }}</span>
-            <span class="meta" v-if="federated?.applied">
-              调整：{{ formatAdjustment(federated?.risk_adjustment) }} | 置信度：{{ formatPercent(federated?.confidence) }} |
-              节点：{{ federated?.federated_nodes_count ?? 0 }}
-            </span>
             <div class="federated-actions">
-              <button class="federated-btn ghost" type="button" @click="emit('open-federated-console')">联邦控制台</button>
+              <button class="federated-btn ghost" type="button" @click="emit('open-federated-console')">
+                <el-icon><Monitor /></el-icon>
+                联邦控制台
+              </button>
               <button
                 class="federated-btn"
+                :class="{ active: Boolean(federated?.enabled) }"
                 type="button"
-                :disabled="federated?.enabled === false"
+                :aria-pressed="Boolean(federated?.enabled)"
+                :disabled="!federated?.enabled"
                 @click="emit('optimize-federated')"
               >
+                <el-icon><MagicStick /></el-icon>
                 联邦优化
               </button>
             </div>
@@ -116,7 +118,7 @@
 
 <script setup lang="ts">
 import { ref, computed, type Component } from 'vue'
-import { Clock, Connection, Document, EditPen, Notebook, Operation, Reading, ScaleToOriginal, Search } from '@element-plus/icons-vue'
+import { Clock, Connection, Document, EditPen, MagicStick, Monitor, Notebook, Operation, Reading, ScaleToOriginal, Search } from '@element-plus/icons-vue'
 import TraceTimeline, { type TraceStep } from './TraceTimeline.vue'
 import { toRiskLevelZh, toSkillNameZh } from '@/utils/agentDisplay'
 
@@ -149,9 +151,9 @@ const emit = defineEmits<{
 const activeTab = ref<'skills' | 'trace' | 'results'>('skills')
 
 const tabs = computed(() => [
-  { key: 'skills' as const, label: '技能调用', icon: Operation, count: props.skillsUsed?.length || 0 },
-  { key: 'trace' as const, label: '调用轨迹', icon: Connection, count: props.trace?.length || 0 },
-  { key: 'results' as const, label: '调用结果', icon: Document, count: props.resultCount || 0 }
+  { key: 'skills' as const, label: '活动', icon: Operation, count: props.skillsUsed?.length || 0 },
+  { key: 'trace' as const, label: '轨迹', icon: Connection, count: props.trace?.length || 0 },
+  { key: 'results' as const, label: '结果', icon: Document, count: props.resultCount || 0 }
 ])
 
 const SKILL_VISUAL_MAP: Record<string, SkillVisual> = {
@@ -189,21 +191,6 @@ const riskLevelClass = computed(() => {
   return ''
 })
 
-const federatedStatusText = computed(() => {
-  if (!props.federated?.enabled) return '已关闭'
-  return props.federated?.applied ? '已启用（本轮生效）' : '已开启（本轮未生效）'
-})
-
-const federatedStatusClass = computed(() => {
-  if (!props.federated?.enabled) return 'off'
-  return props.federated?.applied ? 'on' : 'idle'
-})
-
-const formatPercent = (v?: number) => `${Math.max(0, Math.round((v || 0) * 100))}%`
-const formatAdjustment = (v?: number) => {
-  const value = v || 0
-  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`
-}
 </script>
 
 <style scoped>
@@ -211,7 +198,7 @@ const formatAdjustment = (v?: number) => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.95);
+  background: color-mix(in srgb, var(--bg-card) 95%, transparent);
   border: 1px solid var(--border-light);
   border-radius: 14px;
   overflow: hidden;
@@ -229,7 +216,7 @@ const formatAdjustment = (v?: number) => {
   gap: 10px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-light);
-  background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 40%, #eef2ff 100%);
+  background: linear-gradient(135deg, var(--primary-fade) 0%, var(--primary-fade) 40%, var(--accent-fade) 100%);
 }
 
 .header-left {
@@ -242,7 +229,7 @@ const formatAdjustment = (v?: number) => {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  background: linear-gradient(135deg, var(--info), var(--info));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -280,24 +267,24 @@ const formatAdjustment = (v?: number) => {
   font-size: 11px;
   border-radius: 999px;
   padding: 3px 10px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--accent-fade);
+  color: var(--primary-color);
   white-space: nowrap;
   font-weight: 600;
 }
 
 .risk-pill.high {
-  background: #fee2e2;
+  background: var(--danger-fade);
   color: #b91c1c;
 }
 
 .risk-pill.medium {
-  background: #fef3c7;
+  background: var(--warning-fade);
   color: #92400e;
 }
 
 .risk-pill.low {
-  background: #dcfce7;
+  background: var(--success-fade);
   color: #166534;
 }
 
@@ -308,7 +295,7 @@ const formatAdjustment = (v?: number) => {
   font-size: 11px;
   border-radius: 999px;
   padding: 3px 10px;
-  background: #eff6ff;
+  background: var(--primary-fade);
   color: #2563eb;
   white-space: nowrap;
   font-weight: 600;
@@ -319,7 +306,7 @@ const formatAdjustment = (v?: number) => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #2563eb;
+  background: var(--info);
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
@@ -331,7 +318,7 @@ const formatAdjustment = (v?: number) => {
 .panel-tabs {
   display: flex;
   border-bottom: 1px solid var(--border-light);
-  background: #fafbfc;
+  background: var(--bg-input);
 }
 
 .tab-btn {
@@ -378,14 +365,14 @@ const formatAdjustment = (v?: number) => {
   line-height: 16px;
   text-align: center;
   border-radius: 999px;
-  background: #dbeafe;
+  background: var(--primary-fade);
   color: #1e40af;
   padding: 0 4px;
   font-weight: 700;
 }
 
 .tab-btn.active .tab-badge {
-  background: #2563eb;
+  background: var(--info);
   color: #fff;
 }
 
@@ -411,7 +398,7 @@ const formatAdjustment = (v?: number) => {
 }
 
 .tab-content::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--border-light);
   border-radius: 999px;
 }
 
@@ -426,6 +413,12 @@ const formatAdjustment = (v?: number) => {
   margin-bottom: 16px;
 }
 
+.sub-section:last-child { margin-bottom: 0; }
+.sub-section + .sub-section {
+  padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+
 .sub-title {
   font-size: 11px;
   font-weight: 700;
@@ -435,73 +428,61 @@ const formatAdjustment = (v?: number) => {
 }
 
 .federated-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-input) 72%, transparent);
 }
 
 .federated-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
 
 .federated-btn {
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-radius: 999px;
-  padding: 4px 10px;
+  min-width: 0;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--border-light);
+  background: var(--surface-solid);
+  color: var(--text-secondary);
+  border-radius: 7px;
+  padding: 0 8px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
+.federated-btn .el-icon { flex: 0 0 auto; font-size: 13px; }
+
 .federated-btn:hover:not(:disabled) {
   border-color: #2563eb;
-  background: #dbeafe;
+  background: var(--primary-fade);
 }
 
 .federated-btn.ghost {
-  border-color: #dbeafe;
-  background: #fff;
-  color: #2563eb;
+  color: var(--text-primary);
+}
+
+.federated-btn.active {
+  border-color: #93c5fd;
+  background: var(--primary-fade);
+  color: #1d4ed8;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #2563eb 12%, transparent);
 }
 
 .federated-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.status-pill {
-  width: fit-content;
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-pill.on {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-pill.off {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.status-pill.idle {
-  background: #eef2ff;
-  color: #3730a3;
-}
-
-.meta {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.45;
-  word-break: break-word;
+  background: var(--bg-input);
+  color: var(--text-disabled);
+  opacity: 1;
 }
 
 .skill-list {
@@ -541,21 +522,21 @@ const formatAdjustment = (v?: number) => {
 }
 
 .skill-item.blue {
-  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  background: linear-gradient(135deg, var(--primary-fade), var(--primary-fade));
   border-color: #93c5fd;
   color: #1d4ed8;
 }
 
 .skill-item.sky {
-  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+  background: linear-gradient(135deg, var(--primary-fade), var(--primary-fade));
   border-color: #7dd3fc;
   color: #0369a1;
 }
 
 .skill-item.indigo {
-  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
   border-color: #a5b4fc;
-  color: #4338ca;
+  color: var(--primary-color);
 }
 
 .skill-item.cyan {
@@ -565,7 +546,7 @@ const formatAdjustment = (v?: number) => {
 }
 
 .skill-item.slate {
-  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  background: linear-gradient(135deg, var(--bg-input), var(--bg-input));
   border-color: #cbd5e1;
   color: #334155;
 }
@@ -616,7 +597,7 @@ const formatAdjustment = (v?: number) => {
 
 .empty-hint {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--text-disabled);
   text-align: center;
   line-height: 1.4;
 }

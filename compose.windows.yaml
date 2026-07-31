@@ -1,0 +1,157 @@
+services:
+  frontend:
+    networks: [web-network, windows-ingress-network]
+    ports: !override
+      - "127.0.0.1:${KINLIN_HTTP_PORT:-8080}:8080"
+    environment:
+      CHOKIDAR_USEPOLLING: ${KINLIN_WINDOWS_CHOKIDAR_USEPOLLING:-false}
+      CHOKIDAR_INTERVAL: ${KINLIN_WINDOWS_POLL_INTERVAL_MS:-1000}
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8080", "--strictPort"]
+    volumes:
+      - frontend-node-modules:/app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+      start_interval: 1s
+    depends_on: !override
+      backend:
+        condition: service_started
+    labels:
+      com.kinlin.environment: windows-development
+
+  backend:
+    environment:
+      MAVEN_CONFIG: /home/kinlin/.m2
+      HOME: /home/kinlin
+      MAVEN_OPTS: -Djansi.tmpdir=/app/target/.jansi
+      KINLIN_BACKEND_SOURCE_SYNC_ENABLED: "true"
+    volumes:
+      - type: volume
+        source: backend-source-cache
+        target: /app/src
+        volume:
+          nocopy: true
+      - type: bind
+        source: ./backend/src
+        target: /kinlin-host/backend-src
+        read_only: true
+      - maven-cache:/home/kinlin/.m2
+      - backend-build-cache:/app/target
+    healthcheck:
+      interval: 5s
+      timeout: 5s
+      start_period: 300s
+      start_interval: 1s
+      retries: 20
+    labels:
+      com.kinlin.environment: windows-development
+
+  ai-service:
+    environment:
+      PATH: /opt/kinlin-venv/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+      VIRTUAL_ENV: /opt/kinlin-venv
+      PIP_CACHE_DIR: /pip-cache
+      WATCHFILES_FORCE_POLLING: ${KINLIN_WINDOWS_WATCHFILES_FORCE_POLLING:-false}
+      WATCHFILES_POLL_DELAY_MS: ${KINLIN_WINDOWS_POLL_INTERVAL_MS:-1000}
+    volumes:
+      - python-venv:/opt/kinlin-venv
+      - pip-cache:/pip-cache
+    healthcheck:
+      start_interval: 1s
+    labels:
+      com.kinlin.environment: windows-development
+
+  postgres:
+    healthcheck:
+      start_interval: 1s
+    labels:
+      com.kinlin.environment: windows-development
+
+  redis:
+    healthcheck:
+      start_interval: 1s
+    labels:
+      com.kinlin.environment: windows-development
+
+  backend-debug-port:
+    profiles: [debug-ports]
+    build:
+      context: ./docker/debug-proxy
+    image: ${KINLIN_DEBUG_PROXY_IMAGE:-kinlin-ai-debug-proxy:dev}
+    command: ["TCP-LISTEN:18080,fork,reuseaddr", "TCP:backend:8080"]
+    ports:
+      - "127.0.0.1:${KINLIN_BACKEND_DEBUG_PORT:-18080}:18080"
+    networks: [web-network, windows-debug-network]
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.environment: windows-development-debug
+
+  ai-debug-port:
+    profiles: [debug-ports]
+    build:
+      context: ./docker/debug-proxy
+    image: ${KINLIN_DEBUG_PROXY_IMAGE:-kinlin-ai-debug-proxy:dev}
+    command: ["TCP-LISTEN:18000,fork,reuseaddr", "TCP:ai-service:8000"]
+    ports:
+      - "127.0.0.1:${KINLIN_AI_DEBUG_PORT:-18000}:18000"
+    networks: [agent-network, windows-debug-network]
+    depends_on:
+      ai-service:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.environment: windows-development-debug
+
+volumes:
+  backend-source-cache:
+    name: ${KINLIN_DEPLOYMENT_ID}_backend_source_cache
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.lifecycle: p1-windows-development-cache
+  frontend-node-modules:
+    name: ${KINLIN_DEPLOYMENT_ID}_frontend_node_modules
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.lifecycle: p1-windows-development
+  maven-cache:
+    name: ${KINLIN_DEPLOYMENT_ID}_maven_cache
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.lifecycle: p1-windows-development
+  backend-build-cache:
+    name: ${KINLIN_DEPLOYMENT_ID}_backend_build_cache
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.lifecycle: p1-windows-development
+  python-venv:
+    name: ${KINLIN_DEPLOYMENT_ID}_python_venv
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.lifecycle: p1-windows-development
+  pip-cache:
+    name: ${KINLIN_DEPLOYMENT_ID}_pip_cache
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.lifecycle: p1-windows-development
+
+networks:
+  windows-ingress-network:
+    name: ${KINLIN_DEPLOYMENT_ID}_windows_ingress_v11
+    internal: false
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.lifecycle: p1-windows-development
+  windows-debug-network:
+    name: ${KINLIN_DEPLOYMENT_ID}_windows_debug_v11
+    internal: false
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+      com.kinlin.lifecycle: p1-windows-development-debug

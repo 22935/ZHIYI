@@ -1,3 +1,4 @@
+<!-- 调试追踪卡片 — 编号垂直时间线展示调试步骤，含根因分析和每步状态标记 -->
 <template>
   <section class="card debug-card">
     <header class="card-head">
@@ -125,7 +126,7 @@ const stepStatusLabel = (status?: string) => {
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   overflow: hidden;
 }
 
@@ -135,7 +136,7 @@ const stepStatusLabel = (status?: string) => {
   align-items: center;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-light);
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
 }
 
 .head-left {
@@ -163,18 +164,18 @@ const stepStatusLabel = (status?: string) => {
 }
 
 .status-pill.resolved {
-  background: #dcfce7;
+  background: var(--success-fade);
   color: #166534;
 }
 
 .status-pill.progress {
-  background: #dbeafe;
+  background: var(--primary-fade);
   color: #1e40af;
 }
 
 .status-pill.pending {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--bg-input);
+  color: var(--text-regular);
 }
 
 .empty {
@@ -195,7 +196,7 @@ const stepStatusLabel = (status?: string) => {
 
 .root-cause-block {
   padding: 10px 12px;
-  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  background: linear-gradient(135deg, var(--danger-fade), var(--danger-fade));
   border-bottom: 1px solid #fecaca;
 }
 
@@ -238,7 +239,7 @@ const stepStatusLabel = (status?: string) => {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #7c3aed;
+  background: var(--accent-color);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -251,7 +252,7 @@ const stepStatusLabel = (status?: string) => {
 .step-line {
   width: 2px;
   flex: 1;
-  background: #e9e5f5;
+  background: var(--accent-fade);
   min-height: 8px;
 }
 
@@ -280,23 +281,23 @@ const stepStatusLabel = (status?: string) => {
 }
 
 .step-status.success {
-  background: #dcfce7;
+  background: var(--success-fade);
   color: #166534;
 }
 
 .step-status.fail {
-  background: #fee2e2;
+  background: var(--danger-fade);
   color: #991b1b;
 }
 
 .step-status.running {
-  background: #ede9fe;
+  background: var(--accent-fade);
   color: #5b21b6;
 }
 
 .step-location {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-family: 'Fira Code', 'Consolas', monospace;
   margin-top: 2px;
 }
@@ -306,14 +307,14 @@ const stepStatusLabel = (status?: string) => {
   color: var(--text-secondary);
   margin-top: 4px;
   padding: 4px 8px;
-  background: #f9fafb;
+  background: var(--bg-input);
   border-radius: 6px;
   line-height: 1.4;
 }
 
 .fix-block {
   padding: 10px 12px;
-  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  background: linear-gradient(135deg, var(--success-fade), var(--success-fade));
   border-top: 1px solid #bbf7d0;
 }
 

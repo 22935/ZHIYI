@@ -1,3 +1,4 @@
+<!-- 执行轨迹时间线 — 垂直列表渲染 Agent 执行步骤（思考→行动→观察），中文标签映射 -->
 <template>
   <div class="trace-timeline">
     <div v-if="!trace.length" class="empty">暂无执行轨迹</div>
@@ -67,7 +68,7 @@ const displayTrace = computed(() => {
   padding: 10px;
   border: 1px solid var(--border-light);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface-solid);
 }
 
 .step-index {

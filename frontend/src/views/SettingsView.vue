@@ -1,12 +1,10 @@
+<!-- 设置中心页面 — Tab 切换管理配色、语言、隐私、对话与语音等偏好设置 -->
 <template>
   <div class="settings-view">
-    <div class="ambient-glow top-left"></div>
-    <div class="ambient-glow bottom-right"></div>
-
     <section class="page-header glass-panel">
       <div>
         <h1>设置中心</h1>
-        <p>在这里统一管理主题、隐私、对话与语音设置。</p>
+        <p>在这里统一管理配色、隐私、对话与语音设置。</p>
       </div>
       <div class="status-chip">
         上次保存：{{ lastSavedText }}
@@ -28,14 +26,6 @@
 
     <section class="content-panel glass-panel">
       <div v-if="activeTab === 'general'" class="form-grid">
-        <el-form-item label="主题模式">
-          <el-radio-group v-model="settings.theme">
-            <el-radio-button label="light">明亮</el-radio-button>
-            <el-radio-button label="dark">深色</el-radio-button>
-            <el-radio-button label="auto">跟随系统</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-
         <el-form-item label="语言">
           <el-select v-model="settings.language" @change="handleLanguageChange">
             <el-option label="简体中文" value="zh-CN" />
@@ -50,8 +40,19 @@
           </div>
         </el-form-item>
 
-        <el-form-item label="主色">
-          <el-color-picker v-model="settings.primaryColor" @change="applyTheme" />
+        <el-form-item label="配色方案">
+          <div class="scheme-row">
+            <button
+              v-for="s in colorSchemes"
+              :key="s.id"
+              class="scheme-chip"
+              :class="{ active: settings.colorScheme === s.id }"
+              @click="settings.colorScheme = s.id; applyTheme()"
+            >
+              <span class="scheme-dot" :style="{ background: s.previewColor }"></span>
+              <span>{{ s.name }}</span>
+            </button>
+          </div>
         </el-form-item>
       </div>
 
@@ -108,6 +109,77 @@
         </el-form-item>
       </div>
 
+      <div v-if="activeTab === 'model'" class="model-settings">
+        <div class="section-heading">
+          <div>
+            <h2>模型服务</h2>
+            <p>选择服务商并配置当前浏览器使用的模型连接。</p>
+          </div>
+          <span class="local-only-badge"><el-icon><Lock /></el-icon> 仅存本机</span>
+        </div>
+
+        <div class="provider-grid" role="radiogroup" aria-label="模型服务商">
+          <button
+            v-for="provider in modelProviderPresets"
+            :key="provider.id"
+            class="provider-option"
+            :class="{ active: modelSettings.provider === provider.id }"
+            type="button"
+            role="radio"
+            :aria-checked="modelSettings.provider === provider.id"
+            @click="selectProvider(provider.id)"
+          >
+            <span class="provider-mark">{{ provider.name.slice(0, 1) }}</span>
+            <span class="provider-copy">
+              <strong>{{ provider.name }}</strong>
+              <small>{{ provider.description }}</small>
+            </span>
+            <el-icon v-if="modelSettings.provider === provider.id" class="provider-check"><Check /></el-icon>
+          </button>
+        </div>
+
+        <div v-if="modelSettings.provider !== 'system'" class="connection-form">
+          <el-form-item label="API 地址" required>
+            <el-input v-model="modelSettings.baseUrl" placeholder="https://api.example.com/v1" />
+          </el-form-item>
+
+          <el-form-item label="API Key" required>
+            <el-input
+              v-model="modelSettings.apiKey"
+              type="password"
+              show-password
+              autocomplete="off"
+              placeholder="输入服务商 API Key"
+            />
+          </el-form-item>
+
+          <el-form-item label="可用模型" required>
+            <el-select
+              v-model="modelSettings.models"
+              multiple
+              filterable
+              allow-create
+              default-first-option
+              placeholder="输入模型名称后按回车添加"
+              @change="ensureSelectedModel"
+            >
+              <el-option v-for="model in modelSettings.models" :key="model" :label="model" :value="model" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="默认模型" required>
+            <el-select v-model="modelSettings.selectedModel" filterable allow-create placeholder="选择默认模型">
+              <el-option v-for="model in modelSettings.models" :key="model" :label="model" :value="model" />
+            </el-select>
+          </el-form-item>
+        </div>
+
+        <div v-else class="system-provider-note">
+          <el-icon><InfoFilled /></el-icon>
+          <span>继续使用服务端配置的默认模型，无需在浏览器中填写 API Key。</span>
+        </div>
+      </div>
+
       <div v-if="activeTab === 'voice'" class="form-grid">
         <el-form-item label="语音类型">
           <el-select v-model="settings.voice">
@@ -149,14 +221,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Setting, Lock, ChatDotRound, Microphone, InfoFilled } from '@element-plus/icons-vue'
+import { Setting, Lock, ChatDotRound, Microphone, InfoFilled, Cpu, Check } from '@element-plus/icons-vue'
+import { applyFontSize, useTheme } from '@/composables/useTheme'
+import { colorSchemes, type ColorSchemeId } from '@/themes/presets'
+import {
+  applyProviderPreset,
+  getDefaultModelSettings,
+  loadModelSettings,
+  modelProviderPresets,
+  saveModelSettings,
+  type ModelProviderId
+} from '@/config/modelSettings'
 
-type TabId = 'general' | 'privacy' | 'chat' | 'voice'
+type TabId = 'general' | 'privacy' | 'chat' | 'model' | 'voice'
 
 interface AppSettings {
-  theme: 'light' | 'dark' | 'auto'
+  colorScheme: ColorSchemeId
   language: 'zh-CN' | 'en'
   fontSize: number
   primaryColor: string
@@ -172,16 +254,18 @@ interface AppSettings {
 }
 
 const { locale } = useI18n()
+const { applyColorScheme } = useTheme()
 
 const tabs = [
   { id: 'general' as TabId, label: '通用', icon: Setting },
   { id: 'privacy' as TabId, label: '隐私', icon: Lock },
   { id: 'chat' as TabId, label: '对话', icon: ChatDotRound },
+  { id: 'model' as TabId, label: '模型与 API', icon: Cpu },
   { id: 'voice' as TabId, label: '语音', icon: Microphone }
 ]
 
 const defaultSettings = (): AppSettings => ({
-  theme: 'light',
+  colorScheme: 'codex-dark',
   language: 'zh-CN',
   fontSize: 14,
   primaryColor: '#4f46e5',
@@ -197,6 +281,7 @@ const defaultSettings = (): AppSettings => ({
 })
 
 const settings = ref<AppSettings>(defaultSettings())
+const modelSettings = ref(getDefaultModelSettings())
 const activeTab = ref<TabId>('general')
 const lastSaved = ref<Date | null>(null)
 const inlineHint = ref('修改后点击“保存设置”即可生效。')
@@ -207,10 +292,13 @@ const lastSavedText = computed(() => {
 })
 
 function applyTheme(): void {
-  const root = document.documentElement
-  root.style.setProperty('--primary-color', settings.value.primaryColor)
-  root.style.setProperty('--font-size-base', `${settings.value.fontSize}px`)
+  applyColorScheme(settings.value.colorScheme)
+  applyFontSize(settings.value.fontSize)
 }
+
+watch(() => settings.value.fontSize, (fontSize) => {
+  applyFontSize(fontSize)
+})
 
 function handleLanguageChange(newLang: 'zh-CN' | 'en'): void {
   locale.value = newLang
@@ -221,8 +309,9 @@ function loadSettings(): void {
   const saved = localStorage.getItem('appSettings')
   if (!saved) return
   try {
-    const parsed = JSON.parse(saved) as Partial<AppSettings>
-    settings.value = { ...defaultSettings(), ...parsed }
+    const parsed = JSON.parse(saved) as Partial<AppSettings> & { theme?: unknown }
+    const { theme: _legacyTheme, ...savedSettings } = parsed
+    settings.value = { ...defaultSettings(), ...savedSettings }
     locale.value = settings.value.language
     applyTheme()
     inlineHint.value = '已读取本地设置。'
@@ -233,7 +322,20 @@ function loadSettings(): void {
 }
 
 function saveSettings(): void {
+  if (modelSettings.value.provider !== 'system') {
+    if (!modelSettings.value.baseUrl.trim() || !modelSettings.value.apiKey.trim() || !modelSettings.value.selectedModel.trim()) {
+      activeTab.value = 'model'
+      inlineHint.value = '请完整填写 API 地址、API Key 和默认模型。'
+      return
+    }
+    if (!/^https?:\/\//i.test(modelSettings.value.baseUrl.trim())) {
+      activeTab.value = 'model'
+      inlineHint.value = 'API 地址必须以 http:// 或 https:// 开头。'
+      return
+    }
+  }
   localStorage.setItem('appSettings', JSON.stringify(settings.value))
+  saveModelSettings(modelSettings.value)
   applyTheme()
   lastSaved.value = new Date()
   inlineHint.value = '设置已保存。'
@@ -241,8 +343,10 @@ function saveSettings(): void {
 
 function resetSettings(): void {
   settings.value = defaultSettings()
+  modelSettings.value = getDefaultModelSettings()
   locale.value = 'zh-CN'
   localStorage.removeItem('appSettings')
+  saveModelSettings(modelSettings.value)
   applyTheme()
   lastSaved.value = new Date()
   inlineHint.value = '已恢复默认设置。'
@@ -250,50 +354,42 @@ function resetSettings(): void {
 
 onMounted(() => {
   loadSettings()
+  modelSettings.value = loadModelSettings()
 })
+
+function selectProvider(provider: ModelProviderId): void {
+  modelSettings.value = applyProviderPreset(modelSettings.value, provider)
+  inlineHint.value = provider === 'system' ? '已选择服务端默认模型。' : '请检查 API Key 后保存设置。'
+}
+
+function ensureSelectedModel(models: string[]): void {
+  if (!models.includes(modelSettings.value.selectedModel)) {
+    modelSettings.value.selectedModel = models[0] || ''
+  }
+}
 </script>
 
 <style scoped>
 .settings-view {
   position: relative;
-  min-height: 100%;
-  padding: 20px;
+  width: 100%;
+  height: 100%;
+  padding: var(--page-padding-y) var(--page-padding-x);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--page-gap);
   color: var(--text-primary);
-  overflow: auto;
-}
-
-.ambient-glow {
-  position: absolute;
-  width: 300px;
-  height: 300px;
-  border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.2;
-  pointer-events: none;
-}
-
-.ambient-glow.top-left {
-  top: -120px;
-  left: -120px;
-  background: #5b8ff9;
-}
-
-.ambient-glow.bottom-right {
-  right: -120px;
-  bottom: -140px;
-  background: #36cfc9;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .glass-panel {
   position: relative;
   z-index: 1;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  border-radius: 14px;
-  box-shadow: 0 10px 28px rgba(15, 35, 95, 0.06);
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
 }
 
 .page-header {
@@ -317,8 +413,8 @@ onMounted(() => {
 
 .status-chip {
   border-radius: 999px;
-  background: rgba(91, 143, 249, 0.12);
-  color: var(--text-secondary);
+  background: var(--primary-fade);
+  color: var(--primary-color);
   padding: 6px 12px;
   font-size: 12px;
   white-space: nowrap;
@@ -344,9 +440,9 @@ onMounted(() => {
 }
 
 .tab-btn.active {
-  background: rgba(91, 143, 249, 0.12);
-  border-color: rgba(91, 143, 249, 0.28);
-  color: var(--text-primary);
+  background: var(--primary-fade);
+  border-color: var(--primary-line);
+  color: var(--primary-color);
 }
 
 .content-panel {
@@ -356,6 +452,130 @@ onMounted(() => {
 .form-grid {
   display: grid;
   gap: 16px;
+}
+
+.model-settings {
+  display: grid;
+  gap: 20px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.section-heading p {
+  margin: 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.local-only-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.provider-option {
+  position: relative;
+  min-height: 90px;
+  padding: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.provider-option:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+
+.provider-option.active {
+  border-color: var(--primary-color);
+  background: var(--primary-fade);
+  box-shadow: 0 0 0 1px var(--primary-line);
+}
+
+.provider-mark {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 9px;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.provider-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.provider-copy strong {
+  font-size: 13px;
+}
+
+.provider-copy small {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.provider-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: var(--primary-color);
+}
+
+.connection-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-light);
+}
+
+.connection-form :deep(.el-select) {
+  width: 100%;
+}
+
+.system-provider-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--primary-fade);
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .slider-box {
@@ -411,9 +631,50 @@ onMounted(() => {
   gap: 8px;
 }
 
+.scheme-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.scheme-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-regular);
+  font-size: 13px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.scheme-chip:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+
+.scheme-chip.active {
+  border-color: var(--primary-line);
+  background: var(--primary-fade);
+  color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-line);
+}
+
+.scheme-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
 @media (max-width: 760px) {
   .settings-view {
-    padding: 12px;
+    padding: var(--space-md);
+    gap: var(--space-md);
   }
 
   .page-header {
@@ -427,6 +688,24 @@ onMounted(() => {
 
   .actions {
     justify-content: flex-end;
+  }
+
+  .provider-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .connection-form {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading {
+    flex-direction: column;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1100px) {
+  .provider-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 </style>

@@ -1,6 +1,7 @@
 package com.kinlin.ai.dto.agent;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
@@ -13,6 +14,7 @@ import java.util.Map;
  */
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class AgentChatResponse {
 
     private boolean success;
@@ -26,6 +28,23 @@ public class AgentChatResponse {
     private List<String> skillsUsed = new ArrayList<>();
 
     private List<Map<String, Object>> trace = new ArrayList<>();
+
+    private Map<String, Object> routing;
+
+    @JsonAlias("workflow_run_id")
+    private String workflowRunId;
+
+    @JsonAlias("workflow_id")
+    private String workflowId;
+
+    @JsonAlias("workflow_status")
+    private String workflowStatus;
+
+    @JsonAlias("runtime_engine")
+    private String runtimeEngine;
+
+    @JsonAlias("implementation_id")
+    private String implementationId;
 
     @JsonAlias("risk_level")
     private String riskLevel;

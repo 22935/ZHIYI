@@ -53,6 +53,11 @@ class TraceStore:
     def task_events(self, task_id: str) -> List[TraceEvent]:
         return list(self._task_events.get(task_id, []))
 
+    def delete_task_events(self, task_id: str) -> None:
+        """Release task-level in-memory trace data after an orphan task is deleted."""
+
+        self._task_events.pop(task_id, None)
+
     def export_json(self, run: WorkflowRun) -> Dict[str, Any]:
         """返回可供 API、审计和报告使用的可移植 Trace 数据。"""
 

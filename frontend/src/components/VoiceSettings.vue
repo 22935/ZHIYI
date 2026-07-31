@@ -1,3 +1,4 @@
+<!-- 语音设置组件 — TTS 语音引擎、语速滑块和音调频率设置表单 -->
 <template>
   <div class="voice-settings-art">
     <el-form label-position="top">

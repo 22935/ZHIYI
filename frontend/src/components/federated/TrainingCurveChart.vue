@@ -1,14 +1,15 @@
+<!-- 训练曲线图 — 自定义 SVG 图表绘制联邦训练准确率和损失曲线，双 Y 轴、网格线和渐变填充 -->
 <template>
   <div class="training-curve">
     <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" class="curve-svg">
       <defs>
         <linearGradient id="accGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.2" />
-          <stop offset="100%" stop-color="#22d3ee" stop-opacity="0.01" />
+          <stop offset="0%" stop-color="var(--chart-accent)" stop-opacity="0.2" />
+          <stop offset="100%" stop-color="var(--chart-accent)" stop-opacity="0.01" />
         </linearGradient>
         <linearGradient id="lossGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#f472b6" stop-opacity="0.12" />
-          <stop offset="100%" stop-color="#f472b6" stop-opacity="0.01" />
+          <stop offset="0%" stop-color="var(--chart-secondary)" stop-opacity="0.12" />
+          <stop offset="100%" stop-color="var(--chart-secondary)" stop-opacity="0.01" />
         </linearGradient>
         <filter id="curveGlow">
           <feGaussianBlur stdDeviation="1.5" result="blur" />
@@ -18,7 +19,7 @@
           </feMerge>
         </filter>
         <filter id="dotShadow">
-          <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#22d3ee" flood-opacity="0.3" />
+          <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="var(--chart-accent)" flood-opacity="0.3" />
         </filter>
       </defs>
 
@@ -26,31 +27,31 @@
         <line v-for="i in 5" :key="`h-${i}`"
           :x1="padLeft" :y1="padTop + (plotH * (i - 1)) / 4"
           :x2="padLeft + plotW" :y2="padTop + (plotH * (i - 1)) / 4"
-          stroke="#f1f5f9" stroke-width="0.8"
+          stroke="var(--border-light)" stroke-width="0.8"
         />
         <line v-for="i in 6" :key="`v-${i}`"
           :x1="padLeft + (plotW * (i - 1)) / 5" :y1="padTop"
           :x2="padLeft + (plotW * (i - 1)) / 5" :y2="padTop + plotH"
-          stroke="#f1f5f9" stroke-width="0.8"
+          stroke="var(--border-light)" stroke-width="0.8"
         />
       </g>
 
       <g class="axis-lines">
-        <line :x1="padLeft" :y1="padTop" :x2="padLeft" :y2="padTop + plotH" stroke="#e2e8f0" stroke-width="1" />
-        <line :x1="padLeft" :y1="padTop + plotH" :x2="padLeft + plotW" :y2="padTop + plotH" stroke="#e2e8f0" stroke-width="1" />
+        <line :x1="padLeft" :y1="padTop" :x2="padLeft" :y2="padTop + plotH" stroke="var(--border-hover)" stroke-width="1" />
+        <line :x1="padLeft" :y1="padTop + plotH" :x2="padLeft + plotW" :y2="padTop + plotH" stroke="var(--border-hover)" stroke-width="1" />
       </g>
 
       <g class="y-axis-labels">
         <text v-for="(label, i) in yLabels" :key="`yl-${i}`"
           :x="padLeft - 8" :y="padTop + (plotH * i) / 4 + 3"
-          text-anchor="end" fill="#94a3b8" font-size="8"
+          text-anchor="end" fill="var(--text-secondary)" font-size="8"
         >{{ label }}</text>
       </g>
 
       <g class="x-axis-labels">
         <text v-for="(label, i) in xLabels" :key="`xl-${i}`"
           :x="padLeft + (plotW * i) / (xLabels.length - 1)" :y="padTop + plotH + 14"
-          text-anchor="middle" fill="#94a3b8" font-size="8"
+          text-anchor="middle" fill="var(--text-secondary)" font-size="8"
         >{{ label }}</text>
       </g>
 
@@ -63,7 +64,7 @@
         v-if="accLinePath"
         :d="accLinePath"
         fill="none"
-        stroke="#22d3ee"
+        stroke="var(--chart-accent)"
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -80,7 +81,7 @@
         v-if="lossLinePath"
         :d="lossLinePath"
         fill="none"
-        stroke="#f472b6"
+        stroke="var(--chart-secondary)"
         stroke-width="1.5"
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -93,19 +94,19 @@
           v-for="(pt, i) in accPoints"
           :key="`ap-${i}`"
           :cx="pt.x" :cy="pt.y"
-          r="3" fill="white" stroke="#22d3ee" stroke-width="1.5"
+          r="3" fill="var(--bg-card)" stroke="var(--chart-accent)" stroke-width="1.5"
           filter="url(#dotShadow)"
           class="data-dot"
         />
       </g>
 
       <g v-if="latestAcc" class="latest-marker">
-        <line :x1="latestAcc.x" :y1="padTop" :x2="latestAcc.x" :y2="latestAcc.y - 8" stroke="#22d3ee" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.4" />
-        <rect :x="latestAcc.x - 22" :y="latestAcc.y - 20" width="44" height="16" rx="4" fill="white" stroke="#22d3ee" stroke-width="0.8" />
-        <text :x="latestAcc.x" :y="latestAcc.y - 9" text-anchor="middle" fill="#0891b2" font-size="8" font-weight="600">{{ accuracyData[accuracyData.length - 1] }}%</text>
+        <line :x1="latestAcc.x" :y1="padTop" :x2="latestAcc.x" :y2="latestAcc.y - 8" stroke="var(--chart-accent)" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.4" />
+        <rect :x="latestAcc.x - 22" :y="latestAcc.y - 20" width="44" height="16" rx="4" fill="var(--bg-card)" stroke="var(--chart-accent)" stroke-width="0.8" />
+        <text :x="latestAcc.x" :y="latestAcc.y - 9" text-anchor="middle" fill="var(--chart-accent)" font-size="8" font-weight="600">{{ accuracyData[accuracyData.length - 1] }}%</text>
       </g>
 
-      <text :x="padLeft + 4" :y="padTop + 12" fill="#94a3b8" font-size="7">准确率 / 损失值</text>
+      <text :x="padLeft + 4" :y="padTop + 12" fill="var(--text-secondary)" font-size="7">准确率 / 损失值</text>
     </svg>
 
     <div class="curve-legend">
@@ -206,11 +207,13 @@ const latestAcc = computed(() => {
 
 <style scoped>
 .training-curve {
-  --primary: #6366f1;
-  --primary-bg: rgba(99, 102, 241, 0.06);
-  --cyan: #22d3ee;
-  --pink: #f472b6;
-  --text-muted: #94a3b8;
+  --primary: var(--primary-color);
+  --primary-bg: var(--primary-fade);
+  --chart-accent: var(--primary-color);
+  --chart-secondary: var(--accent-color);
+  --cyan: var(--chart-accent);
+  --pink: var(--chart-secondary);
+  --text-muted: var(--text-secondary);
   --radius-sm: 8px;
   --transition-base: 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 
@@ -276,7 +279,7 @@ const latestAcc = computed(() => {
   align-items: center;
   justify-content: center;
   padding: 1px 5px;
-  background: #f1f5f9;
+  background: var(--bg-input);
   border-radius: 4px;
   font-size: 9px;
   font-weight: 600;

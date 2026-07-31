@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kinlin-tui"
+version = "0.1.0"
+description = "ZhiYi AgentOS Terminal Workbench"
+requires-python = ">=3.14"
+dependencies = [
+  "textual>=0.52.0",
+  "httpx>=0.25.0",
+  "httpx-sse>=0.4.0",
+]
+
+[project.scripts]
+kinlin-tui = "kinlin_tui.app:main"
+zhiyi = "kinlin_tui.app:main"

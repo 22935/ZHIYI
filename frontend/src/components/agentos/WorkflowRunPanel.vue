@@ -1,3 +1,4 @@
+<!-- 工作流运行详情面板 — 展示 WorkflowRun 顶层信息：工作流 ID、状态、当前步骤、域、Run ID、引擎，含刷新和导出 -->
 <template>
   <section class="workflow-run-panel ui-surface ui-surface--pad">
     <div class="panel-head">
@@ -34,6 +35,14 @@
         <div>
           <small>Task ID</small>
           <strong>{{ run.taskId }}</strong>
+        </div>
+        <div>
+          <small>Engine</small>
+          <strong>{{ run.runtimeEngine || 'unknown' }}</strong>
+        </div>
+        <div>
+          <small>Implementation</small>
+          <strong>{{ run.implementationId || run.workflowId }}</strong>
         </div>
         <div>
           <small>审核模式</small>
@@ -93,7 +102,8 @@ const statusLabel = (status: WorkflowStatus) => {
     retrying: '重试中',
     failed: '失败',
     completed: '已完成',
-    cancelled: '已取消'
+    cancelled: '已取消',
+    skipped_by_condition: '条件跳过'
   }
   return labels[status] || status
 }
@@ -141,7 +151,7 @@ button {
   padding: 0 12px;
   border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--text-primary);
   cursor: pointer;
   transition: var(--transition);
@@ -198,7 +208,7 @@ button:disabled {
 .meta-grid,
 .metric-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
 

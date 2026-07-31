@@ -1,3 +1,4 @@
+<!-- 数字人形象设置抽屉面板 — 调整头像主色、辅色、强调色等外观参数 -->
 <template>
   <el-drawer
     v-model="visible"
@@ -471,7 +472,7 @@ const handleSave = async () => {
     font-size: 11px;
     font-weight: 500;
     color: rgba(0, 0, 0, 0.6);
-    background: rgba(255, 255, 255, 0.8);
+    background: color-mix(in srgb, var(--bg-card) 80%, transparent);
     padding: 2px 6px;
     border-radius: 4px;
   }

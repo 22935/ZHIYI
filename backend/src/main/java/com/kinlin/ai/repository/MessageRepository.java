@@ -17,6 +17,8 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
 
     List<Message> findByConversationIdOrderByCreatedAtAsc(UUID conversationId);
 
+    void deleteByConversationId(UUID conversationId);
+
     @Query("SELECT m FROM Message m WHERE m.conversationId = :conversationId ORDER BY m.createdAt DESC")
     List<Message> findRecentMessages(@Param("conversationId") UUID conversationId);
 }

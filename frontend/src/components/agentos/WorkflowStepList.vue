@@ -1,3 +1,4 @@
+<!-- 工作流步骤列表 — 卡片列表展示各步骤状态，含名称、Agent、能力、审核需求、重试次数、耗时和错误 -->
 <template>
   <section class="workflow-step-list ui-surface ui-surface--pad">
     <div class="section-head">
@@ -51,7 +52,8 @@ const statusLabel = (status: StepStatus) => {
     retrying: '重试',
     failed: '失败',
     completed: '完成',
-    cancelled: '取消'
+    cancelled: '取消',
+    skipped_by_condition: '条件跳过'
   }
   return labels[status] || status
 }
@@ -115,7 +117,7 @@ p,
 
 .step-card.active {
   border-color: var(--primary-line);
-  background: #fff;
+  background: var(--surface-solid);
   box-shadow: inset 2px 0 0 var(--primary-color), var(--shadow-sm);
 }
 

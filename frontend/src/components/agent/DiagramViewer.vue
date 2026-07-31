@@ -1,3 +1,4 @@
+<!-- 图表查看器 — 封装 MermaidRenderer，支持全屏查看、PNG 下载和可折叠源码切换 -->
 <template>
   <section class="card diagram-card">
     <header class="card-head">
@@ -144,7 +145,7 @@ const downloadDiagram = async () => {
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   overflow: hidden;
 }
 
@@ -154,7 +155,7 @@ const downloadDiagram = async () => {
   align-items: center;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-light);
-  background: linear-gradient(135deg, #ede9fe, #e0e7ff);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
 }
 
 .head-left {
@@ -182,7 +183,7 @@ const downloadDiagram = async () => {
 
 .meta {
   font-size: 11px;
-  color: #4338ca;
+  color: var(--primary-color);
   font-weight: 600;
 }
 
@@ -200,7 +201,7 @@ const downloadDiagram = async () => {
   justify-content: center;
   border: none;
   background: rgba(0, 0, 0, 0.04);
-  color: #4338ca;
+  color: var(--primary-color);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -234,14 +235,14 @@ const downloadDiagram = async () => {
 .source-toggle {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--bg-input);
   padding: 8px 10px;
   font-size: 12px;
 }
 
 .source-toggle summary {
   cursor: pointer;
-  color: #475569;
+  color: var(--text-regular);
   font-weight: 600;
 }
 
@@ -256,7 +257,7 @@ const downloadDiagram = async () => {
 }
 
 .fullscreen-diagram {
-  background: #fff;
+  background: var(--surface-solid);
   border-radius: 8px;
   padding: 24px;
   display: flex;

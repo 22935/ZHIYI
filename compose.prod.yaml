@@ -1,0 +1,59 @@
+services:
+  frontend:
+    ports:
+      - "${KINLIN_BIND_ADDRESS:-127.0.0.1}:${KINLIN_HTTP_PORT:-8080}:8080"
+    cpus: ${KINLIN_FRONTEND_CPUS:-0.5}
+    mem_limit: ${KINLIN_FRONTEND_MEMORY:-256m}
+    read_only: true
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=64m,mode=1777
+    security_opt: [no-new-privileges:true]
+  backend:
+    cpus: ${KINLIN_BACKEND_CPUS:-2.0}
+    mem_limit: ${KINLIN_BACKEND_MEMORY:-2g}
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    tmpfs:
+      - /run/secrets:rw,nosuid,nodev,noexec,size=1m,mode=0755
+    security_opt: [no-new-privileges:true]
+  ai-service:
+    cpus: ${KINLIN_AI_CPUS:-4.0}
+    mem_limit: ${KINLIN_AI_MEMORY:-4g}
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    tmpfs:
+      - /run/secrets:rw,nosuid,nodev,noexec,size=1m,mode=0755
+      - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+    security_opt: [no-new-privileges:true]
+  postgres:
+    cpus: ${KINLIN_POSTGRES_CPUS:-2.0}
+    mem_limit: ${KINLIN_POSTGRES_MEMORY:-2g}
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    tmpfs:
+      - /run/secrets:rw,nosuid,nodev,noexec,size=1m,mode=0755
+      - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+      - /var/run/postgresql:rw,nosuid,nodev,noexec,size=16m,mode=3775
+    security_opt: [no-new-privileges:true]
+  redis:
+    cpus: ${KINLIN_REDIS_CPUS:-1.0}
+    mem_limit: ${KINLIN_REDIS_MEMORY:-512m}
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    tmpfs:
+      - /run/secrets:rw,nosuid,nodev,noexec,size=1m,mode=0755
+      - /tmp:rw,nosuid,nodev,noexec,size=64m,mode=1777
+    security_opt: [no-new-privileges:true]
+  schema-tool:
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    tmpfs:
+      - /run/secrets:rw,nosuid,nodev,noexec,size=1m,mode=0755
+      - /tmp:rw,nosuid,nodev,noexec,size=64m,mode=1777
+    security_opt: [no-new-privileges:true]

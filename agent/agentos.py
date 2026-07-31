@@ -8,4 +8,8 @@ callers continue to resolve AgentOS Core from the runtime package.
 
 from pathlib import Path
 
-__path__ = [str(Path(__file__).resolve().parents[1] / "agentOS" / "src" / "agentos")]
+_module_path = Path(__file__).resolve()
+_docker_package_path = _module_path.parent / "agentOS" / "src" / "agentos"
+_repo_package_path = _module_path.parents[1] / "agentOS" / "src" / "agentos"
+
+__path__ = [str(_docker_package_path if _docker_package_path.exists() else _repo_package_path)]

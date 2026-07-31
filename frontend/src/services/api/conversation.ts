@@ -18,12 +18,8 @@ export interface ConversationDetail {
 
 export const conversationApi = {
   // 获取用户的对话列表
-  async getUserConversations(userId?: string): Promise<Conversation[]> {
-    const headers: Record<string, string> = {}
-    if (userId) {
-      headers['X-User-Id'] = userId
-    }
-    const response = await request.get<Conversation[]>('/conversations', { headers })
+  async getUserConversations(_userId?: string): Promise<Conversation[]> {
+    const response = await request.get<Conversation[]>('/conversations')
     return response.data
   },
 
@@ -51,12 +47,8 @@ export const conversationApi = {
   },
 
   // 清空所有对话
-  async deleteAllConversations(userId?: string): Promise<void> {
-    const headers: Record<string, string> = {}
-    if (userId) {
-      headers['X-User-Id'] = userId
-    }
-    await request.delete('/conversations/all', { headers })
+  async deleteAllConversations(_userId?: string): Promise<void> {
+    await request.delete('/conversations/all')
   }
 }
 

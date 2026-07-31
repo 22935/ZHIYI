@@ -11,6 +11,21 @@ from app.llm.providers.openai_compatible_provider import LLMProviderError, OpenA
 logger = logging.getLogger(__name__)
 
 
+class UnavailableLLMProvider:
+    provider_name = "unavailable"
+    model = ""
+
+    @staticmethod
+    def _raise() -> None:
+        raise LLMProviderError("No LLM provider is configured; configure AGENTOS_LLM_* or an enabled provider.")
+
+    def generate_text(self, prompt: str, **kwargs) -> str:
+        self._raise()
+
+    def generate_json(self, prompt: str, schema: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+        self._raise()
+
+
 class LLMProvider(Protocol):
     provider_name: str
     model: str
@@ -62,10 +77,10 @@ class LLMGateway:
         if config.provider in {"openai-compatible", "openai_compatible", "openai"}:
             if not config.api_key or not config.base_url or not config.model:
                 logger.warning(
-                    "AGENTOS_LLM_PROVIDER=%s is missing base_url/api_key/model; falling back to mock provider.",
+                    "AGENTOS_LLM_PROVIDER=%s is missing base_url/api_key/model; provider is unavailable.",
                     config.provider,
                 )
-                return MockLLMProvider()
+                return UnavailableLLMProvider()
             try:
                 return OpenAICompatibleProvider(
                     base_url=config.base_url,
@@ -74,11 +89,11 @@ class LLMGateway:
                     timeout_seconds=config.timeout_seconds,
                 )
             except LLMProviderError as exc:
-                logger.warning("Failed to initialize openai-compatible provider; falling back to mock provider. error=%s", exc)
-                return MockLLMProvider()
+                logger.warning("Failed to initialize openai-compatible provider; provider is unavailable. error=%s", exc)
+                return UnavailableLLMProvider()
 
-        logger.warning("Unsupported AGENTOS_LLM_PROVIDER=%s; falling back to mock provider.", config.provider)
-        return MockLLMProvider()
+        logger.warning("Unsupported AGENTOS_LLM_PROVIDER=%s; provider is unavailable.", config.provider)
+        return UnavailableLLMProvider()
 
 
 _default_gateway: Optional[LLMGateway] = None

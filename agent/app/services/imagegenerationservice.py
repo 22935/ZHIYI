@@ -44,8 +44,7 @@ class ImageGenerationService:
         
         if not self.api_key:
             logger.warning("未配置图像生成API密钥（DASHSCOPE_API_KEY或QWEN_API_KEY），图像生成功能将不可用")
-            logger.info("配置方法：在主目录的.env文件中设置 DASHSCOPE_API_KEY=sk-your_key")
-            logger.info("配置文件路径: E:\\Project\\Kinlin_AI\\.env")
+            logger.info("配置方法：通过对应 Secret 文件设置模型 API Key")
             logger.info("获取API密钥: https://dashscope.aliyuncs.com/")
         else:
             logger.info(f"图像生成服务已初始化，模型: {self.model}, API密钥已配置")

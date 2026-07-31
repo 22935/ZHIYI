@@ -1,3 +1,4 @@
+<!-- 创建角色对话框 — 创建自定义 AI 角色的表单弹窗，含名称、描述和校验规则 -->
 <template>
   <el-dialog
     v-model="visible"
@@ -196,7 +197,7 @@ watch(() => props.modelValue, (val) => {
 // Dialog styles override (global override via class)
 :deep(.role-dialog) {
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
   backdrop-filter: blur(24px);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.4);
@@ -228,7 +229,7 @@ watch(() => props.modelValue, (val) => {
     margin: 0;
     font-size: 18px;
     font-weight: 700;
-    color: #303133;
+    color: var(--text-primary);
   }
   
   .close-btn {
@@ -237,12 +238,12 @@ watch(() => props.modelValue, (val) => {
     cursor: pointer;
     padding: 8px;
     border-radius: 8px;
-    color: #909399;
+    color: var(--text-secondary);
     transition: all 0.2s;
     
     &:hover {
       background: rgba(0, 0, 0, 0.05);
-      color: #303133;
+      color: var(--text-primary);
     }
   }
 }
@@ -251,7 +252,7 @@ watch(() => props.modelValue, (val) => {
   .custom-input {
     :deep(.el-input__wrapper),
     :deep(.el-textarea__inner) {
-      background: rgba(255, 255, 255, 0.5);
+      background: color-mix(in srgb, var(--bg-card) 50%, transparent);
       box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) inset;
       border-radius: 12px;
       padding: 10px 12px;
@@ -294,8 +295,8 @@ watch(() => props.modelValue, (val) => {
     background: white;
     
     &:hover {
-      background: #f9fafb;
-      color: #303133;
+      background: var(--bg-input);
+      color: var(--text-primary);
     }
   }
   

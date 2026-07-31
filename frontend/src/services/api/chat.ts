@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import type { ThinkingMode } from '@/config/modelSettings'
 
 export interface ChatRequest {
   text?: string
@@ -8,6 +9,11 @@ export interface ChatRequest {
   fileUrl?: string
   emotionTag?: string
   context?: Array<{ role: string; content: string }>
+  model?: string
+  baseUrl?: string
+  apiKey?: string
+  thinkingMode?: ThinkingMode
+  toolMode?: 'auto' | 'disabled'
 }
 
 export interface Source {
@@ -15,6 +21,10 @@ export interface Source {
   filename?: string
   url?: string
   content?: string
+  snippet?: string
+  provider?: string
+  citationId?: string
+  retrievedAt?: string
 }
 
 export interface ReasoningStep {
@@ -42,7 +52,12 @@ export const chatApi = {
       roleId: chatRequest.roleId,
       contextId: chatRequest.contextId,
       fileUrl: chatRequest.fileUrl,
-      context: chatRequest.context
+      context: chatRequest.context,
+      model: chatRequest.model,
+      baseUrl: chatRequest.baseUrl,
+      apiKey: chatRequest.apiKey,
+      thinkingMode: chatRequest.thinkingMode,
+      tool_mode: chatRequest.toolMode || 'auto'
     })
     return response.data
   },

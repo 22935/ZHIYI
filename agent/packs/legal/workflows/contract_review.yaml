@@ -1,52 +1,115 @@
 {
+  "id": "legal_contract_review_v1",
   "workflowId": "legal_contract_review_v1",
-  "name": "法律合同审查工作流",
+  "name": "合同审查标准流程",
   "domain": "legal",
   "intent": "contract_review",
-  "version": "1.0.0",
-  "description": "Demo workflow for contract review with a human risk-review gate.",
+  "version": "v1",
+  "runtimeEngine": "acg",
+  "description": "Canonical AgentOS contract review workflow executed by the Core Native ACG ready-set scheduler with Trace, Review, Checkpoint, provenance, and self-healing.",
+  "artifacts": {
+    "risks": "output.artifacts.risk_detect.risks",
+    "evidences": "output.artifacts.legal_evidence_match.evidences",
+    "report": "output.artifacts.report_generate.report_markdown"
+  },
   "steps": [
     {
-      "stepId": "case_intake",
-      "name": "案情接收",
-      "agentName": "case_intake",
-      "capability": "case_intake",
-      "nextStepId": "statute"
+      "stepId": "parse_contract",
+      "name": "合同文本解析",
+      "agentName": "contract_parse",
+      "capability": "contract_parse",
+      "outputSpec": { "type": "object", "required": ["contract_summary", "contract_type", "parties"] },
+      "nextStepId": "classify_clauses"
     },
     {
-      "stepId": "statute",
-      "name": "法条检索",
-      "agentName": "statute",
-      "capability": "statute_retrieval",
-      "nextStepId": "evidence"
+      "stepId": "classify_clauses",
+      "name": "条款分类",
+      "agentName": "clause_classify",
+      "capability": "clause_classify",
+      "input": {
+        "from": { "parse_contract": ["contract_type", "scope", "payment_terms", "acceptance_terms", "ip_terms", "dispute_resolution"] },
+        "schema": { "type": "object", "required": ["contract_type"] }
+      },
+      "outputSpec": { "type": "object", "required": ["clauses"] },
+      "nextStepId": "risk_detect"
     },
     {
-      "stepId": "evidence",
-      "name": "证据分析",
-      "agentName": "evidence",
-      "capability": "evidence_analysis",
-      "nextStepId": "risk"
+      "stepId": "risk_detect",
+      "name": "风险识别",
+      "agentName": "risk_detect",
+      "capability": "risk_detect",
+      "input": {
+        "from": {
+          "parse_contract": ["contract_summary", "payment_terms", "acceptance_terms", "ip_terms"],
+          "classify_clauses": ["clauses"]
+        },
+        "schema": { "type": "object", "required": ["clauses"] }
+      },
+      "outputSpec": { "type": "object", "required": ["risks", "risk_level", "risk_score"] },
+      "nextStepId": "legal_evidence_match"
     },
     {
-      "stepId": "risk",
-      "name": "风险评估",
-      "agentName": "risk",
-      "capability": "risk_assessment",
+      "stepId": "legal_evidence_match",
+      "name": "Evidence 依据匹配",
+      "agentName": "legal_evidence_match",
+      "capability": "legal_evidence_match",
+      "input": {
+        "from": {
+          "parse_contract": ["contract_type"],
+          "risk_detect": ["risks", "risk_level", "risk_score"]
+        },
+        "schema": { "type": "object", "required": ["risks"] }
+      },
+      "outputSpec": { "type": "object", "required": ["evidences", "citations"] },
+      "nextStepId": "suggestion_generate"
+    },
+    {
+      "stepId": "suggestion_generate",
+      "name": "修改建议生成",
+      "agentName": "revision_suggest",
+      "capability": "revision_suggest",
+      "input": {
+        "from": {
+          "risk_detect": ["risks", "risk_summary"],
+          "legal_evidence_match": ["evidences", "citations"]
+        },
+        "schema": { "type": "object", "required": ["risks", "evidences"] }
+      },
+      "outputSpec": { "type": "object", "required": ["revision_suggestions", "manual_review_focus"] },
+      "nextStepId": "human_review"
+    },
+    {
+      "stepId": "human_review",
+      "name": "人工审核",
+      "agentName": "human_review",
+      "capability": "human_review_gate",
+      "input": {
+        "from": {
+          "risk_detect": ["risks", "risk_summary"],
+          "suggestion_generate": ["revision_suggestions", "manual_review_focus"]
+        },
+        "schema": { "type": "object", "required": ["risks", "manual_review_focus"] }
+      },
+      "outputSpec": { "type": "object", "required": ["review_status", "review_focus"] },
       "reviewRequired": true,
-      "nextStepId": "draft"
+      "nextStepId": "report_generate"
     },
     {
-      "stepId": "draft",
-      "name": "文书草拟",
-      "agentName": "draft",
-      "capability": "document_draft",
-      "nextStepId": "final_review"
-    },
-    {
-      "stepId": "final_review",
-      "name": "最终审查",
-      "agentName": "review",
-      "capability": "final_review"
+      "stepId": "report_generate",
+      "name": "审查报告生成",
+      "agentName": "report_generate",
+      "capability": "report_generate",
+      "input": {
+        "from": {
+          "parse_contract": ["contract_type", "parties", "scope"],
+          "risk_detect": ["risks", "risk_summary"],
+          "legal_evidence_match": ["evidences"],
+          "suggestion_generate": ["revision_suggestions", "manual_review_focus"],
+          "human_review": ["review_status", "review_focus"]
+        },
+        "schema": { "type": "object", "required": ["contract_type", "risks", "evidences", "revision_suggestions"] }
+      },
+      "outputSpec": { "type": "object", "required": ["report_markdown"] }
     }
   ]
 }

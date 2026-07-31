@@ -1,3 +1,4 @@
+<!-- 语音对话页面 — 数字皮套人展示、角色选择、语音录制与交互 -->
 <template>
   <div class="voice-view">
     <header class="voice-header">
@@ -641,14 +642,15 @@ onUnmounted(() => {
   flex-direction: column;
   background: var(--bg-app);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .voice-view::before,
 .voice-view::after {
   content: '';
   position: absolute;
-  width: 500px;
+  width: min(500px, 100%);
   height: 500px;
   border-radius: 50%;
   filter: blur(120px);
@@ -658,14 +660,14 @@ onUnmounted(() => {
 }
 
 .voice-view::before {
-  top: -200px;
-  left: -150px;
+  top: 0;
+  left: 0;
   background: radial-gradient(circle, rgba(79, 70, 229, 0.35), transparent 60%);
 }
 
 .voice-view::after {
-  bottom: -200px;
-  right: -150px;
+  bottom: 0;
+  right: 0;
   background: radial-gradient(circle, rgba(16, 185, 129, 0.25), transparent 60%);
 }
 
@@ -676,7 +678,7 @@ onUnmounted(() => {
   gap: 16px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border-light);
-  background: rgba(255, 255, 255, 0.88);
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
   backdrop-filter: blur(12px);
   position: relative;
   z-index: 10;
@@ -866,7 +868,7 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
   border: 1px solid rgba(226, 232, 240, 0.8);
   backdrop-filter: blur(4px);
   transition: all 0.3s ease;
@@ -875,7 +877,7 @@ onUnmounted(() => {
 .stage-chip.active {
   color: var(--primary-color);
   border-color: rgba(79, 70, 229, 0.4);
-  background: rgba(79, 70, 229, 0.08);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
   transform: scale(1.02);
 }
 
@@ -988,7 +990,7 @@ onUnmounted(() => {
 
 .message-bubble {
   border: 1px solid var(--border-light);
-  background: #fff;
+  background: var(--surface-solid);
   border-radius: 16px;
   padding: 12px 14px;
   line-height: 1.7;
@@ -1004,7 +1006,7 @@ onUnmounted(() => {
 }
 
 .message-item.user .message-bubble {
-  background: linear-gradient(135deg, var(--primary-color), #4338ca);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-active));
   color: #fff;
   border-color: transparent;
   box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
@@ -1228,6 +1230,35 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1024px) {
+  .voice-view {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .voice-header {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+
+  .header-left {
+    flex: 1 1 220px;
+  }
+
+  .role-select {
+    width: min(100%, 320px);
+    flex: 1 1 220px;
+  }
+
+  .voice-main {
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .left-column {
+    grid-template-rows: auto;
+  }
+
   .voice-main {
     grid-template-columns: 1fr;
   }

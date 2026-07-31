@@ -5,6 +5,7 @@ import asyncio
 
 from agentos.agents import AgentRegistry
 from agentos.core.runtime import WorkflowRuntime
+from agentos.core.planning.default_catalog import build_default_capability_catalog
 from agentos.core.workflow.registry import WorkflowRegistry
 from agentos.core.models.types import WorkflowStatus
 from agentos.packs.registry import discover_pack_manifests, register_installed_packs
@@ -15,25 +16,45 @@ def test_pack_registry_discovers_installed_manifests():
 
     assert {manifest.pack_id for manifest in manifests} >= {
         "education",
-        "legal",
+        "kinlin.legal",
         "programmer",
         "writer",
     }
-    assert next(manifest for manifest in manifests if manifest.pack_id == "legal").module == "packs.legal"
+    assert next(
+        manifest for manifest in manifests if manifest.pack_id == "kinlin.legal"
+    ).module == "packs.legal"
+    assert set(
+        next(
+            manifest
+            for manifest in manifests
+            if manifest.pack_id == "kinlin.legal"
+        ).capabilities
+    ) == {
+        "文本解析",
+        "条款分类",
+        "风险识别",
+        "证据检索",
+        "修改建议",
+        "人工审核",
+        "报告生成",
+    }
 
 
 def test_pack_registry_registers_enabled_packs_from_manifest():
     agent_registry = AgentRegistry()
     workflow_registry = WorkflowRegistry()
+    capability_catalog = build_default_capability_catalog()
 
     registered = register_installed_packs(
         agent_registry=agent_registry,
         workflow_registry=workflow_registry,
+        capability_catalog=capability_catalog,
     )
 
-    assert "legal" in {manifest.pack_id for manifest in registered}
+    assert "kinlin.legal" in {manifest.pack_id for manifest in registered}
     assert workflow_registry.get("legal_case_analysis_v1").domain == "legal"
     assert agent_registry.resolve("legal", agent_name="case_intake").profile.agent_name == "case_intake"
+    assert capability_catalog.resolve("法律知识应用").capability_id == "证据检索"
 
 
 def test_non_legal_packs_register_minimal_workflows():
@@ -43,9 +64,11 @@ def test_non_legal_packs_register_minimal_workflows():
 async def _test_non_legal_packs_register_minimal_workflows():
     agent_registry = AgentRegistry()
     workflow_registry = WorkflowRegistry()
+    capability_catalog = build_default_capability_catalog()
     register_installed_packs(
         agent_registry=agent_registry,
         workflow_registry=workflow_registry,
+        capability_catalog=capability_catalog,
     )
     runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
 

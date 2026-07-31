@@ -5,6 +5,7 @@
   "intent": "story_outline",
   "version": "1.0.0",
   "description": "Minimal writer workflow for story outline generation.",
+  "runtimeEngine": "acg",
   "steps": [
     {
       "stepId": "outline_generate",

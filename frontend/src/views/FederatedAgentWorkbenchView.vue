@@ -1,3 +1,4 @@
+<!-- 联邦智能体工作台页面 — 多专业体协同编排、任务规划、知识融合，支持演示/API 模式和普通/专业用户模式 -->
 <template>
   <section class="agent-workbench">
     <header class="workbench-header">
@@ -149,6 +150,38 @@
               <small>{{ step.desc }}</small>
             </article>
           </div>
+
+          <div class="flow-insight-board">
+            <article class="flow-insight-card is-primary">
+              <span class="insight-label">{{ flowTabSummary.label }}</span>
+              <h3>{{ flowTabSummary.title }}</h3>
+              <p>{{ flowTabSummary.desc }}</p>
+              <div class="insight-meta-row">
+                <span>Step {{ selectedStepNo }}</span>
+                <strong>{{ selectedStepInfo.title }}</strong>
+              </div>
+            </article>
+
+            <article class="flow-insight-card">
+              <span class="insight-label">质量闸门</span>
+              <div class="gate-list">
+                <div v-for="gate in qualityGates" :key="gate.label" class="gate-item" :class="gate.tone">
+                  <span>{{ gate.label }}</span>
+                  <strong>{{ gate.value }}</strong>
+                </div>
+              </div>
+            </article>
+
+            <article class="flow-insight-card">
+              <span class="insight-label">交付清单</span>
+              <div class="delivery-list">
+                <div v-for="item in deliveryItems" :key="item.title">
+                  <strong>{{ item.title }}</strong>
+                  <span>{{ item.desc }}</span>
+                </div>
+              </div>
+            </article>
+          </div>
         </section>
 
         <section class="detail-grid">
@@ -231,7 +264,7 @@
         </section>
       </main>
 
-      <aside class="right-rail">
+      <aside v-if="false" class="right-rail">
         <section class="panel assistant-panel">
           <div class="section-head compact">
             <h3>数字人助手</h3>
@@ -373,6 +406,45 @@ const selectedStepNo = ref('03')
 // ---- 思维链 ----
 type FlowTab = 'flow' | 'chain' | 'gantt' | 'compare'
 const activeFlowTab = ref<FlowTab>('flow')
+
+const flowTabSummary = computed(() => {
+  const map: Record<FlowTab, { label: string; title: string; desc: string }> = {
+    flow: {
+      label: '协同编排',
+      title: '法律顾问、需求分析师、文档专家并行推进',
+      desc: '当前流程聚焦条款骨架生成，正在把需求边界、法规依据和合同文本结构同步到同一份草案。'
+    },
+    chain: {
+      label: '思维链摘要',
+      title: '从交付物定义到风险校验逐层收敛',
+      desc: '系统先确认任务目标，再检索法规与模板，随后生成条款结构并进入风险审核，避免直接生成失控文本。'
+    },
+    gantt: {
+      label: '节奏规划',
+      title: '核心生成阶段已进入中后段',
+      desc: '资料检索已完成，条款结构生成正在执行；后续风险审核和正式草案输出会承接当前结果。'
+    },
+    compare: {
+      label: '对比视图',
+      title: '严谨版与客户友好版并行保留差异',
+      desc: '系统会保留法律严谨表述，同时准备客户可读版本，便于后续合并、解释和人工确认。'
+    }
+  }
+  return map[activeFlowTab.value]
+})
+
+const qualityGates = [
+  { label: '验收标准', value: '待补强', tone: 'warning' },
+  { label: '知识产权', value: '已定位', tone: 'success' },
+  { label: '付款边界', value: '复核中', tone: 'info' },
+  { label: '违约责任', value: '待确认', tone: 'warning' }
+]
+
+const deliveryItems = [
+  { title: '条款骨架', desc: '5 个核心模块已成型' },
+  { title: '风险标注', desc: '付款、验收、权属重点校验' },
+  { title: '草案预览', desc: '同步生成正式合同文本' }
+]
 
 const reasoningItems = ref([
   { title: '提取合同主体与交易背景', desc: '识别甲乙双方、开发范围、交付方式与付款结构。' },
@@ -647,8 +719,9 @@ onMounted(() => {
 <style scoped>
 .agent-workbench {
   min-height: 100%;
-  padding: 20px;
-  background: #f4f8fd;
+  overflow: visible;
+  padding: var(--page-padding-y) var(--page-padding-x);
+  background: var(--primary-fade);
   color: #17233c;
   font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
   box-sizing: border-box;
@@ -663,7 +736,7 @@ button {
   padding: 14px 18px;
   border: 1px solid #dce7f3;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
+  background: color-mix(in srgb, var(--bg-card) 94%, transparent);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -683,7 +756,7 @@ button {
   border-radius: 12px;
   display: grid;
   place-items: center;
-  color: #ffffff;
+  color: var(--on-primary);
   background: var(--primary-color);
   font-weight: 800;
   box-shadow: 0 12px 24px rgba(45, 127, 249, 0.2);
@@ -714,7 +787,7 @@ button {
   display: flex;
   padding: 3px;
   border-radius: 8px;
-  background: #eef4fb;
+  background: var(--primary-fade);
   border: 1px solid #dce7f3;
 }
 
@@ -729,7 +802,7 @@ button {
 
 .mode-switch button.active {
   color: var(--primary-color);
-  background: #ffffff;
+  background: var(--surface-solid);
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
 }
@@ -742,7 +815,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: #ffffff;
+  background: var(--surface-solid);
   color: #53657f;
   font-size: 12px;
 }
@@ -751,14 +824,14 @@ button {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #16a34a;
+  background: var(--success);
   box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
 }
 
 .square-button,
 .profile-button {
   border: 1px solid #dbe8f5;
-  background: #ffffff;
+  background: var(--surface-solid);
   cursor: pointer;
 }
 
@@ -790,9 +863,10 @@ button {
 .workspace-grid {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: minmax(240px, 272px) minmax(0, 1fr) minmax(260px, 296px);
+  grid-template-columns: minmax(248px, 272px) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+  min-height: min(820px, calc(100vh - 188px));
 }
 
 .left-rail,
@@ -801,6 +875,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  height: 100%;
 }
 
 .task-board {
@@ -808,12 +883,37 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  height: 100%;
+}
+
+.node-panel,
+.flow-panel,
+.recommendation-panel {
+  flex: 1 1 auto;
+}
+
+.node-panel,
+.flow-panel,
+.detail-card,
+.preview-card,
+.timeline-panel,
+.recommendation-panel {
+  min-height: 0;
+}
+
+.flow-panel,
+.detail-card,
+.preview-card,
+.timeline-panel,
+.recommendation-panel {
+  display: flex;
+  flex-direction: column;
 }
 
 .panel {
   border: 1px solid #dce7f3;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
+  background: color-mix(in srgb, var(--bg-card) 96%, transparent);
   box-shadow: 0 12px 30px rgba(36, 74, 121, 0.05);
 }
 
@@ -843,7 +943,7 @@ button {
   padding: 12px;
   border: 1px solid #e4edf7;
   border-radius: 8px;
-  background: #f9fbfe;
+  background: var(--primary-fade);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -851,7 +951,7 @@ button {
 
 .expert-card.active {
   border-color: #b8d3ff;
-  background: #f0f6ff;
+  background: var(--primary-fade);
 }
 
 .expert-avatar {
@@ -860,21 +960,21 @@ button {
   border-radius: 10px;
   display: grid;
   place-items: center;
-  color: #ffffff;
+  color: var(--on-primary);
   font-weight: 800;
   flex: 0 0 auto;
 }
 
 .expert-avatar.lawyer {
-  background: #2563eb;
+  background: var(--info);
 }
 
 .expert-avatar.pm {
-  background: #0f9f83;
+  background: var(--success);
 }
 
 .expert-avatar.writer {
-  background: #7c3aed;
+  background: var(--accent-color);
 }
 
 .expert-card strong,
@@ -901,13 +1001,16 @@ button {
   display: flex;
   flex-direction: column;
   gap: 9px;
+  max-height: clamp(230px, 28vh, 350px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .module-item {
   min-height: 54px;
   padding: 10px;
   border-radius: 8px;
-  background: #f8fbff;
+  background: var(--primary-fade);
   border: 1px solid #e7eef8;
   display: grid;
   grid-template-columns: 34px 1fr auto;
@@ -921,7 +1024,7 @@ button {
   border-radius: 9px;
   display: grid;
   place-items: center;
-  color: #ffffff;
+  color: var(--on-primary);
   font-weight: 800;
 }
 
@@ -930,11 +1033,11 @@ button {
 }
 
 .module-icon.green {
-  background: #10b981;
+  background: var(--success);
 }
 
 .module-icon.orange {
-  background: #f59e0b;
+  background: var(--warning);
 }
 
 .module-icon.purple {
@@ -960,7 +1063,7 @@ button {
 .support-grid div {
   padding: 12px 10px;
   border-radius: 8px;
-  background: #f5f9fe;
+  background: var(--primary-fade);
   border: 1px solid #e5eef8;
 }
 
@@ -979,6 +1082,12 @@ button {
 
 .node-panel {
   padding-bottom: 10px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.node-panel .panel-title {
+  flex: 0 0 auto;
 }
 
 .node-row {
@@ -995,15 +1104,15 @@ button {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #cbd5e1;
+  background: var(--border-light);
 }
 
 .node-dot.online {
-  background: #16a34a;
+  background: var(--success);
 }
 
 .node-dot.busy {
-  background: #f59e0b;
+  background: var(--warning);
 }
 
 .task-hero {
@@ -1046,7 +1155,7 @@ button {
 .task-tags span {
   padding: 6px 10px;
   border-radius: 7px;
-  background: #eef5ff;
+  background: var(--primary-fade);
   border: 1px solid #d9e8ff;
   color: #236be8;
   font-size: 12px;
@@ -1055,7 +1164,7 @@ button {
 .progress-card {
   padding: 16px;
   border-radius: 8px;
-  background: #f6f9fd;
+  background: var(--primary-fade);
   border: 1px solid #dfeaf6;
 }
 
@@ -1068,7 +1177,7 @@ button {
 .progress-card strong {
   display: block;
   margin: 8px 0;
-  color: #195ee4;
+  color: var(--info);
   font-size: 34px;
   line-height: 1;
 }
@@ -1076,14 +1185,14 @@ button {
 .progress-track {
   height: 8px;
   border-radius: 4px;
-  background: #e2ebf5;
+  background: var(--primary-fade);
   overflow: hidden;
 }
 
 .progress-track div {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #2f80ff, #17b5ff);
+  background: linear-gradient(90deg, var(--info), var(--info));
 }
 
 .flow-panel {
@@ -1104,7 +1213,7 @@ button {
   gap: 6px;
   padding: 4px;
   border-radius: 8px;
-  background: #eef4fb;
+  background: var(--primary-fade);
   min-width: 0;
   overflow-x: auto;
 }
@@ -1125,8 +1234,8 @@ button {
 
 .view-tabs button.active,
 .mini-tabs button.active {
-  color: #195ee4;
-  background: #ffffff;
+  color: var(--info);
+  background: var(--surface-solid);
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(30, 90, 180, 0.1);
 }
@@ -1136,7 +1245,7 @@ button {
   border-radius: 7px;
   padding: 8px 14px;
   color: #1f65d7;
-  background: #ffffff;
+  background: var(--surface-solid);
   cursor: pointer;
 }
 
@@ -1144,6 +1253,146 @@ button {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
   gap: 12px;
+  max-height: clamp(260px, 34vh, 460px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.flow-insight-board {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(210px, 0.9fr) minmax(220px, 0.9fr);
+  gap: 12px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.flow-insight-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-input);
+}
+
+.flow-insight-card.is-primary {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), var(--bg-input));
+  border-color: var(--primary-line);
+}
+
+.insight-label {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--primary-fade);
+  color: var(--primary-color);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.flow-insight-card h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.flow-insight-card p {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.insight-meta-row {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.insight-meta-row span,
+.insight-meta-row strong {
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+}
+
+.insight-meta-row span {
+  color: var(--primary-color);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.insight-meta-row strong {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.gate-list,
+.delivery-list {
+  display: grid;
+  gap: 8px;
+}
+
+.gate-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+}
+
+.gate-item span,
+.delivery-list span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.gate-item strong,
+.delivery-list strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.gate-item.success strong {
+  color: var(--success);
+}
+
+.gate-item.warning strong {
+  color: var(--warning);
+}
+
+.gate-item.info strong {
+  color: var(--info);
+}
+
+.delivery-list > div {
+  padding: 11px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+}
+
+.delivery-list strong,
+.delivery-list span {
+  display: block;
+}
+
+.delivery-list span {
+  margin-top: 4px;
+  line-height: 1.45;
 }
 
 .flow-step {
@@ -1152,7 +1401,7 @@ button {
   padding: 14px;
   border-radius: 8px;
   border: 1px solid #dce7f3;
-  background: #fbfdff;
+  background: var(--primary-fade);
   position: relative;
 }
 
@@ -1163,7 +1412,7 @@ button {
   right: -13px;
   width: 13px;
   height: 2px;
-  background: #c9d8ea;
+  background: var(--primary-fade);
 }
 
 .flow-step:last-child::after {
@@ -1176,7 +1425,7 @@ button {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #e8f1ff;
+  background: var(--primary-fade);
   color: #236be8;
   font-size: 12px;
   font-weight: 800;
@@ -1196,25 +1445,25 @@ button {
 }
 
 .flow-step.done {
-  background: #f0fbf6;
+  background: var(--success-fade);
   border-color: #bdebd5;
 }
 
 .flow-step.done .step-no {
   color: #047857;
-  background: #d1fae5;
+  background: var(--success-fade);
 }
 
 .flow-step.running,
 .flow-step.active {
   border-color: #f5bf70;
-  background: #fff8ed;
+  background: var(--warning-fade);
   box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.12);
 }
 
 .flow-step.running .step-no {
   color: #b45309;
-  background: #ffedd5;
+  background: var(--warning-fade);
 }
 
 .detail-grid {
@@ -1227,6 +1476,13 @@ button {
 .preview-card,
 .timeline-panel {
   padding: 18px;
+}
+
+.detail-card .section-head,
+.preview-card .section-head,
+.timeline-panel .section-head,
+.recommendation-panel .section-head {
+  flex: 0 0 auto;
 }
 
 .section-head h3,
@@ -1261,12 +1517,12 @@ button {
 
 .status-badge.running {
   color: #b45309;
-  background: #ffedd5;
+  background: var(--warning-fade);
 }
 
 .status-badge.online {
   color: #047857;
-  background: #d1fae5;
+  background: var(--success-fade);
 }
 
 .detail-meta {
@@ -1279,7 +1535,7 @@ button {
 .detail-meta div {
   padding: 10px;
   border-radius: 8px;
-  background: #f6f9fd;
+  background: var(--primary-fade);
   border: 1px solid #e3edf8;
 }
 
@@ -1299,6 +1555,10 @@ button {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: clamp(210px, 28vh, 360px);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
 }
 
 .cot-list > div {
@@ -1334,8 +1594,11 @@ button {
   margin-top: 14px;
   padding: 16px;
   min-height: 220px;
+  max-height: clamp(260px, 34vh, 440px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
   border-radius: 8px;
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  background: linear-gradient(180deg, var(--bg-card), var(--primary-fade));
   border: 1px solid #e1ebf6;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
 }
@@ -1358,12 +1621,15 @@ button {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
+  max-height: clamp(190px, 24vh, 320px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .timeline-item {
   padding: 12px;
   border-radius: 8px;
-  background: #f7faff;
+  background: var(--primary-fade);
   border: 1px solid #e4edf8;
 }
 
@@ -1400,7 +1666,7 @@ button {
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: #eef5ff;
+  background: var(--primary-fade);
   color: #236be8;
   display: grid;
   place-items: center;
@@ -1423,14 +1689,14 @@ button {
   padding: 0 8px;
   border: 1px solid #dbe8f5;
   border-radius: 20px;
-  background: #eef5ff;
+  background: var(--primary-fade);
   font-size: 11px;
   color: #2b72ec;
   cursor: pointer;
   user-select: none;
 }
 .mode-toggle.api {
-  background: #fef3c7;
+  background: var(--warning-fade);
   border-color: #fcd34d;
   color: #92400e;
 }
@@ -1439,12 +1705,12 @@ button {
   height: 20px;
   border: 0;
   border-radius: 10px;
-  background: #195ee4;
+  background: var(--info);
   cursor: pointer;
   position: relative;
 }
 .mode-toggle.api button {
-  background: #f59e0b;
+  background: var(--warning);
 }
 .toggle-knob {
   position: absolute;
@@ -1453,7 +1719,7 @@ button {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--surface-solid);
   transition: left 0.2s;
 }
 .mode-toggle.api .toggle-knob {
@@ -1483,19 +1749,19 @@ button {
 
 .recommendation-list button:hover {
   border-color: #b8d3ff;
-  background: #f0f6ff;
+  background: var(--primary-fade);
 }
 
 .status-badge.done {
   color: #047857;
-  background: #d1fae5;
+  background: var(--success-fade);
 }
 
 .command-bar button,
 .assistant-action {
   border: 0;
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--on-primary);
   background: var(--primary-color);
   cursor: pointer;
 }
@@ -1516,7 +1782,7 @@ button {
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #dbeafe;
-  background: linear-gradient(180deg, #f8fbff, #eef5ff);
+  background: linear-gradient(180deg, var(--primary-fade), var(--primary-fade));
 }
 
 .assistant-avatar-stage :deep(.digital-human-container) {
@@ -1569,12 +1835,12 @@ button {
 
 .voice-wave span:nth-child(2n) {
   height: 24px;
-  background: #17b5ff;
+  background: var(--info);
 }
 
 .voice-wave span:nth-child(3n) {
   height: 18px;
-  background: #93c5fd;
+  background: var(--info-fade);
 }
 
 .assistant-action {
@@ -1592,6 +1858,9 @@ button {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-height: clamp(250px, 32vh, 420px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .source-list > div {
@@ -1601,7 +1870,7 @@ button {
   gap: 10px;
   padding: 10px;
   border-radius: 8px;
-  background: #f7faff;
+  background: var(--primary-fade);
   border: 1px solid #e4edf8;
 }
 
@@ -1612,7 +1881,7 @@ button {
   display: grid;
   place-items: center;
   color: var(--primary-color);
-  background: #e8f1ff;
+  background: var(--primary-fade);
   font-weight: 800;
 }
 
@@ -1623,7 +1892,7 @@ button {
   gap: 4px;
   padding: 4px;
   border-radius: 8px;
-  background: #eef4fb;
+  background: var(--primary-fade);
 }
 
 .mini-tabs button {
@@ -1637,26 +1906,26 @@ button {
   gap: 8px;
 }
 
+.recommendation-panel :deep(.recommendation-list) {
+  max-height: clamp(260px, 34vh, 450px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
 .recommendation-list button {
   padding: 10px 12px;
   border: 1px solid #e0eaf6;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-solid);
   color: #334865;
   text-align: left;
   cursor: pointer;
   line-height: 1.45;
 }
 
-@media (max-width: 1540px) {
+@media (max-width: 1280px) {
   .workspace-grid {
     grid-template-columns: 250px minmax(520px, 1fr);
-  }
-
-  .right-rail {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
   }
 
   .flow-step::after {
@@ -1664,7 +1933,7 @@ button {
   }
 }
 
-@media (max-width: 1320px) {
+@media (max-width: 1160px) {
   .workspace-grid {
     grid-template-columns: 250px minmax(0, 1fr);
   }
@@ -1680,15 +1949,16 @@ button {
 
   .workspace-grid {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
 
-  .left-rail,
-  .right-rail {
+  .left-rail {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
   }
 
   .flow-lane,
+  .flow-insight-board,
   .timeline {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1707,9 +1977,13 @@ button {
     padding: 12px;
   }
 
+  .workspace-grid {
+    min-height: 0;
+  }
+
   .left-rail,
-  .right-rail,
   .flow-lane,
+  .flow-insight-board,
   .timeline,
   .detail-meta {
     grid-template-columns: 1fr;
@@ -1747,7 +2021,7 @@ button {
 .panel {
   border-color: var(--border-light);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.86);
+  background: color-mix(in srgb, var(--bg-card) 86%, transparent);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1762,7 +2036,7 @@ button {
 .plus-sign {
   border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--primary-color);
   box-shadow: var(--shadow-sm);
 }
@@ -1879,9 +2153,28 @@ button {
 
 .command-bar button,
 .assistant-action {
-  background: var(--primary-color);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
   color: #fff;
-  border: 0;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-shadow: 0 1px 1px rgba(23, 36, 34, 0.18);
+  box-shadow: 0 10px 22px rgba(63, 107, 99, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.command-bar button:hover:not(:disabled),
+.assistant-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(63, 107, 99, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.command-bar button:disabled {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: linear-gradient(135deg, var(--accent-color), var(--primary-color));
+  color: rgba(255, 255, 255, 0.96);
+  cursor: not-allowed;
+  opacity: 1;
+  box-shadow: 0 8px 18px rgba(95, 104, 201, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .voice-wave span,
@@ -1896,7 +2189,7 @@ button {
 .outline-button {
   border-color: var(--border-light);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--text-secondary);
 }
 

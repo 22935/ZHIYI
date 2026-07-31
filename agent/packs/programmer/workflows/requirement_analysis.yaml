@@ -5,6 +5,7 @@
   "intent": "requirement_analysis",
   "version": "1.0.0",
   "description": "Programmer workflow for requirement analysis, code search, code generation, and Mermaid diagrams.",
+  "runtimeEngine": "acg",
   "steps": [
     {
       "stepId": "requirement_analysis",

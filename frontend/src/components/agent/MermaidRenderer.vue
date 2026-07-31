@@ -1,3 +1,4 @@
+<!-- Mermaid 渲染器 — 底层渲染组件，调用 mermaid 库将 Mermaid 代码渲染为 SVG，含错误回退 -->
 <template>
   <section class="mermaid-renderer">
     <div v-if="error" class="render-error">
@@ -57,7 +58,7 @@ watch(() => props.code, () => {
 .rendered-svg {
   width: 100%;
   overflow-x: auto;
-  background: #fff;
+  background: var(--surface-solid);
 }
 
 .rendered-svg :deep(svg) {
@@ -70,9 +71,9 @@ watch(() => props.code, () => {
   border: 1px dashed #cbd5e1;
   border-radius: 10px;
   padding: 12px;
-  color: #475569;
+  color: var(--text-regular);
   font-size: 13px;
-  background: #f8fafc;
+  background: var(--bg-input);
 }
 
 .render-error pre {

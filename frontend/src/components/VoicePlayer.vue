@@ -1,3 +1,4 @@
+<!-- 语音播放器组件 — 音频播放/暂停按钮和时长显示，支持 URL 或 Blob 音频源 -->
 <template>
   <div class="voice-player">
     <el-button
@@ -134,7 +135,7 @@ onUnmounted(() => {
 
 .duration {
   font-size: 12px;
-  color: #909399;
+  color: var(--text-secondary);
 }
 </style>
 

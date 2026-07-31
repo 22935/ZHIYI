@@ -1,3 +1,4 @@
+<!-- 角色管理页面 — 展示常用角色和全部角色列表，支持选择和创建 AI 角色 -->
 <template>
   <div class="role-view">
     <!-- 页面头部 -->
@@ -187,20 +188,15 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #ffffff;
-  display: flex;
-  flex-direction: column;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: transparent;
 }
 
 /* 页面头部 */
 .page-header {
-  background: #ffffff;
+  flex-shrink: 0;
+  background: var(--surface-solid);
   border-bottom: 1px solid var(--border-light);
-  padding: 32px 40px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  padding: var(--page-header-padding-y) var(--page-padding-x);
 }
 
 .back-btn {
@@ -234,18 +230,18 @@ onUnmounted(() => {
 }
 
 .header-inner {
-  max-width: 1400px;
+  max-width: var(--page-content-max-width);
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 32px;
+  gap: var(--space-2xl);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: var(--space-xl);
 }
 
 .header-icon-wrapper {
@@ -308,25 +304,26 @@ onUnmounted(() => {
 /* 主要内容区域 */
 .page-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 40px;
+  padding: var(--page-padding-y) var(--page-padding-x);
 }
 
 .content-inner {
-  max-width: 1400px;
+  max-width: var(--page-content-max-width);
   margin: 0 auto;
 }
 
 /* 角色区域 */
 .role-section {
-  margin-bottom: 56px;
+  margin-bottom: var(--space-3xl);
 }
 
 .section-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
 }
 
 .section-title {
@@ -376,7 +373,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: #ffffff;
+  background: var(--surface-solid);
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 24px;
@@ -429,7 +426,7 @@ onUnmounted(() => {
 
 /* 空状态 */
 .empty-state {
-  padding: 100px 20px;
+  padding: var(--space-4xl) var(--space-xl);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -471,41 +468,41 @@ onUnmounted(() => {
 /* 响应式设计 */
 @media (max-width: 768px) {
   .page-header {
-    padding: 24px 20px;
+    padding: var(--space-lg) var(--space-lg);
   }
-  
+
   .header-inner {
     flex-direction: column;
     align-items: stretch;
-    gap: 20px;
+    gap: var(--space-lg);
   }
-  
+
   .header-left {
-    gap: 16px;
+    gap: var(--space-md);
   }
-  
+
   .header-icon-wrapper {
     width: 48px;
     height: 48px;
   }
-  
+
   .header-icon {
     font-size: 24px;
   }
-  
+
   .page-title {
     font-size: 24px;
   }
-  
+
   .create-button {
     width: 100%;
     justify-content: center;
   }
-  
+
   .page-content {
-    padding: 24px 20px;
+    padding: var(--space-xl) var(--space-lg);
   }
-  
+
   .role-grid {
     grid-template-columns: 1fr;
   }

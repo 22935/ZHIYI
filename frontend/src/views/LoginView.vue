@@ -1,54 +1,27 @@
+<!-- 登录/注册页面 — 轻量双栏布局，右侧使用 ACG 动态群体智能拓扑作为品牌视觉 -->
 <template>
-  <div class="login-view ui-shell">
-    <!-- Atmospheric Background -->
-    <div class="ambient-glow top-left"></div>
-    <div class="ambient-glow bottom-right"></div>
-    
-    <div class="login-container ui-surface">
-      <!-- Left side: Brand/Promo -->
-      <div class="promo-side">
-        <div class="promo-content">
-          <div class="brand">
-            <div class="logo-box">
-              <el-icon :size="20"><Connection /></el-icon>
-            </div>
-            <span class="brand-name">知弈</span>
-          </div>
-          
-          <div class="hero-text">
-            <h1 class="title">知弈 · 职业智能体操作系统</h1>
-            <p class="subtitle">以知识推演任务，以智能体驾驭专业工作流</p>
-          </div>
-          
-          <div class="visual-area">
-            <!-- <div class="dh-aura">
-              <el-icon class="dh-icon"><UserFilled /></el-icon>
-              <div class="aura-ring ring-1"></div>
-              <div class="aura-ring ring-2"></div>
-            </div> -->
-          </div>
-          
-          <div class="badges">
-            <div class="badge-item">
-              <el-icon><Monitor /></el-icon>
-              <span>多端同步</span>
-            </div>
-            <div class="badge-item">
-              <el-icon><Connection /></el-icon>
-              <span>实时交互</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Right side: Auth Form -->
-      <div class="auth-side">
+  <main class="login-view ui-shell">
+    <header class="brand-bar">
+      <a class="brand" href="/" aria-label="知弈首页">
+        <span class="logo-box"><img src="/logo.png" alt="" aria-hidden="true" /></span>
+        <span class="brand-name">知弈</span>
+      </a>
+    </header>
+
+    <div class="login-layout">
+      <section class="auth-side" aria-labelledby="auth-title">
         <div class="auth-content">
+          <div class="hero-text">
+            <p class="eyebrow">KINLIN AGENT OS</p>
+            <h1 id="auth-title"><span>让专业任务，</span><span>在协作中涌现答案</span></h1>
+            <p class="subtitle">连接知识、模型与智能体，让复杂工作从规划到交付持续推进。</p>
+          </div>
+
           <el-tabs v-model="activeTab" class="premium-tabs">
             <el-tab-pane label="登录" name="login">
               <div class="auth-header">
-                <h2>欢迎回来</h2>
-                <p>请输入您的凭据以访问您的帐户</p>
+                <h2>继续你的工作</h2>
+                <p>登录后进入知弈工作空间</p>
               </div>
               
               <el-form
@@ -92,13 +65,14 @@
                 >
                   登录
                 </el-button>
+                <p class="auth-note">登录即表示你同意遵守平台使用规范与隐私政策。</p>
               </el-form>
             </el-tab-pane>
             
             <el-tab-pane label="注册" name="register">
               <div class="auth-header">
-                <h2>创建帐户</h2>
-                <p>开启您的 AI 探索之旅</p>
+                <h2>创建工作空间账户</h2>
+                <p>开始构建你的专业智能体协作网络</p>
               </div>
               
               <el-form
@@ -157,21 +131,33 @@
                 >
                   立即注册
                 </el-button>
+                <p class="auth-note">注册即表示你同意遵守平台使用规范与隐私政策。</p>
               </el-form>
             </el-tab-pane>
           </el-tabs>
         </div>
-      </div>
+      </section>
+
+      <section class="acg-showcase" aria-label="ACG 动态群体智能拓扑示意">
+        <LoginAcgDemo
+          :blueprint="demoBlueprint"
+          :completed-step-ids="demoCompletedStepIds"
+          :step-states="demoStepStates"
+        />
+      </section>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { User, Lock, Message, Monitor, Connection } from '@element-plus/icons-vue'
+import { User, Lock, Message } from '@element-plus/icons-vue'
 import { ElMessage, FormInstance, FormRules } from 'element-plus'
 import { authApi } from '@/services/api/auth'
+// 登录页使用独立快照组件，避免业务 ACG 后续迭代改变登录页展示。
+import LoginAcgDemo from '@/components/agentos/LoginAcgDemo.vue'
+import type { AcgBlueprint, AcgStepState } from '@/services/api/agentos'
 
 const router = useRouter()
 const route = useRoute()
@@ -180,6 +166,45 @@ const activeTab = ref('login')
 const loading = ref(false)
 const loginFormRef = ref<FormInstance>()
 const registerFormRef = ref<FormInstance>()
+
+const demoBlueprint: AcgBlueprint = {
+  graphId: 'login-acg-demo',
+  objective: '协同完成一份软件服务合同的风险审查与修订建议',
+  complexityLevel: 'complex',
+  nodes: [
+    { nodeId: 'intake', nodeType: 'step', name: '材料理解', description: '解析合同材料并识别审查范围。', agentName: '任务理解 Agent', capability: '文档理解' },
+    { nodeId: 'knowledge', nodeType: 'memory', name: '法规与案例库', description: '提供法规、案例与内部审查规则。' },
+    { nodeId: 'risk', nodeType: 'agent', name: '风险识别 Agent', description: '识别责任、履约、数据和知识产权风险。', capability: '合同风险识别' },
+    { nodeId: 'clause', nodeType: 'agent', name: '条款分析 Agent', description: '分析关键条款的完整性与可执行性。', capability: '条款分析' },
+    { nodeId: 'evidence', nodeType: 'evidence', name: '审查证据', description: '记录法规依据和原文定位。' },
+    { nodeId: 'review', nodeType: 'control', name: '交叉复核', description: '汇总多智能体结论并解决冲突。', controlType: 'join' },
+    { nodeId: 'rewrite', nodeType: 'step', name: '修订建议', description: '生成可直接采用的条款修改方案。', agentName: '法律顾问 Agent', capability: '合同修订' },
+    { nodeId: 'report', nodeType: 'step', name: '审查报告', description: '形成结构化风险清单与最终报告。', agentName: '报告生成 Agent', capability: '专业报告生成' }
+  ],
+  edges: [
+    { edgeId: 'e1', sourceId: 'intake', targetId: 'risk', edgeType: 'dependency' },
+    { edgeId: 'e2', sourceId: 'intake', targetId: 'clause', edgeType: 'dependency' },
+    { edgeId: 'e3', sourceId: 'knowledge', targetId: 'risk', edgeType: 'read' },
+    { edgeId: 'e4', sourceId: 'knowledge', targetId: 'clause', edgeType: 'read' },
+    { edgeId: 'e5', sourceId: 'risk', targetId: 'evidence', edgeType: 'write' },
+    { edgeId: 'e6', sourceId: 'clause', targetId: 'evidence', edgeType: 'write' },
+    { edgeId: 'e7', sourceId: 'risk', targetId: 'review', edgeType: 'communication' },
+    { edgeId: 'e8', sourceId: 'clause', targetId: 'review', edgeType: 'communication' },
+    { edgeId: 'e9', sourceId: 'evidence', targetId: 'review', edgeType: 'support' },
+    { edgeId: 'e10', sourceId: 'review', targetId: 'rewrite', edgeType: 'control_flow' },
+    { edgeId: 'e11', sourceId: 'rewrite', targetId: 'report', edgeType: 'execution' }
+  ]
+}
+
+const demoCompletedStepIds = ['intake', 'risk', 'clause']
+const demoStepStates: AcgStepState[] = [
+  { stepId: 'intake', status: 'completed', agentName: '任务理解 Agent', attempt: 1, retryCount: 0, outputSummary: '已识别 28 个待审条款与 4 类重点风险。' },
+  { stepId: 'risk', status: 'completed', agentName: '风险识别 Agent', attempt: 1, retryCount: 0, outputSummary: '已完成责任限制、数据合规与知识产权风险识别。' },
+  { stepId: 'clause', status: 'completed', agentName: '条款分析 Agent', attempt: 1, retryCount: 0, outputSummary: '已完成关键条款完整性检查。' },
+  { stepId: 'review', status: 'running', agentName: '复核协调 Agent', attempt: 1, retryCount: 0, outputSummary: '正在合并风险结论与审查证据。' },
+  { stepId: 'rewrite', status: 'pending', agentName: '法律顾问 Agent', attempt: 0, retryCount: 0 },
+  { stepId: 'report', status: 'pending', agentName: '报告生成 Agent', attempt: 0, retryCount: 0 }
+]
 
 const loginForm = reactive({
   username: '',
@@ -302,373 +327,267 @@ const handleRegister = async () => {
 
 <style scoped lang="scss">
 .login-view {
-  width: 100vw;
+  --login-line: color-mix(in srgb, var(--border-light) 78%, transparent);
+  --login-surface: color-mix(in srgb, var(--bg-card) 42%, transparent);
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 74% 46%, var(--primary-fade), transparent 32%),
+    var(--bg-app);
+}
+
+.brand-bar {
+  position: absolute;
+  z-index: 5;
+  top: 28px;
+  left: 32px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  background-color: var(--bg-app);
-}
-
-/* Ambient Background */
-.ambient-glow {
-  position: absolute;
-  width: 680px;
-  height: 680px;
-  border-radius: 50%;
-  filter: blur(140px);
-  opacity: 0.18;
-  z-index: 0;
-  pointer-events: none;
-}
-.top-left {
-  top: -260px;
-  left: -180px;
-  background: radial-gradient(circle, rgba(63, 107, 99, 0.45) 0%, transparent 70%);
-}
-.bottom-right {
-  bottom: -260px;
-  right: -180px;
-  background: radial-gradient(circle, rgba(111, 102, 143, 0.4) 0%, transparent 70%);
-}
-
-.login-container {
-  width: 90%;
-  max-width: 1000px;
-  min-width: 320px;
-  height: 640px;
-  max-height: 90vh;
-  display: flex;
-  overflow: hidden;
-  z-index: 10;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  margin: 20px;
-}
-
-/* Promo Side */
-.promo-side {
-  flex: 1.1;
-  background:
-    linear-gradient(180deg, rgba(63, 107, 99, 0.06) 0%, rgba(255, 255, 255, 0.68) 100%),
-    radial-gradient(at 12% 18%, rgba(63, 107, 99, 0.08) 0px, transparent 44%);
-  padding: 40px 60px;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  min-width: 0;
 }
 
 .brand {
+  color: inherit;
+  text-decoration: none;
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 60px;
+  gap: 11px;
 }
 
 .logo-box {
-  width: 40px;
-  height: 40px;
-  background: #fff;
-  color: var(--primary-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 20px;
-  border-radius: 8px;
-  border: 1px solid var(--border-light);
-  font-family: var(--font-serif);
-  box-shadow: var(--shadow-sm);
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.logo-box img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .brand-name {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.5px;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: .04em;
 }
 
-.hero-text {
-  margin-bottom: 40px;
+.login-layout {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 100px);
+  width: min(1180px, calc(100% - 96px));
+  max-height: calc(100vh - 120px);
+  max-height: calc(100dvh - 120px);
+  padding: 0;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(360px, 430px) minmax(500px, 650px);
+  justify-content: space-between;
+  align-items: center;
+  gap: clamp(64px, 7vw, 100px);
+  transform: translate(-50%, -50%);
 }
 
-.title {
-  font-size: clamp(32px, 4vw, 44px);
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-  margin-bottom: 16px;
-  letter-spacing: -1px;
+.auth-side {
+  width: 100%;
+  max-width: 430px;
+  justify-self: end;
 }
+
+.hero-text { margin-bottom: 38px; }
+.eyebrow {
+  margin: 0 0 18px;
+  color: var(--primary-color);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .18em;
+}
+
+.hero-text h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(40px, 3.35vw, 52px);
+  font-weight: 520;
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  text-wrap: balance;
+}
+
+.hero-text h1 span { display: block; white-space: nowrap; }
 
 .subtitle {
-  font-size: clamp(14px, 2vw, 18px);
+  max-width: 440px;
+  margin: 22px 0 0;
   color: var(--text-secondary);
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.75;
+  text-wrap: pretty;
 }
 
-.visual-area {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.dh-aura {
-  position: relative;
-  width: 160px;
-  height: 160px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dh-icon {
-  font-size: 64px;
-  color: var(--primary-color);
-  z-index: 2;
-}
-
-.aura-ring {
-  position: absolute;
-  border: 1px solid var(--primary-fade);
-  border-radius: 50%;
-  animation: aura-pulse 3s infinite ease-in-out;
-}
-
-.ring-1 { width: 100%; height: 100%; animation-delay: 0s; }
-.ring-2 { width: 140%; height: 140%; animation-delay: 1.5s; opacity: 0.5; }
-
-.badges {
-  display: flex;
-  gap: 24px;
-  margin-top: auto;
-}
-
-.badge-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.badge-item .el-icon {
-  font-size: 18px;
-  color: var(--primary-color);
-}
-
-/* Auth Side */
-.auth-side {
-  flex: 0.9;
-  background: rgba(255, 255, 255, 0.94);
-  padding: 40px 60px;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.auth-content {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
+.premium-tabs { width: 100%; }
 .premium-tabs :deep(.el-tabs__header) {
-  margin-bottom: 40px;
-  border-bottom: none;
+  margin: 0 0 27px;
 }
 
-.premium-tabs :deep(.el-tabs__nav) {
-  float: none;
-  display: flex;
-  justify-content: flex-start;
-  gap: 32px;
+.premium-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
+  background: var(--login-line);
 }
 
 .premium-tabs :deep(.el-tabs__item) {
-  padding: 0;
-  font-size: 16px;
+  height: 44px;
+  padding: 0 24px;
+  color: var(--text-muted, var(--text-secondary));
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text-disabled);
-  height: auto;
-  line-height: 1.5;
-  transition: all 0.3s;
 }
 
-.premium-tabs :deep(.el-tabs__item.is-active) {
-  color: var(--text-primary);
-}
-
+.premium-tabs :deep(.el-tabs__item:first-child) { padding-left: 0; }
+.premium-tabs :deep(.el-tabs__item.is-active) { color: var(--text-primary); }
 .premium-tabs :deep(.el-tabs__active-bar) {
-  background-color: var(--primary-color);
-  height: 3px;
-  border-radius: 3px;
+  height: 1px;
+  background: var(--primary-color);
 }
 
-.auth-header {
-  margin-bottom: 32px;
-}
-
+.auth-header { margin-bottom: 22px; }
 .auth-header h2 {
-  font-size: clamp(24px, 3vw, 28px);
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: var(--text-primary);
+  margin: 0 0 7px;
+  font-size: 18px;
+  font-weight: 650;
 }
-
 .auth-header p {
+  margin: 0;
   color: var(--text-secondary);
-  font-size: clamp(13px, 1.5vw, 15px);
+  font-size: 13px;
 }
 
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
+.auth-form { display: flex; flex-direction: column; gap: 13px; }
+.auth-form :deep(.el-form-item) { margin-bottom: 0; }
 .premium-input :deep(.el-input__wrapper) {
-  height: 52px;
-  background-color: var(--bg-input) !important;
-  border-radius: 8px !important;
-  padding-left: 16px;
+  height: 50px;
+  padding: 0 15px;
+  border: 1px solid var(--login-line);
+  border-radius: 10px;
+  background: var(--login-surface) !important;
+  box-shadow: none !important;
+  transition: border-color 180ms ease, background-color 180ms ease;
 }
-
-.premium-input :deep(.el-input__inner) {
-  font-weight: 500;
+.premium-input :deep(.el-input__wrapper:hover) { border-color: var(--border-hover); }
+.premium-input :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--primary-color);
+  background: var(--bg-card) !important;
 }
+.premium-input :deep(.el-input__inner) { color: var(--text-primary); font-size: 14px; }
+.premium-input :deep(.el-input__prefix) { color: var(--text-muted, var(--text-secondary)); }
 
 .form-options {
+  min-height: 30px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin: 4px 0;
+  justify-content: space-between;
 }
-
-.forgot-link {
-  font-size: 14px;
-  color: var(--primary-color);
-  font-weight: 500;
-}
+.form-options :deep(.el-checkbox__label), .forgot-link { font-size: 12px; }
+.forgot-link { color: var(--primary-color); }
 
 .submit-btn {
-  height: 54px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 700;
-  margin-top: 12px;
+  width: 100%;
+  height: 50px;
+  margin-top: 3px;
+  border: 0;
+  border-radius: 10px;
   background: var(--primary-color);
-  border: none;
+  color: var(--on-primary, #fff);
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+.submit-btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.submit-btn:active { transform: translateY(0); }
+.auth-note {
+  margin: 3px 0 0;
+  color: var(--text-disabled);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.acg-showcase {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: min(72vh, 720px);
+  justify-self: end;
+  overflow: hidden;
+  border: 1px solid var(--login-line);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 42%, var(--primary-fade), transparent 48%),
+    color-mix(in srgb, var(--bg-panel) 64%, transparent);
+  box-shadow: inset 0 0 80px color-mix(in srgb, var(--bg-app) 62%, transparent);
+}
+
+.acg-showcase :deep(.acg-topology) {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 18px 20px 14px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
   box-shadow: none;
 }
 
-.submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-glow);
+.acg-showcase :deep(.graph-stage) { flex: 1; min-height: 0; }
+.acg-showcase :deep(.graph-canvas) { height: 100%; min-height: 320px; }
+.acg-showcase :deep(.node-detail) { height: 100%; }
+.acg-showcase :deep(.legend) { gap: 7px 10px; }
+.acg-showcase :deep(.legend-item) { font-size: 9px; }
+
+@media (max-width: 1080px) {
+  .login-layout { width: min(900px, calc(100% - 56px)); grid-template-columns: minmax(350px, .9fr) minmax(390px, 1fr); gap: 48px; }
+  .hero-text h1 { font-size: clamp(38px, 4.5vw, 46px); }
 }
 
-@keyframes aura-pulse {
-  0% { transform: scale(1); opacity: 0.2; }
-  50% { transform: scale(1.1); opacity: 0.5; }
-  100% { transform: scale(1); opacity: 0.2; }
-}
-
-@media (max-width: 1200px) {
-  .login-container {
-    width: 95%;
-    max-width: 900px;
-    height: auto;
-    min-height: 580px;
-  }
-  
-  .promo-side {
-    padding: 30px 40px;
-  }
-  
-  .auth-side {
-    padding: 30px 40px;
-  }
-}
-
-@media (max-width: 1024px) {
-  .login-container {
-    width: 90%;
-    height: auto;
-    min-height: 600px;
-  }
-  .promo-side { display: none; }
-  .auth-side { 
-    flex: 1; 
-    padding: 40px;
-  }
-}
-
-@media (max-width: 768px) {
-  .login-container {
-    width: 95%;
-    margin: 10px;
-    height: auto;
-    min-height: 500px;
-  }
-  
-  .auth-side {
-    padding: 30px 20px;
-  }
-  
-  .auth-header h2 {
-    font-size: 22px;
-  }
-  
-  .auth-header p {
-    font-size: 14px;
-  }
-  
-  .premium-tabs :deep(.el-tabs__nav) {
-    gap: 20px;
-  }
-  
-  .premium-tabs :deep(.el-tabs__item) {
-    font-size: 14px;
-  }
+@media (max-width: 820px) {
+  .brand-bar { top: 20px; left: 20px; }
+  .login-view { min-height: 100vh; min-height: 100dvh; height: auto; overflow-y: auto; }
+  .login-layout { position: relative; top: auto; left: auto; width: min(480px, calc(100% - 40px)); height: auto; min-height: 100vh; min-height: 100dvh; max-height: none; margin: 0 auto; padding: 92px 0 48px; display: block; transform: none; }
+  .auth-side { max-width: none; }
+  .hero-text { margin-bottom: 30px; }
+  .hero-text h1 { font-size: clamp(38px, 10vw, 50px); }
+  .acg-showcase { display: none; }
 }
 
 @media (max-width: 480px) {
-  .login-container {
-    width: 100%;
-    margin: 0;
-    border-radius: 0;
-    height: 100vh;
-    max-height: 100vh;
-  }
-  
-  .auth-side {
-    padding: 20px;
-  }
-  
-  .auth-header {
-    margin-bottom: 20px;
-  }
-  
-  .auth-form {
-    gap: 15px;
-  }
-  
-  .premium-input :deep(.el-input__wrapper) {
-    height: 48px;
-    border-radius: 12px !important;
-  }
-  
-  .submit-btn {
-    height: 50px;
-    border-radius: 14px;
-    font-size: 15px;
-  }
+  .brand-bar, .login-layout { width: calc(100% - 32px); }
+  .login-layout { padding-top: 22px; }
+  .hero-text h1 { font-size: 36px; }
+  .subtitle { margin-top: 16px; font-size: 14px; }
+  .hero-text { margin-bottom: 24px; }
+}
+
+@media (min-width: 821px) and (max-height: 760px) {
+  .brand-bar { top: 18px; left: 24px; }
+  .login-layout { max-height: calc(100vh - 72px); max-height: calc(100dvh - 72px); }
+  .hero-text { margin-bottom: 22px; }
+  .hero-text h1 { font-size: clamp(36px, 3.2vw, 46px); }
+  .subtitle { margin-top: 14px; }
+  .premium-tabs :deep(.el-tabs__header) { margin-bottom: 18px; }
+  .auth-header { margin-bottom: 16px; }
+  .auth-form { gap: 9px; }
+  .premium-input :deep(.el-input__wrapper), .submit-btn { height: 46px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-input :deep(.el-input__wrapper), .submit-btn { transition: none; }
 }
 </style>

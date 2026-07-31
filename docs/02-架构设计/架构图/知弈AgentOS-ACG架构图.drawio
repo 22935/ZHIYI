@@ -1,0 +1,299 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.0 Chrome/140.0.7339.249 Electron/38.7.2 Safari/537.36" version="29.3.0">
+  <diagram name="知弈AgentOS-ACG引擎架构" id="acg-main">
+    <mxGraphModel dx="1213" dy="862" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3f6b63;fontColor=#ffffff;fontSize=16;fontStyle=1;align=center;verticalAlign=middle;arcSize=8;spacingTop=4;" value="知弈 AgentOS · ACG 动态群体智能引擎架构&lt;br&gt;面向复杂任务的动态智能体&amp;nbsp;" vertex="1">
+          <mxGeometry height="46" width="787" x="20" y="14" as="geometry" />
+        </mxCell>
+        <mxCell id="b1hdr" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#1d2422;" value="① 端到端闭环：从自然语言意图到自主交付（感知-规划-执行-反馈）" vertex="1">
+          <mxGeometry height="20" width="787" x="20" y="68" as="geometry" />
+        </mxCell>
+        <mxCell id="p1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#3f6b63;fontSize=10;arcSize=20;" value="自然语言&#xa;意图" vertex="1">
+          <mxGeometry height="44" width="86" x="20" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#3f6b63;fontSize=10;arcSize=20;" value="意图解析&#xa;语义画像" vertex="1">
+          <mxGeometry height="44" width="92" x="130" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=10;fontStyle=1;arcSize=20;" value="规划器&#xa;生成 ACG" vertex="1">
+          <mxGeometry height="44" width="92" x="246" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=10;fontStyle=1;arcSize=20;" value="执行器&#xa;就绪集并行" vertex="1">
+          <mxGeometry height="44" width="92" x="362" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="p5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cfe0f0;strokeColor=#496b8f;fontSize=10;arcSize=20;" value="低熵通信&#xa;按需投递" vertex="1">
+          <mxGeometry height="44" width="92" x="478" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="p6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fcefd6;strokeColor=#9a7432;fontSize=10;arcSize=20;" value="自愈恢复&#xa;检查点重规划" vertex="1">
+          <mxGeometry height="44" width="100" x="594" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="p7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#3f6b63;fontSize=10;arcSize=20;" value="交付物&#xa;+全链路审计" vertex="1">
+          <mxGeometry height="44" width="97" x="710" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="p1" style="endArrow=classic;html=1;strokeColor=#727c76;" target="p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" edge="1" parent="1" source="p2" style="endArrow=classic;html=1;strokeColor=#727c76;" target="p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e34" edge="1" parent="1" source="p3" style="endArrow=classic;html=1;strokeColor=#727c76;" target="p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e45" edge="1" parent="1" source="p4" style="endArrow=classic;html=1;strokeColor=#727c76;" target="p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e56" edge="1" parent="1" source="p5" style="endArrow=classic;html=1;strokeColor=#727c76;" target="p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e67" edge="1" parent="1" source="p6" style="endArrow=classic;html=1;strokeColor=#727c76;" target="p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="efb" edge="1" parent="1" style="endArrow=classic;html=1;strokeColor=#9a7432;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;fontSize=9;fontColor=#9a7432;edgeStyle=orthogonalEdgeStyle;" value="反馈/重规划">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="645" y="151" />
+              <mxPoint x="293" y="151" />
+            </Array>
+            <mxPoint x="645" y="136" as="sourcePoint" />
+            <mxPoint x="293" y="136" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="b2hdr" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#1d2422;" value="② 系统整体架构：运行时内核 / 应用服务层 / 领域能力包（三层解耦）" vertex="1">
+          <mxGeometry height="20" width="787" x="20" y="166" as="geometry" />
+        </mxCell>
+        <mxCell id="layerC" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f6faf8;strokeColor=#3f6b63;arcSize=4;dashed=0;" value="" vertex="1">
+          <mxGeometry height="92" width="787" x="20" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="layerCt" parent="1" style="text;html=1;align=left;fontSize=10;fontStyle=1;fontColor=#3f6b63;" value="agentOS Core 运行时内核（领域无关）" vertex="1">
+          <mxGeometry height="16" width="400" x="28" y="194" as="geometry" />
+        </mxCell>
+        <mxCell id="cACG" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="acg/&#xa;计算图模型&#xa;图算法/升格" vertex="1">
+          <mxGeometry height="58" width="120" x="30" y="214" as="geometry" />
+        </mxCell>
+        <mxCell id="cPLAN" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="planning/&#xa;认知规划引擎&#xa;意图·路由·构建" vertex="1">
+          <mxGeometry height="58" width="120" x="158" y="214" as="geometry" />
+        </mxCell>
+        <mxCell id="cEXEC" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="execution/&#xa;ACG执行器&#xa;故障注入" vertex="1">
+          <mxGeometry height="58" width="118" x="286" y="214" as="geometry" />
+        </mxCell>
+        <mxCell id="cCOMM" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cfe0f0;strokeColor=#496b8f;fontSize=9;arcSize=18;" value="communication/&#xa;低熵通信&#xa;数据血缘" vertex="1">
+          <mxGeometry height="58" width="118" x="412" y="214" as="geometry" />
+        </mxCell>
+        <mxCell id="cGOV" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="governance/&#xa;Trace·Checkpoint&#xa;Review·评估" vertex="1">
+          <mxGeometry height="58" width="120" x="538" y="214" as="geometry" />
+        </mxCell>
+        <mxCell id="cWF" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="workflow/&#xa;TaskManager&#xa;状态机·注册" vertex="1">
+          <mxGeometry height="58" width="123" x="666" y="214" as="geometry" />
+        </mxCell>
+        <mxCell id="layerA" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f6faf8;strokeColor=#496b8f;arcSize=4;" value="" vertex="1">
+          <mxGeometry height="40" width="787" x="20" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="layerAt" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontColor=#496b8f;" value="agent 应用服务层：FastAPI 入口 · LLM 网关(DeepSeek/Qwen 回落映射) · 行业 Pack · 意图LLM 注入" vertex="1">
+          <mxGeometry height="40" width="500" x="28" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="layerAe" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cfe0f0;strokeColor=#496b8f;fontSize=9;arcSize=18;" value="双执行路径：native · acg" vertex="1">
+          <mxGeometry height="26" width="239" x="560" y="297" as="geometry" />
+        </mxCell>
+        <mxCell id="layerP" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f6faf8;strokeColor=#9a7432;arcSize=4;" value="" vertex="1">
+          <mxGeometry height="34" width="787" x="20" y="338" as="geometry" />
+        </mxCell>
+        <mxCell id="layerPt" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontColor=#9a7432;" value="packs 领域能力包：legal(合同审查/案件分析) · education · programmer · writer ｜ Agent·Skill·Workflow·Prompt 注入，不改内核" vertex="1">
+          <mxGeometry height="34" width="771" x="28" y="338" as="geometry" />
+        </mxCell>
+        <mxCell id="b3hdr" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#1d2422;" value="③ 规划器（Cognitive Planning Engine）：静态优选 + 动态补位" vertex="1">
+          <mxGeometry height="20" width="500" x="20" y="384" as="geometry" />
+        </mxCell>
+        <mxCell id="plBox" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fbfdfc;strokeColor=#3f6b63;arcSize=4;" value="" vertex="1">
+          <mxGeometry height="196" width="394" x="20" y="408" as="geometry" />
+        </mxCell>
+        <mxCell id="plIntent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="意图解析 IntentParser&#xa;真实 DeepSeek + 启发式回退 → 语义画像" vertex="1">
+          <mxGeometry height="36" width="374" x="30" y="416" as="geometry" />
+        </mxCell>
+        <mxCell id="plMatch" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="模板匹配 TemplateMatcher&#xa;role+task 索引 + 相似度 ≥0.85" vertex="1">
+          <mxGeometry height="44" width="184" x="30" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="plHit" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="命中 → 复用模板&#xa;线性升格为 ACG&#xa;（零规划开销）" vertex="1">
+          <mxGeometry height="44" width="182" x="222" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="plRoute" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="认知路由 CognitiveRouter&#xa;调度认知能力→Agent · 动态角色生成 · 熵预算" vertex="1">
+          <mxGeometry height="36" width="374" x="30" y="512" as="geometry" />
+        </mxCell>
+        <mxCell id="plBuild" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="ACG 构建器 ACGBuilder&#xa;步骤分解 · 赋能节点注入(Memory/Evidence) · 环检测" vertex="1">
+          <mxGeometry height="40" width="374" x="30" y="556" as="geometry" />
+        </mxCell>
+        <mxCell id="ple1" edge="1" parent="1" source="plIntent" style="endArrow=classic;html=1;strokeColor=#727c76;" target="plMatch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ple2" edge="1" parent="1" source="plMatch" style="endArrow=classic;html=1;strokeColor=#9a7432;dashed=1;fontSize=8;fontColor=#9a7432;" target="plRoute" value="未命中(动态补位)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ple3" edge="1" parent="1" source="plRoute" style="endArrow=classic;html=1;strokeColor=#727c76;" target="plBuild">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="b4hdr" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#1d2422;" value="④ ACG 计算图模型（脊椎）" vertex="1">
+          <mxGeometry height="20" width="383" x="424" y="384" as="geometry" />
+        </mxCell>
+        <mxCell id="acgBox" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fbfdfc;strokeColor=#3f6b63;arcSize=4;" value="" vertex="1">
+          <mxGeometry height="196" width="383" x="424" y="408" as="geometry" />
+        </mxCell>
+        <mxCell id="acgNote" parent="1" style="text;html=1;align=center;fontSize=9;fontColor=#3f6b63;fontStyle=2;" value="同一张图 = 执行计划(依赖边) + 数据血缘图谱(通信/记忆/证据边)" vertex="1">
+          <mxGeometry height="16" width="371" x="430" y="414" as="geometry" />
+        </mxCell>
+        <mxCell id="nStep" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="Step 步骤" vertex="1">
+          <mxGeometry height="30" width="92" x="498" y="438" as="geometry" />
+        </mxCell>
+        <mxCell id="nAgent" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#cfe0f0;strokeColor=#496b8f;fontSize=9;" value="Agent 智能体" vertex="1">
+          <mxGeometry height="34" width="92" x="436" y="486" as="geometry" />
+        </mxCell>
+        <mxCell id="nMem" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fcefd6;strokeColor=#9a7432;fontSize=9;" value="Memory 记忆" vertex="1">
+          <mxGeometry height="40" width="80" x="560" y="484" as="geometry" />
+        </mxCell>
+        <mxCell id="nEvi" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f6dede;strokeColor=#b24a4a;fontSize=9;" value="Evidence&#xa;证据" vertex="1">
+          <mxGeometry height="48" width="84" x="668" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="nCtrl" parent="1" style="shape=hexagon;whiteSpace=wrap;html=1;fillColor=#e2e8e0;strokeColor=#727c76;fontSize=9;" value="Control 控制&#xa;并行/分支/汇聚" vertex="1">
+          <mxGeometry height="34" width="120" x="600" y="436" as="geometry" />
+        </mxCell>
+        <mxCell id="acgEdges" parent="1" style="text;html=1;align=left;fontSize=8;fontColor=#5a635e;" value="边类型：DEPENDENCY 依赖(调度) · EXECUTION 执行 · WRITE/READ 记忆&lt;div&gt;&amp;nbsp;· SUPPORT 证据 · COMMUNICATION 通信&lt;/div&gt;" vertex="1">
+          <mxGeometry height="14" width="367" x="442.5" y="524" as="geometry" />
+        </mxCell>
+        <mxCell id="acgEnrich" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="合同审查实例：6 Step + 6 Agent + 3 Evidence + 3 Memory = 18节点17边&#xa;线性链 → 多层「步骤×智能体×记忆×证据」认知协作网络" vertex="1">
+          <mxGeometry height="42" width="367" x="432" y="554" as="geometry" />
+        </mxCell>
+        <mxCell id="aeg1" edge="1" parent="1" source="nAgent" style="endArrow=classic;html=1;strokeColor=#496b8f;" target="nStep">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="aeg2" edge="1" parent="1" source="nStep" style="endArrow=classic;html=1;strokeColor=#9a7432;dashed=1;" target="nMem">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="aeg3" edge="1" parent="1" source="nEvi" style="endArrow=classic;html=1;strokeColor=#b24a4a;dashed=1;" target="nStep">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="b5hdr" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#1d2422;" value="⑤ 执行器（就绪集并行调度）+ 低熵通信中介" vertex="1">
+          <mxGeometry height="20" width="500" x="20" y="614" as="geometry" />
+        </mxCell>
+        <mxCell id="exBox" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fbfdfc;strokeColor=#3f6b63;arcSize=4;" value="" vertex="1">
+          <mxGeometry height="180" width="394" x="20" y="638" as="geometry" />
+        </mxCell>
+        <mxCell id="exLoop" parent="1" style="text;html=1;align=left;fontSize=9;fontColor=#3f6b63;" value="主循环：计算就绪集（所有依赖完成的 Step）→ asyncio.gather 并发执行 → 更新完成集" vertex="1">
+          <mxGeometry height="28" width="378" x="28" y="644" as="geometry" />
+        </mxCell>
+        <mxCell id="exA" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="A 解析" vertex="1">
+          <mxGeometry height="30" width="70" x="49" y="684" as="geometry" />
+        </mxCell>
+        <mxCell id="exB" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="B 分类" vertex="1">
+          <mxGeometry height="30" width="70" x="173" y="666" as="geometry" />
+        </mxCell>
+        <mxCell id="exC" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="C 风险" vertex="1">
+          <mxGeometry height="30" width="70" x="173" y="702" as="geometry" />
+        </mxCell>
+        <mxCell id="exD" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="D 汇聚" vertex="1">
+          <mxGeometry height="30" width="70" x="297" y="684" as="geometry" />
+        </mxCell>
+        <mxCell id="exPar" parent="1" style="text;html=1;align=center;fontSize=8;fontColor=#9a7432;fontStyle=2;" value="B、C 无依赖 → 并行" vertex="1">
+          <mxGeometry height="14" width="90" x="158" y="738" as="geometry" />
+        </mxCell>
+        <mxCell id="exe1" edge="1" parent="1" source="exA" style="endArrow=classic;html=1;strokeColor=#3f6b63;" target="exB">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="exe2" edge="1" parent="1" source="exA" style="endArrow=classic;html=1;strokeColor=#3f6b63;" target="exC">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="exe3" edge="1" parent="1" source="exB" style="endArrow=classic;html=1;strokeColor=#3f6b63;" target="exD">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="exe4" edge="1" parent="1" source="exC" style="endArrow=classic;html=1;strokeColor=#3f6b63;" target="exD">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="exTrace" parent="1" style="text;html=1;align=left;fontSize=8;fontColor=#5a635e;" value="节点级统一 Trace：scheduled→started→data_consumed→&lt;div&gt;agent_called→data_produced→succeeded（含耗时/摘要）&lt;/div&gt;" vertex="1">
+          <mxGeometry height="26" width="223" x="105.5" y="756" as="geometry" />
+        </mxCell>
+        <mxCell id="exComp" parent="1" style="text;html=1;align=left;fontSize=8;fontColor=#5a635e;" value="超越线性单指针：依赖驱动并行 · 支持分支/汇聚 · 线性图自动退化兼容" vertex="1">
+          <mxGeometry height="24" width="256" x="89" y="788" as="geometry" />
+        </mxCell>
+        <mxCell id="leBox" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4f8fc;strokeColor=#496b8f;arcSize=4;" value="" vertex="1">
+          <mxGeometry height="180" width="383" x="424" y="638" as="geometry" />
+        </mxCell>
+        <mxCell id="leTitle" parent="1" style="text;html=1;align=left;fontSize=10;fontStyle=1;fontColor=#496b8f;" value="低熵通信：工作流引擎作唯一中介" vertex="1">
+          <mxGeometry height="16" width="367" x="432" y="638" as="geometry" />
+        </mxCell>
+        <mxCell id="leUp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#496b8f;fontSize=9;arcSize=18;" value="上游 Step 完整输出&#xa;（全部字段）" vertex="1">
+          <mxGeometry height="40" width="110" x="432" y="666" as="geometry" />
+        </mxCell>
+        <mxCell id="leMid" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cfe0f0;strokeColor=#496b8f;fontSize=9;fontStyle=1;arcSize=18;" value="ContextAssembler&#xa;按 input_spec 精准提取&#xa;证据链聚合" vertex="1">
+          <mxGeometry height="52" width="120" x="566" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="leDown" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#496b8f;fontSize=9;arcSize=18;" value="下游 Step&#xa;仅需字段" vertex="1">
+          <mxGeometry height="40" width="89" x="710" y="666" as="geometry" />
+        </mxCell>
+        <mxCell id="lee1" edge="1" parent="1" source="leUp" style="endArrow=classic;html=1;strokeColor=#496b8f;fontSize=8;fontColor=#496b8f;" target="leMid" value="不全盘倾倒">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="lee2" edge="1" parent="1" source="leMid" style="endArrow=classic;html=1;strokeColor=#496b8f;fontSize=8;fontColor=#496b8f;" target="leDown" value="按需投递">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="leMetric" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cfe0f0;strokeColor=#496b8f;fontSize=9;fontStyle=1;arcSize=18;" value="实测 Token 节省率 ~22%（合同审查）· 抑制长程冗余爆炸" vertex="1">
+          <mxGeometry height="28" width="367" x="432" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="leProv" parent="1" style="text;html=1;align=left;fontSize=8;fontColor=#5a635e;" value="数据血缘 ProvenanceLedger：生产/消费事件 → 双向追溯（从何而来/用在何处）" vertex="1">
+          <mxGeometry height="26" width="367" x="432" y="752" as="geometry" />
+        </mxCell>
+        <mxCell id="leState" parent="1" style="text;html=1;align=left;fontSize=8;fontColor=#5a635e;" value="状态外化只传结论 · 结构化消息契约 · 全链路可审计白盒" vertex="1">
+          <mxGeometry height="26" width="367" x="432" y="786" as="geometry" />
+        </mxCell>
+        <mxCell id="b6hdr" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#1d2422;" value="⑥ 自愈闭环：故障可规划，无人工干预自主纠错" vertex="1">
+          <mxGeometry height="20" width="500" x="20" y="828" as="geometry" />
+        </mxCell>
+        <mxCell id="shBox" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdf8ee;strokeColor=#9a7432;arcSize=4;" value="" vertex="1">
+          <mxGeometry height="70" width="787" x="20" y="852" as="geometry" />
+        </mxCell>
+        <mxCell id="sh1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f6dede;strokeColor=#b24a4a;fontSize=9;arcSize=18;" value="故障注入&#xa;超时/崩溃/证据空" vertex="1">
+          <mxGeometry height="40" width="130" x="34" y="868" as="geometry" />
+        </mxCell>
+        <mxCell id="sh2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fcefd6;strokeColor=#9a7432;fontSize=9;arcSize=18;" value="捕获可恢复故障&#xa;创建检查点" vertex="1">
+          <mxGeometry height="40" width="140" x="200" y="868" as="geometry" />
+        </mxCell>
+        <mxCell id="sh3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fcefd6;strokeColor=#9a7432;fontSize=9;arcSize=18;" value="局部重规划&#xa;复位子图重跑" vertex="1">
+          <mxGeometry height="40" width="140" x="376" y="868" as="geometry" />
+        </mxCell>
+        <mxCell id="sh4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="续跑至完成&#xa;recoveryCount+1" vertex="1">
+          <mxGeometry height="40" width="140" x="552" y="868" as="geometry" />
+        </mxCell>
+        <mxCell id="sh5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef3f1;strokeColor=#3f6b63;fontSize=9;arcSize=18;" value="恢复轨迹&#xa;入 Trace 审计" vertex="1">
+          <mxGeometry height="40" width="92" x="700" y="868" as="geometry" />
+        </mxCell>
+        <mxCell id="she1" edge="1" parent="1" source="sh1" style="endArrow=classic;html=1;strokeColor=#9a7432;" target="sh2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="she2" edge="1" parent="1" source="sh2" style="endArrow=classic;html=1;strokeColor=#9a7432;" target="sh3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="she3" edge="1" parent="1" source="sh3" style="endArrow=classic;html=1;strokeColor=#9a7432;" target="sh4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="she4" edge="1" parent="1" source="sh4" style="endArrow=classic;html=1;strokeColor=#727c76;" target="sh5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="b7hdr" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#1d2422;" value="⑦ 核心创新点" vertex="1">
+          <mxGeometry height="20" width="500" x="20" y="930" as="geometry" />
+        </mxCell>
+        <mxCell id="inv1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=14;align=left;spacingLeft=8;" value="① ACG 统一计算模型 + 就绪集并行调度&#xa;执行计划与数据血缘合一，超越线性流水线" vertex="1">
+          <mxGeometry height="50" width="192" x="20" y="954" as="geometry" />
+        </mxCell>
+        <mxCell id="inv2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbe7e3;strokeColor=#3f6b63;fontSize=9;arcSize=14;align=left;spacingLeft=8;" value="② 静态优选+动态补位混合规划&#xa;调度认知能力而非任务节点" vertex="1">
+          <mxGeometry height="50" width="192" x="218" y="954" as="geometry" />
+        </mxCell>
+        <mxCell id="inv3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cfe0f0;strokeColor=#496b8f;fontSize=9;arcSize=14;align=left;spacingLeft=8;" value="③ 引擎唯一中介的低熵通信&#xa;按需投递+数据血缘，抑制 Token 爆炸" vertex="1">
+          <mxGeometry height="50" width="192" x="416" y="954" as="geometry" />
+        </mxCell>
+        <mxCell id="inv4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fcefd6;strokeColor=#9a7432;fontSize=9;arcSize=14;align=left;spacingLeft=8;" value="④ 故障可规划的自愈闭环&#xa;检查点+局部重规划，全程可审计" vertex="1">
+          <mxGeometry height="50" width="193" x="614" y="954" as="geometry" />
+        </mxCell>
+        <mxCell id="foot" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3f6b63;fontColor=#ffffff;fontSize=9;align=center;arcSize=10;" value="Core Native ACG 自研引擎 · 双执行路径(native/acg) · DeepSeek 接入 · 治理设施(Task/Trace/Checkpoint/Review)共享" vertex="1">
+          <mxGeometry height="30" width="787" x="20" y="1014" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

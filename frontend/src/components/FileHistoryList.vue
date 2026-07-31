@@ -1,3 +1,4 @@
+<!-- 文件历史列表组件 — 展示已上传文件列表，含类型图标、名称、大小、时间戳和下载/删除操作 -->
 <template>
   <div class="file-history-list">
     <!-- 文件列表 -->
@@ -269,7 +270,7 @@ watch(() => props.searchKeyword, () => {
   align-items: flex-start;
   gap: 16px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 16px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -277,7 +278,7 @@ watch(() => props.searchKeyword, () => {
   overflow: hidden;
   
   &:hover {
-    background: rgba(255, 255, 255, 1);
+    background: color-mix(in srgb, var(--bg-card) 100%, transparent);
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     border-color: rgba(99, 102, 241, 0.2);
@@ -291,7 +292,7 @@ watch(() => props.searchKeyword, () => {
     width: 48px;
     height: 48px;
     border-radius: 12px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-color));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -318,7 +319,7 @@ watch(() => props.searchKeyword, () => {
   .filename {
     font-size: 16px;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--text-primary);
     line-height: 1.3;
     letter-spacing: -0.01em;
     flex: 1;
@@ -331,7 +332,7 @@ watch(() => props.searchKeyword, () => {
   
   .time {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--text-secondary);
     flex-shrink: 0;
     font-weight: 400;
     white-space: nowrap;
@@ -342,7 +343,7 @@ watch(() => props.searchKeyword, () => {
   display: flex;
   gap: 12px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   
   .file-size {
     font-weight: 500;
@@ -352,7 +353,7 @@ watch(() => props.searchKeyword, () => {
     padding: 2px 8px;
     background: rgba(99, 102, 241, 0.1);
     border-radius: 4px;
-    color: #6366f1;
+    color: var(--primary-color);
   }
 }
 
@@ -370,7 +371,7 @@ watch(() => props.searchKeyword, () => {
     justify-content: center;
     background: transparent;
     border: none;
-    color: #6b7280;
+    color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s ease;
     
@@ -380,7 +381,7 @@ watch(() => props.searchKeyword, () => {
     
     &.download-btn:hover {
       background: rgba(99, 102, 241, 0.1);
-      color: #6366f1;
+      color: var(--primary-color);
     }
     
     &.delete-btn:hover {
@@ -409,7 +410,7 @@ watch(() => props.searchKeyword, () => {
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #6366f1;
+      color: var(--primary-color);
       font-size: 40px;
       margin: 0 auto 20px;
     }
@@ -418,14 +419,14 @@ watch(() => props.searchKeyword, () => {
       margin: 0 0 8px;
       font-size: 18px;
       font-weight: 600;
-      color: #1f2937;
+      color: var(--text-primary);
       letter-spacing: -0.01em;
     }
     
     .empty-hint {
       margin: 0;
       font-size: 14px;
-      color: #6b7280;
+      color: var(--text-secondary);
       font-weight: 400;
     }
   }
@@ -435,7 +436,7 @@ watch(() => props.searchKeyword, () => {
   display: flex;
   gap: 16px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 16px;
   

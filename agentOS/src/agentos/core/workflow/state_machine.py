@@ -17,7 +17,7 @@ class StateMachine:
     """工作流运行和步骤共享的状态机。"""
 
     _transitions = {
-        "pending": {"planning", "running", "cancelled"},
+        "pending": {"planning", "running", "failed", "cancelled", "skipped_by_condition"},
         "planning": {"running", "failed", "cancelled"},
         "running": {"waiting_review", "retrying", "failed", "completed", "cancelled"},
         "waiting_review": {"running", "retrying", "failed", "completed", "cancelled"},
@@ -25,6 +25,7 @@ class StateMachine:
         "failed": {"retrying", "cancelled"},
         "completed": set(),
         "cancelled": set(),
+        "skipped_by_condition": set(),
     }
 
     def can_transition(self, current: Enum, target: Enum) -> bool:

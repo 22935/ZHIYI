@@ -1,8 +1,9 @@
-"""法律 Pack 的智能体实现，负责法律工作流中的专业步骤执行。"""
+"""Legal basis retrieval backed by the local read-only knowledge tool."""
 
+import json
 
 from agentos.agents.base import AgentOutput, AgentProfile, BaseAgent
-from packs.legal.agents.common import case_text, has_any
+from packs.legal.agents.common import case_text
 
 
 class StatuteAgent(BaseAgent):
@@ -13,37 +14,53 @@ class StatuteAgent(BaseAgent):
                 domain="legal",
                 capabilities=["statute_retrieval", "legal_basis"],
                 allowedSkills=["statute_retrieval", "case_retrieval"],
-                description="Finds legal basis for the workflow's current dispute.",
+                allowedTools=[
+                    "knowledge_search",
+                    "current_datetime",
+                ],
+                description="Finds legal basis for the current dispute and preserves its sources.",
             )
         )
 
     async def run(self, context):
         text = case_text(context.task.input)
-        basis = [
-            {
-                "lawName": "中华人民共和国民法典",
-                "article": "第五百零九条",
-                "title": "合同履行原则",
-                "reason": "合同当事人应按照约定全面履行义务。",
-            },
-            {
-                "lawName": "中华人民共和国民法典",
-                "article": "第五百七十七条",
-                "title": "违约责任",
-                "reason": "一方不履行合同义务或履行不符合约定的，应承担违约责任。",
-            },
-        ]
-        if has_any(text, ["逾期", "延期", "迟延"]):
-            basis.append(
-                {
-                    "lawName": "中华人民共和国民法典",
-                    "article": "第五百八十五条",
-                    "title": "违约金调整",
-                    "reason": "涉及逾期违约金约定时需要审查是否过高或过低。",
-                }
+        if context.tool_runtime is None:
+            raise RuntimeError("legal evidence tool runtime is not configured")
+        result = await context.tool_runtime.execute(
+            "knowledge_search",
+            {"query": text[:500], "top_k": 5},
+        )
+        try:
+            envelope = json.loads(result.text)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise RuntimeError("local legal knowledge search returned an invalid payload") from exc
+        if not envelope.get("ok"):
+            raise RuntimeError(
+                "local legal knowledge search failed: "
+                f"{envelope.get('error') or 'unknown error'}"
             )
-
+        sources = [item.public_dict() for item in result.sources]
+        evidence_refs = [item.citation_id for item in result.sources]
+        if not evidence_refs:
+            raise RuntimeError(
+                "offline legal basis retrieval requires a local knowledge source"
+            )
+        legal_basis = [
+            str(item.get("snippet") or item.get("content") or "").strip()
+            for item in ((envelope.get("data") or {}).get("results") or [])
+            if isinstance(item, dict)
+            and str(item.get("snippet") or item.get("content") or "").strip()
+        ]
         return AgentOutput(
-            output={"legal_basis": basis, "query": text[:120]},
-            summary=f"Statute retrieval completed with {len(basis)} legal basis item(s).",
+            output={
+                "legal_basis": legal_basis,
+                "query": text[:500],
+                "retrieval_status": "completed",
+                "sources": sources,
+                "evidence_refs": evidence_refs,
+            },
+            summary=f"Retrieved legal basis from {len(evidence_refs)} source(s).",
+            sources=sources,
+            toolExecutions=[item.public_dict() for item in result.tool_executions],
+            evidenceRefs=evidence_refs,
         )

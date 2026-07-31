@@ -24,6 +24,7 @@ public interface RoleMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "roleType", ignore = true)
     @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "stableKey", ignore = true)
     Role toEntity(RoleCreateRequest request);
 }
 

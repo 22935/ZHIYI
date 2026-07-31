@@ -7,6 +7,7 @@ import java.util.List;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
+/** 推荐上下文请求 DTO — 包含角色名称、范围、场景、当前输入/输出和对话历史 */
 public class RecommendationContextRequest {
 
     private String roleName;

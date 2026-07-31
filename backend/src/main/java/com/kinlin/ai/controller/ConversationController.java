@@ -52,9 +52,17 @@ public class ConversationController {
      * 删除对话
      */
     @DeleteMapping("/{conversationId}")
-    public ResponseEntity<Void> deleteConversation(@PathVariable UUID conversationId) {
-        conversationService.deleteConversation(conversationId);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<Void> deleteConversation(
+            @PathVariable UUID conversationId,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId
+    ) {
+        userId = resolveUserId(userId);
+        if (userId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        return conversationService.deleteConversation(conversationId, userId)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 
     /**

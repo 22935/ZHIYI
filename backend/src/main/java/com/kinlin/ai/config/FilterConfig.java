@@ -1,6 +1,7 @@
 package com.kinlin.ai.config;
 
 import com.kinlin.ai.filter.RequestLoggingFilter;
+import com.kinlin.ai.filter.TraceIdFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,15 @@ import org.springframework.context.annotation.Configuration;
 public class FilterConfig {
 
     private final RequestLoggingFilter requestLoggingFilter;
+
+    @Bean
+    public FilterRegistrationBean<TraceIdFilter> traceIdFilter() {
+        FilterRegistrationBean<TraceIdFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new TraceIdFilter());
+        registration.addUrlPatterns("/*");
+        registration.setOrder(0);
+        return registration;
+    }
 
     @Bean
     public FilterRegistrationBean<RequestLoggingFilter> loggingFilter() {

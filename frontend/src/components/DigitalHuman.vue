@@ -1,3 +1,4 @@
+<!-- 数字人组件 — 基于 Canvas 渲染 3D 数字人形象，含加载/错误/空状态和重试 -->
 <template>
   <div class="digital-human-container" ref="containerRef">
     <canvas ref="canvasRef" class="digital-human-canvas"></canvas>
@@ -842,7 +843,7 @@ onUnmounted(() => {
 }
 
 .loading-content, .error-content, .empty-content {
-  background: rgba(255, 255, 255, 0.8);
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
   padding: 24px;
   border-radius: 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -860,20 +861,20 @@ onUnmounted(() => {
   
   .is-loading {
     animation: rotate 1s linear infinite;
-    color: #409eff;
+    color: var(--primary-color);
   }
 }
 
 .loading-text {
   font-size: 16px;
   font-weight: 500;
-  color: #606266;
+  color: var(--text-regular);
 }
 
 .loading-progress {
   width: 200px;
   height: 4px;
-  background: #e4e7ed;
+  background: var(--bg-input);
   border-radius: 2px;
   overflow: hidden;
   position: relative;
@@ -919,7 +920,7 @@ onUnmounted(() => {
 }
 
 .empty-icon {
-  color: #909399;
+  color: var(--text-secondary);
 }
 
 .error-title,
@@ -927,14 +928,14 @@ onUnmounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text-primary);
 }
 
 .error-message,
 .empty-message {
   margin: 0;
   font-size: 14px;
-  color: #909399;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 

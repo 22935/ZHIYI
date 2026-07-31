@@ -26,7 +26,9 @@
   }
 
   .chat-main {
-    height: calc(100vh - 200px) !important;
+    height: auto !important;
+    flex: 1;
+    min-height: 0;
   }
 
   .message-content-wrapper {

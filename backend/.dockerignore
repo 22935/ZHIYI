@@ -1,0 +1,15 @@
+target/
+**/target/
+.venv/
+logs/
+release/
+.tmp-backups/
+.mvn/
+mvnw
+mvnw.cmd
+*.log
+.env
+.env.*
+!.env.example
+**/.DS_Store
+**/Thumbs.db

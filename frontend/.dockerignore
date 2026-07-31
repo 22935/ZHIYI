@@ -1,0 +1,15 @@
+node_modules/
+**/node_modules/
+dist/
+.vite/
+.cache/
+.venv/
+logs/
+release/
+.tmp-backups/
+*.log
+.env
+.env.*
+!.env.example
+**/.DS_Store
+**/Thumbs.db

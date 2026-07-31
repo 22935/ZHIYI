@@ -1,3 +1,4 @@
+<!-- 联邦模型管理页面 — 统一查看模型版本、状态和评估结果，支持新建和刷新模型 -->
 <template>
   <div class="model-management-view">
     <div class="ambient-glow top-left"></div>
@@ -199,7 +200,7 @@
               <div class="detail-metric-item">
                 <span class="detail-metric-label">损失值</span>
                 <div class="detail-progress-track">
-                  <div class="detail-progress-fill" :style="{ width: Math.min(100, activeModel.loss * 50) + '%', background: activeModel.loss > 0.8 ? 'linear-gradient(90deg, #ef4444, #f87171)' : activeModel.loss > 0.5 ? 'linear-gradient(90deg, #f59e0b, #fbbf24)' : 'linear-gradient(90deg, #22c55e, #4ade80)' }"></div>
+                  <div class="detail-progress-fill" :style="{ width: Math.min(100, activeModel.loss * 50) + '%', background: activeModel.loss > 0.8 ? 'linear-gradient(90deg, var(--danger), var(--danger))' : activeModel.loss > 0.5 ? 'linear-gradient(90deg, var(--warning), var(--warning))' : 'linear-gradient(90deg, var(--success), var(--success))' }"></div>
                 </div>
                 <span class="detail-metric-value">{{ activeModel.loss.toFixed(2) }}</span>
               </div>
@@ -231,6 +232,60 @@
               <span class="advice-text">{{ evaluation.advice }}</span>
             </div>
           </div>
+          <div class="runtime-block">
+            <div class="runtime-block-head">
+              <h4>ACG 运行编排</h4>
+              <span class="runtime-badge">{{ getRuntimeMode(activeModel) }}</span>
+            </div>
+
+            <div class="runtime-graph" aria-label="模型运行图">
+              <div
+                v-for="node in getRuntimeNodes(activeModel)"
+                :key="node.key"
+                class="runtime-node"
+                :class="node.state"
+              >
+                <span class="node-dot"></span>
+                <div>
+                  <strong>{{ node.label }}</strong>
+                  <span>{{ node.description }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="runtime-insights">
+              <div
+                v-for="item in getRuntimeInsights(activeModel)"
+                :key="item.label"
+                class="runtime-insight"
+                :class="item.tone"
+              >
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </div>
+            </div>
+
+            <div class="trace-card">
+              <div class="trace-head">
+                <span>Trace 快照</span>
+                <strong>{{ getTraceStatus(activeModel) }}</strong>
+              </div>
+              <div class="trace-list">
+                <div class="trace-row">
+                  <span>ACG</span>
+                  <strong>{{ activeModel.federated ? 'federated_model_graph' : 'local_model_graph' }}</strong>
+                </div>
+                <div class="trace-row">
+                  <span>Checkpoint</span>
+                  <strong>round-{{ activeModel.trainingRounds }} / v{{ activeModel.version }}</strong>
+                </div>
+                <div class="trace-row">
+                  <span>Guardrail</span>
+                  <strong>{{ getGuardrailText(activeModel) }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-else class="panel-empty">
@@ -254,6 +309,8 @@ import { federatedModelApi, type ModelInfo } from '@/services/api/federatedModel
 
 type ModelStatus = 'draft' | 'training' | 'ready' | 'online' | 'offline'
 type PanelMode = 'details' | 'evaluation'
+type RuntimeNodeState = 'done' | 'running' | 'pending' | 'blocked'
+type RuntimeInsightTone = 'primary' | 'success' | 'warning'
 
 interface ModelCard {
   id: string
@@ -281,6 +338,19 @@ interface EvaluationState {
   qps: string
   stability: string
   advice: string
+}
+
+interface RuntimeNode {
+  key: string
+  label: string
+  description: string
+  state: RuntimeNodeState
+}
+
+interface RuntimeInsight {
+  label: string
+  value: string
+  tone: RuntimeInsightTone
 }
 
 const makeDefaultModels = (): ModelCard[] => [
@@ -489,31 +559,31 @@ const statsConfig = computed(() => [
   {
     label: '模型总数',
     value: totalCount.value,
-    gradient: 'linear-gradient(180deg, #3f6b63, rgba(63, 107, 99, 0.16))',
-    iconBg: 'rgba(63, 107, 99, 0.1)'
+    gradient: 'linear-gradient(180deg, var(--primary-color), var(--primary-fade))',
+    iconBg: 'var(--primary-fade)'
   },
   {
     label: '在线服务',
     value: onlineCount.value,
-    gradient: 'linear-gradient(180deg, #3d7656, rgba(61, 118, 86, 0.16))',
-    iconBg: 'rgba(61, 118, 86, 0.1)'
+    gradient: 'linear-gradient(180deg, var(--success), var(--success-fade))',
+    iconBg: 'var(--success-fade)'
   },
   {
     label: '训练中',
     value: trainingCount.value,
-    gradient: 'linear-gradient(180deg, #9a7432, rgba(154, 116, 50, 0.16))',
-    iconBg: 'rgba(154, 116, 50, 0.1)'
+    gradient: 'linear-gradient(180deg, var(--warning), var(--warning-fade))',
+    iconBg: 'var(--warning-fade)'
   },
   {
     label: '平均精度',
     value: averageAccuracy.value + '%',
-    gradient: 'linear-gradient(180deg, #6f668f, rgba(111, 102, 143, 0.16))',
-    iconBg: 'rgba(111, 102, 143, 0.1)'
+    gradient: 'linear-gradient(180deg, var(--primary-hover), var(--primary-fade))',
+    iconBg: 'var(--primary-fade)'
   }
 ])
 
 function getStatusTag(status: ModelStatus): 'info' | 'success' | 'warning' | 'primary' | 'danger' {
-  if (status === 'online') return 'success'
+  if (status === 'online') return 'primary'
   if (status === 'training') return 'warning'
   if (status === 'ready') return 'primary'
   if (status === 'offline') return 'danger'
@@ -554,18 +624,92 @@ function formatTimeShort(iso: string): string {
 }
 
 function getAccentGradient(status: ModelStatus): string {
-  if (status === 'online') return 'linear-gradient(180deg, #3d7656, rgba(61, 118, 86, 0.14))'
-  if (status === 'training') return 'linear-gradient(180deg, #9a7432, rgba(154, 116, 50, 0.14))'
-  if (status === 'ready') return 'linear-gradient(180deg, #3f6b63, rgba(63, 107, 99, 0.14))'
-  if (status === 'offline') return 'linear-gradient(180deg, #b24a4a, rgba(178, 74, 74, 0.14))'
-  return 'linear-gradient(180deg, #a6aca8, rgba(166, 172, 168, 0.14))'
+  if (status === 'online' || status === 'ready') return 'linear-gradient(180deg, var(--primary-color), var(--primary-fade))'
+  if (status === 'training') return 'linear-gradient(180deg, var(--warning), var(--warning-fade))'
+  if (status === 'offline') return 'linear-gradient(180deg, var(--danger), var(--danger-fade))'
+  return 'linear-gradient(180deg, var(--primary-color), var(--primary-fade))'
 }
 
-function getProgressColor(accuracy: number): string {
-  if (accuracy >= 90) return 'linear-gradient(90deg, #3d7656, rgba(61, 118, 86, 0.64))'
-  if (accuracy >= 85) return 'linear-gradient(90deg, #3f6b63, rgba(63, 107, 99, 0.64))'
-  if (accuracy >= 80) return 'linear-gradient(90deg, #6f668f, rgba(111, 102, 143, 0.64))'
-  return 'linear-gradient(90deg, #9a7432, rgba(154, 116, 50, 0.64))'
+function getProgressColor(_accuracy: number): string {
+  return 'linear-gradient(90deg, var(--primary-color), var(--primary-hover))'
+}
+
+function getRuntimeMode(model: ModelCard): string {
+  if (model.status === 'training') return 'ACG / 训练中'
+  if (model.federated) return 'ACG / 联邦聚合'
+  return 'ACG / 本地适配'
+}
+
+function getRuntimeNodes(model: ModelCard): RuntimeNode[] {
+  const paused = model.status === 'draft' || model.status === 'offline'
+  const needsReview = model.loss > 0.7 || model.accuracy < 80
+
+  return [
+    {
+      key: 'input',
+      label: '输入归一',
+      description: 'Schema 与 Prompt 版本锁定',
+      state: 'done'
+    },
+    {
+      key: 'context',
+      label: model.federated ? '联邦上下文' : '本地上下文',
+      description: model.federated ? `${model.participants} 个 Agent 聚合` : '本地 Adapter 直连',
+      state: paused ? 'pending' : 'done'
+    },
+    {
+      key: 'router',
+      label: '模型路由',
+      description: model.latency <= 140 ? '低延迟执行路径' : '质量优先执行路径',
+      state: model.status === 'training' ? 'running' : paused ? 'pending' : 'done'
+    },
+    {
+      key: 'gate',
+      label: '评估门控',
+      description: needsReview ? '进入人工复核阈值' : '自动通过质量阈值',
+      state: needsReview ? 'blocked' : model.status === 'training' ? 'pending' : 'done'
+    },
+    {
+      key: 'publish',
+      label: '发布检查点',
+      description: `round-${model.trainingRounds} / v${model.version}`,
+      state: model.status === 'online' ? 'running' : model.status === 'ready' ? 'pending' : paused ? 'blocked' : 'pending'
+    }
+  ]
+}
+
+function getRuntimeInsights(model: ModelCard): RuntimeInsight[] {
+  const checkpointSpan = Math.max(4, Math.ceil(Math.max(model.trainingRounds, 1) / 8))
+  return [
+    {
+      label: '路由策略',
+      value: model.accuracy >= 85 ? '质量优先' : model.latency <= 120 ? '速度优先' : '观察模式',
+      tone: model.accuracy >= 85 ? 'success' : 'warning'
+    },
+    {
+      label: '失败回退',
+      value: model.federated ? '本地基线' : 'Mock Provider',
+      tone: 'primary'
+    },
+    {
+      label: '检查点',
+      value: `每 ${checkpointSpan} 轮`,
+      tone: model.status === 'training' ? 'warning' : 'success'
+    }
+  ]
+}
+
+function getTraceStatus(model: ModelCard): string {
+  if (model.status === 'online') return '实时观测'
+  if (model.status === 'training') return '训练追踪'
+  if (model.status === 'ready') return '待发布'
+  return '暂停'
+}
+
+function getGuardrailText(model: ModelCard): string {
+  if (model.loss > 0.7) return 'Human Review'
+  if (model.accuracy >= 85) return 'Auto Pass'
+  return 'Evidence Check'
 }
 
 function normalizeAccuracyPercent(accuracy: number | undefined, fallback = 85): number {
@@ -677,7 +821,7 @@ onMounted(() => {
 <style scoped>
 .model-management-view {
   --primary: var(--primary-color, #3f6b63);
-  --primary-light: #5d817a;
+  --primary-light: var(--primary-hover);
   --primary-bg: var(--primary-fade, rgba(63, 107, 99, 0.1));
   --primary-border: var(--border-light, #e3e6df);
   --cyan: var(--accent-color, #6f668f);
@@ -687,7 +831,7 @@ onMounted(() => {
   --green-dark: var(--success, #3d7656);
   --pink: var(--warning, #9a7432);
   --amber: var(--warning, #9a7432);
-  --surface: #ffffff;
+  --surface: var(--bg-card);
   --surface-alt: var(--bg-input, #f1f3ef);
   --border: var(--border-light, #e3e6df);
   --border-hover: var(--border-hover, #cfd6cd);
@@ -712,11 +856,11 @@ onMounted(() => {
   --gap-xl: 32px;
 
   position: relative;
-  min-height: 100vh;
-  padding: 20px 24px 28px;
+  height: 100%;
+  padding: var(--page-padding-y) var(--page-padding-x);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--page-gap);
   color: var(--text-primary);
   overflow-y: auto;
   overflow-x: hidden;
@@ -743,7 +887,7 @@ onMounted(() => {
 .glass-panel {
   position: relative;
   z-index: 1;
-  background: rgba(255, 255, 255, 0.86);
+  background: color-mix(in srgb, var(--bg-card) 86%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
@@ -770,7 +914,7 @@ onMounted(() => {
   height: 44px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--primary);
   display: flex;
   align-items: center;
@@ -870,7 +1014,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .card-grid {
@@ -1027,11 +1171,15 @@ onMounted(() => {
 .inline-panel {
   padding: 20px;
   min-height: 480px;
-  max-height: calc(100vh - 240px);
-  overflow-y: auto;
+  height: 100%;
+  max-height: none;
+  overflow-y: visible;
   overflow-x: hidden;
   position: sticky;
   top: var(--gap-lg);
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-header-area {
@@ -1082,6 +1230,7 @@ onMounted(() => {
 
 .panel-content {
   animation: panelFadeIn 0.3s ease;
+  flex: 1;
 }
 
 @keyframes panelFadeIn {
@@ -1225,7 +1374,7 @@ onMounted(() => {
 }
 
 .eval-value.success {
-  color: #22c55e;
+  color: var(--success);
 }
 
 .eval-advice {
@@ -1251,7 +1400,204 @@ onMounted(() => {
   line-height: 1.5;
 }
 
+.runtime-block {
+  margin-top: var(--gap-md);
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.runtime-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-sm);
+  margin-bottom: var(--gap-sm);
+}
+
+.runtime-block-head h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.runtime-badge {
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-bg);
+  color: var(--primary);
+  border: 1px solid var(--primary-line, rgba(63, 107, 99, 0.22));
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.runtime-graph {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--gap-xs);
+}
+
+.runtime-node {
+  position: relative;
+  min-height: 94px;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.runtime-node:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 19px;
+  right: -7px;
+  width: 12px;
+  height: 1px;
+  background: var(--border-hover);
+  z-index: 2;
+}
+
+.node-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--border-hover);
+  background: var(--surface);
+}
+
+.runtime-node strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.runtime-node span:not(.node-dot) {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.runtime-node.done .node-dot,
+.runtime-node.running .node-dot {
+  border-color: var(--green);
+  background: var(--green);
+}
+
+.runtime-node.running {
+  border-color: var(--primary-line, rgba(63, 107, 99, 0.22));
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+}
+
+.runtime-node.pending .node-dot {
+  border-color: var(--amber);
+}
+
+.runtime-node.blocked {
+  background: rgba(178, 74, 74, 0.08);
+  border-color: rgba(178, 74, 74, 0.22);
+}
+
+.runtime-node.blocked .node-dot {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.runtime-insights {
+  margin-top: var(--gap-sm);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap-xs);
+}
+
+.runtime-insight {
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.runtime-insight span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.runtime-insight strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.runtime-insight.success {
+  border-color: rgba(61, 118, 86, 0.24);
+}
+
+.runtime-insight.warning {
+  border-color: rgba(154, 116, 50, 0.26);
+}
+
+.runtime-insight.primary {
+  border-color: var(--primary-line, rgba(63, 107, 99, 0.22));
+}
+
+.trace-card {
+  margin-top: var(--gap-sm);
+  padding: var(--gap-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-solid);
+}
+
+.trace-head,
+.trace-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-sm);
+}
+
+.trace-head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.trace-head span,
+.trace-row span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.trace-head strong {
+  color: var(--primary);
+  font-size: 12px;
+}
+
+.trace-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.trace-row strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
 .panel-empty {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1267,7 +1613,7 @@ onMounted(() => {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--primary);
-  background: #fff;
+  background: var(--surface-solid);
   font-size: 24px;
 }
 
@@ -1346,6 +1692,22 @@ onMounted(() => {
   }
 
   .eval-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .runtime-graph {
+    grid-template-columns: 1fr;
+  }
+
+  .runtime-node {
+    min-height: auto;
+  }
+
+  .runtime-node:not(:last-child)::after {
+    display: none;
+  }
+
+  .runtime-insights {
     grid-template-columns: 1fr;
   }
 }

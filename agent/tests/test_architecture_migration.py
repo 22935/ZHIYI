@@ -60,9 +60,9 @@ def test_pack_registry_discovers_application_layer_packs():
     manifests = discover_pack_manifests()
     by_id = {manifest.pack_id: manifest for manifest in manifests}
 
-    assert {"legal", "education", "programmer", "writer"}.issubset(by_id)
-    assert by_id["legal"].module == "packs.legal"
-    assert by_id["legal"].path.is_relative_to(PROJECT_ROOT / "agent" / "packs")
+    assert {"kinlin.legal", "education", "programmer", "writer"}.issubset(by_id)
+    assert by_id["kinlin.legal"].module == "packs.legal"
+    assert by_id["kinlin.legal"].path.is_relative_to(PROJECT_ROOT / "agent" / "packs")
 
 
 def test_core_packs_directory_only_contains_registry_code():

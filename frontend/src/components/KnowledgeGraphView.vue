@@ -1,3 +1,4 @@
+<!-- 知识图谱视图 — 展示知识图谱统计（实体、三元组、关系）和可视化画布 -->
 <template>
   <div class="knowledge-graph-container">
     <div class="graph-header">
@@ -160,7 +161,7 @@ const searchEntity = async () => {
   
   .label {
     font-size: 14px;
-    color: #909399;
+    color: var(--text-secondary);
     font-weight: 500;
   }
   
@@ -194,7 +195,7 @@ const searchEntity = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #909399;
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
@@ -217,7 +218,7 @@ const searchEntity = async () => {
 
 .is-loading {
   animation: rotate 1s linear infinite;
-  color: #409eff;
+  color: var(--primary-color);
   font-size: 32px;
 }
 
@@ -249,13 +250,13 @@ const searchEntity = async () => {
   pre {
     max-height: 300px;
     overflow: auto;
-    background: #ffffff;
+    background: var(--surface-solid);
     padding: 16px;
     border-radius: 8px;
     border: 1px solid #e4e7ed;
     font-size: 13px;
     line-height: 1.6;
-    color: #606266;
+    color: var(--text-regular);
   }
 }
 </style>

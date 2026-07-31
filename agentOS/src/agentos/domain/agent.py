@@ -30,6 +30,7 @@ class AgentProfile:
     domain: str
     capabilities: list[str] = field(default_factory=list)
     allowed_skills: list[str] = field(default_factory=list)
+    allowed_tools: list[str] = field(default_factory=list)
     risk_level: str = "normal"
     description: str = ""
 
@@ -38,6 +39,7 @@ class AgentProfile:
         self.domain = _normalize_text(self.domain, field_name="domain")
         self.capabilities = _normalize_terms(self.capabilities)
         self.allowed_skills = _normalize_terms(self.allowed_skills)
+        self.allowed_tools = _normalize_terms(self.allowed_tools)
         self.risk_level = (self.risk_level or "normal").strip().lower() or "normal"
         self.description = (self.description or "").strip()
 
@@ -48,3 +50,7 @@ class AgentProfile:
     def can_use_skill(self, skill_name: str) -> bool:
         normalized = (skill_name or "").strip().lower()
         return bool(normalized) and normalized in self.allowed_skills
+
+    def can_use_tool(self, tool_name: str) -> bool:
+        normalized = (tool_name or "").strip().lower()
+        return bool(normalized) and normalized in self.allowed_tools

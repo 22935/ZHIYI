@@ -50,10 +50,17 @@ class TaskManager:
         role_type: Optional[str] = None,
         task_type: Optional[str] = None,
         workflow_id: Optional[str] = None,
+        enabled_plugin_ids: Optional[list[str]] = None,
+        allowed_workflow_ids: Optional[tuple[str, ...]] = None,
     ) -> AgentTask:
         task_domain = self._first_nonblank(role_type, domain, default="general")
         task_intent = self._first_nonblank(task_type, intent, default="general")
-        workflow = self._select_workflow(task_domain, task_intent, workflow_id)
+        workflow = self._select_workflow(
+            task_domain,
+            task_intent,
+            workflow_id,
+            allowed_workflow_ids=allowed_workflow_ids,
+        )
 
         task = AgentTask(
             title=title,
@@ -63,6 +70,9 @@ class TaskManager:
             securityLevel=security_level,
             priority=priority,
             recommendedWorkflow=workflow.workflow_id if workflow else None,
+            enabledPluginIds=(
+                list(enabled_plugin_ids) if enabled_plugin_ids is not None else None
+            ),
         )
         self.workflow_store.save_task(task)
         self._record_task_event(
@@ -93,12 +103,19 @@ class TaskManager:
             page_size=page_size,
         )
 
-    def bind_workflow(self, task: AgentTask | str, workflow_id: Optional[str] = None) -> WorkflowDefinition:
+    def bind_workflow(
+        self,
+        task: AgentTask | str,
+        workflow_id: Optional[str] = None,
+        *,
+        allowed_workflow_ids: Optional[tuple[str, ...]] = None,
+    ) -> WorkflowDefinition:
         resolved_task = self._task(task)
         workflow = self._select_workflow(
             resolved_task.domain,
             resolved_task.intent,
             workflow_id or resolved_task.recommended_workflow,
+            allowed_workflow_ids=allowed_workflow_ids,
         )
         if workflow is None:
             raise KeyError(
@@ -182,10 +199,18 @@ class TaskManager:
         domain: str,
         intent: str,
         workflow_id: Optional[str],
+        *,
+        allowed_workflow_ids: Optional[tuple[str, ...]] = None,
     ) -> Optional[WorkflowDefinition]:
         if workflow_id:
-            return self.workflow_registry.get(workflow_id)
-        return self.workflow_registry.recommend(domain=domain, intent=intent)
+            return self.workflow_registry.get(
+                workflow_id, allowed_workflow_ids=allowed_workflow_ids
+            )
+        return self.workflow_registry.recommend(
+            domain=domain,
+            intent=intent,
+            allowed_workflow_ids=allowed_workflow_ids,
+        )
 
     @staticmethod
     def _first_nonblank(preferred: Optional[str], fallback: Optional[str], *, default: str) -> str:

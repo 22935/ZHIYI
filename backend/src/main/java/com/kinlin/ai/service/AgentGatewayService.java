@@ -3,6 +3,8 @@ package com.kinlin.ai.service;
 import com.kinlin.ai.config.AgentProperties;
 import com.kinlin.ai.dto.agent.AgentChatRequest;
 import com.kinlin.ai.dto.agent.AgentChatResponse;
+import com.kinlin.ai.gateway.PythonServiceAuthentication;
+import com.kinlin.ai.gateway.TrustedUserContextForwarder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -26,11 +28,21 @@ public class AgentGatewayService {
     private final AgentProperties agentProperties;
     private final RestTemplate restTemplate;
 
-    public AgentGatewayService(RestTemplateBuilder restTemplateBuilder, AgentProperties agentProperties) {
+    public AgentGatewayService(
+            RestTemplateBuilder restTemplateBuilder,
+            AgentProperties agentProperties,
+            PythonServiceAuthentication authentication,
+            TrustedUserContextForwarder userContextForwarder
+    ) {
         this.agentProperties = agentProperties;
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofMillis(agentProperties.getTimeoutMs()))
                 .setReadTimeout(Duration.ofMillis(agentProperties.getTimeoutMs()))
+                .additionalInterceptors((request, body, execution) -> {
+                    authentication.apply(request.getHeaders());
+                    userContextForwarder.apply(request.getHeaders());
+                    return execution.execute(request, body);
+                })
                 .build();
     }
 

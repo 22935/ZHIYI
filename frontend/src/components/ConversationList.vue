@@ -1,3 +1,4 @@
+<!-- 对话列表组件 — 可滚动对话列表，含头像、标题、预览、时间戳和编辑/删除操作 -->
 <template>
   <div class="conversation-list-container">
     <!-- 对话列表 -->
@@ -282,7 +283,7 @@ const formatTime = (time: number | Date) => {
 
 <style scoped lang="scss">
 // 变量定义 - 现代优雅的设计系统
-$primary-color: #6366f1;
+$primary-color: var(--primary-color);
 $primary-light: rgba(99, 102, 241, 0.08);
 $border-color: rgba(0, 0, 0, 0.08);
 $border-light: rgba(0, 0, 0, 0.05);
@@ -309,7 +310,7 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
   align-items: flex-start;
   gap: 16px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
   border: 1px solid $border-color;
   border-radius: 16px;
   cursor: pointer;
@@ -330,7 +331,7 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
   }
   
   &:hover {
-    background: rgba(255, 255, 255, 1);
+    background: color-mix(in srgb, var(--bg-card) 100%, transparent);
     transform: translateY(-2px);
     box-shadow: $shadow-hover;
     border-color: rgba(99, 102, 241, 0.2);
@@ -389,7 +390,7 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
   .title {
     font-size: 16px;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--text-primary);
     line-height: 1.3;
     letter-spacing: -0.01em;
     flex: 1;
@@ -402,7 +403,7 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
   
   .time {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--text-secondary);
     flex-shrink: 0;
     font-weight: 400;
     white-space: nowrap;
@@ -411,7 +412,7 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
 
 .item-preview {
   font-size: 13px;
-  color: #4b5563;
+  color: var(--text-regular);
   line-height: 1.5;
   font-weight: 400;
   letter-spacing: 0.01em;
@@ -444,7 +445,7 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
     justify-content: center;
     background: transparent;
     border: none;
-    color: #6b7280;
+    color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s ease;
     
@@ -454,7 +455,7 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
     
     &.edit-btn:hover {
       background: rgba(99, 102, 241, 0.1);
-      color: #6366f1;
+      color: var(--primary-color);
     }
     
     &.delete-btn:hover {
@@ -484,7 +485,7 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
   display: flex;
   gap: 16px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
   border: 1px solid $border-color;
   border-radius: 16px;
   
@@ -558,14 +559,14 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
       margin: 0 0 8px;
       font-size: 18px;
       font-weight: 600;
-      color: #1f2937;
+      color: var(--text-primary);
       letter-spacing: -0.01em;
     }
     
     .empty-hint {
       margin: 0;
       font-size: 14px;
-      color: #6b7280;
+      color: var(--text-secondary);
       font-weight: 400;
     }
   }

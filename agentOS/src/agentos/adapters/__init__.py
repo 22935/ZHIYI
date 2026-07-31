@@ -3,6 +3,27 @@
 
 
 from agentos.adapters.federated_adapter import FederatedAdapter
-from agentos.adapters.model_adapter import AIService, ModelAdapter
+from agentos.adapters.model_adapter import (
+    AIService,
+    ModelAdapter,
+    ModelService,
+    ModelServiceFactory,
+    StructuredGenerationError,
+    StructuredGenerationResult,
+    StructuredGenerationRuntime,
+    clear_model_service_factory,
+    register_model_service_factory,
+)
 
-__all__ = ["AIService", "FederatedAdapter", "ModelAdapter"]
+__all__ = [
+    "AIService",
+    "FederatedAdapter",
+    "ModelAdapter",
+    "ModelService",
+    "ModelServiceFactory",
+    "StructuredGenerationError",
+    "StructuredGenerationResult",
+    "StructuredGenerationRuntime",
+    "clear_model_service_factory",
+    "register_model_service_factory",
+]

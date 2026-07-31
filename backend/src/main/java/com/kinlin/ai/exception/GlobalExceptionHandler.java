@@ -7,12 +7,15 @@ import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
 import java.util.Map;
+import com.kinlin.ai.observability.TraceContext;
 
 /**
  * 全局异常处理器
@@ -20,6 +23,24 @@ import java.util.Map;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of(
+                "success", false,
+                "error", "MATERIAL_TOO_LARGE",
+                "message", "文件不能超过 10MB"
+        ));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingMultipartPart(MissingServletRequestPartException ex) {
+        return ResponseEntity.unprocessableEntity().body(Map.of(
+                "success", false,
+                "error", "MATERIAL_FILE_REQUIRED",
+                "message", "上传请求缺少 file 字段"
+        ));
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(
@@ -117,7 +138,8 @@ public class GlobalExceptionHandler {
         Map<String, Object> response = new HashMap<>();
         response.put("success", false);
         response.put("message", "服务器内部错误");
-        response.put("error", ex.getMessage());
+        response.put("error", "INTERNAL_SERVER_ERROR");
+        response.put("traceId", TraceContext.currentTraceId());
         
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }

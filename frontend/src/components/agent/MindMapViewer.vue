@@ -1,3 +1,4 @@
+<!-- 思维导图查看器 — 使用 markmap-lib 将 Markdown 渲染为交互式思维导图 SVG，支持全屏和下载 -->
 <template>
   <section class="card mindmap-card">
     <header class="card-head">
@@ -199,7 +200,7 @@ onBeforeUnmount(() => {
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   overflow: hidden;
 }
 
@@ -209,7 +210,7 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-light);
-  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  background: linear-gradient(135deg, var(--warning-fade), var(--warning-fade));
 }
 
 .head-left {
@@ -286,7 +287,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
+  background: var(--surface-solid);
   border-radius: 8px;
   padding: 20px;
 }

@@ -1,3 +1,4 @@
+<!-- 庭审提纲查看器 — 将 Markdown 格式庭审提纲渲染为 HTML 展示 -->
 <template>
   <section class="card">
     <header class="card-head">
@@ -112,7 +113,7 @@ const renderedHtml = computed(() => toMarkdownHtml(outlineMarkdown.value))
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -134,7 +135,7 @@ const renderedHtml = computed(() => toMarkdownHtml(outlineMarkdown.value))
 .hint {
   font-size: 12px;
   color: #1d4ed8;
-  background: #eff6ff;
+  background: var(--primary-fade);
   border: 1px solid #bfdbfe;
   border-radius: 999px;
   padding: 2px 8px;
@@ -183,7 +184,7 @@ const renderedHtml = computed(() => toMarkdownHtml(outlineMarkdown.value))
 
 .markdown-body :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  background: #f1f5f9;
+  background: var(--bg-input);
   border-radius: 4px;
   padding: 0 4px;
 }

@@ -1,3 +1,4 @@
+<!-- 模型聚合卡片 — 展示各客户端模型聚合状态、加权进度条、上传状态和聚合算法（FedAvg） -->
 <template>
   <div class="aggregation-card">
     <div class="aggregation-header">
@@ -105,7 +106,7 @@ const statusClass = computed(() => {
   --primary-border: var(--border-light, #e3e6df);
   --cyan: var(--accent-color, #6f668f);
   --green: var(--success, #3d7656);
-  --surface: #ffffff;
+  --surface: var(--bg-card);
   --surface-alt: var(--bg-input, #f1f3ef);
   --text-primary: var(--text-primary, #1d2422);
   --text-secondary: var(--text-secondary, #727c76);
@@ -141,7 +142,7 @@ const statusClass = computed(() => {
   height: 24px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--primary-border);
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--primary);
   display: flex;
   align-items: center;

@@ -1,0 +1,170 @@
+<mxfile host="65bd71144e" pages="3">
+    <diagram id="system-architecture" name="系统架构图">
+        <mxGraphModel dx="860" dy="1532" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1760" pageHeight="1120" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="sys_container_fe" value="用户交互层 frontend/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3f8ff;strokeColor=#4f81bd;fontSize=14;fontStyle=1;verticalAlign=top;spacingTop=12;arcSize=4;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="130" width="330" height="620" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_container_backend" value="业务网关层 backend/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f7f3ff;strokeColor=#7e57c2;fontSize=14;fontStyle=1;verticalAlign=top;spacingTop=12;arcSize=5;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="130" width="340" height="620" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_container_ai" value="AI 服务与 AgentOS 层 agent/ + agentOS/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f1fbf7;strokeColor=#2e7d5b;fontSize=14;fontStyle=1;verticalAlign=top;spacingTop=12;arcSize=7;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="810" y="130" width="470" height="620" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_container_data" value="数据与外部能力" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e8;strokeColor=#c67c00;fontSize=14;fontStyle=1;verticalAlign=top;spacingTop=12;arcSize=6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1330" y="130" width="370" height="620" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_user" value="用户 / 审核者&#xa;浏览器访问前端" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4f81bd;fontSize=14;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="180" width="250" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_nginx" value="Nginx / Vite Dev Proxy&#xa;/api → Java 后端&#xa;/ai → Java AgentOS Gateway&#xa;/ai/chat/text/stream → Python 直连 SSE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f0ff;strokeColor=#4f81bd;fontSize=14;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="280" width="250" height="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_vue" value="Vue 3 + TypeScript + Element Plus&#xa;views: AgentOsConsole / AcgVisualization / Chat / Workbench&#xa;components: ACG 拓扑、血缘、低熵指标、Trace、Review&#xa;services: workflowApi / agentosApi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4f81bd;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="430" width="250" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_front_state" value="前端状态与展示数据&#xa;WorkflowRun / WorkflowStep&#xa;TraceEvent / Checkpoint&#xa;AcgView: blueprint + provenance + metrics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4f81bd;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="630" width="250" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_backend_controllers" value="Controller 层&#xa;AgentOsGatewayController&#xa;Chat/Auth/Role/File/Voice/... Controller" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7e57c2;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="180" width="260" height="95" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_gateway" value="AgentOsGatewayService&#xa;WebClient 转发 Python /ai/core/*&#xa;超时: agent.timeoutMs / AI_SERVICE_TIMEOUT&#xa;错误包装: upstreamStatus / _httpStatus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#7e57c2;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="310" width="260" height="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_backend_services" value="业务服务层&#xa;ChatService / RoleService / FileService&#xa;RagService / DigitalHumanService / MetricsService&#xa;Security: JWT Filter + User Context" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7e57c2;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="460" width="260" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_repositories" value="JPA Repository / Mapper&#xa;User / Role / Conversation / Message / Feedback&#xa;Redis cache/session hooks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7e57c2;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="615" width="260" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_fastapi" value="Python FastAPI 应用 app/main.py&#xa;/ai/core/* AgentOS Core API&#xa;/ai/agent/{role}/chat 兼容 Agent 入口&#xa;/ai/chat/text/stream 流式文本" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2e7d5b;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="175" width="380" height="105" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_runtime" value="AgentOS Core Runtime&#xa;TaskManager / WorkflowRuntime / Orchestrator&#xa;TraceStore / CheckpointStore / ReviewManager&#xa;WorkflowStore: memory 或 SQLite" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2e7d5b;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="315" width="380" height="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_execution" value="执行适配器 runtimeEngine&#xa;native: 线性 YAML 工作流&#xa;acg: Core Native ACG 就绪集并行调度&#xa;共享 Trace / Review / Checkpoint" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2e7d5b;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="465" width="380" height="105" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_packs" value="行业能力 Pack&#xa;legal / education / programmer / writer&#xa;agents + skills + workflows + prompts + data&#xa;合同审查 ACG: legal_contract_review_v1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2e7d5b;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="605" width="380" height="105" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_llm_gateway" value="LLM Gateway / Model Adapter&#xa;OpenAI-compatible Provider&#xa;Mock fallback / DeepSeek / Qwen" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#c67c00;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="1375" y="545" width="280" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_ext_models" value="外部模型服务&#xa;DeepSeek: 文本生成 / 意图解析&#xa;通义千问: 多模态 / 语音 / 备用" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#c67c00;fontSize=14;align=center;spacingLeft=12;" parent="1" vertex="1">
+                    <mxGeometry x="1375" y="665" width="280" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_e_user_nginx" value="HTTP" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#4f81bd;fontSize=14;align=center;" parent="1" source="sys_user" target="sys_nginx" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_e_nginx_vue" value="SPA 静态资源" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#4f81bd;fontSize=14;align=center;" parent="1" source="sys_nginx" target="sys_vue" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_e_vue_backend" value="/ai, /api REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6f42c1;fontSize=14;align=center;" parent="1" source="sys_vue" target="sys_backend_controllers" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="390" y="515"/>
+                            <mxPoint x="390" y="228"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sys_e_stream" value="SSE 直连: /ai/chat/text/stream" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2e7d5b;dashed=1;fontSize=14;strokeWidth=2;align=center;" parent="1" source="sys_nginx" target="sys_fastapi" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="400" y="338"/>
+                            <mxPoint x="400" y="110"/>
+                            <mxPoint x="792" y="110"/>
+                            <mxPoint x="792" y="228"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sys_e_controllers_gateway" value="AgentOS 路由" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#7e57c2;fontSize=14;align=center;" parent="1" source="sys_backend_controllers" target="sys_gateway" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_e_gateway_fastapi" value="WebClient → /ai/core/*" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2e7d5b;fontSize=14;strokeWidth=2;align=center;" parent="1" source="sys_gateway" target="sys_fastapi" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="653" y="299"/>
+                            <mxPoint x="938" y="299"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sys_e_controllers_services" value="业务 API" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#7e57c2;fontSize=14;align=center;" parent="1" source="sys_backend_controllers" target="sys_backend_services" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="740" y="228"/>
+                            <mxPoint x="740" y="520"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sys_e_services_repo" value="JPA / Cache" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#7e57c2;fontSize=14;align=center;" parent="1" source="sys_backend_services" target="sys_repositories" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_e_services_redis" value="&lt;font&gt;RedisTemplate&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#c67c00;fontSize=14;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0;entryDx=0;entryDy=30;entryPerimeter=0;strokeWidth=2;align=center;" parent="1" source="sys_backend_services" target="JC0ftmRnVNuKL0B12z9y-13" edge="1">
+                    <mxGeometry x="-0.0059" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                        <Array as="points">
+                            <mxPoint x="655" y="790"/>
+                            <mxPoint x="1290" y="790"/>
+                            <mxPoint x="1290" y="335"/>
+                        </Array>
+                        <mxPoint x="1380" y="330" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sys_e_fastapi_runtime" value="create/start/status/review/acg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2e7d5b;fontSize=14;align=center;" parent="1" source="sys_fastapi" target="sys_runtime" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_e_runtime_execution" value="按 runtimeEngine 分派" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2e7d5b;fontSize=14;align=center;" parent="1" source="sys_runtime" target="sys_execution" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_e_execution_packs" value="AgentRegistry / Skill 调用" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2e7d5b;fontSize=14;align=center;" parent="1" source="sys_execution" target="sys_packs" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_e_packs_data" value="&lt;font&gt;RAG / 本地知识&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#c67c00;fontSize=14;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeWidth=2;align=center;" parent="1" source="sys_packs" target="JC0ftmRnVNuKL0B12z9y-14" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1040" y="767"/>
+                            <mxPoint x="1730" y="767"/>
+                            <mxPoint x="1730" y="471"/>
+                        </Array>
+                        <mxPoint x="1600" y="490" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sys_e_packs_llm" value="模型推理" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#c67c00;fontSize=14;strokeWidth=2;align=center;" parent="1" source="sys_packs" target="sys_llm_gateway" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1303" y="664"/>
+                            <mxPoint x="1303" y="590"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sys_e_llm_ext" value="API Key / OpenAI-compatible" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#c67c00;fontSize=14;align=center;" parent="1" source="sys_llm_gateway" target="sys_ext_models" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sys_e_acg_view" value="&lt;font&gt;/core/workflows/runs/{runId}/acg 聚合视图&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2e7d5b;dashed=1;fontSize=14;strokeWidth=3;align=center;" parent="1" source="sys_runtime" target="sys_front_state" edge="1">
+                    <mxGeometry x="0.4266" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                        <Array as="points">
+                            <mxPoint x="783" y="400"/>
+                            <mxPoint x="783" y="820"/>
+                            <mxPoint x="205" y="820"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="liFrwHTQDBp1sQNBg7Wj-1" value="PostgreSQL 15&lt;br&gt;users / roles / conversations / messages / feedback" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;align=center;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="1400" y="190" width="240" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="JC0ftmRnVNuKL0B12z9y-13" value="Redis 7&lt;br&gt;缓存 / 会话 / 限流辅助" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;align=center;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="1400" y="305" width="240" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="JC0ftmRnVNuKL0B12z9y-14" value="Python 本地数据与知识&lt;br&gt;agent/app/data, agent/knowledge&lt;br&gt;legal statutes / templates / Chroma sqlite&lt;br&gt;digital-human 静态资源" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;align=center;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="1395" y="410" width="245" height="121" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

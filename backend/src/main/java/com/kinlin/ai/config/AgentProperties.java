@@ -16,6 +16,11 @@ public class AgentProperties {
 
     private int timeoutMs = 240000;
 
+    private int progressTimeoutMs = 5000;
+
+    /** Async preparation should return quickly and must not inherit the sync workflow timeout. */
+    private int asyncStartTimeoutMs = 15000;
+
     private boolean traceEnabled = false;
 
     private Python python = new Python();

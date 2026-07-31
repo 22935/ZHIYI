@@ -51,6 +51,36 @@ public class AiService {
      * 发送文本消息到AI服务（带上下文ID）
      */
     public ChatResponse sendTextMessage(String text, String roleId, List<Map<String, String>> context, String contextId) {
+        return sendTextMessage(text, roleId, context, contextId, null, null, null, null);
+    }
+
+    /**
+     * 发送文本消息到AI服务（使用请求级模型配置）
+     */
+    public ChatResponse sendTextMessage(
+            String text,
+            String roleId,
+            List<Map<String, String>> context,
+            String contextId,
+            String model,
+            String baseUrl,
+            String apiKey,
+            String thinkingMode
+    ) {
+        return sendTextMessage(text, roleId, context, contextId, model, baseUrl, apiKey, thinkingMode, null);
+    }
+
+    public ChatResponse sendTextMessage(
+            String text,
+            String roleId,
+            List<Map<String, String>> context,
+            String contextId,
+            String model,
+            String baseUrl,
+            String apiKey,
+            String thinkingMode,
+            String toolMode
+    ) {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("text", text);
         if (roleId != null) {
@@ -61,6 +91,21 @@ public class AiService {
         }
         if (contextId != null) {
             requestBody.put("context_id", contextId);
+        }
+        if (model != null && !model.isBlank()) {
+            requestBody.put("model", model);
+        }
+        if (baseUrl != null && !baseUrl.isBlank()) {
+            requestBody.put("base_url", baseUrl);
+        }
+        if (apiKey != null && !apiKey.isBlank()) {
+            requestBody.put("api_key", apiKey);
+        }
+        if (thinkingMode != null && !thinkingMode.isBlank()) {
+            requestBody.put("thinking_mode", thinkingMode);
+        }
+        if (toolMode != null && !toolMode.isBlank()) {
+            requestBody.put("tool_mode", toolMode);
         }
 
         try {

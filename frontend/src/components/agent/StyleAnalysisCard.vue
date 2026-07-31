@@ -1,3 +1,4 @@
+<!-- 风格分析卡片 — 展示写作风格分析结果，含综合评分、多维度分解柱状图和主导风格标签 -->
 <template>
   <section class="card style-card">
     <header class="card-head">
@@ -106,7 +107,7 @@ const dimScorePercent = (dim: StyleDimension) => {
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   overflow: hidden;
 }
 
@@ -116,7 +117,7 @@ const dimScorePercent = (dim: StyleDimension) => {
   align-items: center;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-light);
-  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  background: linear-gradient(135deg, var(--warning-fade), var(--warning-fade));
 }
 
 .head-left {
@@ -140,7 +141,7 @@ const dimScorePercent = (dim: StyleDimension) => {
   font-size: 11px;
   border-radius: 999px;
   padding: 2px 10px;
-  background: #fef3c7;
+  background: var(--warning-fade);
   color: #92400e;
   font-weight: 600;
 }
@@ -166,7 +167,7 @@ const dimScorePercent = (dim: StyleDimension) => {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  background: linear-gradient(135deg, var(--warning-fade), var(--warning-fade));
   border-bottom: 1px solid #fde68a;
 }
 
@@ -174,7 +175,7 @@ const dimScorePercent = (dim: StyleDimension) => {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #d97706, #f59e0b);
+  background: linear-gradient(135deg, var(--warning), var(--warning));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -244,7 +245,7 @@ const dimScorePercent = (dim: StyleDimension) => {
 
 .dim-bar-track {
   height: 6px;
-  background: #fef3c7;
+  background: var(--warning-fade);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -252,7 +253,7 @@ const dimScorePercent = (dim: StyleDimension) => {
 .dim-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #d97706, #f59e0b);
+  background: linear-gradient(90deg, var(--warning), var(--warning));
   transition: width 0.5s ease;
 }
 

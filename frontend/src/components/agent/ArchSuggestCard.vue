@@ -1,3 +1,4 @@
+<!-- 架构建议卡片 — 展示架构优化建议，含优先级标签、分类和实现细节 -->
 <template>
   <section class="card arch-card">
     <header class="card-head">
@@ -103,7 +104,7 @@ const priorityLabel = (priority?: string) => {
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   overflow: hidden;
 }
 
@@ -113,7 +114,7 @@ const priorityLabel = (priority?: string) => {
   align-items: center;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-light);
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
 }
 
 .head-left {
@@ -137,7 +138,7 @@ const priorityLabel = (priority?: string) => {
   font-size: 11px;
   border-radius: 999px;
   padding: 2px 10px;
-  background: #ede9fe;
+  background: var(--accent-fade);
   color: #5b21b6;
   font-weight: 600;
 }
@@ -160,7 +161,7 @@ const priorityLabel = (priority?: string) => {
 
 .overview-block {
   padding: 10px 12px;
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
   border-bottom: 1px solid #e9e5f5;
 }
 
@@ -190,17 +191,17 @@ const priorityLabel = (priority?: string) => {
 }
 
 .suggest-item.high {
-  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  background: linear-gradient(135deg, var(--danger-fade), var(--danger-fade));
   border-color: #fca5a5;
 }
 
 .suggest-item.medium {
-  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  background: linear-gradient(135deg, var(--warning-fade), var(--warning-fade));
   border-color: #fcd34d;
 }
 
 .suggest-item.low {
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
   border-color: #c4b5fd;
 }
 
@@ -219,17 +220,17 @@ const priorityLabel = (priority?: string) => {
 }
 
 .priority-badge.high {
-  background: #fee2e2;
+  background: var(--danger-fade);
   color: #991b1b;
 }
 
 .priority-badge.medium {
-  background: #fef3c7;
+  background: var(--warning-fade);
   color: #92400e;
 }
 
 .priority-badge.low {
-  background: #ede9fe;
+  background: var(--accent-fade);
   color: #5b21b6;
 }
 
@@ -237,8 +238,8 @@ const priorityLabel = (priority?: string) => {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--bg-input);
+  color: var(--text-secondary);
 }
 
 .suggest-title {
@@ -260,7 +261,7 @@ const priorityLabel = (priority?: string) => {
   font-size: 11px;
   color: #6d28d9;
   padding: 4px 8px;
-  background: #f5f3ff;
+  background: var(--accent-fade);
   border-radius: 6px;
   border-left: 3px solid #7c3aed;
 }
@@ -273,7 +274,7 @@ const priorityLabel = (priority?: string) => {
 .tech-block {
   padding: 10px 12px;
   border-top: 1px solid var(--border-light);
-  background: #faf9ff;
+  background: var(--accent-fade);
 }
 
 .tech-label {
@@ -293,7 +294,7 @@ const priorityLabel = (priority?: string) => {
   font-size: 11px;
   padding: 3px 10px;
   border-radius: 999px;
-  background: #ede9fe;
+  background: var(--accent-fade);
   color: #5b21b6;
   border: 1px solid #c4b5fd;
   font-weight: 500;

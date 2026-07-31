@@ -1,3 +1,4 @@
+<!-- 合同报告预览 — 以 Markdown 渲染审查报告，或展示"暂无报告"占位提示 -->
 <template>
   <section class="contract-report-preview ui-surface ui-surface--pad">
     <div class="section-head">
@@ -61,7 +62,7 @@ pre {
   overflow: auto;
   border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 12px;

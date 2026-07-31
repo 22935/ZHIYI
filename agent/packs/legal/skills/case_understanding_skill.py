@@ -23,13 +23,9 @@ class CaseUnderstandingSkill(BaseSkill):
         self.prompt_path = pack_path("legal", "prompts", "case_understanding.txt")
 
     def _load_prompt_template(self) -> str:
-        if self.prompt_path.exists():
-            return self.prompt_path.read_text(encoding="utf-8", errors="ignore")
-        return (
-            "你是法律案情结构化助手。请从给定输入中提取标准 JSON，字段必须包含："
-            "parties, facts, claims, legal_issues, missing_info, case_type。仅输出 JSON。"
-            "\n历史：{history_text}\n用户问题：{user_text}\n"
-        )
+        if not self.prompt_path.exists():
+            raise FileNotFoundError(f"Role prompt not found: {self.prompt_path}")
+        return self.prompt_path.read_text(encoding="utf-8", errors="ignore")
 
     def _render_prompt(self, template: str, history_text: str, user_text: str) -> str:
         # Avoid str.format collisions with literal JSON braces in prompt templates.
@@ -79,42 +75,16 @@ class CaseUnderstandingSkill(BaseSkill):
             return [part.strip() for part in parts if part.strip()]
         return [str(value).strip()] if str(value).strip() else []
 
-    def _infer_case_type(self, user_text: str) -> str:
-        text = user_text or ""
-        if ("劳动" in text) or ("用工" in text):
-            return "劳动争议"
-        if ("合同" in text) or ("违约" in text):
-            return "合同纠纷"
-        if ("侵权" in text) or ("赔偿" in text):
-            return "侵权纠纷"
-        if ("著作权" in text) or ("商标" in text) or ("专利" in text):
-            return "知识产权纠纷"
-        return "民商事争议"
-
-    def _fallback(self, user_text: str, history: List[Dict[str, str]]) -> Dict[str, Any]:
-        legal_issues = []
-        if "劳动" in user_text:
-            legal_issues.append("劳动关系认定")
-        if "合同" in user_text:
-            legal_issues.append("合同履行与违约")
-        if "赔偿" in user_text:
-            legal_issues.append("损害赔偿责任")
-        if not legal_issues:
-            legal_issues = ["争议事实待核实", "适用法律待检索"]
-
-        facts = user_text.strip()
-        if history:
-            recent = " ".join(item.get("content", "") for item in history[-3:])
-            if recent:
-                facts = f"{facts} 历史补充：{recent[:180]}".strip()
-
+    @staticmethod
+    def _unavailable(user_text: str) -> Dict[str, Any]:
         return {
-            "parties": ["待明确当事人双方"],
-            "facts": facts[:400] if facts else "用户暂未提供充分案情。",
-            "claims": ["待明确诉求"],
-            "legal_issues": legal_issues,
-            "missing_info": ["是否签订合同", "关键时间线", "证据材料完整性"],
-            "case_type": self._infer_case_type(user_text),
+            "parties": [],
+            "facts": user_text.strip()[:400],
+            "claims": [],
+            "legal_issues": [],
+            "missing_info": [],
+            "case_type": "",
+            "analysis_status": "unavailable",
         }
 
     async def run(self, request: SkillRequest) -> SkillResult:
@@ -136,21 +106,20 @@ class CaseUnderstandingSkill(BaseSkill):
             parsed = self._extract_json_obj(raw)
 
             if not parsed:
-                fallback = self._fallback(user_text, history)
                 return SkillResult(
                     skillName=self.name,
-                    success=True,
-                    output=fallback,
-                    message="Case understanding fallback used because LLM JSON parsing failed.",
+                    success=False,
+                    output=self._unavailable(user_text),
+                    message="Case understanding returned no valid structured result.",
                 )
 
             result = {
-                "parties": self._ensure_list(parsed.get("parties")) or ["待明确当事人双方"],
-                "facts": str(parsed.get("facts", "")).strip() or user_text[:300] or "案情摘要待补充。",
-                "claims": self._ensure_list(parsed.get("claims")) or ["待明确诉求"],
-                "legal_issues": self._ensure_list(parsed.get("legal_issues")) or ["适用法律待分析"],
-                "missing_info": self._ensure_list(parsed.get("missing_info")) or ["关键事实待补充"],
-                "case_type": str(parsed.get("case_type", "")).strip() or self._infer_case_type(user_text),
+                "parties": self._ensure_list(parsed.get("parties")),
+                "facts": str(parsed.get("facts", "")).strip() or user_text[:300],
+                "claims": self._ensure_list(parsed.get("claims")),
+                "legal_issues": self._ensure_list(parsed.get("legal_issues")),
+                "missing_info": self._ensure_list(parsed.get("missing_info")),
+                "case_type": str(parsed.get("case_type", "")).strip(),
             }
 
             return SkillResult(
@@ -160,19 +129,19 @@ class CaseUnderstandingSkill(BaseSkill):
                 message="Case understanding extracted structured case summary.",
             )
         except asyncio.TimeoutError:
-            logger.warning("CaseUnderstandingSkill timeout, using fallback.")
+            logger.warning("CaseUnderstandingSkill timeout.")
             return SkillResult(
                 skillName=self.name,
-                success=True,
-                output=self._fallback(user_text, history),
-                message="Case understanding timeout, fallback output returned.",
+                success=False,
+                output=self._unavailable(user_text),
+                message="Case understanding timed out.",
             )
         except Exception as exc:
-            logger.error("CaseUnderstandingSkill failed, fallback used. error=%s", exc, exc_info=True)
+            logger.error("CaseUnderstandingSkill failed. error=%s", exc, exc_info=True)
             return SkillResult(
                 skillName=self.name,
-                success=True,
-                output=self._fallback(user_text, history),
-                message="Case understanding failed, fallback output returned.",
+                success=False,
+                output=self._unavailable(user_text),
+                message="Case understanding failed without a generated result.",
             )
 

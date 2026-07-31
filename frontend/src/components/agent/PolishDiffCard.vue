@@ -1,3 +1,4 @@
+<!-- 润色对比卡片 — 并排展示原文与润色后文本，以及编号的具体修改清单 -->
 <template>
   <section class="card polish-card">
     <header class="card-head">
@@ -122,7 +123,7 @@ const changeTypeLabel = (type?: string) => {
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   overflow: hidden;
 }
 
@@ -132,7 +133,7 @@ const changeTypeLabel = (type?: string) => {
   align-items: center;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-light);
-  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  background: linear-gradient(135deg, var(--warning-fade), var(--warning-fade));
 }
 
 .head-left {
@@ -156,7 +157,7 @@ const changeTypeLabel = (type?: string) => {
   font-size: 11px;
   border-radius: 999px;
   padding: 2px 10px;
-  background: #fef3c7;
+  background: var(--warning-fade);
   color: #92400e;
   font-weight: 600;
 }
@@ -182,12 +183,12 @@ const changeTypeLabel = (type?: string) => {
 }
 
 .original-block {
-  background: #f9fafb;
+  background: var(--bg-input);
   border-bottom: 1px solid var(--border-light);
 }
 
 .polished-block {
-  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  background: linear-gradient(135deg, var(--warning-fade), var(--warning-fade));
   border-bottom: 1px solid #fde68a;
 }
 
@@ -236,22 +237,22 @@ const changeTypeLabel = (type?: string) => {
 }
 
 .change-item.grammar {
-  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  background: linear-gradient(135deg, var(--danger-fade), var(--danger-fade));
   border-color: #fca5a5;
 }
 
 .change-item.style {
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
   border-color: #c4b5fd;
 }
 
 .change-item.clarity {
-  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  background: linear-gradient(135deg, var(--primary-fade), var(--primary-fade));
   border-color: #93c5fd;
 }
 
 .change-item.enhance {
-  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  background: linear-gradient(135deg, var(--warning-fade), var(--warning-fade));
   border-color: #fcd34d;
 }
 
@@ -270,22 +271,22 @@ const changeTypeLabel = (type?: string) => {
 }
 
 .change-type-badge.grammar {
-  background: #fee2e2;
+  background: var(--danger-fade);
   color: #991b1b;
 }
 
 .change-type-badge.style {
-  background: #ede9fe;
+  background: var(--accent-fade);
   color: #5b21b6;
 }
 
 .change-type-badge.clarity {
-  background: #dbeafe;
+  background: var(--primary-fade);
   color: #1e40af;
 }
 
 .change-type-badge.enhance {
-  background: #fef3c7;
+  background: var(--warning-fade);
   color: #92400e;
 }
 
@@ -304,7 +305,7 @@ const changeTypeLabel = (type?: string) => {
 
 .diff-old {
   padding: 2px 6px;
-  background: #fee2e2;
+  background: var(--danger-fade);
   color: #991b1b;
   border-radius: 4px;
   text-decoration: line-through;
@@ -317,7 +318,7 @@ const changeTypeLabel = (type?: string) => {
 
 .diff-new {
   padding: 2px 6px;
-  background: #dcfce7;
+  background: var(--success-fade);
   color: #166534;
   border-radius: 4px;
   font-weight: 600;

@@ -5,6 +5,7 @@
   "intent": "lesson_plan",
   "version": "1.0.0",
   "description": "Minimal education workflow for lesson planning.",
+  "runtimeEngine": "acg",
   "steps": [
     {
       "stepId": "lesson_plan",

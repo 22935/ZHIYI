@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-07-19T00:00:00+08:00",
+  "platforms": ["linux/amd64", "linux/arm64"],
+  "images": {
+    "nodeBuild": "public.ecr.aws/docker/library/node:24.18.0-alpine3.23@sha256:595398b0081eacda8e1c4c5b97b76cd1020e4d58a8ebcb4843b9bca1e79e7436",
+    "nginxRuntime": "public.ecr.aws/docker/library/nginx:1.31.1-alpine@sha256:8b1e78743a03dbb2c95171cc58639fef29abc8816598e27fb910ed2e621e589a",
+    "mavenBuild": "public.ecr.aws/docker/library/maven:3.9.16-eclipse-temurin-17@sha256:1ed5d1f54416b706707b4f3238f63a20bb06aab27c6d240090a2bb9ad895ed45",
+    "javaRuntime": "public.ecr.aws/docker/library/eclipse-temurin:17.0.19_10-jre-jammy@sha256:475d8e96b4b2bfe08999e5e854755c773af1581acdf959a4545d88f0696a2339",
+    "pythonBuildRuntime": "public.ecr.aws/docker/library/python:3.14.5-slim-trixie@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97",
+    "postgresRuntime": "public.ecr.aws/docker/library/postgres:15.17-alpine@sha256:09e4f20b14ddb3dfe3a0c825b206032aaf8f28300ba2070c0b60fc1c10c6abc7",
+    "redisRuntime": "public.ecr.aws/docker/library/redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99",
+    "flywayRuntime": "flyway/flyway:9.22.3@sha256:9e78682c33f6b22e83b00a2971a3e8b0f257a51857dfc34ed4a5f6a839038239"
+  }
+}

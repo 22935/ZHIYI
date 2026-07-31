@@ -1,3 +1,4 @@
+<!-- 程序员技能面板 — 程序员 Agent 技能仪表盘，含需求分析、代码搜索、代码生成、图表和联邦增强状态 -->
 <template>
   <section class="skill-panel programmer-panel">
     <div class="panel-header">
@@ -37,19 +38,20 @@
         <div class="sub-section">
           <div class="sub-title">联邦增强状态</div>
           <div class="federated-row">
-            <span class="status-pill" :class="federatedStatusClass">{{ federatedStatusText }}</span>
-            <span class="meta" v-if="federated?.applied">
-              调整：{{ formatAdjustment(federated?.risk_adjustment) }} | 置信度：{{ formatPercent(federated?.confidence) }} |
-              节点：{{ federated?.federated_nodes_count ?? 0 }}
-            </span>
             <div class="federated-actions">
-              <button class="federated-btn ghost" type="button" @click="emit('open-federated-console')">联邦控制台</button>
+              <button class="federated-btn ghost" type="button" @click="emit('open-federated-console')">
+                <el-icon><Monitor /></el-icon>
+                联邦控制台
+              </button>
               <button
                 class="federated-btn"
+                :class="{ active: Boolean(federated?.enabled) }"
                 type="button"
-                :disabled="federated?.enabled === false"
+                :aria-pressed="Boolean(federated?.enabled)"
+                :disabled="!federated?.enabled"
                 @click="emit('optimize-federated')"
               >
+                <el-icon><MagicStick /></el-icon>
                 联邦优化
               </button>
             </div>
@@ -106,7 +108,7 @@
 
 <script setup lang="ts">
 import { computed, ref, type Component } from 'vue'
-import { Connection, Cpu, Document, Operation, Search, Share } from '@element-plus/icons-vue'
+import { Connection, Cpu, Document, MagicStick, Monitor, Operation, Search, Share } from '@element-plus/icons-vue'
 import TraceTimeline, { type TraceStep } from './TraceTimeline.vue'
 import { toSkillNameZh } from '@/utils/agentDisplay'
 
@@ -137,9 +139,9 @@ const emit = defineEmits<{
 const activeTab = ref<'skills' | 'trace' | 'results'>('skills')
 
 const tabs = computed(() => [
-  { key: 'skills' as const, label: '技能调用', icon: Operation, count: props.skillsUsed?.length || 0 },
-  { key: 'trace' as const, label: '执行轨迹', icon: Connection, count: props.trace?.length || 0 },
-  { key: 'results' as const, label: '结果面板', icon: Document, count: props.resultCount || 0 }
+  { key: 'skills' as const, label: '活动', icon: Operation, count: props.skillsUsed?.length || 0 },
+  { key: 'trace' as const, label: '轨迹', icon: Connection, count: props.trace?.length || 0 },
+  { key: 'results' as const, label: '结果', icon: Document, count: props.resultCount || 0 }
 ])
 
 const SKILL_VISUAL_MAP: Record<string, SkillVisual> = {
@@ -162,21 +164,6 @@ const skillVisuals = computed(() => {
   })
 })
 
-const federatedStatusText = computed(() => {
-  if (!props.federated?.enabled) return '已关闭'
-  return props.federated?.applied ? '已启用（本轮生效）' : '已开启（本轮未生效）'
-})
-
-const federatedStatusClass = computed(() => {
-  if (!props.federated?.enabled) return 'off'
-  return props.federated?.applied ? 'on' : 'idle'
-})
-
-const formatPercent = (v?: number) => `${Math.max(0, Math.round((v || 0) * 100))}%`
-const formatAdjustment = (v?: number) => {
-  const value = v || 0
-  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`
-}
 </script>
 
 <style scoped>
@@ -184,7 +171,7 @@ const formatAdjustment = (v?: number) => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.97);
+  background: color-mix(in srgb, var(--bg-card) 97%, transparent);
   border: 1px solid var(--border-light);
   border-radius: 14px;
   overflow: hidden;
@@ -202,7 +189,7 @@ const formatAdjustment = (v?: number) => {
   gap: 10px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-light);
-  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 40%, #e0e7ff 100%);
+  background: linear-gradient(135deg, var(--accent-fade) 0%, var(--accent-fade) 40%, var(--accent-fade) 100%);
 }
 
 .header-left {
@@ -215,7 +202,7 @@ const formatAdjustment = (v?: number) => {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  background: linear-gradient(135deg, var(--accent-color), #6366f1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -255,7 +242,7 @@ const formatAdjustment = (v?: number) => {
   font-size: 11px;
   border-radius: 999px;
   padding: 3px 10px;
-  background: #ede9fe;
+  background: var(--accent-fade);
   color: #7c3aed;
   white-space: nowrap;
   font-weight: 600;
@@ -266,7 +253,7 @@ const formatAdjustment = (v?: number) => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #7c3aed;
+  background: var(--accent-color);
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
@@ -278,7 +265,7 @@ const formatAdjustment = (v?: number) => {
 .panel-tabs {
   display: flex;
   border-bottom: 1px solid var(--border-light);
-  background: #fafbfc;
+  background: var(--bg-input);
 }
 
 .tab-btn {
@@ -325,14 +312,14 @@ const formatAdjustment = (v?: number) => {
   line-height: 16px;
   text-align: center;
   border-radius: 999px;
-  background: #ede9fe;
+  background: var(--accent-fade);
   color: #5b21b6;
   padding: 0 4px;
   font-weight: 700;
 }
 
 .tab-btn.active .tab-badge {
-  background: #7c3aed;
+  background: var(--accent-color);
   color: #fff;
 }
 
@@ -356,6 +343,12 @@ const formatAdjustment = (v?: number) => {
   margin-bottom: 16px;
 }
 
+.sub-section:last-child { margin-bottom: 0; }
+.sub-section + .sub-section {
+  padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+
 .sub-title {
   font-size: 11px;
   font-weight: 700;
@@ -365,72 +358,60 @@ const formatAdjustment = (v?: number) => {
 }
 
 .federated-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-input) 72%, transparent);
 }
 .federated-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
 
 .federated-btn {
-  border: 1px solid #c4b5fd;
-  background: #f5f3ff;
-  color: #6d28d9;
-  border-radius: 999px;
-  padding: 4px 10px;
+  min-width: 0;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--border-light);
+  background: var(--surface-solid);
+  color: var(--text-secondary);
+  border-radius: 7px;
+  padding: 0 8px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
+.federated-btn .el-icon { flex: 0 0 auto; font-size: 13px; }
+
 .federated-btn:hover:not(:disabled) {
   border-color: #7c3aed;
-  background: #ede9fe;
+  background: var(--accent-fade);
 }
 
 .federated-btn.ghost {
-  border-color: #ddd6fe;
-  background: #fff;
-  color: #7c3aed;
+  color: var(--text-primary);
+}
+
+.federated-btn.active {
+  border-color: #a78bfa;
+  background: var(--accent-fade);
+  color: #6d28d9;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #7c3aed 12%, transparent);
 }
 
 .federated-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.status-pill {
-  width: fit-content;
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-pill.on {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-pill.off {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.status-pill.idle {
-  background: #ede9fe;
-  color: #5b21b6;
-}
-
-.meta {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.45;
-  word-break: break-word;
+  background: var(--bg-input);
+  color: var(--text-disabled);
+  opacity: 1;
 }
 
 .skill-list {
@@ -464,15 +445,15 @@ const formatAdjustment = (v?: number) => {
 }
 
 .skill-item.violet {
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
   border-color: #c4b5fd;
   color: #6d28d9;
 }
 
 .skill-item.indigo {
-  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+  background: linear-gradient(135deg, var(--accent-fade), var(--accent-fade));
   border-color: #a5b4fc;
-  color: #4338ca;
+  color: var(--primary-color);
 }
 
 .skill-item.cyan {
@@ -482,7 +463,7 @@ const formatAdjustment = (v?: number) => {
 }
 
 .skill-item.emerald {
-  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  background: linear-gradient(135deg, var(--success-fade), var(--success-fade));
   border-color: #6ee7b7;
   color: #047857;
 }
@@ -528,7 +509,7 @@ const formatAdjustment = (v?: number) => {
 
 .empty-hint {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--text-disabled);
   text-align: center;
   line-height: 1.4;
 }

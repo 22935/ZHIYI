@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <conversionRule conversionWord="kinlinMessage" converterClass="com.kinlin.ai.observability.RedactingMessageConverter"/>
+    <conversionRule conversionWord="kinlinException" converterClass="com.kinlin.ai.observability.RedactingThrowableConverter"/>
+    <springProfile name="prod | production | json-logs">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <fieldName>timestamp</fieldName>
+                    </timestamp>
+                    <logLevel>
+                        <fieldName>level</fieldName>
+                    </logLevel>
+                    <pattern>
+                        <pattern>{"service":"kinlin-backend","trace_id":"%X{trace_id:-}","workflow_id":"%X{workflow_id:-}","task_id":"%X{task_id:-}","message":"%kinlinMessage","exception":"%kinlinException"}</pattern>
+                    </pattern>
+                    <mdc>
+                        <includeMdcKeyName>http_method</includeMdcKeyName>
+                        <includeMdcKeyName>path</includeMdcKeyName>
+                        <includeMdcKeyName>status</includeMdcKeyName>
+                        <includeMdcKeyName>duration_ms</includeMdcKeyName>
+                        <includeMdcKeyName>upstream_status</includeMdcKeyName>
+                    </mdc>
+                    <loggerName>
+                        <fieldName>logger</fieldName>
+                    </loggerName>
+                    <threadName>
+                        <fieldName>thread</fieldName>
+                    </threadName>
+                </providers>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!prod &amp; !production &amp; !json-logs">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{trace_id:-no-trace}] %logger{36} - %kinlinMessage%n%kinlinException</pattern>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+</configuration>

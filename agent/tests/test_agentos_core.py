@@ -8,6 +8,8 @@ import pytest
 
 from agentos.agents.base import AgentOutput, AgentProfile, BaseAgent
 from agentos.agents import AgentRegistry
+from agentos.core.execution import ACGWorkflowAdapter
+from app.execution.runtime import configure_runtime
 from packs.legal import register_pack as register_legal_pack
 from agentos.core.workflow.state_machine import InvalidStateTransition, StateMachine
 from agentos.core.models.types import (
@@ -21,7 +23,6 @@ from agentos.core.models.types import (
 )
 from agentos.core.workflow.registry import WorkflowRegistry
 from agentos.core.runtime import WorkflowRuntime
-from agentos.stores.memory_workflow_store import MemoryWorkflowStore
 from agentos.stores.sqlite_workflow_store import SQLiteWorkflowStore
 
 
@@ -73,6 +74,7 @@ def _runtime_with_workflow(steps, agents):
             domain="test",
             intent="case_analysis",
             version="1.0.0",
+            runtimeEngine="acg",
             steps=steps,
         )
     )
@@ -80,6 +82,21 @@ def _runtime_with_workflow(steps, agents):
         agent_registry=agent_registry,
         workflow_registry=workflow_registry,
     )
+
+
+def _runtime_with_legal_pack():
+    agent_registry = AgentRegistry()
+    workflow_registry = WorkflowRegistry()
+    runtime = WorkflowRuntime(
+        agent_registry=agent_registry,
+        workflow_registry=workflow_registry,
+    )
+    register_legal_pack(
+        agent_registry=runtime.agent_registry,
+        workflow_registry=runtime.workflow_registry,
+        capability_catalog=runtime.capability_catalog,
+    )
+    return configure_runtime(runtime)
 
 
 def test_state_machine_blocks_illegal_transitions():
@@ -133,6 +150,21 @@ async def _test_runtime_runs_registered_workflow_with_trace_and_checkpoints():
     assert TraceEventType.AGENT_CALLED in event_types
     assert TraceEventType.CHECKPOINT_CREATED in event_types
     assert TraceEventType.RUN_COMPLETED in event_types
+    checkpoint_events = [
+        event for event in run.trace if event.event_type == TraceEventType.CHECKPOINT_CREATED
+    ]
+    assert checkpoint_events
+    assert set(checkpoint_events[-1].payload) == {
+        "checkpointId",
+        "stepId",
+        "stepIds",
+        "snapshotVersion",
+        "snapshotHash",
+        "graphId",
+        "graphVersion",
+    }
+    assert "stateSnapshot" not in checkpoint_events[-1].payload
+    assert any(isinstance(adapter, ACGWorkflowAdapter) for adapter in runtime._runtime_adapters.values())
 
 
 def test_runtime_waits_for_review_and_continues_after_approval():
@@ -217,7 +249,9 @@ async def _test_runtime_recovers_from_checkpoint_after_step_failure():
 
     assert recovered.status == WorkflowStatus.COMPLETED
     assert recovered.recovery_count == 1
+    assert recovered.runtime_engine == "acg"
     assert recovered.get_step("risk").status == StepStatus.COMPLETED
+    assert [call["agent"] for call in calls] == ["intake", "risk", "risk"]
     event_types = [event.event_type for event in recovered.trace]
     assert TraceEventType.RUN_RECOVERED in event_types
 
@@ -227,10 +261,7 @@ def test_legal_demo_pack_registers_agents_and_workflow():
 
 
 async def _test_legal_demo_pack_registers_agents_and_workflow():
-    agent_registry = AgentRegistry()
-    workflow_registry = WorkflowRegistry()
-    register_legal_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
-    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = _runtime_with_legal_pack()
 
     task = runtime.create_task(
         title="合同审查",
@@ -242,14 +273,16 @@ async def _test_legal_demo_pack_registers_agents_and_workflow():
 
     assert task.recommended_workflow == "legal_contract_review_v1"
     assert run.status == WorkflowStatus.WAITING_REVIEW
-    assert run.current_step_id == "risk"
-    assert run.get_step("case_intake").output["case_summary"]
-    assert run.get_step("statute").output["legal_basis"]
+    assert run.current_step_id == "human_review"
+    assert run.runtime_engine == "acg"
+    assert run.implementation_id == "legal_contract_review_v1"
+    assert run.get_step("parse_contract").output["contract_type"]
+    assert run.output["artifacts"]["risk_detect"]["risks"]
 
     completed = await runtime.apply_review(
         ReviewDecision(
             runId=run.run_id,
-            stepId="risk",
+            stepId="human_review",
             decision=ReviewDecisionType.APPROVED,
             reviewer="legal_reviewer",
         )
@@ -257,7 +290,7 @@ async def _test_legal_demo_pack_registers_agents_and_workflow():
 
     assert completed.status == WorkflowStatus.COMPLETED
     assert completed.output["final_answer"]
-    assert completed.output["artifacts"]["draft"]
+    assert completed.output["artifacts"]["report_generate"]["report_markdown"]
 
 
 def test_agentos_core_api_task_run_review_flow():
@@ -266,10 +299,7 @@ def test_agentos_core_api_task_run_review_flow():
 
     from app.api.agentos_core import create_router
 
-    agent_registry = AgentRegistry()
-    workflow_registry = WorkflowRegistry()
-    register_legal_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
-    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = _runtime_with_legal_pack()
 
     app = FastAPI()
     app.include_router(create_router(runtime), prefix="/ai")
@@ -296,11 +326,13 @@ def test_agentos_core_api_task_run_review_flow():
     assert run_response.status_code == 200
     run_payload = run_response.json()
     assert run_payload["status"] == "waiting_review"
-    assert run_payload["currentStepId"] == "risk"
+    assert run_payload["currentStepId"] == "human_review"
+    assert run_payload["runtimeEngine"] == "acg"
+    assert run_payload["implementationId"] == "legal_contract_review_v1"
 
     review_response = client.post(
         f"/ai/core/workflows/runs/{run_payload['runId']}/reviews",
-        json={"stepId": "risk", "decision": "approved", "reviewer": "api_reviewer"},
+        json={"stepId": "human_review", "decision": "approved", "reviewer": "api_reviewer"},
     )
     assert review_response.status_code == 200
     assert review_response.json()["status"] == "completed"
@@ -358,10 +390,7 @@ def test_workbench_can_start_workflow_in_one_request():
 
     from app.api.agentos_core import create_router
 
-    agent_registry = AgentRegistry()
-    workflow_registry = WorkflowRegistry()
-    register_legal_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
-    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = _runtime_with_legal_pack()
 
     app = FastAPI()
     app.include_router(create_router(runtime), prefix="/ai")
@@ -382,7 +411,8 @@ def test_workbench_can_start_workflow_in_one_request():
     payload = response.json()
     assert payload["task"]["recommendedWorkflow"] == "legal_contract_review_v1"
     assert payload["run"]["status"] == "waiting_review"
-    assert payload["run"]["currentStepId"] == "risk"
+    assert payload["run"]["currentStepId"] == "human_review"
+    assert payload["run"]["runtimeEngine"] == "acg"
     assert payload["run"]["input"]["caseText"] == "供应商逾期交付，合同约定违约金。"
 
 
@@ -392,10 +422,7 @@ def test_chat_can_upgrade_message_to_workflow_run():
 
     from app.api.agentos_core import create_router
 
-    agent_registry = AgentRegistry()
-    workflow_registry = WorkflowRegistry()
-    register_legal_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
-    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = _runtime_with_legal_pack()
 
     app = FastAPI()
     app.include_router(create_router(runtime), prefix="/ai")
@@ -431,10 +458,7 @@ def test_legacy_lawyer_agent_chat_endpoint_returns_status_payload():
 
     from app.api.agentos_core import create_router
 
-    agent_registry = AgentRegistry()
-    workflow_registry = WorkflowRegistry()
-    register_legal_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
-    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = _runtime_with_legal_pack()
 
     app = FastAPI()
     app.include_router(create_router(runtime), prefix="/ai")
@@ -456,6 +480,187 @@ def test_legacy_lawyer_agent_chat_endpoint_returns_status_payload():
     assert "risk_assessment" in payload["skillsUsed"]
     assert len(payload["trace"]) >= 1
     assert payload["trace"][0]["action"] == "case_understanding"
+
+
+@pytest.mark.parametrize("text", ["你好", "你是什么角色", "你是什么模型"])
+def test_legacy_lawyer_agent_chat_smalltalk_returns_direct_intro_without_trace(text):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.agentos_core import create_router
+
+    runtime = _runtime_with_legal_pack()
+
+    app = FastAPI()
+    app.include_router(create_router(runtime), prefix="/ai")
+    client = TestClient(app)
+
+    response = client.post(
+        "/ai/agent/lawyer/chat",
+        json={"text": text, "sessionId": "session_hi"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["sessionId"] == "session_hi"
+    if "模型" in text:
+        assert "当前会话使用的语言模型是" in payload["answer"]
+        assert "工作流" not in payload["answer"]
+        assert "执行轨迹" not in payload["answer"]
+    else:
+        assert "律师智能体" in payload["answer"]
+        assert "法律咨询" in payload["answer"]
+    assert "法律初步分析" not in payload["answer"]
+    assert "民商事争议" not in payload["answer"]
+    assert payload["skillsUsed"] == []
+    assert payload["trace"] == []
+    assert payload["routing"]["decision"] == "direct"
+    assert payload["routing"]["workflowRequired"] is False
+
+
+def test_legacy_chat_smalltalk_rule_cannot_be_overridden_by_llm(monkeypatch):
+    from app.api import agentos_core
+
+    monkeypatch.setattr(
+        agentos_core,
+        "_llm_route_decision",
+        lambda *_args, **_kwargs: {
+            "decision": "workflow",
+            "workflowRequired": True,
+            "workflowId": "legal_case_analysis_v1",
+            "source": "llm",
+            "confidence": 0.99,
+        },
+    )
+
+    route = agentos_core._classify_legacy_chat_route(
+        "lawyer",
+        agentos_core.LEGACY_AGENT_CONFIG["lawyer"],
+        "你好",
+    )
+
+    assert route["decision"] == "direct"
+    assert route["workflowRequired"] is False
+    assert route["source"] == "rules"
+
+
+def test_legacy_lawyer_agent_chat_vpn_question_is_not_contract_template():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.agentos_core import create_router
+
+    runtime = _runtime_with_legal_pack()
+
+    app = FastAPI()
+    app.include_router(create_router(runtime), prefix="/ai")
+    client = TestClient(app)
+
+    response = client.post(
+        "/ai/agent/lawyer/chat",
+        json={"text": "使用vpn违法吗", "sessionId": "session_vpn"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["sessionId"] == "session_vpn"
+    assert "使用vpn违法吗" in payload["answer"]
+    assert "未生成风险结论" in payload["answer"]
+    assert "合同履行原则" not in payload["answer"]
+    assert "违约责任" not in payload["answer"]
+    assert "民商事争议" not in payload["answer"]
+    assert payload["skillsUsed"]
+    assert payload["trace"]
+    assert payload["routing"]["decision"] == "workflow"
+    assert payload["routing"]["workflowId"] == "legal_case_analysis_v1"
+
+
+def test_legacy_lawyer_agent_chat_contract_review_routes_to_acg_trace():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.agentos_core import create_router
+
+    runtime = _runtime_with_legal_pack()
+
+    app = FastAPI()
+    app.include_router(create_router(runtime), prefix="/ai")
+    client = TestClient(app)
+
+    response = client.post(
+        "/ai/agent/lawyer/chat",
+        json={
+            "text": "请审查这份软件开发合同：甲方委托乙方开发 CRM 系统，签署后支付 30%，上线后支付 70%。",
+            "sessionId": "session_contract_review",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["sessionId"] == "session_contract_review"
+    assert payload["workflowId"] == "legal_contract_review_v1"
+    assert payload["runtimeEngine"] == "acg"
+    assert payload["routing"]["decision"] == "workflow"
+    assert payload["routing"]["workflowRequired"] is True
+    assert payload["routing"]["runtimeEngine"] == "acg"
+    assert "合同审查摘要" in payload["answer"]
+    assert "分析状态" in payload["answer"]
+    assert "risk_detect" in payload["skillsUsed"]
+    actions = {step["action"] for step in payload["trace"]}
+    assert {"contract_parse", "risk_detect", "legal_evidence_match", "revision_suggest"}.issubset(actions)
+
+
+def test_legacy_lawyer_agent_chat_respects_llm_route_before_graph_fallback():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.agentos_core import create_router
+    from app.llm.gateway import LLMGateway, set_llm_gateway_for_tests
+
+    class _CaseAnalysisRoutingProvider:
+        provider_name = "route-test-provider"
+        model = "route-test-model"
+
+        def generate_text(self, prompt: str, **kwargs):
+            return ""
+
+        def generate_json(self, prompt: str, schema: dict, **kwargs):
+            return {
+                "decision": "workflow",
+                "workflow_id": "legal_case_analysis_v1",
+                "reason": "这是围绕违约和诉讼风险的案件分析，不是合同条款审查。",
+                "confidence": 0.94,
+                "direct_answer_type": "none",
+            }
+
+    set_llm_gateway_for_tests(LLMGateway(provider=_CaseAnalysisRoutingProvider()))
+    try:
+        runtime = _runtime_with_legal_pack()
+
+        app = FastAPI()
+        app.include_router(create_router(runtime), prefix="/ai")
+        client = TestClient(app)
+
+        response = client.post(
+            "/ai/agent/lawyer/chat",
+            json={"text": "供应商合同逾期交付，想评估诉讼风险。", "sessionId": "session_case_route"},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["workflowId"] == "legal_case_analysis_v1"
+        assert payload["runtimeEngine"] == "acg"
+        assert payload["routing"]["source"] == "llm"
+        assert payload["routing"]["provider"] == "route-test-provider"
+        assert payload["routing"]["workflowId"] == "legal_case_analysis_v1"
+        assert "合同审查摘要" not in payload["answer"]
+        assert payload["trace"][0]["action"] == "case_understanding"
+    finally:
+        set_llm_gateway_for_tests(None)
 
 
 def test_legacy_programmer_agent_chat_endpoint_returns_full_deliverable():
@@ -566,10 +771,7 @@ def test_agentos_core_api_lists_tasks_and_runs_with_filters():
 
     from app.api.agentos_core import create_router
 
-    agent_registry = AgentRegistry()
-    workflow_registry = WorkflowRegistry()
-    register_legal_pack(agent_registry=agent_registry, workflow_registry=workflow_registry)
-    runtime = WorkflowRuntime(agent_registry=agent_registry, workflow_registry=workflow_registry)
+    runtime = _runtime_with_legal_pack()
 
     app = FastAPI()
     app.include_router(create_router(runtime), prefix="/ai")
@@ -620,6 +822,35 @@ def test_agentos_core_api_lists_tasks_and_runs_with_filters():
     assert tasks_payload["items"][0]["recommendedWorkflow"] == "legal_case_analysis_v1"
 
 
+def test_acg_start_source_is_normalized_without_rewriting_generic_workbench():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.agentos_core import create_router
+
+    runtime = _runtime_with_legal_pack()
+    app = FastAPI()
+    app.include_router(create_router(runtime), prefix="/ai")
+    client = TestClient(app)
+
+    response = client.post(
+        "/ai/core/workflows/start",
+        json={
+            "title": "ACG source normalization",
+            "domain": "legal",
+            "intent": "contract_review",
+            "input": {
+                "source": "acg-workbench",
+                "caseText": "ACG source normalization",
+            },
+            "reviewMode": "human_in_loop",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["run"]["input"]["source"] == "acg"
+
+
 def test_default_runtime_uses_sqlite_store_when_env_is_set(tmp_path, monkeypatch):
     from app.api import agentos_core
 
@@ -632,28 +863,36 @@ def test_default_runtime_uses_sqlite_store_when_env_is_set(tmp_path, monkeypatch
     assert Path(runtime.workflow_store.db_path) == db_path
 
 
-def test_default_runtime_uses_memory_store_when_env_is_missing(monkeypatch):
+def test_default_runtime_requires_database_path_when_env_is_missing(monkeypatch):
     from app.api import agentos_core
 
     monkeypatch.delenv("AGENTOS_WORKFLOW_DB_PATH", raising=False)
 
-    runtime = agentos_core.build_default_runtime()
+    with pytest.raises(
+        RuntimeError,
+        match="Workflow database path is required outside test mode",
+    ):
+        agentos_core.build_default_runtime()
 
-    assert isinstance(runtime.workflow_store, MemoryWorkflowStore)
 
-
-def test_default_runtime_registers_packs_through_manifest_loader(monkeypatch):
+def test_default_runtime_registers_packs_through_manifest_loader(monkeypatch, tmp_path):
     from agentos.core import runtime as core_runtime
 
     calls = []
 
-    def fake_register_installed_packs(agent_registry, workflow_registry):
-        calls.append((agent_registry, workflow_registry))
+    def fake_register_installed_packs(
+        agent_registry,
+        workflow_registry,
+        capability_catalog,
+    ):
+        calls.append((agent_registry, workflow_registry, capability_catalog))
         return []
 
     monkeypatch.setattr(core_runtime, "register_installed_packs", fake_register_installed_packs)
-    monkeypatch.delenv("AGENTOS_WORKFLOW_DB_PATH", raising=False)
+    monkeypatch.setenv("AGENTOS_WORKFLOW_DB_PATH", str(tmp_path / "workflow.db"))
 
     runtime = core_runtime.build_default_runtime()
 
-    assert calls == [(runtime.agent_registry, runtime.workflow_registry)]
+    assert calls == [
+        (runtime.agent_registry, runtime.workflow_registry, runtime.capability_catalog)
+    ]

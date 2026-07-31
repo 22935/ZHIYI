@@ -27,6 +27,7 @@ class ReviewManager:
             decision=decision.decision,
             reviewer=decision.reviewer,
             comment=decision.comment,
+            operationId=decision.operation_id,
             traceEventId=event.event_id,
             createdAt=event.created_at,
         )
@@ -45,6 +46,7 @@ class ReviewManager:
                     decision=ReviewDecisionType(payload.get("decision", ReviewDecisionType.APPROVED.value)),
                     reviewer=payload.get("reviewer") or "system",
                     comment=payload.get("comment") or "",
+                    operationId=payload.get("operationId"),
                     traceEventId=event.event_id,
                     createdAt=payload.get("createdAt") or event.created_at,
                 )

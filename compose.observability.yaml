@@ -1,0 +1,8 @@
+x-kinlin-observability-contract:
+  backend-metrics: http://backend:8080/actuator/prometheus
+  backend-health: http://backend:8080/actuator/health
+  ai-metrics: http://ai-service:8000/metrics
+  ai-health: http://ai-service:8000/health/ready
+  note: Reserved for the next RFC; no monitoring service is started in v1.1.
+
+services: {}

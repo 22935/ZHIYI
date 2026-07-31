@@ -40,6 +40,7 @@ public class JwtUtil {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId.toString());
         claims.put("username", username);
+        claims.put("role", "USER");
         return createToken(claims, username);
     }
 
@@ -69,6 +70,11 @@ public class JwtUtil {
      */
     public String getUsernameFromToken(String token) {
         return getClaimFromToken(token, Claims::getSubject);
+    }
+
+    public String getRoleFromToken(String token) {
+        String role = getClaimFromToken(token, claims -> claims.get("role", String.class));
+        return role == null || role.isBlank() ? "USER" : role;
     }
 
     /**

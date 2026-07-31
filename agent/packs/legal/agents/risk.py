@@ -18,32 +18,12 @@ class RiskAgent(BaseAgent):
         )
 
     async def run(self, context):
-        observations = context.memory.observations
-        intake = observations.get("case_intake", {})
-        evidence = observations.get("evidence", {})
-        legal_basis = observations.get("statute", {}).get("legal_basis", [])
-
-        score = 35
-        missing = evidence.get("missing_evidence", [])
-        if len(missing) >= 3:
-            score += 20
-        if len(legal_basis) < 2:
-            score += 20
-        if "电子证据真实性" in intake.get("legal_issues", []):
-            score += 10
-
-        level = "high" if score >= 70 else "medium" if score >= 45 else "low"
         output = {
-            "risk_level": level,
-            "risk_score": min(score, 100),
-            "key_risks": [
-                "证据真实性和完整性需人工核验",
-                "合同履行节点与违约责任需结合原文确认",
-            ],
-            "mitigation_suggestions": [
-                "补充合同原件、履约记录和催告材料",
-                "由审核者确认风险结论后再进入文书草拟",
-            ],
+            "risk_level": "unknown",
+            "risk_score": None,
+            "key_risks": [],
+            "mitigation_suggestions": [],
             "review_required": True,
+            "analysis_status": "unavailable",
         }
-        return AgentOutput(output=output, summary=f"Risk assessed as {level}.", riskLevel=level)
+        return AgentOutput(output=output, summary="No risk assessment was generated.")

@@ -76,8 +76,15 @@ public class ConversationService {
      * 删除对话
      */
     @Transactional
-    public void deleteConversation(UUID conversationId) {
-        conversationRepository.deleteById(conversationId);
+    public boolean deleteConversation(UUID conversationId, UUID userId) {
+        Optional<Conversation> conversation = conversationRepository.findById(conversationId);
+        if (conversation.isEmpty() || !userId.equals(conversation.get().getUserId())) {
+            return false;
+        }
+
+        messageRepository.deleteByConversationId(conversationId);
+        conversationRepository.delete(conversation.get());
+        return true;
     }
 
     /**

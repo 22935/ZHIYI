@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { AgentTraceStep, FederatedInfo } from './agentLawyer'
+import type { AgentRoutingInfo, AgentTraceStep, FederatedInfo } from './agentLawyer'
 
 const WRITER_AGENT_TIMEOUT_MS = 240000
 
@@ -65,6 +65,12 @@ export interface WriterAgentResponse {
   sessionId: string
   skillsUsed: string[]
   trace: AgentTraceStep[]
+  routing?: AgentRoutingInfo
+  workflowRunId?: string
+  workflowId?: string
+  workflowStatus?: string
+  runtimeEngine?: string
+  implementationId?: string
   riskLevel?: string
   federated?: FederatedInfo
   inspirationExpand?: InspirationExpandResult

@@ -90,8 +90,18 @@ class KeywordLegalEvidenceRetriever:
     @staticmethod
     def _citation(chunk: LegalChunk) -> str:
         first_line = next((line.strip("# ").strip() for line in chunk.content.splitlines() if line.strip()), "")
-        prefix = "演示资料，待正式法律知识库校验"
-        return f"{prefix}：{first_line or chunk.title}"
+        metadata = chunk.metadata or {}
+        if metadata.get("demo", True):
+            prefix = "演示资料，待正式法律知识库校验"
+            return f"{prefix}：{first_line or chunk.title}"
+
+        law_name = str(metadata.get("lawName") or chunk.source_name or "").strip()
+        article_no = str(metadata.get("articleNo") or "").strip()
+        if law_name and article_no:
+            return f"《{law_name}》{article_no}"
+        if law_name:
+            return f"《{law_name}》：{first_line or chunk.title}"
+        return f"{chunk.source_name or chunk.source_type}：{first_line or chunk.title}"
 
     @staticmethod
     def _evidence_id(risk_id: str, chunk_id: str, rank: int) -> str:

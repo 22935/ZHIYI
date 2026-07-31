@@ -1,3 +1,4 @@
+<!-- RAG 查询组件 — 基于知识库的智能检索输入界面，含文本域、可配置 Top-K 和提交按钮 -->
 <template>
   <div class="rag-query-container">
     <div class="query-card">
@@ -180,7 +181,7 @@ onMounted(() => {
 }
 
 .query-card {
-  background: #ffffff;
+  background: var(--surface-solid);
   border: 1px solid var(--border-light);
   border-radius: 20px;
   overflow: hidden;
@@ -258,7 +259,7 @@ onMounted(() => {
 }
 
 .query-textarea:focus {
-  background: #ffffff;
+  background: var(--surface-solid);
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px var(--primary-fade);
 }
@@ -434,7 +435,7 @@ onMounted(() => {
 }
 
 .source-item:hover {
-  background: #ffffff;
+  background: var(--surface-solid);
   border-color: var(--border-hover);
 }
 

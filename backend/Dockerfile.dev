@@ -1,0 +1,34 @@
+ARG MAVEN_IMAGE=public.ecr.aws/docker/library/maven:3.9.16-eclipse-temurin-17@sha256:1ed5d1f54416b706707b4f3238f63a20bb06aab27c6d240090a2bb9ad895ed45
+FROM ${MAVEN_IMAGE}
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gosu iproute2 netcat-openbsd rsync util-linux \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s "$(command -v gosu)" /usr/local/bin/su-exec \
+    && groupadd --gid 10001 kinlin \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin kinlin \
+    && mkdir -p /app/data/uploads /run/kinlin-secrets \
+    && chown -R 10001:10001 /app /run/kinlin-secrets
+
+COPY pom.xml .
+RUN mvn -B -ntp -DskipTests dependency:go-offline \
+    && mv /root/.m2 /opt/kinlin-m2 \
+    && chown -R 10001:10001 /opt/kinlin-m2
+
+COPY src ./src
+
+COPY docker-entrypoint.sh /usr/local/bin/kinlin-entrypoint
+COPY docker-entrypoint-dev.sh /usr/local/bin/kinlin-dev-entrypoint
+COPY sync-backend-source.sh /usr/local/bin/kinlin-sync-backend-source
+RUN chmod 0755 /usr/local/bin/kinlin-entrypoint /usr/local/bin/kinlin-dev-entrypoint /usr/local/bin/kinlin-sync-backend-source
+
+EXPOSE 8080
+EXPOSE 5005
+
+ENTRYPOINT ["/usr/local/bin/kinlin-dev-entrypoint"]
+CMD ["mvn", "spring-boot:run", \
+     "-Dmaven.test.skip=true", \
+     "-Dspring-boot.run.profiles=compose", \
+     "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"]

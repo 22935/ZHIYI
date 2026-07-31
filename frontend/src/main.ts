@@ -9,9 +9,12 @@ import en from 'element-plus/dist/locale/en.mjs'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
+import { initTheme } from './composables/useTheme'
 import './styles/global.css'
 import './styles/responsive.css'
 import './styles/animations.css'
+
+initTheme()
 
 const app = createApp(App)
 const pinia = createPinia()

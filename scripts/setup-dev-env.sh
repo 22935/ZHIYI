@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 
 # 开发环境快速配置脚本
 # 自动创建.env文件并配置开发环境
@@ -45,7 +45,7 @@ if command -v psql &> /dev/null; then
         echo "✓ PostgreSQL数据库连接正常"
     else
         echo "⚠ PostgreSQL数据库未连接，请确保数据库已启动"
-        echo "  启动命令: docker-compose -f docker/docker-compose.dev.yml up -d postgres"
+        echo "  启动命令: docker compose -f compose.yaml -f compose.dev.yaml up -d postgres"
     fi
 else
     echo "⚠ psql命令未找到，跳过数据库检查"
@@ -59,7 +59,7 @@ if command -v redis-cli &> /dev/null; then
         echo "✓ Redis连接正常"
     else
         echo "⚠ Redis未连接，请确保Redis已启动"
-        echo "  启动命令: docker-compose -f docker/docker-compose.dev.yml up -d redis"
+        echo "  启动命令: docker compose -f compose.yaml -f compose.dev.yaml up -d redis"
     fi
 else
     echo "⚠ redis-cli命令未找到，跳过Redis检查"
@@ -77,9 +77,8 @@ echo "  - Python服务: $PROJECT_DIR/agent/.env"
 echo ""
 echo "下一步:"
 echo "  1. 如需使用真实API，请编辑 .env 文件设置 KYLIN_AI_API_KEY"
-echo "  2. 启动数据库: docker-compose -f docker/docker-compose.dev.yml up -d postgres redis"
-echo "  3. 启动后端: cd backend && mvn spring-boot:run"
-echo "  4. 启动AI服务: cd agent && python app/main.py"
-echo "  5. 启动前端: cd frontend && npm run dev"
+echo "  2. 构建并启动全部服务: ./dev.sh up"
+echo "  3. 查看日志: ./dev.sh logs"
+echo "  4. 停止服务: ./dev.sh down"
 echo ""
 

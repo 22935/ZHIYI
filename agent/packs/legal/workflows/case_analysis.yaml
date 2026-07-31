@@ -5,6 +5,7 @@
   "intent": "case_analysis",
   "version": "1.0.0",
   "description": "Demo workflow for general legal case analysis.",
+  "runtimeEngine": "acg",
   "steps": [
     {
       "stepId": "case_intake",

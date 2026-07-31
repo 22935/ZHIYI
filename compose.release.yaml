@@ -1,0 +1,21 @@
+services:
+  frontend:
+    build: !reset null
+    image: ${KINLIN_FRONTEND_IMAGE:?KINLIN_FRONTEND_IMAGE is required}
+  backend:
+    build: !reset null
+    image: ${KINLIN_BACKEND_IMAGE:?KINLIN_BACKEND_IMAGE is required}
+  ai-service:
+    build: !reset null
+    image: ${KINLIN_AI_IMAGE:?KINLIN_AI_IMAGE is required}
+  postgres:
+    build: !reset null
+    image: ${KINLIN_POSTGRES_IMAGE:?KINLIN_POSTGRES_IMAGE is required}
+  redis:
+    build: !reset null
+    image: ${KINLIN_REDIS_IMAGE:?KINLIN_REDIS_IMAGE is required}
+  schema-tool:
+    build: !reset null
+    image: ${KINLIN_FLYWAY_IMAGE:?KINLIN_FLYWAY_IMAGE is required}
+    volumes: !override
+      - ./migrations:/flyway/sql:ro

@@ -101,18 +101,41 @@ public class ChatService {
         }
         
         // 调用AI服务获取回复
-        ChatResponse aiResponse = aiService.sendTextMessage(
-                enhancedText,
-                request.getRoleId() != null ? request.getRoleId().toString() : null,
-                context,
-                conversation.getContextId()
-        );
+        boolean hasRuntimeModel = request.getModel() != null
+                || request.getBaseUrl() != null
+                || request.getApiKey() != null
+                || request.getToolMode() != null;
+        ChatResponse aiResponse;
+        if (hasRuntimeModel) {
+            aiResponse = aiService.sendTextMessage(
+                    enhancedText,
+                    request.getRoleId() != null ? request.getRoleId().toString() : null,
+                    context,
+                    conversation.getContextId(),
+                    request.getModel(),
+                    request.getBaseUrl(),
+                    request.getApiKey(),
+                    request.getThinkingMode() != null
+                            ? request.getThinkingMode()
+                            : request.getReasoningEffort(),
+                    request.getToolMode()
+            );
+        } else {
+            aiResponse = aiService.sendTextMessage(
+                    enhancedText,
+                    request.getRoleId() != null ? request.getRoleId().toString() : null,
+                    context,
+                    conversation.getContextId()
+            );
+        }
         
         // 如果角色上下文可用，添加到响应元数据中
-        if (roleContext != null && aiResponse.getMetadata() == null) {
-            Map<String, Object> metadata = new HashMap<>();
-            metadata.put("role_context", roleContext);
-            aiResponse.setMetadata(metadata);
+        if (roleContext != null) {
+            Map<String, Object> responseMetadata = aiResponse.getMetadata() == null
+                    ? new HashMap<>()
+                    : new HashMap<>(aiResponse.getMetadata());
+            responseMetadata.put("role_context", roleContext);
+            aiResponse.setMetadata(responseMetadata);
         }
 
         // 保存AI回复
@@ -122,6 +145,9 @@ public class ChatService {
         assistantMessage.setContent(aiResponse.getText());
         assistantMessage.setMessageType(Message.MessageType.TEXT);
         Map<String, Object> metadata = new HashMap<>();
+        if (aiResponse.getMetadata() != null) {
+            metadata.putAll(aiResponse.getMetadata());
+        }
         metadata.put("confidence", aiResponse.getConfidence());
         // 添加可解释性信息
         if (aiResponse.getTokensUsed() != null) {

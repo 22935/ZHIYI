@@ -45,10 +45,9 @@ echo   - Python服务: %PROJECT_DIR%\agent\.env
 echo.
 echo 下一步:
 echo   1. 如需使用真实API，请编辑 .env 文件设置 KYLIN_AI_API_KEY
-echo   2. 启动数据库: docker-compose -f docker\docker-compose.dev.yml up -d postgres redis
-echo   3. 启动后端: cd backend ^&^& mvn spring-boot:run
-echo   4. 启动AI服务: cd agent ^&^& python app\main.py
-echo   5. 启动前端: cd frontend ^&^& npm run dev
+echo   2. 构建并启动全部服务: powershell -ExecutionPolicy Bypass -File dev.ps1 up
+echo   3. 查看日志: powershell -ExecutionPolicy Bypass -File dev.ps1 logs
+echo   4. 停止服务: powershell -ExecutionPolicy Bypass -File dev.ps1 down
 echo.
 
 pause

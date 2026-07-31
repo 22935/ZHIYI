@@ -42,6 +42,7 @@ def _workflow_registry() -> WorkflowRegistry:
             domain="legal",
             intent="contract_review",
             version="1.0.0",
+            runtimeEngine="acg",
             steps=[
                 WorkflowStepDefinition(
                     stepId="risk",

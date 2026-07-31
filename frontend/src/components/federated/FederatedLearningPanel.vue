@@ -1,3 +1,4 @@
+<!-- 联邦学习控制台面板 — 仪表盘含拓扑、聚合、训练曲线 Tab，展示系统状态和当前轮次 -->
 <template>
   <section class="federated-panel">
     <div class="panel-header">
@@ -392,7 +393,7 @@ onMounted(async () => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.97);
+  background: color-mix(in srgb, var(--bg-card) 97%, transparent);
   border: 1px solid var(--border-light, #e3e6df);
   border-radius: 8px;
   box-shadow: var(--shadow-sm, 0 1px 2px rgba(29, 36, 34, 0.04));
@@ -405,7 +406,7 @@ onMounted(async () => {
   justify-content: space-between;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-light, #e3e6df);
-  background: rgba(251, 252, 250, 0.92);
+  background: var(--bg-panel);
 }
 
 .header-left {
@@ -419,7 +420,7 @@ onMounted(async () => {
   height: 36px;
   border-radius: 8px;
   border: 1px solid var(--border-light, #e3e6df);
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--primary-color, #3f6b63);
   display: flex;
   align-items: center;
@@ -470,7 +471,7 @@ onMounted(async () => {
 
 .status-pill.paused {
   background: rgba(100, 116, 139, 0.1);
-  color: #64748b;
+  color: var(--text-secondary);
   border: 1px solid rgba(100, 116, 139, 0.2);
 }
 
@@ -501,7 +502,7 @@ onMounted(async () => {
   display: flex;
   gap: 2px;
   padding: 8px 12px;
-  background: #fff;
+  background: var(--surface-solid);
   border-bottom: 1px solid var(--border-light, #e3e6df);
 }
 
@@ -614,7 +615,7 @@ onMounted(async () => {
   border-radius: 8px;
   font-size: 11px;
   border: 1px solid var(--border-light, #e3e6df);
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--text-secondary, #727c76);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -764,7 +765,7 @@ onMounted(async () => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #cbd5e1;
+  background: var(--border-light);
   border: 2px solid white;
 }
 
@@ -892,14 +893,14 @@ onMounted(async () => {
 
 .perf-label {
   width: 32px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 9px;
 }
 
 .perf-bar {
   flex: 1;
   height: 3px;
-  background: #fff;
+  background: var(--surface-solid);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -936,7 +937,7 @@ onMounted(async () => {
 }
 
 .model-btn:hover {
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--primary-color, #3f6b63);
 }
 

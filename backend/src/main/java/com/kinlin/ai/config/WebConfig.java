@@ -34,6 +34,7 @@ public class WebConfig implements WebMvcConfigurer {
                     ? cors.getAllowedMethods().toArray(new String[0])
                     : new String[]{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"})
                 .allowedHeaders(cors.getAllowedHeaders() != null ? cors.getAllowedHeaders() : "*")
+                .exposedHeaders("X-Trace-Id")
                 .allowCredentials(cors.isAllowCredentials())
                 .maxAge(3600);
     }

@@ -1,3 +1,4 @@
+<!-- 管辖建议卡片 — 展示法院管辖建议，含推荐法院标签、依据说明和法律基础引用 -->
 <template>
   <section class="card">
     <header class="card-head">
@@ -89,7 +90,7 @@ const isRecommended = (item: CourtOption, index: number) => item.priority === 'h
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -111,7 +112,7 @@ const isRecommended = (item: CourtOption, index: number) => item.priority === 'h
 .count {
   font-size: 12px;
   color: #6d28d9;
-  background: #f5f3ff;
+  background: var(--accent-fade);
   border: 1px solid #ddd6fe;
   border-radius: 999px;
   padding: 2px 8px;
@@ -127,12 +128,12 @@ const isRecommended = (item: CourtOption, index: number) => item.priority === 'h
   border: 1px solid var(--border-light);
   border-radius: 10px;
   padding: 8px;
-  background: #f8fafc;
+  background: var(--bg-input);
 }
 
 .court-item.recommended {
   border-color: #86efac;
-  background: #f0fdf4;
+  background: var(--success-fade);
 }
 
 .name-row {

@@ -36,4 +36,17 @@ class AuthenticatedUserTest {
 
         assertTrue(AuthenticatedUser.currentUserId().isEmpty());
     }
+
+    @Test
+    void currentContextReadsTrustedPrincipal() {
+        UUID userId = UUID.randomUUID();
+        AuthenticatedUserContext principal = new AuthenticatedUserContext(
+                userId, "alice", "USER", null, null
+        );
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of())
+        );
+
+        assertEquals(principal, AuthenticatedUser.currentContext().orElseThrow());
+    }
 }

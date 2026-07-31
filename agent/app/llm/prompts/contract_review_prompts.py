@@ -9,7 +9,6 @@ BASE_RULES = """你是合同审查工作流中的结构化信息助手。
 不要编造法条、案例、法规编号、裁判观点或正式法律依据。
 如果无法判断，字段填 unknown 或 empty list。
 风险判断只能基于输入合同文本和当前 state。
-所有法律依据都标记为待 RAG 补充。
 不要做最终法律意见结论。
 保持职业、克制、可审核。"""
 
@@ -22,8 +21,8 @@ def render_parse_contract_prompt(contract_text: str) -> str:
     return f"""{BASE_RULES}
 
 TASK: parse_contract
-请从合同文本中抽取结构化合同基本信息，严格输出以下 JSON 字段：
-contract_title, parties, contract_type, key_dates, amounts, obligations, summary
+请从合同文本中抽取结构化合同基本信息。只能填写合同文本明确出现的内容，未出现的字段使用空字符串或空数组。严格输出以下 JSON 字段：
+contract_title, parties, contract_type, key_dates, amounts, obligations, summary, scope, payment_terms, acceptance_terms, ip_terms, dispute_resolution
 
 合同文本：
 {contract_text}
@@ -59,8 +58,8 @@ TASK: report_generate
 - 风险条款列表
 - 修改建议
 - 人工审核状态
-- Evidence 依据链，引用当前 state.evidences 中的 sourceName、citationText，并标注演示依据 / 待正式法律知识库校验
-- 免责声明：当前报告未接入正式法律法规 RAG，法律依据部分仅为演示或待补充
+- Evidence 依据链，仅引用当前 state.evidences 中已有的 sourceName、citationText
+- 免责声明：自动化分析不构成最终法律意见，重要结论需专业人员复核
 
 当前 state：
 {_json(state)}

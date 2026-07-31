@@ -2,177 +2,127 @@
   <div class="topology-graph">
     <svg
       ref="svgRef"
-      :viewBox="`0 0 ${width} ${height}`"
-      :width="width"
-      :height="height"
+      viewBox="0 0 960 500"
       class="topology-svg"
+      role="img"
+      aria-label="联邦学习参与方与全局模型的同步拓扑"
     >
       <defs>
-        <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3" />
-          <stop offset="60%" stop-color="#6366f1" stop-opacity="0.08" />
-          <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
-        </radialGradient>
-        <radialGradient id="clientGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.25" />
-          <stop offset="100%" stop-color="#22d3ee" stop-opacity="0" />
-        </radialGradient>
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+        <filter id="topology-shadow" x="-20%" y="-25%" width="140%" height="150%">
+          <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="var(--shadow-color)" flood-opacity="0.32" />
+        </filter>
+        <filter id="packet-glow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="2" result="blur" />
           <feMerge>
-            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <filter id="softShadow">
-          <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#6366f1" flood-opacity="0.15" />
-        </filter>
-        <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.5" />
-          <stop offset="50%" stop-color="#22d3ee" stop-opacity="0.3" />
-          <stop offset="100%" stop-color="#6366f1" stop-opacity="0.1" />
-        </linearGradient>
-        <linearGradient id="lineGradReverse" x1="100%" y1="0%" x2="0%" y2="0%">
-          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.5" />
-          <stop offset="50%" stop-color="#22d3ee" stop-opacity="0.3" />
-          <stop offset="100%" stop-color="#6366f1" stop-opacity="0.1" />
-        </linearGradient>
-        <linearGradient id="centerFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#4f46e5" />
-          <stop offset="100%" stop-color="#6366f1" />
-        </linearGradient>
-        <linearGradient id="clientFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#0e7490" />
-          <stop offset="100%" stop-color="#0891b2" />
-        </linearGradient>
-        <linearGradient id="clientFillInactive" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#94a3b8" />
-          <stop offset="100%" stop-color="#cbd5e1" />
-        </linearGradient>
       </defs>
 
-      <g class="background-rings">
-        <circle :cx="cx" :cy="cy" :r="orbitRadius * 0.5" fill="none" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3 5" />
-        <circle :cx="cx" :cy="cy" :r="orbitRadius * 0.75" fill="none" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3 5" />
-        <circle :cx="cx" :cy="cy" :r="orbitRadius" fill="none" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3 5" />
+      <g class="topology-guides" aria-hidden="true">
+        <path d="M 118 250 H 842" />
+        <path d="M 480 66 V 434" />
+        <circle cx="480" cy="250" r="112" />
       </g>
 
-      <g class="connections">
-        <g v-for="(client, idx) in clientPositions" :key="`conn-${idx}`">
-          <line
-            :x1="cx"
-            :y1="cy"
-            :x2="client.x"
-            :y2="client.y"
-            stroke="#e2e8f0"
-            stroke-width="1"
-          />
-          <line
+      <g class="topology-connections">
+        <g v-for="(client, index) in clientPositions" :key="`connection-${client.id}`">
+          <path :d="connectionPath(client)" class="connection-base" />
+          <path
             v-if="client.active"
-            :x1="cx"
-            :y1="cy"
-            :x2="client.x"
-            :y2="client.y"
-            stroke="url(#lineGrad)"
-            stroke-width="1.5"
-            stroke-opacity="0.5"
-            class="data-flow-line"
-            :style="{ animationDelay: `${idx * 0.4}s` }"
+            :d="connectionPath(client)"
+            class="connection-active"
+            :style="{ animationDelay: `${index * -0.55}s` }"
           />
           <circle
             v-if="client.active"
-            :cx="interpolateX(cx, client.x, flowProgress[idx] || 0)"
-            :cy="interpolateY(cy, client.y, flowProgress[idx] || 0)"
-            r="2.5"
-            fill="#22d3ee"
-            filter="url(#glow)"
-            class="flow-particle"
-            :style="{ animationDelay: `${idx * 0.3}s` }"
+            :cx="interpolate(cx, client.x, flowProgress[index] ?? 0)"
+            :cy="interpolate(cy, client.y, flowProgress[index] ?? 0)"
+            r="4"
+            class="data-packet data-packet-out"
+            filter="url(#packet-glow)"
           />
           <circle
             v-if="client.active"
-            :cx="interpolateX(client.x, cx, flowProgress[idx] || 0)"
-            :cy="interpolateY(client.y, cy, flowProgress[idx] || 0)"
-            r="2"
-            fill="#a78bfa"
-            filter="url(#glow)"
-            class="flow-particle-reverse"
-            :style="{ animationDelay: `${idx * 0.5 + 0.2}s` }"
+            :cx="interpolate(client.x, cx, flowProgress[index] ?? 0)"
+            :cy="interpolate(client.y, cy, flowProgress[index] ?? 0)"
+            r="3"
+            class="data-packet data-packet-in"
+            filter="url(#packet-glow)"
           />
         </g>
       </g>
 
-      <g class="center-node" :transform="`translate(${cx}, ${cy})`">
-        <circle r="50" fill="url(#centerGlow)" class="center-pulse-ring" />
-        <circle r="36" fill="url(#centerFill)" filter="url(#softShadow)" />
-        <circle r="33" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.5" stroke-dasharray="2 3" class="center-rotate" />
-        <text y="-7" text-anchor="middle" fill="white" font-size="10" font-weight="600">全局模型</text>
-        <text y="6" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="8">FedAvg</text>
-        <text y="17" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="7">v{{ globalVersion }}</text>
-        <g class="aggregation-arcs" v-if="aggregating">
-          <path d="M -25 -25 A 36 36 0 0 1 25 -25" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" class="arc-anim-1" />
-          <path d="M 25 25 A 36 36 0 0 1 -25 25" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" class="arc-anim-2" />
+      <g class="aggregation-node" :transform="`translate(${cx}, ${cy})`" filter="url(#topology-shadow)">
+        <rect x="-116" y="-68" width="232" height="136" rx="18" class="aggregation-halo" />
+        <rect x="-104" y="-56" width="208" height="112" rx="14" class="aggregation-surface" />
+        <g class="aggregation-symbol" aria-hidden="true">
+          <circle cx="-70" cy="-20" r="5" />
+          <circle cx="-50" cy="-20" r="5" />
+          <circle cx="-60" cy="-4" r="5" />
+          <path d="M -66 -18 L -54 -18 M -67 -16 L -61 -8 M -53 -16 L -59 -8" />
         </g>
+        <text x="-38" y="-22" class="aggregation-kicker">全局聚合器</text>
+        <text x="-38" y="4" class="aggregation-title">FedAvg</text>
+        <text x="-38" y="24" class="aggregation-version">模型版本 v{{ globalVersion }}</text>
+        <line x1="-82" y1="38" x2="82" y2="38" class="aggregation-rule" />
+        <text x="0" y="52" text-anchor="middle" class="aggregation-status">
+          {{ activeClientCount }}/{{ clients.length }} 节点已同步
+        </text>
       </g>
 
       <g
-        v-for="(client, idx) in clientPositions"
-        :key="`client-${idx}`"
+        v-for="(client, index) in clientPositions"
+        :key="client.id"
+        class="participant-node"
+        :class="{ 'is-active': client.active, 'is-hovered': hoveredClient === index }"
         :transform="`translate(${client.x}, ${client.y})`"
-        class="client-node-group"
-        @mouseenter="hoveredClient = idx"
+        @mouseenter="hoveredClient = index"
         @mouseleave="hoveredClient = -1"
       >
-        <circle r="26" :fill="client.active ? 'url(#clientGlow)' : 'transparent'" class="client-pulse" v-if="client.active" />
-        <circle
-          :r="22"
-          :fill="client.active ? 'url(#clientFill)' : 'url(#clientFillInactive)'"
-          :stroke="client.active ? '#22d3ee' : '#cbd5e1'"
-          :stroke-width="hoveredClient === idx ? 2 : 1"
-          filter="url(#softShadow)"
-          class="client-circle"
-        />
-        <circle r="19" fill="none" :stroke="client.active ? 'rgba(255,255,255,0.15)' : '#e2e8f0'" stroke-width="0.5" stroke-dasharray="2 2" class="client-rotate" v-if="client.active" />
-        <text y="-3" text-anchor="middle" fill="white" font-size="8" font-weight="500">{{ client.label }}</text>
-        <text y="8" text-anchor="middle" :fill="client.active ? 'rgba(255,255,255,0.7)' : '#94a3b8'" font-size="6.5">{{ client.active ? '活跃' : '离线' }}</text>
-        <circle cx="14" cy="-14" r="3.5" :fill="client.active ? '#10b981' : '#94a3b8'" class="status-blink" v-if="client.active" />
-        <circle cx="14" cy="-14" r="5" :fill="client.active ? 'rgba(16,185,129,0.2)' : 'transparent'" class="status-ring" v-if="client.active" />
-
-        <g v-if="hoveredClient === idx" class="tooltip-group">
-          <rect x="-48" y="-52" width="96" height="24" rx="6" fill="white" stroke="#e2e8f0" stroke-width="0.5" filter="url(#softShadow)" />
-          <text x="0" y="-40" text-anchor="middle" fill="#1e293b" font-size="7" font-weight="500">
-            精度: {{ client.accuracy?.toFixed(1) || '--' }}%
-          </text>
-          <text x="0" y="-32" text-anchor="middle" fill="#94a3b8" font-size="6">
-            数据: {{ client.dataSize?.toLocaleString() || '--' }}条
+        <rect x="-112" y="-42" width="224" height="84" rx="12" class="participant-surface" filter="url(#topology-shadow)" />
+        <rect x="-112" y="-42" width="4" height="84" rx="2" class="participant-accent" />
+        <circle cx="-80" cy="-12" r="13" class="participant-avatar" />
+        <path d="M -86 -12 H -74 M -80 -18 V -6" class="participant-mark" />
+        <circle cx="-63" cy="-23" r="5" class="participant-state" />
+        <text x="-56" y="-10" class="participant-label">{{ client.label }}</text>
+        <text x="-56" y="11" class="participant-meta">{{ client.active ? '本地训练完成' : '等待节点重连' }}</text>
+        <text x="-56" y="29" class="participant-detail">
+          准确率 {{ formatAccuracy(client.accuracy) }} · {{ formatDataSize(client.dataSize) }} 样本
+        </text>
+        <g v-if="hoveredClient === index" class="participant-tooltip">
+          <rect x="-100" y="-76" width="200" height="24" rx="6" />
+          <text x="0" y="-60" text-anchor="middle">
+            {{ client.active ? '正在与聚合器交换参数' : '节点暂未参与当前轮次' }}
           </text>
         </g>
       </g>
     </svg>
 
-    <div class="topology-legend">
+    <div class="topology-legend" aria-label="拓扑图例">
       <div class="legend-item">
-        <span class="legend-dot center"></span>
+        <span class="legend-center"></span>
         <span>全局聚合</span>
       </div>
       <div class="legend-item">
-        <span class="legend-dot active"></span>
-        <span>活跃Agent</span>
+        <span class="legend-online"></span>
+        <span>在线参与方</span>
       </div>
       <div class="legend-item">
-        <span class="legend-dot inactive"></span>
-        <span>离线Agent</span>
+        <span class="legend-offline"></span>
+        <span>离线参与方</span>
       </div>
       <div class="legend-item">
-        <span class="legend-line"></span>
-        <span>参数传输</span>
+        <span class="legend-flow"></span>
+        <span>参数双向同步</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 interface ClientNode {
   id: string
@@ -182,240 +132,333 @@ interface ClientNode {
   dataSize?: number
 }
 
+interface PositionedClient extends ClientNode {
+  x: number
+  y: number
+}
+
 const props = withDefaults(defineProps<{
   clients?: ClientNode[]
   globalVersion?: string
   aggregating?: boolean
 }>(), {
   clients: () => [
-    { id: 'c1', label: '律师Agent', active: true, accuracy: 87.3, dataSize: 12450 },
-    { id: 'c2', label: '教师Agent', active: true, accuracy: 84.6, dataSize: 8920 },
-    { id: 'c3', label: '程序员Agent', active: true, accuracy: 86.1, dataSize: 15380 },
-    { id: 'c4', label: '作家Agent', active: true, accuracy: 83.2, dataSize: 6740 }
+    { id: 'c1', label: '律师 Agent', active: true, accuracy: 87.3, dataSize: 12450 },
+    { id: 'c2', label: '教师 Agent', active: true, accuracy: 84.6, dataSize: 8920 },
+    { id: 'c3', label: '程序员 Agent', active: true, accuracy: 86.1, dataSize: 15380 },
+    { id: 'c4', label: '作家 Agent', active: true, accuracy: 83.2, dataSize: 6740 }
   ],
   globalVersion: '3.2',
   aggregating: false
 })
 
-const width = 520
-const height = 400
-const cx = width / 2
-const cy = height / 2
-const orbitRadius = 150
-
+const svgRef = ref<SVGSVGElement>()
+const cx = 480
+const cy = 250
+const nodePositions = [
+  { x: 164, y: 106 },
+  { x: 796, y: 106 },
+  { x: 164, y: 394 },
+  { x: 796, y: 394 }
+]
 const hoveredClient = ref(-1)
 const flowProgress = ref<number[]>([])
-let animFrame = 0
+let animationFrame = 0
 
-const clientPositions = computed(() => {
-  const count = props.clients.length
-  return props.clients.map((client, idx) => {
-    const angle = (2 * Math.PI * idx) / count - Math.PI / 2
-    return {
-      ...client,
-      x: cx + orbitRadius * Math.cos(angle),
-      y: cy + orbitRadius * Math.sin(angle)
-    }
-  })
-})
+const clientPositions = computed<PositionedClient[]>(() => props.clients.map((client, index) => ({
+  ...client,
+  ...nodePositions[index % nodePositions.length]
+})))
 
-function interpolateX(x1: number, x2: number, t: number) {
-  return x1 + (x2 - x1) * t
+const activeClientCount = computed(() => props.clients.filter((client) => client.active).length)
+
+function connectionPath(client: PositionedClient) {
+  return `M ${cx} ${cy} L ${client.x} ${client.y}`
 }
 
-function interpolateY(y1: number, y2: number, t: number) {
-  return y1 + (y2 - y1) * t
+function interpolate(start: number, end: number, progress: number) {
+  return start + (end - start) * progress
+}
+
+function formatAccuracy(accuracy?: number) {
+  return accuracy == null ? '--' : `${accuracy.toFixed(1)}%`
+}
+
+function formatDataSize(dataSize?: number) {
+  return dataSize == null ? '--' : dataSize.toLocaleString()
 }
 
 function animate() {
-  const progresses = flowProgress.value.map((p, i) => {
-    const speed = 0.006 + (i % 3) * 0.002
-    const next = p + speed
-    return next > 1 ? 0 : next
+  flowProgress.value = flowProgress.value.map((progress, index) => {
+    const next = progress + 0.0045 + index * 0.00055
+    return next >= 1 ? 0 : next
   })
-  flowProgress.value = progresses
-  animFrame = requestAnimationFrame(animate)
+  animationFrame = requestAnimationFrame(animate)
 }
 
 onMounted(() => {
-  flowProgress.value = props.clients.map(() => Math.random())
+  flowProgress.value = props.clients.map((_, index) => (index + 1) / (props.clients.length + 1))
   animate()
 })
 
 onUnmounted(() => {
-  if (animFrame) cancelAnimationFrame(animFrame)
+  if (animationFrame) cancelAnimationFrame(animationFrame)
 })
 </script>
 
 <style scoped>
 .topology-graph {
-  --primary: #6366f1;
-  --primary-light: #818cf8;
-  --primary-bg: rgba(99, 102, 241, 0.06);
-  --cyan: #22d3ee;
-  --cyan-dark: #0891b2;
-  --purple: #a78bfa;
-  --green: #34d399;
-  --surface: #ffffff;
-  --surface-alt: #f8fafc;
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --radius-sm: 8px;
-  --transition-base: 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-
   position: relative;
   width: 100%;
+  min-width: 0;
+  color: var(--text-primary);
 }
 
 .topology-svg {
+  display: block;
   width: 100%;
   height: auto;
-  display: block;
+  min-height: 360px;
+  overflow: visible;
 }
 
-.center-pulse-ring {
-  animation: centerPulse 3s ease-in-out infinite;
+.topology-guides {
+  fill: none;
+  stroke: var(--border-light);
+  stroke-width: 1;
+  stroke-dasharray: 3 10;
+  opacity: 0.62;
 }
 
-@keyframes centerPulse {
-  0%, 100% { r: 50; opacity: 0.5; }
-  50% { r: 60; opacity: 0.15; }
+.topology-guides circle {
+  stroke-dasharray: 3 8;
 }
 
-.center-rotate {
-  animation: rotateSlow 20s linear infinite;
-  transform-origin: center;
+.connection-base {
+  fill: none;
+  stroke: var(--border-color);
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
-@keyframes rotateSlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.connection-active {
+  fill: none;
+  stroke: var(--primary-color);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 7 16;
+  opacity: 0.7;
+  animation: parameterFlow 2.6s linear infinite;
 }
 
-.client-rotate {
-  animation: rotateSlow 15s linear infinite reverse;
-  transform-origin: center;
+.data-packet-out {
+  fill: var(--primary-color);
 }
 
-.client-pulse {
-  animation: clientPulse 2.5s ease-in-out infinite;
+.data-packet-in {
+  fill: var(--info);
 }
 
-@keyframes clientPulse {
-  0%, 100% { r: 26; opacity: 0.4; }
-  50% { r: 34; opacity: 0.08; }
+.aggregation-halo {
+  fill: var(--primary-fade);
+  opacity: 0.54;
+  animation: aggregationBreathe 3.6s ease-in-out infinite;
 }
 
-.data-flow-line {
-  stroke-dasharray: 6 10;
-  animation: flowLine 2s linear infinite;
+.aggregation-surface {
+  fill: var(--bg-card);
+  stroke: var(--primary-color);
+  stroke-width: 1.5;
 }
 
-@keyframes flowLine {
-  from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: -32; }
+.aggregation-symbol circle {
+  fill: var(--primary-color);
 }
 
-.flow-particle {
-  animation: particleFade 1.5s ease-in-out infinite alternate;
+.aggregation-symbol path {
+  fill: none;
+  stroke: var(--primary-color);
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 
-.flow-particle-reverse {
-  animation: particleFade 1.8s ease-in-out infinite alternate-reverse;
+.aggregation-kicker {
+  fill: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 
-@keyframes particleFade {
-  0% { opacity: 0.2; r: 1.5; }
-  100% { opacity: 0.9; r: 3; }
+.aggregation-title {
+  fill: var(--text-primary);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
-.status-blink {
-  animation: statusBlink 2s ease-in-out infinite;
+.aggregation-version,
+.aggregation-status {
+  fill: var(--text-secondary);
+  font-size: 11px;
 }
 
-.status-ring {
-  animation: statusRing 2s ease-in-out infinite;
+.aggregation-rule {
+  stroke: var(--border-light);
+  stroke-width: 1;
 }
 
-@keyframes statusBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+.participant-node {
+  cursor: default;
 }
 
-@keyframes statusRing {
-  0%, 100% { opacity: 0.3; r: 5; }
-  50% { opacity: 0; r: 8; }
+.participant-surface {
+  fill: var(--bg-panel);
+  stroke: var(--border-color);
+  stroke-width: 1;
+  transition: fill 180ms ease, stroke 180ms ease, transform 180ms ease;
 }
 
-.arc-anim-1 {
-  animation: arcDraw 3s ease-in-out infinite;
+.participant-node.is-active .participant-surface {
+  stroke: var(--border-light);
 }
 
-.arc-anim-2 {
-  animation: arcDraw 3s ease-in-out infinite 1.5s;
+.participant-node.is-hovered .participant-surface {
+  fill: var(--bg-card);
+  stroke: var(--primary-color);
+  stroke-width: 1.5;
 }
 
-@keyframes arcDraw {
-  0% { stroke-dashoffset: 40; }
-  50% { stroke-dashoffset: 0; }
-  100% { stroke-dashoffset: -40; }
+.participant-accent {
+  fill: var(--border-color);
 }
 
-.client-circle {
-  transition: all var(--transition-base);
+.participant-node.is-active .participant-accent {
+  fill: var(--primary-color);
 }
 
-.client-node-group {
-  cursor: pointer;
+.participant-avatar {
+  fill: var(--primary-fade);
+  stroke: var(--primary-color);
+  stroke-width: 1;
 }
 
-.tooltip-group {
-  pointer-events: none;
+.participant-mark {
+  fill: none;
+  stroke: var(--primary-color);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+.participant-state {
+  fill: var(--text-muted);
+  stroke: var(--bg-panel);
+  stroke-width: 2;
+}
+
+.participant-node.is-active .participant-state {
+  fill: var(--success);
+}
+
+.participant-label {
+  fill: var(--text-primary);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.participant-meta {
+  fill: var(--text-secondary);
+  font-size: 11px;
+}
+
+.participant-detail {
+  fill: var(--text-muted);
+  font-size: 10px;
+}
+
+.participant-tooltip rect {
+  fill: var(--bg-card);
+  stroke: var(--border-light);
+  stroke-width: 1;
+}
+
+.participant-tooltip text {
+  fill: var(--text-secondary);
+  font-size: 10px;
 }
 
 .topology-legend {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
-  gap: 14px;
-  font-size: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 18px;
+  padding: 0 12px 8px;
   color: var(--text-muted);
+  font-size: 12px;
 }
 
 .legend-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  white-space: nowrap;
 }
 
-.legend-dot {
-  width: 7px;
-  height: 7px;
+.legend-center,
+.legend-online,
+.legend-offline {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
-.legend-dot.center {
-  background: var(--primary);
-  box-shadow: 0 0 4px rgba(99, 102, 241, 0.4);
+.legend-center {
+  background: var(--primary-color);
+  box-shadow: 0 0 0 4px var(--primary-fade);
 }
 
-.legend-dot.active {
-  background: var(--cyan-dark);
-  box-shadow: 0 0 4px rgba(34, 211, 238, 0.4);
+.legend-online {
+  background: var(--success);
 }
 
-.legend-dot.inactive {
-  background: #cbd5e1;
+.legend-offline {
+  background: var(--text-muted);
 }
 
-.legend-line {
-  width: 14px;
+.legend-flow {
+  width: 18px;
   height: 2px;
-  background: linear-gradient(90deg, var(--primary), var(--cyan));
+  background: var(--primary-color);
   border-radius: 1px;
-  opacity: 0.6;
+  box-shadow: 7px 0 0 -0.2px var(--info);
+}
+
+@keyframes parameterFlow {
+  to { stroke-dashoffset: -46; }
+}
+
+@keyframes aggregationBreathe {
+  0%, 100% { opacity: 0.42; }
+  50% { opacity: 0.72; }
+}
+
+@media (max-width: 760px) {
+  .topology-svg {
+    min-width: 620px;
+  }
+
+  .topology-graph {
+    overflow-x: auto;
+  }
+
+  .topology-legend {
+    justify-content: flex-start;
+    min-width: 620px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connection-active,
+  .aggregation-halo {
+    animation: none;
+  }
 }
 </style>

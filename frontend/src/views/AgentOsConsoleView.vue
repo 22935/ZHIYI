@@ -1,111 +1,205 @@
 <template>
   <main class="agentos-console ui-shell">
-    <header class="console-header ui-hero">
+    <header class="console-header ui-hero ui-hero--compact">
       <div class="console-title">
-        <span class="ui-icon-badge">
-          <el-icon><Monitor /></el-icon>
-        </span>
+        <span class="ui-icon-badge"><el-icon><Monitor /></el-icon></span>
         <div>
-          <span class="ui-hero__eyebrow">Zhiyi AgentOS</span>
-          <h1 class="ui-hero__title">AgentOS Console</h1>
-          <p class="ui-hero__subtitle">统一查看 WorkflowRun 生命周期、审核记录、恢复点和治理指标。</p>
+          <h3 class="ui-hero__title">ACG 历史记录</h3>
         </div>
       </div>
-      <button class="console-refresh" type="button" @click="refreshAll" :disabled="loading.runs || loading.detail">
+      <button class="console-refresh" type="button" :disabled="listLoading" @click="refreshAll">
         <el-icon><Refresh /></el-icon>
-        <span>刷新</span>
+        <span>{{ listLoading ? '同步中' : '刷新' }}</span>
       </button>
     </header>
 
     <section class="console-layout">
-      <aside class="run-sidebar ui-surface ui-surface--pad">
+      <aside class="run-sidebar ui-surface ui-surface--pad" aria-label="Workflow 运行列表">
         <div class="filter-panel">
           <div class="filter-title">
             <el-icon><Search /></el-icon>
-            <span>筛选运行</span>
-          </div>
-          <div class="filter-row">
-            <label>
-              <span>状态</span>
-              <select v-model="filters.status" @change="loadRuns">
-                <option value="">全部</option>
-                <option v-for="item in statusOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-              </select>
-            </label>
-            <label>
-              <span>来源</span>
-              <input v-model="filters.source" placeholder="chat/workbench" @keyup.enter="loadRuns" />
-            </label>
+            <span>运行筛选</span>
           </div>
           <label>
-            <span>领域</span>
-            <input v-model="filters.domain" placeholder="legal / education" @keyup.enter="loadRuns" />
+            <span>状态</span>
+            <select v-model="filters.status" @change="applyFilters">
+              <option value="">默认范围</option>
+              <option v-for="item in statusOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+            </select>
           </label>
           <label>
-            <span>Workflow ID</span>
-            <input v-model="filters.workflowId" placeholder="legal_contract_review_v1" @keyup.enter="loadRuns" />
+            <span>Workflow / Task</span>
+            <input v-model="filters.query" placeholder="输入稳定 ID" @keyup.enter="applyFilters" />
           </label>
         </div>
 
+        <p v-if="listError" class="sync-warning" role="status">{{ listError }}</p>
         <div class="run-list-head">
-          <strong>运行列表</strong>
-          <span class="ui-chip">{{ totalRuns }} 条</span>
+          <strong>ACG 运行记录</strong>
+          <span>{{ totalRuns }} 条</span>
         </div>
 
-        <div v-if="loading.runs" class="empty">正在加载...</div>
-        <div v-else-if="!runs.length" class="empty">暂无 WorkflowRun</div>
-        <template v-else>
-          <button
-            v-for="run in runs"
-            :key="run.runId"
-            type="button"
-              class="run-item"
-            :class="{ active: run.runId === selectedRunId }"
-            @click="selectRun(run.runId)"
-          >
-            <span class="run-status" :class="run.status">{{ run.status }}</span>
-            <strong>{{ run.workflowId }}</strong>
-            <small>{{ run.runId }}</small>
-          </button>
-        </template>
+        <div v-if="listLoading && !runs.length" class="empty">正在同步运行索引...</div>
+        <div v-else-if="!runs.length" class="empty">当前范围内没有运行记录</div>
+        <div v-else class="run-groups">
+          <section v-for="group in runGroups" :key="group.key" v-show="group.items.length" class="run-group">
+            <header>
+              <strong>{{ group.label }}</strong>
+              <span>{{ group.items.length }}</span>
+            </header>
+            <div
+              v-for="run in group.items"
+              :key="run.runId"
+              class="run-item-shell"
+              :class="{ active: run.runId === selectedRunId }"
+            >
+              <button type="button" class="run-item" @click="activateRun(run.runId, true)">
+                <span class="run-item__top">
+                  <span class="run-status" :class="run.phase || run.status">{{ phaseLabel(run.phase, run.status) }}</span>
+                  <time>{{ formatRelativeTime(run.updatedAt) }}</time>
+                </span>
+                <strong>{{ run.workflowId }}</strong>
+                <small :title="run.runId">{{ shortRunId(run.runId) }}</small>
+                <p>{{ run.message }}</p>
+                <span v-if="run.percent != null" class="run-mini-progress" aria-hidden="true">
+                  <span :style="{ width: `${clampPercent(run.percent)}%` }"></span>
+                </span>
+                <span v-else class="run-mini-progress indeterminate" aria-hidden="true"><span></span></span>
+                <span class="run-item__metrics">
+                  <span>{{ run.totalSteps > 0 ? `${run.completedSteps}/${run.totalSteps} 步` : '规模计算中' }}</span>
+                  <span>恢复 {{ run.recoveryCount }}</span>
+                  <span v-if="run.source === 'chat'">来自 Chat</span>
+                  <span v-else-if="run.source === 'acg'">来自 ACG</span>
+                </span>
+              </button>
+              <button
+                v-if="canDeleteRun(run)"
+                class="run-item-delete"
+                type="button"
+                title="删除运行记录"
+                :aria-label="`删除运行：${run.runId}`"
+                :disabled="deletingRunId === run.runId"
+                @click="deleteRun(run.runId)"
+              >
+                <el-icon><DeleteIcon /></el-icon>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <footer v-if="totalPages > 1" class="pagination">
+          <button type="button" :disabled="filters.page <= 1" @click="changePage(-1)">上一页</button>
+          <span>{{ filters.page }} / {{ totalPages }}</span>
+          <button type="button" :disabled="filters.page >= totalPages" @click="changePage(1)">下一页</button>
+        </footer>
       </aside>
 
       <section class="console-main">
-        <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+        <div v-if="!selectedRunId" class="selection-empty ui-surface">
+          <strong>选择一个 WorkflowRun</strong>
+          <p>列表只同步轻量摘要。选中后才会启动该 Run 的实时 Progress。</p>
+        </div>
 
-        <WorkflowRunPanel
-          :run="selectedRun"
-          :metrics="metrics"
-          :loading="loading.detail"
-          @refresh="refreshSelectedRun"
-          @export-trace="exportTrace"
-        />
+        <template v-else>
+          <div class="run-toolbar ui-surface">
+            <div>
+              <span>当前 Run</span>
+              <code :title="selectedRunId">{{ shortRunId(selectedRunId) }}</code>
+            </div>
+            <nav aria-label="运行页面导航">
+              <button type="button" @click="openAcg">进入 ACG</button>
+              <button v-if="selectedReference?.conversationId" type="button" @click="openChat">返回 Chat</button>
+              <button
+                v-if="selectedCanDelete"
+                class="run-toolbar__delete"
+                type="button"
+                :disabled="Boolean(deletingRunId)"
+                title="删除当前运行记录"
+                @click="deleteRun(selectedRunId)"
+              >
+                <el-icon><DeleteIcon /></el-icon>
+                删除
+              </button>
+              <button type="button" :disabled="detailLoading" @click="toggleDetails">
+                {{ detailExpanded ? '收起详情' : '加载详情' }}
+              </button>
+            </nav>
+          </div>
 
-        <WorkflowStepList
-          :steps="selectedRun?.steps || []"
-          :current-step-id="selectedRun?.currentStepId"
-        />
+          <WorkflowProgressBar
+            :progress="progressTracker.progress.value"
+            :loading="progressTracker.isLoading.value"
+            :sync-error="progressTracker.syncError.value"
+          />
+          <DynamicRunSummaryCard
+            :progress="progressTracker.progress.value"
+            :run="selectedRun"
+            :view="selectedAcgView"
+          />
 
-        <CheckpointPanel
-          :checkpoints="checkpoints"
-          :loading="loading.checkpoints"
-          @resume="resumeFromCheckpoint"
-        />
+          <p v-if="runError" class="error-message" role="alert">{{ runError }}</p>
+
+          <dl v-if="progressTracker.progress.value" class="run-facts ui-surface">
+            <div><dt>Workflow</dt><dd>{{ progressTracker.progress.value.workflowId }}</dd></div>
+            <div><dt>当前步骤</dt><dd>{{ progressTracker.progress.value.currentStepId || '准备中' }}</dd></div>
+            <div><dt>活动节点</dt><dd>{{ progressTracker.progress.value.activeStepIds.length }}</dd></div>
+            <div><dt>恢复次数</dt><dd>{{ progressTracker.progress.value.recoveryCount }}</dd></div>
+            <div><dt>开始时间</dt><dd>{{ formatTime(progressTracker.progress.value.startedAt) }}</dd></div>
+            <div><dt>更新时间</dt><dd>{{ formatTime(progressTracker.progress.value.updatedAt) }}</dd></div>
+          </dl>
+
+          <template v-if="detailExpanded">
+            <WorkflowRunPanel
+              :run="selectedRun"
+              :metrics="null"
+              :loading="detailLoading"
+              @refresh="refreshSelectedDetail"
+              @export-trace="exportTrace"
+            />
+            <WorkflowStepList
+              :steps="selectedRun?.steps || []"
+              :current-step-id="selectedRun?.currentStepId"
+            />
+            <CheckpointPanel
+              :checkpoints="checkpoints"
+              :loading="detailLoading"
+              @resume="resumeFromCheckpoint"
+            />
+            <TraceEventTimeline
+              :events="traceEvents"
+              :loading="detailLoading"
+              @export-markdown="exportTrace"
+            />
+          </template>
+        </template>
       </section>
 
       <aside class="console-side">
-        <HumanReviewPanel
+        <WorkflowReviewPanel
+          v-if="selectedRunId"
+          :run-id="selectedRunId"
+          :progress="progressTracker.progress.value"
           :run="selectedRun"
           :reviews="reviews"
-          :loading="loading.reviews"
-          :submitting="loading.reviewSubmit"
-          @submit="submitReview"
+          @reviewed="handleReviewed"
+          @conflict="handleReviewConflict"
         />
 
-        <TraceEventTimeline
-          :events="traceEvents"
-          :loading="loading.trace"
-          @export-markdown="exportTrace"
+        <section class="acg-summary ui-surface ui-surface--pad">
+          <header><strong>ACG 摘要</strong><span>{{ selectedAcgView ? '已加载' : '按需加载' }}</span></header>
+          <div v-if="selectedAcgView" class="acg-summary__facts">
+            <span>节点 {{ selectedAcgView.stepStates.length }}</span>
+            <span>交付物 {{ selectedAcgView.deliverables.length }}</span>
+            <span>恢复 {{ selectedAcgView.lowEntropyMetrics.recoveryCount }}</span>
+          </div>
+          <p v-else>终态、人工审核或展开详情时才读取完整 ACG，不参与列表轮询。</p>
+        </section>
+        <RuntimeChangeTimeline
+          v-if="selectedAcgView"
+          :runtime-events="selectedAcgView.runtimeEvents"
+          :applied-patches="selectedAcgView.appliedPatches"
+          :branch-decisions="selectedAcgView.branchDecisions"
+          :step-states="selectedAcgView.stepStates"
         />
       </aside>
     </section>
@@ -113,431 +207,530 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { Monitor, Refresh, Search } from '@element-plus/icons-vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import axios from 'axios'
+import { Delete as DeleteIcon, Monitor, Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
 import CheckpointPanel from '@/components/agentos/CheckpointPanel.vue'
-import HumanReviewPanel from '@/components/agentos/HumanReviewPanel.vue'
 import TraceEventTimeline from '@/components/agentos/TraceEventTimeline.vue'
+import WorkflowProgressBar from '@/components/agentos/WorkflowProgressBar.vue'
+import DynamicRunSummaryCard from '@/components/agentos/DynamicRunSummaryCard.vue'
+import RuntimeChangeTimeline from '@/components/agentos/RuntimeChangeTimeline.vue'
+import WorkflowReviewPanel from '@/components/agentos/WorkflowReviewPanel.vue'
 import WorkflowRunPanel from '@/components/agentos/WorkflowRunPanel.vue'
 import WorkflowStepList from '@/components/agentos/WorkflowStepList.vue'
-import { workflowApi, type Checkpoint, type EvaluationRun, type ReviewRecord, type ReviewRequest, type TraceEvent, type WorkflowRun, type WorkflowRunQuery } from '@/services/api/workflow'
+import { useWorkflowProgress } from '@/composables/useWorkflowProgress'
+import {
+  workflowApi,
+  type AcgView,
+  type Checkpoint,
+  type ReviewRecord,
+  type TraceEvent,
+  type WorkflowProgress,
+  type WorkflowRun,
+  type WorkflowRunSummary,
+  type WorkflowStatus
+} from '@/services/api/workflow'
+import { useWorkflowRunsStore } from '@/stores/workflowRuns'
+import { isWorkflowReviewPending } from '@/utils/workflowReviewState'
+import { runtimeProjectionChanged } from '@/utils/runtimePresentation'
 
-const runs = ref<WorkflowRun[]>([])
+const DEFAULT_STATUSES = ['pending', 'planning', 'running', 'retrying', 'waiting_review', 'completed', 'failed', 'cancelled']
+const TERMINAL = new Set(['completed', 'failed', 'cancelled'])
+const LIST_INTERVAL_MS = 7000
+const PAGE_SIZE = 50
+
+const route = useRoute()
+const router = useRouter()
+const workflowRunsStore = useWorkflowRunsStore()
+const runs = ref<WorkflowRunSummary[]>([])
 const totalRuns = ref(0)
 const selectedRunId = ref('')
 const selectedRun = ref<WorkflowRun | null>(null)
+const selectedAcgView = ref<AcgView | null>(null)
 const traceEvents = ref<TraceEvent[]>([])
 const checkpoints = ref<Checkpoint[]>([])
 const reviews = ref<ReviewRecord[]>([])
-const metrics = ref<EvaluationRun | null>(null)
-const errorMessage = ref('')
+const listLoading = ref(false)
+const detailLoading = ref(false)
+const detailExpanded = ref(false)
+const deletingRunId = ref('')
+const listError = ref('')
+const runError = ref('')
+const terminalDetailsLoaded = new Set<string>()
+const reviewDetailsLoaded = new Set<string>()
+const terminalDetailCache = new Map<string, { run: WorkflowRun; acg: AcgView }>()
 
-const filters = reactive<WorkflowRunQuery>({
-  status: '',
-  domain: '',
-  workflowId: '',
-  source: '',
-  page: 1,
-  pageSize: 20
-})
+const filters = reactive({ status: '' as WorkflowStatus | '', query: '', page: 1 })
+let listTimer: ReturnType<typeof setTimeout> | null = null
+let listController: AbortController | null = null
+let listGeneration = 0
+let detailController: AbortController | null = null
+let detailGeneration = 0
 
-const loading = reactive({
-  runs: false,
-  detail: false,
-  trace: false,
-  checkpoints: false,
-  reviews: false,
-  reviewSubmit: false
+const progressTracker = useWorkflowProgress({
+  intervalMs: 2000,
+  onProgressChanged: handleProgressChanged,
+  onTerminal: handleTerminal
 })
 
 const statusOptions = [
   { value: 'pending', label: '等待中' },
-  { value: 'planning', label: '规划中' },
   { value: 'running', label: '运行中' },
   { value: 'waiting_review', label: '待审核' },
-  { value: 'retrying', label: '重试中' },
-  { value: 'failed', label: '失败' },
+  { value: 'retrying', label: '恢复中' },
   { value: 'completed', label: '已完成' },
+  { value: 'failed', label: '失败' },
   { value: 'cancelled', label: '已取消' }
 ]
 
-const cleanQuery = (query: WorkflowRunQuery) => {
-  return Object.fromEntries(
-    Object.entries(query).filter(([, value]) => value !== undefined && value !== null && value !== '')
-  ) as WorkflowRunQuery
+const runGroups = computed(() => [
+  {
+    key: 'review', label: '需要处理',
+    items: runs.value.filter(run => isWorkflowReviewPending(run))
+  },
+  {
+    key: 'running', label: '正在运行',
+    items: runs.value.filter(run => !TERMINAL.has(run.status) && !isWorkflowReviewPending(run))
+  },
+  {
+    key: 'terminal', label: '最近结束',
+    items: runs.value.filter(run => TERMINAL.has(run.status)).slice(0, 12)
+  }
+])
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRuns.value / PAGE_SIZE)))
+const selectedReference = computed(() => workflowRunsStore.getReference(selectedRunId.value))
+const selectedSummary = computed(() => runs.value.find(run => run.runId === selectedRunId.value))
+const selectedCanDelete = computed(() => {
+  const status = selectedSummary.value?.status || progressTracker.progress.value?.status || selectedRun.value?.status
+  return Boolean(status && TERMINAL.has(status))
+})
+
+const canDeleteRun = (run: WorkflowRunSummary) => TERMINAL.has(run.status)
+
+const listParams = () => {
+  const query = filters.query.trim()
+  return {
+    status: filters.status,
+    statuses: filters.status ? undefined : DEFAULT_STATUSES.join(','),
+    workflowId: query.startsWith('task_') ? undefined : query || undefined,
+    taskId: query.startsWith('task_') ? query : undefined,
+    summary: true,
+    page: filters.page,
+    pageSize: PAGE_SIZE
+  }
 }
 
-const loadRuns = async () => {
-  loading.runs = true
-  errorMessage.value = ''
+const clearListTimer = () => {
+  if (listTimer) window.clearTimeout(listTimer)
+  listTimer = null
+}
+
+const scheduleListRefresh = () => {
+  clearListTimer()
+  if (document.visibilityState === 'hidden') return
+  listTimer = window.setTimeout(() => void loadRuns(false), LIST_INTERVAL_MS)
+}
+
+const loadRuns = async (force = false) => {
+  if (listLoading.value && !force) return
+  const generation = ++listGeneration
+  listController?.abort()
+  listController = new AbortController()
+  listLoading.value = true
   try {
-    const page = await workflowApi.listRuns(cleanQuery(filters))
+    const page = await workflowApi.listRuns(listParams(), { signal: listController.signal })
+    if (generation !== listGeneration) return
     runs.value = page.items || []
     totalRuns.value = page.total || 0
-    if (!selectedRunId.value && runs.value[0]) {
-      await selectRun(runs.value[0].runId)
+    workflowRunsStore.mergeSummaries(runs.value)
+    listError.value = ''
+  } catch (error: unknown) {
+    if (!axios.isCancel(error) && generation === listGeneration) {
+      listError.value = '运行列表同步暂时中断，保留上次成功结果'
     }
-  } catch (error: any) {
-    errorMessage.value = error?.message || '加载运行列表失败'
   } finally {
-    loading.runs = false
+    if (generation === listGeneration) {
+      listController = null
+      listLoading.value = false
+      scheduleListRefresh()
+    }
   }
 }
 
-const selectRun = async (runId: string) => {
+const applyFilters = () => {
+  filters.page = 1
+  void loadRuns(true)
+}
+const changePage = (offset: number) => {
+  filters.page = Math.min(totalPages.value, Math.max(1, filters.page + offset))
+  void loadRuns(true)
+}
+
+const clearSelectedDetails = () => {
+  detailGeneration += 1
+  detailController?.abort()
+  detailController = null
+  selectedRun.value = null
+  selectedAcgView.value = null
+  traceEvents.value = []
+  checkpoints.value = []
+  reviews.value = []
+  detailExpanded.value = false
+  detailLoading.value = false
+  runError.value = ''
+}
+
+const removeMissingRun = async (runId: string) => {
+  const existed = Boolean(workflowRunsStore.getReference(runId)) || runs.value.some(run => run.runId === runId)
+  workflowRunsStore.removeReference(runId)
+  runs.value = runs.value.filter(run => run.runId !== runId)
+  if (existed) totalRuns.value = Math.max(0, totalRuns.value - 1)
+  if (selectedRunId.value === runId) {
+    progressTracker.reset()
+    clearSelectedDetails()
+    selectedRunId.value = ''
+    const query = { ...route.query }
+    delete query.runId
+    await router.replace({ query })
+  }
+  if (existed) ElMessage.warning('该运行记录已不存在。')
+}
+
+const activateRun = async (runId: string, syncRoute: boolean) => {
+  if (!runId || (runId === selectedRunId.value && progressTracker.runId.value === runId)) return
+  progressTracker.reset()
+  clearSelectedDetails()
   selectedRunId.value = runId
-  await refreshSelectedRun()
+  const cachedTerminal = terminalDetailCache.get(runId)
+  if (cachedTerminal) {
+    selectedRun.value = cachedTerminal.run
+    selectedAcgView.value = cachedTerminal.acg
+  }
+  const summary = runs.value.find(item => item.runId === runId)
+  workflowRunsStore.register({
+    runId,
+    taskId: summary?.taskId,
+    workflowId: summary?.workflowId,
+    source: 'console',
+    status: summary?.status,
+    phase: summary?.phase,
+    createdAt: summary?.createdAt || undefined,
+    updatedAt: summary?.updatedAt || undefined
+  })
+  if (syncRoute && route.query.runId !== runId) {
+    await router.replace({ query: { ...route.query, runId } })
+  }
+  void progressTracker.start(runId, { fresh: false })
+  if (isWorkflowReviewPending(summary)) void loadSelectedDetail({ review: true })
+  if (TERMINAL.has(summary?.status || '') && !cachedTerminal) void loadSelectedDetail({ acg: true })
 }
 
-const refreshSelectedRun = async () => {
-  if (!selectedRunId.value) return
-  loading.detail = true
-  errorMessage.value = ''
+const loadSelectedDetail = async (options: { full?: boolean; acg?: boolean; review?: boolean } = {}) => {
+  const runId = selectedRunId.value
+  if (!runId) return
+  const generation = ++detailGeneration
+  detailController?.abort()
+  detailController = new AbortController()
+  const signal = detailController.signal
+  detailLoading.value = true
   try {
-    const run = await workflowApi.getRun(selectedRunId.value)
-    selectedRun.value = run
-    traceEvents.value = run.trace || []
-    checkpoints.value = run.checkpoints || []
-    await Promise.all([
-      loadTrace(run.runId),
-      loadCheckpoints(run.runId),
-      loadReviews(run.runId),
-      loadMetrics(run)
+    const runPromise = workflowApi.getRun(runId, { signal })
+    const acgPromise = options.acg || options.full ? workflowApi.getAcgView(runId, { signal }) : Promise.resolve(null)
+    const reviewsPromise = options.review || options.full
+      ? workflowApi.listReviews(runId, { signal })
+      : Promise.resolve({ items: [] as ReviewRecord[], total: 0, runId })
+    const tracePromise = options.full
+      ? workflowApi.getTrace(runId, { signal })
+      : Promise.resolve({ runId, taskId: '', workflowId: '', domain: '', status: 'pending' as WorkflowStatus, eventCount: 0, events: [] })
+    const checkpointsPromise = options.full
+      ? workflowApi.listCheckpoints(runId, { signal })
+      : Promise.resolve({ items: [] as Checkpoint[], total: 0, runId })
+    const [run, acg, reviewPage, trace, checkpointPage] = await Promise.all([
+      runPromise, acgPromise, reviewsPromise, tracePromise, checkpointsPromise
     ])
-  } catch (error: any) {
-    errorMessage.value = error?.message || '加载运行详情失败'
+    if (generation !== detailGeneration || runId !== selectedRunId.value) return
+    selectedRun.value = run
+    if (acg) selectedAcgView.value = acg
+    if (acg && TERMINAL.has(run.status)) terminalDetailCache.set(runId, { run, acg })
+    if (options.review || options.full) {
+      reviews.value = reviewPage.items || []
+      reviewDetailsLoaded.add(runId)
+    }
+    if (options.full) {
+      traceEvents.value = trace.events || []
+      checkpoints.value = checkpointPage.items || []
+    }
+    runError.value = ''
+  } catch (error: unknown) {
+    if (axios.isCancel(error) || generation !== detailGeneration) return
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      await removeMissingRun(runId)
+      runError.value = ''
+    } else {
+      runError.value = '运行详情暂时无法加载'
+    }
+    if (options.review || options.full) reviewDetailsLoaded.delete(runId)
   } finally {
-    loading.detail = false
+    if (generation === detailGeneration) {
+      detailController = null
+      detailLoading.value = false
+    }
   }
 }
 
-const loadTrace = async (runId: string) => {
-  loading.trace = true
-  try {
-    const payload = await workflowApi.getTrace(runId)
-    traceEvents.value = payload.events || []
-  } finally {
-    loading.trace = false
+function handleProgressChanged(current: WorkflowProgress, previous: WorkflowProgress | null) {
+  if (current.runId !== selectedRunId.value) return
+  workflowRunsStore.updateObservedState(current.runId, current.status, current.phase, current.updatedAt)
+  const index = runs.value.findIndex(item => item.runId === current.runId)
+  if (index >= 0) runs.value[index] = { ...runs.value[index], ...current }
+  if (runtimeProjectionChanged(current, previous) && !TERMINAL.has(current.status)) {
+    void loadSelectedDetail({ acg: true })
+  }
+  if (isWorkflowReviewPending(current) && !isWorkflowReviewPending(previous) && !reviewDetailsLoaded.has(current.runId)) {
+    void loadSelectedDetail({ review: true })
   }
 }
 
-const loadCheckpoints = async (runId: string) => {
-  loading.checkpoints = true
-  try {
-    const payload = await workflowApi.listCheckpoints(runId)
-    checkpoints.value = payload.items || []
-  } finally {
-    loading.checkpoints = false
-  }
+async function handleTerminal(progress: WorkflowProgress) {
+  if (progress.runId !== selectedRunId.value || terminalDetailsLoaded.has(progress.runId)) return
+  terminalDetailsLoaded.add(progress.runId)
+  await loadSelectedDetail({ acg: true })
+  await loadRuns(true)
 }
 
-const loadReviews = async (runId: string) => {
-  loading.reviews = true
-  try {
-    const payload = await workflowApi.listReviews(runId)
-    reviews.value = payload.items || []
-  } finally {
-    loading.reviews = false
-  }
+const toggleDetails = async () => {
+  detailExpanded.value = !detailExpanded.value
+  if (detailExpanded.value) await loadSelectedDetail({ full: true, acg: true, review: true })
 }
-
-const loadMetrics = async (run: WorkflowRun) => {
-  metrics.value = await workflowApi.getMetrics({ workflowId: run.workflowId })
+const refreshSelectedDetail = async () => {
+  await progressTracker.refresh()
+  await loadSelectedDetail({ full: detailExpanded.value, acg: detailExpanded.value, review: true })
 }
-
-const submitReview = async (payload: ReviewRequest) => {
-  if (!selectedRun.value) return
-  loading.reviewSubmit = true
-  errorMessage.value = ''
-  try {
-    const reviewed = await workflowApi.submitReview(selectedRun.value.runId, payload)
-    selectedRun.value = reviewed
-    selectedRunId.value = reviewed.runId
-    await refreshSelectedRun()
-    await loadRuns()
-  } catch (error: any) {
-    errorMessage.value = error?.message || '提交审核失败'
-  } finally {
-    loading.reviewSubmit = false
-  }
+const handleReviewed = async (run: WorkflowRun) => {
+  if (run.runId !== selectedRunId.value) return
+  selectedRun.value = run
+  await progressTracker.refresh()
+  await Promise.all([loadRuns(true), loadSelectedDetail({ review: true })])
+}
+const handleReviewConflict = async () => {
+  await progressTracker.refresh()
+  await loadSelectedDetail({ review: true })
 }
 
 const resumeFromCheckpoint = async (checkpointId: string) => {
-  if (!selectedRun.value) return
-  loading.detail = true
-  errorMessage.value = ''
+  if (!selectedRunId.value || detailLoading.value) return
+  detailLoading.value = true
   try {
-    const resumed = await workflowApi.resumeFromCheckpoint(selectedRun.value.runId, checkpointId)
-    selectedRun.value = resumed
-    selectedRunId.value = resumed.runId
-    await refreshSelectedRun()
-    await loadRuns()
-  } catch (error: any) {
-    errorMessage.value = error?.message || '恢复失败'
+    await workflowApi.resumeFromCheckpoint(selectedRunId.value, checkpointId)
+    await progressTracker.refresh()
+    await loadSelectedDetail({ full: true, acg: true, review: true })
+  } catch {
+    runError.value = '恢复请求未能完成'
   } finally {
-    loading.detail = false
+    detailLoading.value = false
   }
 }
 
 const exportTrace = async () => {
-  if (!selectedRun.value) return
-  const markdown = await workflowApi.exportTraceMarkdown(selectedRun.value.runId)
-  const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
+  if (!selectedRunId.value) return
+  const markdown = await workflowApi.exportTraceMarkdown(selectedRunId.value)
+  const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }))
   const link = document.createElement('a')
   link.href = url
-  link.download = `agentos-trace-${selectedRun.value.runId}.md`
+  link.download = `agentos-trace-${selectedRunId.value}.md`
   link.click()
   URL.revokeObjectURL(url)
 }
 
 const refreshAll = async () => {
-  await loadRuns()
-  await refreshSelectedRun()
+  await loadRuns(true)
+  if (selectedRunId.value) await progressTracker.refresh()
+}
+const deleteRun = async (runId: string) => {
+  const summary = runs.value.find(run => run.runId === runId)
+  if (summary && !canDeleteRun(summary)) {
+    ElMessage.warning('运行中的任务需先取消后才能删除')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      '该操作将永久删除本次运行的步骤、动态历史和执行结果，无法恢复。',
+      '删除运行记录？',
+      {
+        confirmButtonText: '永久删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        distinguishCancelAndClose: true
+      }
+    )
+    deletingRunId.value = runId
+    const wasSelected = selectedRunId.value === runId
+    const nextRunId = runs.value.find(run => run.runId !== runId)?.runId || ''
+    await workflowApi.deleteRun(runId)
+    terminalDetailsLoaded.delete(runId)
+    reviewDetailsLoaded.delete(runId)
+    terminalDetailCache.delete(runId)
+    workflowRunsStore.removeReference(runId)
+    runs.value = runs.value.filter(run => run.runId !== runId)
+    totalRuns.value = Math.max(0, totalRuns.value - 1)
+    if (wasSelected) {
+      progressTracker.reset()
+      clearSelectedDetails()
+      selectedRunId.value = ''
+      const query = { ...route.query }
+      delete query.runId
+      await router.replace({ query })
+      if (nextRunId) await activateRun(nextRunId, true)
+    }
+    window.dispatchEvent(new Event('acg-runs-refresh'))
+    ElMessage.success('ACG 运行记录已删除')
+    await loadRuns(true)
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') return
+    const data = (error as { response?: { data?: { detail?: string; message?: string } } })?.response?.data
+    ElMessage.error(data?.message || data?.detail || '删除失败，请稍后重试')
+  } finally {
+    deletingRunId.value = ''
+  }
+}
+const openAcg = () => void router.push({ path: '/agentos/acg', query: { runId: selectedRunId.value } })
+const openChat = () => {
+  const conversationId = selectedReference.value?.conversationId
+  if (!conversationId) return
+  void router.push({ path: '/chat', query: { workspace: 'agent', contextId: conversationId, runId: selectedRunId.value } })
 }
 
-onMounted(loadRuns)
+const handleVisibility = () => {
+  if (document.visibilityState === 'hidden') clearListTimer()
+  else void loadRuns(true)
+}
+
+watch(
+  () => route.query.runId,
+  runId => {
+    const value = typeof runId === 'string' ? runId.trim() : ''
+    if (value && value !== selectedRunId.value) void activateRun(value, false)
+  },
+  { immediate: true }
+)
+
+watch(() => progressTracker.syncError.value, error => {
+  if (error === '该运行记录不存在或当前账户无权访问' && selectedRunId.value) {
+    void removeMissingRun(selectedRunId.value)
+  }
+})
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibility)
+  void loadRuns(true)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', handleVisibility)
+  clearListTimer()
+  listGeneration += 1
+  listController?.abort()
+  detailGeneration += 1
+  detailController?.abort()
+  progressTracker.reset()
+})
+
+const phaseLabel = (phase: string, status: string) => ({
+  understanding: '理解任务', planning: '规划任务', graph_building: '构建 ACG', executing: '执行节点',
+  recovery: '恢复执行', review: '等待审核', completed: '执行完成', failed: '执行失败', cancelled: '已取消'
+}[phase] || ({ pending: '等待中', running: '运行中', retrying: '恢复中', waiting_review: '等待审核' }[status] || status))
+const shortRunId = (value: string) => value.length > 22 ? `${value.slice(0, 11)}...${value.slice(-7)}` : value
+const clampPercent = (value: number) => Math.min(100, Math.max(0, value))
+const formatTime = (value?: string | null) => value ? new Date(value).toLocaleString('zh-CN') : '准备中'
+const formatRelativeTime = (value?: string | null) => value ? new Date(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''
 </script>
 
 <style scoped>
-.agentos-console {
-  min-height: 100%;
-  color: var(--text-primary);
-  overflow: auto;
+.agentos-console { height: 100%; min-height: 0; color: var(--text-primary); overflow: hidden; }
+.console-header { flex: 0 0 auto; }
+.console-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.console-refresh,
+.run-toolbar button,
+.pagination button {
+  min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 0 12px; border: 1px solid var(--border-light); border-radius: 7px;
+  background: var(--surface-solid); color: var(--text-primary); cursor: pointer; transition: var(--transition);
 }
-
-.console-header {
-  flex-shrink: 0;
-}
-
-.console-title {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-h1,
-p {
-  margin: 0;
-}
-
-.console-refresh {
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 14px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.console-refresh:hover:not(:disabled) {
-  border-color: var(--border-hover);
-  color: var(--primary-color);
-  transform: translateY(-1px);
-}
-
-.console-refresh:disabled {
-  cursor: not-allowed;
-  opacity: 0.56;
-}
-
-.console-layout {
-  display: grid;
-  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(310px, 380px);
-  gap: 16px;
-  align-items: start;
-}
-
-.run-sidebar,
-.console-main,
-.console-side {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.run-sidebar {
-  position: sticky;
-  top: 16px;
-}
-
-.filter-panel {
-  display: grid;
-  gap: 12px;
-}
-
-.filter-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.filter-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-label {
-  display: grid;
-  gap: 5px;
-}
-
-label span {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-select,
-input {
-  width: 100%;
-  height: 34px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  transition: var(--transition);
-}
-
-select:focus,
-input:focus {
-  background: #fff;
-  border-color: var(--primary-line);
-  box-shadow: 0 0 0 3px var(--primary-fade);
-}
-
-.run-list-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 0 4px;
-  border-top: 1px solid var(--border-light);
-}
-
-.run-list-head strong {
-  font-size: 14px;
-}
-
-.run-list-head span,
-.empty {
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.empty {
-  padding: 12px 0;
-}
-
-.run-item {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  padding: 12px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  text-align: left;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.run-item.active {
-  border-color: var(--primary-line);
-  background: #fff;
-  box-shadow: inset 2px 0 0 var(--primary-color), var(--shadow-sm);
-}
-
-.run-item:hover {
-  border-color: var(--border-hover);
-  transform: translateY(-1px);
-}
-
-.run-status {
-  width: fit-content;
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: var(--bg-input);
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.run-status.running,
-.run-status.retrying {
-  background: rgba(73, 107, 143, 0.12);
-  color: var(--info);
-}
-
-.run-status.waiting_review {
-  background: rgba(154, 116, 50, 0.12);
-  color: var(--warning);
-}
-
-.run-status.completed {
-  background: rgba(61, 118, 86, 0.12);
-  color: var(--success);
-}
-
-.run-status.failed,
-.run-status.cancelled {
-  background: rgba(178, 74, 74, 0.12);
-  color: var(--danger);
-}
-
-.run-item strong,
-.run-item small {
-  overflow-wrap: anywhere;
-}
-
-.run-item strong {
-  color: var(--text-primary);
-  font-size: 13px;
-}
-
-.run-item small {
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-
-.error-message {
-  padding: 10px;
-  border: 1px solid rgba(178, 74, 74, 0.18);
-  border-radius: 8px;
-  color: var(--danger);
-  background: rgba(178, 74, 74, 0.08);
-  font-size: 13px;
-}
-
-@media (max-width: 1180px) {
-  .console-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .agentos-console {
-    padding: 14px;
-  }
-
-  .console-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .filter-row {
-    grid-template-columns: 1fr;
-  }
-}
+.console-refresh:hover:not(:disabled), .run-toolbar button:hover:not(:disabled), .pagination button:hover:not(:disabled) { border-color: var(--primary-line); color: var(--primary-color); }
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+.console-layout { display: grid; grid-template-columns: minmax(280px, 330px) minmax(0, 1fr) minmax(300px, 360px); align-items: stretch; gap: 14px; flex: 1 1 auto; height: auto; min-height: 0; overflow: hidden; }
+.run-sidebar, .console-main, .console-side { min-width: 0; min-height: 0; height: 100%; }
+.run-sidebar, .console-main, .console-side { overflow-y: auto; scrollbar-gutter: stable; }
+.console-main, .console-side { display: flex; flex-direction: column; gap: 12px; }
+.console-main > * { flex-shrink: 0; }
+.console-main > .selection-empty:last-child,
+.console-main > .run-facts:last-child,
+.console-main > :deep(.trace-event-timeline:last-child),
+.console-side > .acg-summary:last-child { flex: 1 0 auto; min-height: 0; }
+.console-main > :deep(.trace-event-timeline:last-child) { min-height: 260px; }
+.filter-panel { display: grid; gap: 10px; }
+.filter-title, .run-list-head, .run-group > header, .run-item__top, .run-item__metrics, .run-toolbar, .run-toolbar nav, .acg-summary header, .acg-summary__facts, .pagination { display: flex; align-items: center; }
+.filter-title { gap: 7px; font-size: 14px; font-weight: 700; }
+label { display: grid; gap: 5px; }
+label > span { color: var(--text-secondary); font-size: 12px; font-weight: 650; }
+select, input { width: 100%; height: 34px; padding: 0 9px; border: 1px solid transparent; border-radius: 7px; background: var(--bg-input); color: var(--text-primary); outline: none; }
+select:focus, input:focus { border-color: var(--primary-line); box-shadow: 0 0 0 3px var(--primary-fade); }
+.sync-warning, .error-message { margin: 0; padding: 8px 10px; border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.sync-warning { background: var(--warning-fade); color: var(--warning); }
+.error-message { background: var(--danger-fade); color: var(--danger); }
+.run-list-head { justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-light); font-size: 13px; }
+.run-list-head span, .empty { color: var(--text-secondary); font-size: 12px; }
+.empty { padding: 14px 0; }
+.run-groups { display: grid; gap: 14px; margin-top: 10px; }
+.run-group { display: grid; gap: 7px; }
+.run-group > header { justify-content: space-between; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; }
+.run-item-shell { position: relative; border-radius: 7px; }
+.run-item { display: grid; gap: 5px; width: 100%; padding: 10px; border: 1px solid var(--border-light); border-radius: inherit; background: color-mix(in srgb, var(--bg-card) 76%, transparent); color: var(--text-primary); text-align: left; cursor: pointer; transition: var(--transition); }
+.run-item:hover { border-color: var(--border-hover); }
+.run-item-shell.active .run-item { border-color: var(--primary-line); background: var(--surface-solid); box-shadow: inset 2px 0 var(--primary-color); }
+.run-item-delete { position: absolute; top: 7px; right: 7px; display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: color-mix(in srgb, var(--bg-card) 90%, transparent); color: var(--text-disabled); cursor: pointer; opacity: 0; transition: var(--transition); }
+.run-item-shell:hover .run-item-delete, .run-item-shell.active .run-item-delete, .run-item-delete:focus-visible { opacity: 1; }
+.run-item-delete:hover { background: var(--danger-fade); color: var(--danger); }
+.run-item-delete:disabled { cursor: wait; opacity: .55; }
+.run-toolbar__delete { color: var(--danger) !important; }
+.run-toolbar__delete:hover:not(:disabled) { border-color: color-mix(in srgb, var(--danger) 38%, var(--border-light)) !important; background: var(--danger-fade) !important; }
+.run-item__top { justify-content: space-between; gap: 8px; padding-right: 30px; }
+.run-item__top time, .run-item small, .run-item p, .run-item__metrics { color: var(--text-secondary); font-size: 11px; }
+.run-item strong, .run-item small, .run-item p { overflow-wrap: anywhere; }
+.run-item p { margin: 0; line-height: 1.4; }
+.run-status { padding: 2px 6px; border-radius: 999px; background: var(--bg-input); color: var(--info); font-size: 10px; font-weight: 750; }
+.run-status.review, .run-status.recovery { color: var(--warning); }
+.run-status.completed { color: var(--success); }
+.run-status.failed { color: var(--danger); }
+.run-status.cancelled { color: var(--text-muted); }
+.run-mini-progress { position: relative; height: 3px; overflow: hidden; border-radius: 2px; background: var(--bg-input); }
+.run-mini-progress > span { display: block; height: 100%; background: var(--primary-color); }
+.run-mini-progress.indeterminate > span { width: 38%; animation: list-progress 1.5s ease-in-out infinite; }
+.run-item__metrics { gap: 9px; flex-wrap: wrap; }
+.pagination { justify-content: center; gap: 9px; margin-top: 12px; }
+.pagination button { min-height: 30px; padding: 0 9px; }
+.pagination span { color: var(--text-secondary); font-size: 12px; }
+.selection-empty { display: grid; place-content: center; min-height: 260px; padding: 24px; text-align: center; }
+.selection-empty p { margin: 6px 0 0; color: var(--text-secondary); font-size: 13px; }
+.run-toolbar { justify-content: space-between; gap: 12px; padding: 10px 12px; }
+.run-toolbar > div { display: grid; gap: 2px; min-width: 0; }
+.run-toolbar > div span { color: var(--text-secondary); font-size: 11px; }
+.run-toolbar code { overflow-wrap: anywhere; font-size: 12px; }
+.run-toolbar nav { justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+.run-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; grid-auto-rows: max-content; gap: 1px; overflow: hidden; }
+.run-facts > div { min-width: 0; padding: 11px 12px; background: var(--bg-card); }
+.run-facts dt { color: var(--text-secondary); font-size: 11px; }
+.run-facts dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 12px; font-weight: 650; }
+.acg-summary { display: grid; align-content: start; gap: 10px; }
+.acg-summary header { justify-content: space-between; gap: 8px; }
+.acg-summary header span, .acg-summary p { color: var(--text-secondary); font-size: 12px; }
+.acg-summary p { margin: 0; line-height: 1.55; }
+.acg-summary__facts { gap: 8px; flex-wrap: wrap; }
+.acg-summary__facts span { padding: 4px 7px; border-radius: 5px; background: var(--bg-input); font-size: 11px; }
+@keyframes list-progress { 0% { transform: translateX(-110%); } 100% { transform: translateX(270%); } }
+@media (prefers-reduced-motion: reduce) { .run-mini-progress.indeterminate > span { animation: none; transform: translateX(80%); } }
+@media (max-width: 1180px) { .agentos-console { height: auto; min-height: 100%; overflow: visible; } .console-layout { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); flex: none; height: auto; overflow: visible; } .run-sidebar, .console-main, .console-side { height: auto; } .console-side { grid-column: 2; } .run-sidebar { max-height: 720px; } }
+@media (max-width: 760px) { .agentos-console { padding: 12px; } .console-header { align-items: flex-start; flex-direction: column; } .console-layout { grid-template-columns: 1fr; } .console-side { grid-column: 1; } .run-sidebar { max-height: none; } .run-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .run-toolbar { align-items: flex-start; flex-direction: column; } .run-toolbar nav { justify-content: flex-start; } }
 </style>

@@ -3,6 +3,8 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  flyway:
+    enabled: false
   # 使用H2内存数据库
   datasource:
     url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS JSON

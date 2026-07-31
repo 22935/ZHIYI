@@ -1,3 +1,4 @@
+<!-- 加载旋转指示器 — 可复用加载组件，显示旋转图标和自定义文字 -->
 <template>
   <div class="loading-spinner" v-if="loading">
     <el-icon class="is-loading">
@@ -27,7 +28,7 @@ withDefaults(defineProps<Props>(), {
   justify-content: center;
   gap: 10px;
   padding: 20px;
-  color: #909399;
+  color: var(--text-secondary);
 }
 
 .is-loading {

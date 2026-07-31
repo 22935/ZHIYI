@@ -1,100 +1,85 @@
-# 知弈 AI Service
+# 知弈 Python Agent
 
-`agent/` 是 Python 应用服务层，负责 FastAPI 入口、协议适配、传统 AI 服务、数据目录和领域 Pack 承载。AgentOS Core 已迁移到仓库根目录的 `agentOS/src/agentos/`。
+`agent/` 是 Python FastAPI 应用层，负责暴露 AI 服务入口、加载行业 Pack、承载 LLM Gateway、Evidence Retriever 和 AgentOS Core API。AgentOS Core 的源码位于仓库根目录的 `agentOS/src/agentos/`。
 
-## 当前结构
+## 当前职责
 
-```text
-agent/
-  app/                    # FastAPI 应用层
-    main.py
-    config.py
-    paths.py
-    api/
-    services/
-    ai_engine/
-    middleware/
-    data/
+- FastAPI 应用入口：`agent/app/main.py`
+- AgentOS Core API：`agent/app/api/agentos_core.py`
+- Legal Pack：`agent/packs/legal/`
+- 合同审查 workflow definition：`agent/packs/legal/workflows/contract_review.yaml`
+- ACG 合同审查实现：`agent/packs/legal/agents/contract_review_migration.py`
+- LLM Gateway：`agent/app/llm/`
+- keyword Evidence Retriever：`agent/app/rag/providers/keyword_retriever.py`
 
-  packs/                  # 领域能力包，由应用层选择加载
-    legal/
-    education/
-    programmer/
-    writer/
+AgentOS Core 提供任务、运行记录、Trace、Review、Checkpoint 与通用执行协议；合同审查由 Core Native ACG 执行。
 
-  tests/
-  agentos.py              # 兼容入口，转发到 ../agentOS/src/agentos
-```
+## 当前 Workflow
 
 ```text
-../agentOS/src/agentos/   # AgentOS Core
-  core/
-  agents/
-  packs/
-  skills/
-  memory/
-  stores/
-  adapters/
+id: legal_contract_review_v1
+runtimeEngine: acg
 ```
 
-`app/` 负责 HTTP 路由、配置、传统服务和兼容协议；`packs/` 承载法律、教育、程序员、作家等领域能力；`agentOS/src/agentos/` 负责 Workflow Runtime、Agent/Skill Interface、Pack Registry、Memory、Store 和 Adapter。
-
-## AgentOS 入口
-
-- `POST /ai/core/tasks`：创建任务并推荐 Workflow。
-- `POST /ai/core/workflows/runs`：启动 WorkflowRun。
-- `POST /ai/core/workflows/start`：Workbench 直接创建任务并启动 WorkflowRun。
-- `GET /ai/core/workflows/metrics`：查询 WorkflowRun 治理指标。
-- `GET /ai/core/workflows/runs/{runId}`：查询运行状态。
-- `GET /ai/core/workflows/runs/{runId}/checkpoints`：查询恢复点列表。
-- `GET /ai/core/workflows/runs/{runId}/trace`：导出 Trace，可选 `format=json` 或 `format=markdown`。
-- `GET /ai/core/workflows/runs/{runId}/reviews`：查询审核记录。
-- `POST /ai/core/workflows/runs/{runId}/reviews`：提交人工审核结果。
-- `POST /ai/core/workflows/runs/{runId}/resume`：从 Checkpoint 恢复。
-- `POST /ai/chat/workflows/upgrade`：将 Chat 输入和上下文升级为 WorkflowRun。
-
-## 配置
-
-`.env` 文件放在项目主目录，即与 `agent/`、`agentOS/`、`backend/`、`frontend/` 同级。
+artifacts 契约：
 
 ```text
-Kinlin_AI/
-  .env
-  agent/
-  agentOS/
-  backend/
-  frontend/
+risks: output.artifacts.risk_detect.risks
+evidences: output.artifacts.legal_evidence_match.evidences
+report: output.artifacts.report_generate.report_markdown
 ```
 
-Pack 默认从 `agent/packs/` 自动发现；如需覆盖，可设置：
+## 启动
 
-```env
-AGENTOS_PACKS_DIR=E:/Project/Kinlin_AI/agent/packs
-AGENTOS_DATA_DIR=E:/Project/Kinlin_AI/agent/app/data
-AGENTOS_WORKFLOW_DB_PATH=E:/Project/Kinlin_AI/agent/agentos-workflow.db
-```
-
-## 启动服务
+在 `agent/` 目录运行：
 
 ```bash
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-## 测试
-
-在项目根目录运行：
+健康检查：
 
 ```bash
-python -m pytest agent/tests/test_architecture_migration.py -q
-python -m pytest agent/tests/test_pack_registry.py agent/tests/test_agentos_core.py -q
-python -m pytest agent/tests/test_programmer_skills.py agent/tests/test_teacher_skills.py agent/tests/test_writer_skills.py -q
+curl http://localhost:8000/health
 ```
 
-## 新增 Pack
+## 测试
 
-1. 在 `agent/packs/{pack_id}/` 创建 `manifest.yaml`、`workflows/`、`agents/`、`skills/`、`prompts/`、`data/`。
-2. 实现 `agentos.agents.BaseAgent` 子类。
-3. 在 Workflow YAML 中声明步骤、Agent、审核节点和流转关系。
-4. 在 Pack 的 `__init__.py` 中提供 `register_pack(agent_registry, workflow_registry)`。
-5. 默认运行时会通过 `agentos.packs.registry` 自动发现并加载已启用 Pack。
-6. 为 Pack 注册和 Workflow 冒烟路径添加测试。
+在 `agent/` 目录运行：
+
+```bash
+python -m pytest tests
+```
+
+## 主要 API
+
+通过 Spring Boot Gateway 访问时，前端主要使用 `/ai/core/**`。Python Agent 直接暴露同名 AgentOS Core API：
+
+```text
+POST /ai/core/tasks
+GET  /ai/core/tasks
+POST /ai/core/workflows/runs
+POST /ai/core/workflows/start
+GET  /ai/core/workflows/runs
+GET  /ai/core/workflows/metrics
+GET  /ai/core/workflows/runs/{runId}
+GET  /ai/core/workflows/runs/{runId}/checkpoints
+GET  /ai/core/workflows/runs/{runId}/trace
+GET  /ai/core/workflows/runs/{runId}/reviews
+POST /ai/core/workflows/runs/{runId}/reviews
+POST /ai/core/workflows/runs/{runId}/resume
+POST /ai/core/workflows/runs/{runId}/cancel
+```
+
+不恢复旧 V0.7 合同审查专用 API。律师合同审查工作台也走统一的 AgentOS Core workflow API。
+
+## 能力边界
+
+当前 Evidence 是演示级本地知识库 + keyword 检索，不是完整法律法规库、案例库或正式法律 RAG。当前报告不是正式法律意见，需要律师复核。
+
+## V1.0.6 代码边界
+
+- AgentOS Core 不直接 import 应用层业务模块。
+- ACG 通过就绪集调度执行 Pack agents，并保留 Trace、Review、Checkpoint、数据血缘和自愈。
+- 合同审查业务逻辑位于 `agent/packs/legal/agents/contract_review_migration.py`，artifact 路径由标准 workflow 契约定义。
+- Core 侧 `model_adapter.py` 只保留模型协议和注册入口，具体 `app.services.aiservice.AIService` 由 `agent/app/integrations/model_adapter.py` 注册。

@@ -1,3 +1,4 @@
+<!-- 作业批改结果卡片 — 显示评分条、教师反馈、订正清单和参考答案 -->
 <template>
   <section class="card grading-card">
     <header class="card-head">
@@ -71,7 +72,7 @@ const scoreLevelClass = computed(() => {
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -110,19 +111,19 @@ const scoreLevelClass = computed(() => {
 
 .score-pill.high {
   color: #166534;
-  background: #dcfce7;
+  background: var(--success-fade);
   border: 1px solid #86efac;
 }
 
 .score-pill.medium {
   color: #92400e;
-  background: #fef3c7;
+  background: var(--warning-fade);
   border: 1px solid #fcd34d;
 }
 
 .score-pill.low {
   color: #b91c1c;
-  background: #fee2e2;
+  background: var(--danger-fade);
   border: 1px solid #fca5a5;
 }
 
@@ -135,14 +136,14 @@ const scoreLevelClass = computed(() => {
 .score-bar-track {
   height: 8px;
   border-radius: 999px;
-  background: #f1f5f9;
+  background: var(--bg-input);
   overflow: hidden;
 }
 
 .score-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #059669, #0d9488);
+  background: linear-gradient(90deg, var(--success), var(--success));
   transition: width 0.6s ease;
 }
 
@@ -150,7 +151,7 @@ const scoreLevelClass = computed(() => {
   display: flex;
   justify-content: space-between;
   font-size: 10px;
-  color: #9ca3af;
+  color: var(--text-disabled);
 }
 
 .block {
@@ -170,7 +171,7 @@ const scoreLevelClass = computed(() => {
   font-size: 13px;
   line-height: 1.6;
   padding: 8px 10px;
-  background: #f0fdf4;
+  background: var(--success-fade);
   border-radius: 8px;
   border-left: 3px solid #059669;
 }
@@ -192,7 +193,7 @@ const scoreLevelClass = computed(() => {
   font-size: 13px;
   line-height: 1.6;
   padding: 8px 10px;
-  background: #eff6ff;
+  background: var(--primary-fade);
   border-radius: 8px;
   border-left: 3px solid #3b82f6;
 }

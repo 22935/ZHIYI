@@ -1,3 +1,4 @@
+<!-- 错误边界组件 — 捕获子组件渲染错误，显示全页错误提示和刷新按钮 -->
 <template>
   <div v-if="hasError" class="error-boundary">
     <el-result

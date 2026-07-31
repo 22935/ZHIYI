@@ -1,3 +1,4 @@
+<!-- 搜索栏组件 — 带搜索图标前缀的输入框，触发搜索和清除事件 -->
 <template>
   <div class="search-bar">
     <el-input

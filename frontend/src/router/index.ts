@@ -114,37 +114,36 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/federated-agent-workbench',
     name: 'FederatedAgentWorkbench',
-    component: () => import('@/views/FederatedAgentWorkbenchView.vue'),
-    meta: {
-      title: '联邦智能体工作台',
-      requiresAuth: true
-    }
+    redirect: { path: '/chat', query: { workspace: 'agent' } }
   },
   {
     path: '/agentos-console',
     name: 'AgentOsConsole',
     component: () => import('@/views/AgentOsConsoleView.vue'),
     meta: {
-      title: 'AgentOS 控制台',
+      title: 'ACG 历史记录',
       requiresAuth: true
     }
   },
   {
     path: '/agentos/legal/contract-review',
-    name: 'LawyerContractReviewWorkbench',
-    component: () => import('@/views/LawyerContractReviewWorkbenchView.vue'),
+    redirect: { path: '/chat', query: { workspace: 'agent' } }
+  },
+  {
+    path: '/agentos/acg',
+    name: 'AcgVisualization',
+    component: () => import('@/views/AcgVisualizationView.vue'),
     meta: {
-      title: '律师合同审查',
+      title: 'ACG 动态群体智能引擎',
       requiresAuth: true
     }
   },
   {
     path: '/contract-clause-planner',
     name: 'ContractClausePlanner',
-    component: () => import('@/views/ContractClausePlannerView.vue'),
-    meta: {
-      title: '软件开发合同起草',
-      requiresAuth: true
+    redirect: {
+      path: '/chat',
+      query: { workspace: 'agent' }
     }
   },
   {
@@ -176,7 +175,7 @@ const normalizeRedirect = (redirect?: string) => {
 
 // Global route guard
 router.beforeEach(async (to, _from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} - 联邦智能枢` : '联邦智能枢'
+  document.title = to.meta.title ? `${to.meta.title} - 知弈AgentOS` : '知弈AgentOS'
 
   const token = localStorage.getItem('token')
   const requiresAuth = Boolean(to.meta.requiresAuth)

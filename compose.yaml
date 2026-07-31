@@ -1,0 +1,239 @@
+name: ${KINLIN_DEPLOYMENT_ID:?KINLIN_DEPLOYMENT_ID is required}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+    image: ${KINLIN_POSTGRES_IMAGE:-kinlin-ai-postgres:dev}
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${KINLIN_DB_ADMIN_USER:-postgres}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_admin_password
+      KINLIN_DB_PASSWORD_FILE: /run/kinlin-secrets/db_password
+      KINLIN_DB_NAME: ${KINLIN_DB_NAME:-kinlin_ai}
+      KINLIN_DB_USER: ${KINLIN_DB_USER:-kinlin_ai}
+      KINLIN_SKIP_APP_INIT: ${KINLIN_SKIP_APP_INIT:-false}
+    secrets: [db_admin_password, db_password]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-app-role.sh:/docker-entrypoint-initdb.d/20-kinlin-app-role.sh:ro
+    tmpfs:
+      - /run/kinlin-secrets:mode=0700
+    networks: [data-network]
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+
+  redis:
+    build:
+      context: ./docker/redis
+    image: ${KINLIN_REDIS_IMAGE:-kinlin-ai-redis:dev}
+    secrets: [redis_password]
+    environment:
+      KINLIN_DEPLOYMENT_ID: ${KINLIN_DEPLOYMENT_ID}
+    volumes:
+      - redis-data:/data
+    tmpfs:
+      - /run/kinlin-secrets:mode=0700
+    networks: [data-network, provider-state-network]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/kinlin-redis-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    image: ${KINLIN_AI_IMAGE:-kinlin-ai-service:dev}
+    environment:
+      KINLIN_DEPLOYMENT_ID: ${KINLIN_DEPLOYMENT_ID}
+      ENVIRONMENT: ${KINLIN_ENVIRONMENT:-production}
+      AGENTOS_PACKS_DIR: /app/packs
+      AGENTOS_DATA_DIR: /app/data
+      AGENTOS_WORKFLOW_DB_PATH: /app/data/agentos/workflows.sqlite3
+      AGENTOS_SQLITE_BUSY_TIMEOUT_MS: ${AGENTOS_SQLITE_BUSY_TIMEOUT_MS:-5000}
+      UVICORN_WORKERS: "1"
+      AI_INTERNAL_TOKEN_FILE: /run/kinlin-secrets/ai_internal_token
+      DEEPSEEK_API_KEY_FILE: /run/kinlin-secrets/deepseek_api_key
+      DASHSCOPE_API_KEY_FILE: /run/kinlin-secrets/dashscope_api_key
+      TAVILY_API_KEY_FILE: /run/kinlin-secrets/tavily_api_key
+      TOOL_RUNTIME_ENABLED: ${TOOL_RUNTIME_ENABLED:-true}
+      TOOL_CODEBASE_ROOT: /app/workspace
+      XDG_CACHE_HOME: /app/.cache
+      ANONYMIZED_TELEMETRY: "False"
+      CHROMA_TELEMETRY_ENABLED: "false"
+      PROVIDER_STATE_ENABLED: ${PROVIDER_STATE_ENABLED:-true}
+      PROVIDER_STATE_REDIS_URL: redis://redis:6379/0
+      PROVIDER_STATE_TTL_SECONDS: ${PROVIDER_STATE_TTL_SECONDS:-3600}
+      REDIS_PASSWORD_FILE: /run/kinlin-secrets/redis_password
+    secrets: [ai_internal_token, deepseek_api_key, dashscope_api_key, tavily_api_key, redis_password]
+    volumes:
+      - agentos-data:/app/data
+      - ai-cache:/app/.cache
+    tmpfs:
+      - /run/kinlin-secrets:mode=0700
+    networks: [agent-network, provider-state-network]
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=5)"]
+      interval: 15s
+      timeout: 7s
+      retries: 10
+      start_period: 20s
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ${KINLIN_BACKEND_IMAGE:-kinlin-ai-backend:dev}
+    environment:
+      KINLIN_DEPLOYMENT_ID: ${KINLIN_DEPLOYMENT_ID}
+      SPRING_PROFILES_ACTIVE: ${KINLIN_SPRING_PROFILE:-prod}
+      SPRING_CONFIG_IMPORT: configtree:/run/kinlin-secrets/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${KINLIN_DB_NAME:-kinlin_ai}
+      SPRING_DATASOURCE_USERNAME: ${KINLIN_DB_USER:-kinlin_ai}
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: "6379"
+      AI_SERVICE_URL: http://ai-service:8000
+      APP_UPLOAD_DIR: /app/data/uploads
+      CORS_ALLOWED_ORIGINS: ${KINLIN_PUBLIC_ORIGIN:-http://localhost}
+    secrets: [db_password, redis_password, jwt_secret, ai_internal_token]
+    volumes:
+      - backend-uploads:/app/data/uploads
+    tmpfs:
+      - /run/kinlin-secrets:mode=0700
+      - /tmp:mode=1777
+    networks: [web-network, agent-network, data-network]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 45s
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://$$(cat /tmp/backend-listen-address):8080/health/ready"]
+      interval: 15s
+      timeout: 7s
+      retries: 10
+      start_period: 30s
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: ${KINLIN_FRONTEND_IMAGE:-kinlin-ai-frontend:dev}
+    networks: [web-network]
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 20s
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    labels:
+      com.kinlin.deployment-id: ${KINLIN_DEPLOYMENT_ID}
+
+  schema-tool:
+    profiles: [migration]
+    build:
+      context: ./docker/flyway
+    image: ${KINLIN_FLYWAY_IMAGE:-kinlin-ai-flyway:dev}
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${KINLIN_DB_NAME:-kinlin_ai}
+      FLYWAY_USER: ${KINLIN_DB_USER:-kinlin_ai}
+    secrets: [db_password]
+    volumes:
+      - ./backend/src/main/resources/db/migration:/flyway/sql:ro
+    tmpfs:
+      - /run/kinlin-secrets:mode=0700
+    networks: [data-network]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+secrets:
+  db_admin_password:
+    file: ${KINLIN_SECRETS_DIR:?KINLIN_SECRETS_DIR is required}/db_admin_password
+  db_password:
+    file: ${KINLIN_SECRETS_DIR:?KINLIN_SECRETS_DIR is required}/db_password
+  redis_password:
+    file: ${KINLIN_SECRETS_DIR:?KINLIN_SECRETS_DIR is required}/redis_password
+  jwt_secret:
+    file: ${KINLIN_SECRETS_DIR:?KINLIN_SECRETS_DIR is required}/jwt_secret
+  ai_internal_token:
+    file: ${KINLIN_SECRETS_DIR:?KINLIN_SECRETS_DIR is required}/ai_internal_token
+  deepseek_api_key:
+    file: ${KINLIN_SECRETS_DIR:?KINLIN_SECRETS_DIR is required}/deepseek_api_key
+  dashscope_api_key:
+    file: ${KINLIN_SECRETS_DIR:?KINLIN_SECRETS_DIR is required}/dashscope_api_key
+  tavily_api_key:
+    file: ${KINLIN_SECRETS_DIR:?KINLIN_SECRETS_DIR is required}/tavily_api_key
+
+volumes:
+  postgres-data:
+    name: ${KINLIN_DEPLOYMENT_ID}_postgres_data_v11
+    labels: {com.kinlin.deployment-id: "${KINLIN_DEPLOYMENT_ID}"}
+  redis-data:
+    name: ${KINLIN_DEPLOYMENT_ID}_redis_data_v11
+    labels: {com.kinlin.deployment-id: "${KINLIN_DEPLOYMENT_ID}"}
+  agentos-data:
+    name: ${KINLIN_DEPLOYMENT_ID}_agentos_data_v11
+    labels: {com.kinlin.deployment-id: "${KINLIN_DEPLOYMENT_ID}"}
+  backend-uploads:
+    name: ${KINLIN_DEPLOYMENT_ID}_backend_uploads_v11
+    labels: {com.kinlin.deployment-id: "${KINLIN_DEPLOYMENT_ID}"}
+  ai-cache:
+    name: ${KINLIN_DEPLOYMENT_ID}_ai_cache_v11
+    labels: {com.kinlin.deployment-id: "${KINLIN_DEPLOYMENT_ID}"}
+
+networks:
+  web-network:
+    name: ${KINLIN_DEPLOYMENT_ID}_web_network_v11
+    internal: true
+    labels: {com.kinlin.deployment-id: "${KINLIN_DEPLOYMENT_ID}"}
+  agent-network:
+    name: ${KINLIN_DEPLOYMENT_ID}_agent_network_v11
+    internal: false
+    labels: {com.kinlin.deployment-id: "${KINLIN_DEPLOYMENT_ID}"}
+  data-network:
+    name: ${KINLIN_DEPLOYMENT_ID}_data_network_v11
+    internal: true
+    labels: {com.kinlin.deployment-id: "${KINLIN_DEPLOYMENT_ID}"}
+  provider-state-network:
+    name: ${KINLIN_DEPLOYMENT_ID}_provider_state_network_v11
+    internal: true
+    labels: {com.kinlin.deployment-id: "${KINLIN_DEPLOYMENT_ID}"}

@@ -16,9 +16,9 @@
     "info": "提示"
   },
   "nav": {
-    "main": "MAIN",
-    "knowledge": "KNOWLEDGE",
-    "system": "SYSTEM",
+    "main": "主要",
+    "knowledge": "知识",
+    "system": "系统",
     "chat": "对话",
     "digitalHuman": "数字人",
     "voice": "语音交互",
@@ -39,6 +39,9 @@
     "languageEn": "English",
     "fontSize": "字体大小",
     "primaryColor": "品牌色",
+    "colorScheme": "配色方案",
+    "schemeTeaGreen": "茶绿",
+    "schemeBluePurple": "蓝紫",
     "backgroundStyle": "背景风格",
     "backgroundDefault": "默认",
     "backgroundMesh": "网格渐变",

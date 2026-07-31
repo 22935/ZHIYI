@@ -1,0 +1,999 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>知弈 AgentOS 视频开场图</title>
+  <style>
+    :root {
+      --bg: #f7f9fd;
+      --ink: #121826;
+      --muted: #667085;
+      --line: #d7dfec;
+      --blue: #3858e9;
+      --cyan: #13a8b3;
+      --green: #18a058;
+      --orange: #f59e0b;
+      --red: #dc3f45;
+      --purple: #7c3aed;
+      --panel: rgba(255,255,255,.92);
+      --shadow: 0 24px 70px rgba(30, 45, 88, .14);
+      --canvas-w: 2560px;
+      --canvas-h: 1600px;
+      --base-w: 1920px;
+      --base-h: 1200px;
+      --export-scale: 1.3333333333;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      width: var(--canvas-w);
+      height: var(--canvas-h);
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    .slide {
+      position: relative;
+      display: none;
+      width: var(--base-w);
+      height: var(--base-h);
+      overflow: hidden;
+      padding: 78px 92px;
+      transform: scale(var(--export-scale));
+      transform-origin: top left;
+      background:
+        linear-gradient(135deg, rgba(56,88,233,.08), transparent 38%),
+        radial-gradient(circle at 88% 10%, rgba(19,168,179,.12), transparent 28%),
+        linear-gradient(180deg, #fbfcff, #eef3fb);
+    }
+
+    .slide.active { display: block; }
+
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      opacity: .42;
+      background-image:
+        linear-gradient(to right, rgba(80, 105, 150, .12) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(80, 105, 150, .12) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+    }
+
+    .watermark {
+      position: absolute;
+      right: 76px;
+      bottom: 50px;
+      font-size: 19px;
+      font-weight: 700;
+      color: rgba(38, 56, 94, .35);
+      letter-spacing: 0;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(56,88,233,.1);
+      color: #2945c7;
+      font-weight: 800;
+      font-size: 22px;
+    }
+
+    .eyebrow .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--blue);
+      box-shadow: 0 0 0 7px rgba(56,88,233,.14);
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 {
+      margin-top: 38px;
+      font-size: 86px;
+      line-height: 1.04;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    h2 {
+      font-size: 62px;
+      line-height: 1.08;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    h3 {
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin-top: 24px;
+      width: 980px;
+      color: var(--muted);
+      font-size: 32px;
+      line-height: 1.45;
+      font-weight: 600;
+    }
+
+    .split {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1.02fr .98fr;
+      gap: 54px;
+      height: 100%;
+      align-items: center;
+    }
+
+    .topline {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 28px;
+    }
+
+    .topline .desc {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 25px;
+      line-height: 1.5;
+      font-weight: 600;
+      text-align: right;
+      padding-top: 10px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(134, 151, 184, .38);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+    }
+
+    .mini-label {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 9px;
+      background: #eef3ff;
+      color: #2945c7;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .code {
+      font-family: Consolas, "Cascadia Mono", "Microsoft YaHei", monospace;
+      font-size: 17px;
+      color: #42526d;
+    }
+
+    .cover-visual {
+      position: relative;
+      height: 760px;
+      padding: 38px;
+    }
+    .runtime-core {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 360px;
+      height: 360px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #2235a8, #4868ff);
+      color: #fff;
+      box-shadow: 0 28px 80px rgba(56,88,233,.34);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 38px;
+    }
+    .runtime-core strong {
+      display: block;
+      font-size: 45px;
+      line-height: 1.12;
+      font-weight: 900;
+    }
+    .runtime-core span {
+      display: block;
+      margin-top: 14px;
+      font-size: 21px;
+      opacity: .85;
+      font-weight: 700;
+    }
+    .orbit {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border: 2px dashed rgba(56,88,233,.22);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .orbit.o1 { width: 545px; height: 545px; }
+    .orbit.o2 { width: 700px; height: 700px; }
+    .sat {
+      position: absolute;
+      width: 154px;
+      min-height: 96px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.42);
+      box-shadow: 0 16px 42px rgba(30,45,88,.12);
+      font-weight: 900;
+      font-size: 22px;
+      color: #23304b;
+    }
+    .sat small {
+      display: block;
+      margin-top: 7px;
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.25;
+      font-weight: 700;
+    }
+    .sat.s1 { left: 56px; top: 88px; border-left: 8px solid var(--blue); }
+    .sat.s2 { right: 48px; top: 100px; border-left: 8px solid var(--cyan); }
+    .sat.s3 { left: 22px; bottom: 130px; border-left: 8px solid var(--green); }
+    .sat.s4 { right: 30px; bottom: 126px; border-left: 8px solid var(--orange); }
+    .sat.s5 { left: 50%; bottom: 10px; transform: translateX(-50%); border-left: 8px solid var(--purple); }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 42px;
+    }
+    .pill {
+      padding: 13px 18px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.42);
+      color: #27364f;
+      font-size: 21px;
+      font-weight: 900;
+      box-shadow: 0 10px 24px rgba(30,45,88,.08);
+    }
+
+    .problem-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr 150px 1fr;
+      gap: 30px;
+      margin-top: 52px;
+      align-items: stretch;
+    }
+    .problem-card, .solution-card {
+      padding: 28px;
+      min-height: 155px;
+      border-radius: 22px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.45);
+      box-shadow: 0 18px 44px rgba(30,45,88,.1);
+    }
+    .problem-card {
+      border-left: 9px solid var(--red);
+    }
+    .solution-card {
+      border-left: 9px solid var(--green);
+    }
+    .card-title {
+      font-size: 30px;
+      font-weight: 900;
+      color: #1d2939;
+    }
+    .card-text {
+      margin-top: 12px;
+      font-size: 23px;
+      line-height: 1.42;
+      color: var(--muted);
+      font-weight: 650;
+    }
+    .arrow-column {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #2945c7;
+      font-size: 78px;
+      font-weight: 900;
+    }
+
+    .arch {
+      position: relative;
+      z-index: 1;
+      margin-top: 44px;
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 32px;
+      align-items: stretch;
+    }
+    .layer-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .layer {
+      position: relative;
+      padding: 26px 28px;
+      min-height: 126px;
+      border-radius: 22px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.42);
+      box-shadow: 0 16px 42px rgba(30,45,88,.09);
+      overflow: hidden;
+    }
+    .layer:before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 10px;
+      background: var(--blue);
+    }
+    .layer.l2:before { background: var(--cyan); }
+    .layer.l3:before { background: var(--orange); }
+    .layer.l4:before { background: var(--green); }
+    .layer-title {
+      font-size: 30px;
+      font-weight: 900;
+    }
+    .layer-sub {
+      margin-top: 8px;
+      font-size: 22px;
+      line-height: 1.4;
+      color: var(--muted);
+      font-weight: 650;
+    }
+    .governance {
+      padding: 34px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .gov-item {
+      padding: 24px;
+      border-radius: 19px;
+      background: linear-gradient(180deg, #fff, #f7f9ff);
+      border: 1px solid rgba(134,151,184,.38);
+    }
+    .gov-item b {
+      display: block;
+      font-size: 27px;
+      color: #1d2939;
+    }
+    .gov-item span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1.35;
+      font-weight: 650;
+    }
+
+    .triad {
+      position: relative;
+      z-index: 1;
+      height: 790px;
+      margin-top: 28px;
+    }
+    .triad-center {
+      position: absolute;
+      left: 50%;
+      top: 49%;
+      transform: translate(-50%, -50%);
+      width: 405px;
+      height: 405px;
+      border-radius: 40px;
+      background: #fff;
+      border: 2px solid rgba(56,88,233,.18);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 36px;
+    }
+    .triad-center strong {
+      font-size: 47px;
+      font-weight: 900;
+      color: #1d2939;
+    }
+    .triad-center span {
+      margin-top: 14px;
+      font-size: 22px;
+      line-height: 1.4;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .triad-card {
+      position: absolute;
+      width: 470px;
+      padding: 30px;
+      border-radius: 26px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.44);
+      box-shadow: 0 18px 48px rgba(30,45,88,.11);
+    }
+    .triad-card .num {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      color: #fff;
+      font-size: 22px;
+      font-weight: 900;
+      background: var(--blue);
+    }
+    .triad-card p {
+      margin-top: 13px;
+      color: var(--muted);
+      font-size: 21px;
+      line-height: 1.38;
+      font-weight: 650;
+    }
+    .triad-card.a { left: 80px; top: 42px; border-top: 8px solid var(--blue); }
+    .triad-card.b { right: 80px; top: 42px; border-top: 8px solid var(--green); }
+    .triad-card.c { left: 80px; bottom: 58px; border-top: 8px solid var(--orange); }
+    .triad-card.d { right: 80px; bottom: 58px; border-top: 8px solid var(--purple); }
+    .triad-card.b .num { background: var(--green); }
+    .triad-card.c .num { background: var(--orange); }
+    .triad-card.d .num { background: var(--purple); }
+
+    .flow {
+      position: relative;
+      z-index: 1;
+      margin-top: 50px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+    .flow-card {
+      position: relative;
+      min-height: 520px;
+      padding: 28px 24px;
+      border-radius: 25px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.42);
+      box-shadow: 0 18px 46px rgba(30,45,88,.1);
+    }
+    .flow-card:after {
+      content: "→";
+      position: absolute;
+      right: -30px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #93a4c2;
+      font-size: 42px;
+      font-weight: 900;
+      z-index: 2;
+    }
+    .flow-card:last-child:after { content: ""; }
+    .flow-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #eef3ff;
+      color: var(--blue);
+      font-size: 34px;
+      font-weight: 900;
+    }
+    .flow-card h3 { margin-top: 22px; }
+    .flow-card p {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 21px;
+      line-height: 1.42;
+      font-weight: 650;
+    }
+    .flow-card .tag {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      bottom: 24px;
+      padding: 12px;
+      border-radius: 14px;
+      background: #f5f7fb;
+      color: #42526d;
+      font-size: 16px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .entropy-wrap {
+      position: relative;
+      z-index: 1;
+      margin-top: 46px;
+      display: grid;
+      grid-template-columns: .94fr 1.06fr;
+      gap: 34px;
+      align-items: stretch;
+    }
+    .json-box {
+      padding: 32px;
+      border-radius: 25px;
+      background: #111827;
+      box-shadow: 0 26px 74px rgba(17,24,39,.22);
+      color: #d8e2f3;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 24px;
+      line-height: 1.58;
+      white-space: pre;
+    }
+    .json-box .k { color: #93c5fd; }
+    .json-box .s { color: #86efac; }
+    .json-box .dim { color: #94a3b8; }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+    .metric {
+      padding: 30px;
+      border-radius: 25px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.42);
+      box-shadow: 0 18px 44px rgba(30,45,88,.1);
+    }
+    .metric strong {
+      display: block;
+      color: var(--blue);
+      font-size: 54px;
+      font-weight: 900;
+    }
+    .metric span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .ledger {
+      grid-column: 1 / -1;
+      padding: 28px;
+      border-radius: 25px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.42);
+      box-shadow: 0 18px 44px rgba(30,45,88,.1);
+    }
+    .ledger-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 18px;
+      font-size: 22px;
+      font-weight: 850;
+      color: #27364f;
+    }
+    .ledger-row span {
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: #eef3ff;
+      color: #2945c7;
+    }
+    .ledger-row em {
+      color: var(--muted);
+      font-style: normal;
+      font-weight: 700;
+    }
+
+    .storyboard {
+      position: relative;
+      z-index: 1;
+      margin-top: 48px;
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 34px;
+      align-items: stretch;
+    }
+    .screen {
+      position: relative;
+      padding: 34px;
+      border-radius: 30px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.42);
+      box-shadow: var(--shadow);
+      min-height: 640px;
+    }
+    .browser-bar {
+      height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      border-radius: 15px;
+      background: #f0f3f9;
+    }
+    .browser-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #d0d7e5;
+    }
+    .graph-demo {
+      position: relative;
+      height: 520px;
+      margin-top: 24px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, #fbfcff, #f4f7fd);
+      border: 1px solid #dce4f0;
+    }
+    .node {
+      position: absolute;
+      min-width: 128px;
+      padding: 15px 18px;
+      text-align: center;
+      border-radius: 18px;
+      background: #fff;
+      border: 3px solid #2d9a62;
+      box-shadow: 0 12px 32px rgba(30,45,88,.12);
+      font-size: 19px;
+      font-weight: 900;
+    }
+    .node.n1 { left: 80px; top: 215px; }
+    .node.n2 { left: 300px; top: 110px; }
+    .node.n3 { left: 300px; top: 320px; }
+    .node.n4 { left: 548px; top: 215px; }
+    .node.n5 { right: 95px; top: 215px; border-color: var(--blue); }
+    .edge {
+      position: absolute;
+      height: 4px;
+      background: #7a8ca8;
+      transform-origin: left center;
+      border-radius: 8px;
+    }
+    .edge.e1 { left: 205px; top: 260px; width: 140px; transform: rotate(-29deg); }
+    .edge.e2 { left: 205px; top: 275px; width: 140px; transform: rotate(30deg); }
+    .edge.e3 { left: 430px; top: 158px; width: 160px; transform: rotate(30deg); }
+    .edge.e4 { left: 430px; top: 368px; width: 160px; transform: rotate(-31deg); }
+    .edge.e5 { left: 672px; top: 260px; width: 145px; }
+    .script-list {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .script-step {
+      padding: 24px;
+      border-radius: 23px;
+      background: #fff;
+      border: 1px solid rgba(134,151,184,.42);
+      box-shadow: 0 14px 34px rgba(30,45,88,.09);
+    }
+    .script-step b {
+      display: block;
+      font-size: 27px;
+      font-weight: 900;
+      color: #1d2939;
+    }
+    .script-step span {
+      display: block;
+      margin-top: 8px;
+      font-size: 20px;
+      line-height: 1.35;
+      color: var(--muted);
+      font-weight: 650;
+    }
+    .minute {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 38px;
+      border-radius: 999px;
+      background: #eef3ff;
+      color: #2945c7;
+      font-size: 18px;
+      font-weight: 900;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <section class="slide active" data-id="1">
+    <div class="grid-bg"></div>
+    <div class="split">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> 项目开场图 01</div>
+        <h1>知弈 AgentOS</h1>
+        <p class="subtitle">面向专业任务的 ACG 多智能体 Harness 运行时，把 AI 从一次性问答提升为可规划、可执行、可治理的工程系统。</p>
+        <div class="pill-row">
+          <span class="pill">Task / Run / Step</span>
+          <span class="pill">ACG 动态任务图</span>
+          <span class="pill">低熵通信</span>
+          <span class="pill">Trace / Checkpoint</span>
+        </div>
+      </div>
+      <div class="cover-visual panel">
+        <div class="orbit o1"></div>
+        <div class="orbit o2"></div>
+        <div class="runtime-core">
+          <div>
+            <strong>AgentOS<br/>Core</strong>
+            <span>WorkflowRuntime</span>
+          </div>
+        </div>
+        <div class="sat s1">规划<small>IntentParser / ACGBuilder</small></div>
+        <div class="sat s2">执行<small>ACGExecutor / Adapter</small></div>
+        <div class="sat s3">通信<small>ContextAssembler</small></div>
+        <div class="sat s4">治理<small>Trace / Review / Checkpoint</small></div>
+        <div class="sat s5">交付<small>Markdown Report / Artifacts</small></div>
+      </div>
+    </div>
+    <div class="watermark">ZhiYi AgentOS · ACG Harness Runtime</div>
+  </section>
+
+  <section class="slide" data-id="2">
+    <div class="grid-bg"></div>
+    <div class="topline">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> 为什么需要 AgentOS</div>
+        <h2>把 Agent 协作从“黑盒调用”变成“工程链路”</h2>
+      </div>
+      <p class="desc">项目代码围绕 Task、WorkflowRun、Trace、Review、Checkpoint、ACGBlueprint 建模，让每一次专业任务都有结构、有证据、有恢复点。</p>
+    </div>
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="card-title">上下文倾倒</div>
+        <div class="card-text">上游结果全量传给下游，token 成本高，重要字段容易被噪声淹没。</div>
+      </div>
+      <div class="arrow-column">→</div>
+      <div class="solution-card">
+        <div class="card-title">字段契约通信</div>
+        <div class="card-text">COMMUNICATION 边声明 input.fields，ContextAssembler 精准组装 ContextPack。</div>
+      </div>
+
+      <div class="problem-card">
+        <div class="card-title">过程不可追踪</div>
+        <div class="card-text">只看到最终答案，看不到步骤、证据、模型调用、人工审核与数据来源。</div>
+      </div>
+      <div class="arrow-column">→</div>
+      <div class="solution-card">
+        <div class="card-title">Trace 黑匣子</div>
+        <div class="card-text">TraceStore 记录 STEP_STARTED、DATA_CONSUMED、CHECKPOINT_CREATED 等事件。</div>
+      </div>
+
+      <div class="problem-card">
+        <div class="card-title">失败只能重跑</div>
+        <div class="card-text">模型超时、证据缺失、Agent 崩溃时，缺少局部恢复和复盘依据。</div>
+      </div>
+      <div class="arrow-column">→</div>
+      <div class="solution-card">
+        <div class="card-title">Checkpoint 自愈</div>
+        <div class="card-text">故障注入、步骤重置、恢复轨迹与检查点快照组成可演示的韧性闭环。</div>
+      </div>
+    </div>
+    <div class="watermark">Core files: runtime.py · acg_executor.py · assembler.py</div>
+  </section>
+
+  <section class="slide" data-id="3">
+    <div class="grid-bg"></div>
+    <div class="topline">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> Harness 四层架构</div>
+        <h2>从前端工作台到 AgentOS Core 的完整运行边界</h2>
+      </div>
+      <p class="desc">前三层负责入口、代理和行业能力；真正的 Harness 内核在 AgentOS Core，统一承载任务生命周期和治理对象。</p>
+    </div>
+    <div class="arch">
+      <div class="layer-stack">
+        <div class="layer l1">
+          <div class="layer-title">Frontend · Vue 3 工作台</div>
+          <div class="layer-sub">合同审查、ACG 可视化、AgentOS Console、联邦学习页面</div>
+          <div class="code">frontend/src/views · frontend/src/components/agentos</div>
+        </div>
+        <div class="layer l2">
+          <div class="layer-title">Spring Boot Gateway</div>
+          <div class="layer-sub">统一 API 入口、鉴权、透明转发到 Python AI 服务</div>
+          <div class="code">backend/src/main/java/com/kinlin/ai</div>
+        </div>
+        <div class="layer l3">
+          <div class="layer-title">Python FastAPI Agent Runtime</div>
+          <div class="layer-sub">LLM Gateway、RAG、行业 Pack、Intent LLM 注入</div>
+          <div class="code">agent/app · agent/packs/legal</div>
+        </div>
+        <div class="layer l4">
+          <div class="layer-title">AgentOS Core Runtime</div>
+          <div class="layer-sub">Task、WorkflowRun、ExecutionAdapter、ACG、Trace、Review、Checkpoint</div>
+          <div class="code">agentOS/src/agentos/core/runtime.py</div>
+        </div>
+      </div>
+      <div class="governance panel">
+        <div class="gov-item">
+          <b>Trace</b>
+          <span>每一步执行、数据消费、模型调用、恢复事件可审计</span>
+        </div>
+        <div class="gov-item">
+          <b>Review</b>
+          <span>人工审核作为架构对象进入运行时生命周期</span>
+        </div>
+        <div class="gov-item">
+          <b>Checkpoint</b>
+          <span>保存可恢复快照，支持故障后局部恢复</span>
+        </div>
+        <div class="gov-item">
+          <b>Adapter</b>
+          <span>线性 YAML 提升为 ACG DAG，统一使用治理接口</span>
+        </div>
+      </div>
+    </div>
+    <div class="watermark">Harness = lifecycle governance + execution adapters</div>
+  </section>
+
+  <section class="slide" data-id="4">
+    <div class="grid-bg"></div>
+    <div class="topline">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> 三个核心设计</div>
+        <h2>规划、执行、通信在 ACG 中闭环</h2>
+      </div>
+      <p class="desc">演示时重点讲这张图：用户意图先变成 ACGBlueprint，再由执行器调度 Step，最后通过字段契约完成低熵上下文投递。</p>
+    </div>
+    <div class="triad">
+      <div class="triad-center">
+        <strong>ACGBlueprint</strong>
+        <span>6 类节点 + 7 类边<br/>多智能体任务的结构化 IR</span>
+      </div>
+      <div class="triad-card a">
+        <span class="num">1</span>
+        <h3>Planning</h3>
+        <p>IntentParser 解析目标，TemplateMatcher 静态优先，forceDynamic 时由 ACGBuilder 生成差异化任务图。</p>
+        <div class="code">PlanningEngine.plan(force_dynamic=True)</div>
+      </div>
+      <div class="triad-card b">
+        <span class="num">2</span>
+        <h3>Execution</h3>
+        <p>ACGExecutor 根据依赖与控制节点计算 ready_steps，支持并行就绪集、故障注入和 Checkpoint。</p>
+        <div class="code">ACGWorkflowAdapter · ACGExecutor._drive()</div>
+      </div>
+      <div class="triad-card c">
+        <span class="num">3</span>
+        <h3>Communication</h3>
+        <p>COMMUNICATION 边携带 dataFields，下游 Step 只获得 input.fields 声明的必要字段。</p>
+        <div class="code">ContextAssembler.assemble()</div>
+      </div>
+      <div class="triad-card d">
+        <span class="num">4</span>
+        <h3>Governance</h3>
+        <p>Trace、Provenance、Review、Recovery 让图执行过程可以被展示、复盘和审计。</p>
+        <div class="code">TraceStore · ProvenanceLedger</div>
+      </div>
+    </div>
+    <div class="watermark">Core innovation: Graph IR + Runtime Harness + Low-Entropy Context</div>
+  </section>
+
+  <section class="slide" data-id="5">
+    <div class="grid-bg"></div>
+    <div class="topline">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> 低熵通信</div>
+        <h2>让 Agent 只接收真正需要的字段</h2>
+      </div>
+      <p class="desc">这张图适合配合右侧“低熵通信指标”面板讲解：节省 token 的来源是字段级上下文投递，不牺牲数据血缘。</p>
+    </div>
+    <div class="entropy-wrap">
+      <div class="json-box">Agent A 输出 {
+  <span class="k">contract_summary</span>,
+  <span class="k">clauses</span>,
+  <span class="k">risks</span>,
+  <span class="k">evidences</span>,
+  <span class="k">metadata</span>,
+  <span class="dim">...</span>
+}
+
+COMMUNICATION 边:
+  <span class="k">dataFields</span> = [<span class="s">"risks"</span>, <span class="s">"risk_level"</span>]
+
+ContextPack:
+  只投递 risks + risk_level</div>
+      <div class="metric-grid">
+        <div class="metric">
+          <strong>22%+</strong>
+          <span>演示链路平均 token 节省率</span>
+        </div>
+        <div class="metric">
+          <strong>字段级</strong>
+          <span>按 input.fields 精准提取</span>
+        </div>
+        <div class="metric">
+          <strong>可追踪</strong>
+          <span>DATA_CONSUMED / DATA_PRODUCED</span>
+        </div>
+        <div class="metric">
+          <strong>可审计</strong>
+          <span>ProvenanceLedger 记录来源</span>
+        </div>
+        <div class="ledger">
+          <h3>数据血缘示例</h3>
+          <div class="ledger-row"><span>contract_parse</span> → <span>clause_classify</span> <em>消费字段：contract_type / payment_terms / scope</em></div>
+          <div class="ledger-row"><span>risk_detect</span> → <span>legal_evidence_match</span> <em>消费字段：risks / risk_level / risk_score</em></div>
+          <div class="ledger-row"><span>revision_suggest</span> → <span>report_generate</span> <em>消费字段：revision_suggestions / manual_review_focus</em></div>
+        </div>
+      </div>
+    </div>
+    <div class="watermark">Code: agentOS/core/communication/assembler.py</div>
+  </section>
+
+  <section class="slide" data-id="6">
+    <div class="grid-bg"></div>
+    <div class="topline">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> 3 分钟实机演示路线</div>
+        <h2>一份合同，跑通完整 AgentOS 链路</h2>
+      </div>
+      <p class="desc">开场图片结束后切到登录后的系统页面，直接进入 ACG 引擎，用“强制动态”启动演示。</p>
+    </div>
+    <div class="storyboard">
+      <div class="screen">
+        <div class="browser-bar">
+          <span class="browser-dot"></span>
+          <span class="browser-dot"></span>
+          <span class="browser-dot"></span>
+          <span class="code">/agentos/acg · engine: acg · planningMode: dynamic</span>
+        </div>
+        <div class="graph-demo">
+          <div class="edge e1"></div>
+          <div class="edge e2"></div>
+          <div class="edge e3"></div>
+          <div class="edge e4"></div>
+          <div class="edge e5"></div>
+          <div class="node n1">合同解析</div>
+          <div class="node n2">条款分类</div>
+          <div class="node n3">风险识别</div>
+          <div class="node n4">依据匹配</div>
+          <div class="node n5">审查报告</div>
+        </div>
+      </div>
+      <div class="script-list">
+        <div class="script-step">
+          <b><span class="minute">0:00</span>项目定位</b>
+          <span>知弈 AgentOS 是面向专业任务的多智能体 Harness 运行时。</span>
+        </div>
+        <div class="script-step">
+          <b><span class="minute">0:30</span>输入合同与目标</b>
+          <span>选择“强制动态”，让系统按任务语义生成差异化 ACG。</span>
+        </div>
+        <div class="script-step">
+          <b><span class="minute">1:10</span>展示 ACG 拓扑</b>
+          <span>说明规划、执行、通信三件事如何在同一张图里表达。</span>
+        </div>
+        <div class="script-step">
+          <b><span class="minute">1:50</span>低熵通信指标</b>
+          <span>讲 token 节省率、数据血缘和字段契约。</span>
+        </div>
+        <div class="script-step">
+          <b><span class="minute">2:30</span>报告交付</b>
+          <span>展示 Markdown 审查报告、Trace、Checkpoint 和恢复轨迹。</span>
+        </div>
+      </div>
+    </div>
+    <div class="watermark">Demo input: software contract review · dynamic ACG · low-entropy communication</div>
+  </section>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const slideId = params.get("slide") || "1";
+    document.querySelectorAll(".slide").forEach((slide) => {
+      slide.classList.toggle("active", slide.dataset.id === slideId);
+    });
+  </script>
+</body>
+</html>

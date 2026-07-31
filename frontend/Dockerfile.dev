@@ -1,0 +1,26 @@
+ARG NODE_IMAGE=public.ecr.aws/docker/library/node:24.18.0-alpine3.23@sha256:595398b0081eacda8e1c4c5b97b76cd1020e4d58a8ebcb4843b9bca1e79e7436
+FROM ${NODE_IMAGE}
+
+WORKDIR /app
+
+RUN addgroup -g 10003 -S kinlin \
+    && adduser -S -D -H -u 10003 -G kinlin kinlin \
+    && mkdir -p /home/kinlin/.npm \
+    && chown -R 10003:10003 /app /home/kinlin
+
+ENV HOME=/home/kinlin
+
+COPY --chown=10003:10003 package*.json ./
+USER 10003:10003
+RUN npm ci
+RUN sha256sum package-lock.json | cut -d ' ' -f 1 > node_modules/.kinlin-package-lock.sha256
+
+COPY --chown=10003:10003 . .
+COPY --chown=10003:10003 --chmod=0755 docker-entrypoint-dev.sh /usr/local/bin/kinlin-frontend-dev-entrypoint
+
+ENV DEV_BACKEND_PROXY_TARGET=http://backend:8080
+
+EXPOSE 3000
+
+ENTRYPOINT ["/usr/local/bin/kinlin-frontend-dev-entrypoint"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

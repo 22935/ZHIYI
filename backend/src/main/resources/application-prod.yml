@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+app:
+  upload:
+    dir: /app/data/uploads
+
+ai:
+  internal:
+    required: true
+
+server:
+  forward-headers-strategy: framework
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    com.kinlin.ai: INFO
+    org.springframework.web: WARN
+    org.hibernate: WARN

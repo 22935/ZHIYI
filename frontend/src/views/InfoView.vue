@@ -1,3 +1,4 @@
+<!-- 信息导航中枢页面 — 以卡片形式提供知识库、角色管理、系统设置等快捷入口 -->
 <template>
   <div class="info-view">
     <el-card class="info-card">
@@ -53,9 +54,10 @@ import { Document, User, Setting } from '@element-plus/icons-vue'
 
 <style scoped lang="scss">
 .info-view {
-  padding: var(--spacing-xl);
-  background: var(--bg-color-page);
-  min-height: calc(100vh - 64px);
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--page-padding-y) var(--page-padding-x);
+  background: var(--bg-app);
 }
 
 .info-card {

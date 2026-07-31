@@ -1,3 +1,4 @@
+<!-- 语音录制器组件 — 按住录音按钮，含录制状态指示、实时 ASR 文字识别和松开后 Blob 输出 -->
 <template>
   <div class="voice-recorder">
     <el-button

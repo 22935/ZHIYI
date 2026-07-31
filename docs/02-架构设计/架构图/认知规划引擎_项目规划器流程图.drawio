@@ -1,0 +1,184 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.0 Chrome/140.0.7339.249 Electron/38.7.2 Safari/537.36" version="29.3.0">
+  <diagram id="cognitive-planner-acg" name="认知规划引擎流程图">
+    <mxGraphModel dx="2182" dy="1944" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1700" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;fontColor=#1f2937;" value="项目规划器：认知规划引擎生成 ACG 的流程" vertex="1">
+          <mxGeometry height="50" width="512" x="53" y="-54" as="geometry" />
+        </mxCell>
+        <mxCell id="start" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;" value="开始" vertex="1">
+          <mxGeometry height="60" width="100" x="90" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="input" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;spacing=10;" value="用户目标与任务上下文&lt;br&gt;&lt;font&gt;目标、偏好、业务场景、历史状态&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="200" x="40" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="environment" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;spacing=10;" value="执行环境建模&lt;br&gt;&lt;font&gt;智能体池、工具、资源、记忆、外部系统&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="200" x="40" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="policy" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;spacing=10;" value="运行约束输入&lt;br&gt;&lt;font&gt;预算、时延、权限、隐私、可靠性要求&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="200" x="40" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="engine_container" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#666666;arcSize=3;fontStyle=1;fontSize=16;fontColor=#111827;verticalAlign=top;spacingTop=12;" value="认知规划引擎（Workflow Engine 的认知决策核心）" vertex="1">
+          <mxGeometry height="771" width="871" x="300" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="intent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#e1f5fe;strokeColor=#0288d1;fontSize=14;spacing=8;" value="1. 目标解释与意图建模&lt;br&gt;&lt;font&gt;识别显式目标、隐式意图、成功标准&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="190" x="350" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="decompose" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#e1f5fe;strokeColor=#0288d1;fontSize=14;spacing=8;" value="2. 任务分解&lt;br&gt;&lt;font&gt;生成候选步骤、子目标与完成条件&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="190" x="610" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="dependency" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#e1f5fe;strokeColor=#0288d1;fontSize=14;spacing=8;" value="3. 依赖与状态推理&lt;br&gt;&lt;font&gt;确定前置条件、共享状态、冲突关系&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="190" x="905" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="agent_match" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#e8f5e9;strokeColor=#43a047;fontSize=14;spacing=8;" value="4. 智能体能力匹配&lt;br&gt;&lt;font&gt;选择参与者、角色、责任边界&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="190" x="350" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="topology" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#e8f5e9;strokeColor=#43a047;fontSize=14;spacing=8;" value="5. 协作拓扑构建&lt;br&gt;&lt;font&gt;建立智能体连接、监督关系与协商路径&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="190" x="590" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="sharing" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#e8f5e9;strokeColor=#43a047;fontSize=14;spacing=8;" value="6. 信息共享策略&lt;br&gt;&lt;font&gt;决定共享内容、粒度、时机与访问范围&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="190" x="830" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="cost" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#fff3e0;strokeColor=#fb8c00;fontSize=14;spacing=8;" value="7. 通信成本控制&lt;br&gt;&lt;font&gt;控制消息频率、上下文长度、同步/异步模式&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="190" x="350" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="constraints" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#fff3e0;strokeColor=#fb8c00;fontSize=14;spacing=8;" value="8. 运行约束编排&lt;br&gt;&lt;font&gt;预算、时延、权限、隐私、降级与回退&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="190" x="590" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="validate" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#fff3e0;strokeColor=#fb8c00;fontSize=14;spacing=8;" value="9. ACG 一致性校验&lt;br&gt;&lt;font&gt;检查可执行性、资源竞争、信息闭环与风险&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="190" x="830" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="valid_decision" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1;spacing=8;" value="ACG 是否满足&lt;br&gt;任务目标与运行约束？" vertex="1">
+          <mxGeometry height="130" width="230" x="610" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="acg_note" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=15;spacing=10;" value="输出不是传统 DAG&lt;br&gt;&lt;font&gt;DAG 只描述任务依赖；ACG 同时描述任务、智能体、连接、共享信息与运行约束。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="350" x="1230" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="acg_output" parent="1" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=15;fontStyle=1;spacing=10;" value="完整 ACG 蓝图&lt;br&gt;&lt;font&gt;• 节点：任务 / 智能体 / 工具 / 记忆 / 资源&lt;br&gt;• 边：控制流 / 数据流 / 通信流 / 协作关系&lt;br&gt;• 约束：预算 / 时延 / 权限 / 隐私 / 回退策略&lt;/font&gt;" vertex="1">
+          <mxGeometry height="190" width="370" x="1220" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="scheduler" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;spacing=10;" value="调度器接收蓝图&lt;br&gt;&lt;font&gt;生成执行队列、并发策略、资源分配方案&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="290" x="1260" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="executor" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;spacing=10;" value="执行器驱动群体协作&lt;br&gt;&lt;font&gt;智能体按 ACG 节点与边执行、通信、共享状态&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="290" x="1260" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="monitor" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=15;spacing=10;" value="运行监控与反馈&lt;br&gt;&lt;font&gt;进度、失败、成本漂移、上下文变化、智能体状态&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="330" x="1240" y="760" as="geometry" />
+        </mxCell>
+        <mxCell id="replan_decision" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1;spacing=8;" value="是否需要动态调整&lt;br&gt;群体结构或规划？" vertex="1">
+          <mxGeometry height="130" width="230" x="910" y="740" as="geometry" />
+        </mxCell>
+        <mxCell id="finish" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;" value="结束 / 交付结果" vertex="1">
+          <mxGeometry height="80" width="130" x="1364" y="877" as="geometry" />
+        </mxCell>
+        <mxCell id="e_start_input" edge="1" parent="1" source="start" style="endArrow=block;html=1;rounded=0;strokeColor=#4b5563;" target="input" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_input_env" edge="1" parent="1" source="input" style="endArrow=block;html=1;rounded=0;strokeColor=#4b5563;" target="environment" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_env_policy" edge="1" parent="1" source="environment" style="endArrow=block;html=1;rounded=0;strokeColor=#4b5563;" target="policy" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_policy_intent" edge="1" parent="1" source="policy" style="endArrow=block;html=1;rounded=1;strokeColor=#4b5563;fontSize=11;edgeStyle=orthogonalEdgeStyle;" target="intent" value="输入汇聚">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="498" />
+              <mxPoint x="280" y="252" />
+            </Array>
+            <mxPoint x="300" y="520" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_intent_decompose" edge="1" parent="1" source="intent" style="endArrow=block;html=1;rounded=0;strokeColor=#0288d1;" target="decompose" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_decompose_dependency" edge="1" parent="1" source="decompose" style="endArrow=block;html=1;rounded=0;strokeColor=#0288d1;" target="dependency" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_dependency_agent" edge="1" parent="1" source="dependency" style="endArrow=block;html=1;rounded=1;strokeColor=#43a047;edgeStyle=orthogonalEdgeStyle;" target="agent_match" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1000" y="305" />
+              <mxPoint x="445" y="305" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_agent_topology" edge="1" parent="1" source="agent_match" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;" target="topology" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_topology_sharing" edge="1" parent="1" source="topology" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;" target="sharing" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sharing_cost" edge="1" parent="1" source="sharing" style="endArrow=block;html=1;rounded=1;strokeColor=#fb8c00;" target="cost" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="925" y="455" />
+              <mxPoint x="445" y="455" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_cost_constraints" edge="1" parent="1" source="cost" style="endArrow=block;html=1;rounded=0;strokeColor=#fb8c00;" target="constraints" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_constraints_validate" edge="1" parent="1" source="constraints" style="endArrow=block;html=1;rounded=0;strokeColor=#fb8c00;" target="validate" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_validate_decision" edge="1" parent="1" source="validate" style="endArrow=block;html=1;rounded=0;strokeColor=#d6b656;edgeStyle=orthogonalEdgeStyle;jumpSize=6;" target="valid_decision" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_decision_rework" edge="1" parent="1" source="valid_decision" style="endArrow=block;html=1;rounded=1;strokeColor=#b85450;fontSize=11;" target="intent" value="否：修正规划">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="725" y="850" />
+              <mxPoint x="320" y="850" />
+              <mxPoint x="320" y="230" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_decision_output" edge="1" parent="1" source="valid_decision" style="endArrow=block;html=1;rounded=1;strokeColor=#9673a6;fontSize=11;" target="acg_output" value="是：发布蓝图">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1060" y="715" />
+              <mxPoint x="1060" y="325" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_note_output" edge="1" parent="1" source="acg_note" style="endArrow=none;html=1;rounded=0;dashed=1;strokeColor=#d79b00;fontSize=15;" target="acg_output" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_output_scheduler" edge="1" parent="1" source="acg_output" style="endArrow=block;html=1;rounded=0;strokeColor=#6c8ebf;exitX=0.501;exitY=0.857;exitDx=0;exitDy=0;exitPerimeter=0;fontSize=15;" target="scheduler" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1405" y="403" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_scheduler_executor" edge="1" parent="1" source="scheduler" style="endArrow=block;html=1;rounded=0;strokeColor=#6c8ebf;fontSize=15;" target="executor" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_executor_monitor" edge="1" parent="1" source="executor" style="endArrow=block;html=1;rounded=0;strokeColor=#b85450;fontSize=15;" target="monitor" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_monitor_replan" edge="1" parent="1" source="monitor" style="endArrow=block;html=1;rounded=0;strokeColor=#b85450;fontSize=11;" target="replan_decision" value="反馈信号">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_replan_yes" edge="1" parent="1" source="replan_decision" style="endArrow=block;html=1;rounded=1;strokeColor=#b85450;fontSize=11;" target="environment" value="是：更新状态并重规划">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1025" y="920" />
+              <mxPoint x="260" y="920" />
+              <mxPoint x="260" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_replan_no" edge="1" parent="1" source="replan_decision" style="endArrow=block;html=1;rounded=1;strokeColor=#82b366;fontSize=11;edgeStyle=orthogonalEdgeStyle;" target="finish" value="否">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1025" y="919" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

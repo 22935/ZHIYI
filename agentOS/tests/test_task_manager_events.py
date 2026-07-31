@@ -41,6 +41,7 @@ def _workflow_registry() -> WorkflowRegistry:
             name="Legal Contract Review",
             domain="legal",
             intent="contract_review",
+            runtimeEngine="acg",
             steps=[
                 WorkflowStepDefinition(
                     stepId="risk",
@@ -128,6 +129,7 @@ async def test_runtime_uses_state_machine_for_review_wait_and_approval_flow():
     assert approved.steps[0].status == StepStatus.COMPLETED
     assert [event.event_type for event in trace_store.task_events(task.task_id)] == [
         TraceEventType.TASK_CREATED,
+        TraceEventType.TASK_STATUS_CHANGED,
         TraceEventType.TASK_STATUS_CHANGED,
         TraceEventType.TASK_STATUS_CHANGED,
         TraceEventType.TASK_STATUS_CHANGED,

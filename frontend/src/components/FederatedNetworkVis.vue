@@ -1,3 +1,4 @@
+<!-- 联邦网络拓扑可视化组件 — 星空、能量场、神经线程和中心节点的动效空间可视化 -->
 <template>
   <div class="federated-network-vis" :class="theme" ref="container">
     <!-- 极深邃背景 -->
@@ -75,14 +76,14 @@ const getThreadStyle = (i: number) => {
 
 <style scoped lang="scss">
 .federated-network-vis {
-  --nexus-color: #6366f1;
+  --nexus-color: var(--primary-color);
   --nexus-glow: rgba(99, 102, 241, 0.4);
   --node-color: #10b981;
   --bg-spatial: radial-gradient(circle at center, #0d111a 0%, #05070a 100%);
   --glass-heavy: rgba(255, 255, 255, 0.05);
   
   &.light {
-    --nexus-color: #4f46e5;
+    --nexus-color: var(--primary-color);
     --nexus-glow: rgba(79, 70, 229, 0.15);
     --node-color: #059669;
     --bg-spatial: linear-gradient(135deg, #f0f4ff 0%, #fcfdfe 50%, #f5f7ff 100%);

@@ -1,3 +1,4 @@
+<!-- 合同风险面板 — 列出已识别合同风险项，含标题、严重等级、条款引用、原因、后果、建议和关联证据 -->
 <template>
   <section class="contract-risk-panel ui-surface ui-surface--pad">
     <div class="section-head">
@@ -138,7 +139,7 @@ strong {
 .clause {
   padding: 8px;
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--text-primary);
 }
 

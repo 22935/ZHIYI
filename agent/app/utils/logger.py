@@ -1,80 +1,89 @@
-"""
-日志工具 - 统一日志格式和配置
-"""
+"""Central logging configuration with production JSON and mandatory redaction."""
+from __future__ import annotations
+
+import json
 import logging
+import re
 import sys
-from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
-# 统一的日志格式
-CONSOLE_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-FILE_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
-DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+from app.observability.context import current_task_id, current_trace_id, current_workflow_id
 
-# 全局logger实例
-_global_logger = None
+_configured_mode: str | None = None
+_REDACTIONS = (
+    re.compile(r"(?i)(authorization|cookie|x-internal-service-token|api[-_ ]?key|password)\s*[:=]\s*[^\s,;]+"),
+    re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]+"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b"),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b"),
+)
 
-def setup_logger(name: str = "federal_hub", log_file: str = "logs/federal_hub.log", level: int = logging.INFO):
-    """
-    设置统一的日志记录器
-    
-    Args:
-        name: 日志记录器名称
-        log_file: 日志文件路径
-        level: 日志级别
-    """
-    global _global_logger
-    
-    # 如果已经创建过全局logger，直接返回
-    if _global_logger is not None:
-        return _global_logger
-    
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)  # logger本身设置为DEBUG，由handler控制输出级别
-    
-    # 避免重复添加handler
-    if logger.handlers:
-        _global_logger = logger
-        return logger
-    
-    # 创建日志目录
-    log_path = Path(log_file)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    # 文件handler - 记录所有级别的日志
-    file_handler = logging.FileHandler(log_file, encoding='utf-8')
-    file_handler.setLevel(logging.DEBUG)
-    file_formatter = logging.Formatter(FILE_FORMAT, datefmt=DATE_FORMAT)
-    file_handler.setFormatter(file_formatter)
-    
-    # 控制台handler - 只显示INFO及以上级别
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(level)
-    console_formatter = logging.Formatter(CONSOLE_FORMAT, datefmt=DATE_FORMAT)
-    console_handler.setFormatter(console_formatter)
-    
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    
-    # 防止日志传播到根logger
-    logger.propagate = False
-    
-    _global_logger = logger
-    return logger
 
-def get_logger(name: str = None):
-    """
-    获取logger实例，如果未初始化则先初始化
-    
-    Args:
-        name: 日志记录器名称，如果为None则使用默认名称
-    """
-    if _global_logger is None:
-        return setup_logger(name or "federal_hub")
-    
-    if name:
-        # 返回子logger，继承全局logger的配置
-        return logging.getLogger(f"federal_hub.{name}")
-    
-    return _global_logger
+def redact(value: str) -> str:
+    result = value
+    for pattern in _REDACTIONS:
+        result = pattern.sub("[REDACTED]", result)
+    return result
 
+
+class RedactingTextFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        record.trace_id = current_trace_id() or "no-trace"
+        record.workflow_id = current_workflow_id() or "-"
+        record.task_id = current_task_id() or "-"
+        return redact(super().format(record))
+
+
+class KinlinJsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        exception = self.formatException(record.exc_info) if record.exc_info else ""
+        payload = {
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "level": record.levelname,
+            "service": "kinlin-ai-service",
+            "trace_id": current_trace_id(),
+            "workflow_id": current_workflow_id(),
+            "task_id": current_task_id(),
+            "message": redact(record.getMessage()),
+            "exception": redact(exception),
+            "logger": record.name,
+        }
+        for field in ("http_method", "path", "status", "duration_ms", "user_id", "upstream_status"):
+            value = getattr(record, field, None)
+            if value is not None:
+                payload[field] = value
+        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def configure_logging(*, json_format: bool, level: int = logging.INFO) -> None:
+    global _configured_mode
+    mode = "json" if json_format else "text"
+    if _configured_mode == mode:
+        return
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(level)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+    if json_format:
+        handler.setFormatter(KinlinJsonFormatter())
+    else:
+        handler.setFormatter(RedactingTextFormatter(
+            "%(asctime)s - %(levelname)s - [%(trace_id)s] [%(workflow_id)s/%(task_id)s] [%(name)s] - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        ))
+    root.addHandler(handler)
+    for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(logger_name)
+        uvicorn_logger.handlers.clear()
+        uvicorn_logger.propagate = True
+    _configured_mode = mode
+
+
+def setup_logger(name: str = "federal_hub", log_file: str = "", level: int = logging.INFO):
+    if _configured_mode is None:
+        configure_logging(json_format=False, level=level)
+    return logging.getLogger(name)
+
+
+def get_logger(name: str | None = None):
+    return logging.getLogger(f"federal_hub.{name}" if name else "federal_hub")

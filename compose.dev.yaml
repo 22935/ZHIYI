@@ -1,0 +1,53 @@
+services:
+  ai-service:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile.dev
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "true"
+      SSE_TEST_MODE: ${KINLIN_SSE_TEST_MODE:-false}
+      SSE_HEARTBEAT_INTERVAL: ${SSE_HEARTBEAT_INTERVAL:-15}
+    volumes:
+      - ./agent/app:/app/app
+      - ./agent/packs:/app/packs
+      - ./agent/knowledge:/app/knowledge
+      - ./agent/requirements.lock:/app/requirements.lock:ro
+      - ./agent/requirements.tools.lock:/app/requirements.tools.lock:ro
+      - ./agentOS/src:/app/agentOS/src
+      - ./backend/src:/app/workspace/backend/src:ro
+      - ./frontend/src:/app/workspace/frontend/src:ro
+      - ./agent/app:/app/workspace/agent/app:ro
+      - ./agent/packs:/app/workspace/agent/packs:ro
+      - ./agentOS/src:/app/workspace/agentOS/src:ro
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--reload"]
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    environment:
+      KINLIN_SPRING_PROFILE: compose
+      SPRING_PROFILES_ACTIVE: compose
+      KINLIN_DEV_MODE: "true"
+      SSE_IDLE_TIMEOUT: ${SSE_IDLE_TIMEOUT:-240000}
+      SSE_MAX_DURATION: ${SSE_MAX_DURATION:-1800000}
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/pom.xml:/app/pom.xml
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "127.0.0.1:${KINLIN_DEV_PORT:-3000}:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/package.json:/app/package.json:ro
+      - ./frontend/package-lock.json:/app/package-lock.json:ro
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/vite.config.ts:/app/vite.config.ts:ro
+      - ./frontend/tsconfig.json:/app/tsconfig.json:ro
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]

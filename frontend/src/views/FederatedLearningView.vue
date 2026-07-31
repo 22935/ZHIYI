@@ -1,3 +1,4 @@
+<!-- 联邦学习系统页面 — 分布式智能协作平台，含系统状态、训练轮次、演示和重置功能 -->
 <template>
   <div class="federated-learning-view">
     <div class="ambient-layer">
@@ -667,7 +668,7 @@ onMounted(async () => {
 <style scoped>
 .federated-learning-view {
   --primary: var(--primary-color, #3f6b63);
-  --primary-light: #5d817a;
+  --primary-light: var(--primary-hover);
   --primary-bg: var(--primary-fade, rgba(63, 107, 99, 0.1));
   --primary-border: var(--border-light, #e3e6df);
   --cyan: var(--accent-color, #6f668f);
@@ -677,7 +678,7 @@ onMounted(async () => {
   --green-dark: var(--success, #3d7656);
   --pink: var(--warning, #9a7432);
   --amber: var(--warning, #9a7432);
-  --surface: #ffffff;
+  --surface: var(--bg-card);
   --surface-alt: var(--bg-input, #f1f3ef);
   --border: var(--border-light, #e3e6df);
   --border-hover: var(--border-hover, #cfd6cd);
@@ -701,9 +702,10 @@ onMounted(async () => {
   --gap-lg: 24px;
   --gap-xl: 32px;
 
-  min-height: 100vh;
+  height: 100%;
   background: transparent;
   position: relative;
+  overflow-y: auto;
   overflow-x: hidden;
 }
 
@@ -776,7 +778,7 @@ onMounted(async () => {
   padding: 20px 24px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.82);
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
   box-shadow: var(--shadow-sm);
   backdrop-filter: var(--backdrop-blur, blur(20px));
 }
@@ -792,7 +794,7 @@ onMounted(async () => {
   height: 48px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--primary);
   display: flex;
   align-items: center;
@@ -1038,7 +1040,7 @@ onMounted(async () => {
 }
 
 .panel-card {
-  background: rgba(255, 255, 255, 0.86);
+  background: color-mix(in srgb, var(--bg-card) 86%, transparent);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
@@ -1060,7 +1062,7 @@ onMounted(async () => {
   align-items: center;
   padding: var(--gap-md) 20px;
   border-bottom: 1px solid var(--border);
-  background: rgba(251, 252, 250, 0.92);
+  background: var(--bg-panel);
   flex-shrink: 0;
 }
 
@@ -1138,7 +1140,7 @@ onMounted(async () => {
   border-radius: var(--radius-sm);
   font-size: 12px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-base);
@@ -1235,7 +1237,7 @@ onMounted(async () => {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: linear-gradient(180deg, #fff, var(--bg-input, #f1f3ef));
+  background: linear-gradient(180deg, var(--bg-card), var(--bg-input));
 }
 
 .privacy-flow span {
@@ -1244,7 +1246,7 @@ onMounted(async () => {
   min-height: 58px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--primary);
   font-family: var(--font-mono, monospace);
   font-size: 12px;
@@ -1276,7 +1278,7 @@ onMounted(async () => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #cbd5e1;
+  background: var(--border-light);
   flex-shrink: 0;
   transition: all var(--transition-base);
 }
@@ -1325,7 +1327,7 @@ onMounted(async () => {
 .model-item:hover {
   border-color: var(--border-hover);
   box-shadow: var(--shadow-sm);
-  background: #fff;
+  background: var(--surface-solid);
 }
 
 .model-head {
@@ -1343,7 +1345,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--primary);
   flex-shrink: 0;
 }
@@ -1413,7 +1415,7 @@ onMounted(async () => {
 
 .perf-label {
   width: 32px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 10px;
   flex-shrink: 0;
   font-weight: 500;
@@ -1422,7 +1424,7 @@ onMounted(async () => {
 .perf-bar {
   flex: 1;
   height: 4px;
-  background: #fff;
+  background: var(--surface-solid);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -1437,7 +1439,7 @@ onMounted(async () => {
   width: 30px;
   text-align: right;
   font-weight: 600;
-  color: #475569;
+  color: var(--text-regular);
   font-size: 10px;
   flex-shrink: 0;
 }
@@ -1461,7 +1463,7 @@ onMounted(async () => {
 }
 
 .model-btn:hover {
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--primary);
   border-color: var(--border-hover);
 }
@@ -1511,7 +1513,7 @@ onMounted(async () => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #cbd5e1;
+  background: var(--border-light);
   border: 2px solid var(--surface);
   transition: all var(--transition-base);
 }
@@ -1590,7 +1592,7 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: var(--gap-md) 20px;
-  background: rgba(251, 252, 250, 0.96);
+  background: var(--bg-panel);
   color: var(--text-primary);
   border-bottom: 1px solid var(--border);
 }
@@ -1602,7 +1604,7 @@ onMounted(async () => {
 }
 
 .close-btn {
-  background: #fff;
+  background: var(--surface-solid);
   border: 1px solid var(--border);
   color: var(--text-muted);
   width: 28px;
@@ -1926,7 +1928,7 @@ onMounted(async () => {
 }
 
 .task-progress-fill.paused {
-  background: linear-gradient(90deg, var(--amber), #fbbf24);
+  background: linear-gradient(90deg, var(--amber), var(--warning));
 }
 
 .task-progress-fill.completed {
@@ -1934,7 +1936,7 @@ onMounted(async () => {
 }
 
 .task-progress-fill.failed {
-  background: linear-gradient(90deg, #ef4444, #fca5a5);
+  background: linear-gradient(90deg, var(--danger), var(--danger-fade));
 }
 
 .task-progress-text {

@@ -406,16 +406,26 @@ class CodeIndexBuilder:
         if not text:
             return 0.0
         lowered = text.lower()
-        hits = sum(1 for token in tokens if token and token in lowered)
         if not tokens:
             return 0.0
-        return float(hits) / float(len(tokens))
+        weights = [3.0 if re.fullmatch(r"[a-z0-9_./-]+", token) else 1.0 for token in tokens]
+        matched = sum(
+            weight
+            for token, weight in zip(tokens, weights)
+            if token and token in lowered
+        )
+        return matched / sum(weights)
 
     def _tokenize(self, text: str) -> List[str]:
         tokens = re.findall(r"[a-z0-9_./-]+|[\u4e00-\u9fff]+", (text or "").lower())
         return [token for token in tokens if token]
 
-    def build_code_index(self, root_path: Optional[str] = None) -> Dict[str, Any]:
+    def build_code_index(
+        self,
+        root_path: Optional[str] = None,
+        *,
+        enable_vectors: bool = True,
+    ) -> Dict[str, Any]:
         root = self._normalize_path(root_path)
         if not root.exists():
             return {
@@ -492,9 +502,10 @@ class CodeIndexBuilder:
         for doc_key in delete_doc_keys:
             docs_cache.pop(doc_key, None)
 
-        if upsert_docs and chroma_client.is_available():
+        vector_enabled = enable_vectors and chroma_client.is_available()
+        if upsert_docs and vector_enabled:
             chroma_client.add_documents(self.CODE_COLLECTION, upsert_docs)
-        if delete_ids:
+        if delete_ids and vector_enabled:
             self._delete_ids(delete_ids)
 
         new_manifest = {
@@ -512,11 +523,17 @@ class CodeIndexBuilder:
             "indexed_docs": len(upsert_docs),
             "deleted_docs": len(delete_ids),
             "total_files": len(updated_files),
-            "vector_enabled": chroma_client.is_available(),
+            "vector_enabled": vector_enabled,
         }
 
-    def search_code(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        if chroma_client.is_available():
+    def search_code(
+        self,
+        query: str,
+        top_k: int = 5,
+        *,
+        prefer_vectors: bool = True,
+    ) -> List[Dict[str, Any]]:
+        if prefer_vectors and chroma_client.is_available():
             try:
                 rows = chroma_client.query(self.CODE_COLLECTION, query_text=query, top_k=top_k)
                 if rows:
@@ -558,9 +575,25 @@ class CodeIndexBuilder:
 code_index_builder = CodeIndexBuilder()
 
 
-def build_code_index(root_path: Optional[str] = None) -> Dict[str, Any]:
-    return code_index_builder.build_code_index(root_path=root_path)
+def build_code_index(
+    root_path: Optional[str] = None,
+    *,
+    enable_vectors: bool = True,
+) -> Dict[str, Any]:
+    return code_index_builder.build_code_index(
+        root_path=root_path,
+        enable_vectors=enable_vectors,
+    )
 
 
-def search_code(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-    return code_index_builder.search_code(query=query, top_k=top_k)
+def search_code(
+    query: str,
+    top_k: int = 5,
+    *,
+    prefer_vectors: bool = True,
+) -> List[Dict[str, Any]]:
+    return code_index_builder.search_code(
+        query=query,
+        top_k=top_k,
+        prefer_vectors=prefer_vectors,
+    )

@@ -1,3 +1,4 @@
+<!-- 题目推送列表 — 错因归因和题目推送，含知识缺口标签、分析摘要和推荐练习题列表 -->
 <template>
   <section class="card push-card">
     <header class="card-head">
@@ -77,7 +78,7 @@ const difficultyClass = (difficulty?: string) => {
 .card {
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface-solid);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -110,7 +111,7 @@ const difficultyClass = (difficulty?: string) => {
 .count {
   font-size: 12px;
   color: #059669;
-  background: #ecfdf5;
+  background: var(--success-fade);
   border: 1px solid #a7f3d0;
   border-radius: 999px;
   padding: 3px 10px;
@@ -139,7 +140,7 @@ const difficultyClass = (difficulty?: string) => {
   font-size: 11px;
   padding: 3px 10px;
   border-radius: 999px;
-  background: #fef3c7;
+  background: var(--warning-fade);
   color: #92400e;
   border: 1px solid #fcd34d;
   font-weight: 500;
@@ -150,7 +151,7 @@ const difficultyClass = (difficulty?: string) => {
   font-size: 13px;
   line-height: 1.6;
   padding: 8px 10px;
-  background: #fffbeb;
+  background: var(--warning-fade);
   border-radius: 8px;
   border-left: 3px solid #d97706;
 }
@@ -163,7 +164,7 @@ const difficultyClass = (difficulty?: string) => {
 
 .question-item {
   border: 1px solid #d1fae5;
-  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  background: linear-gradient(135deg, var(--success-fade), var(--success-fade));
   border-radius: 10px;
   padding: 10px 12px;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -185,7 +186,7 @@ const difficultyClass = (difficulty?: string) => {
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  background: #059669;
+  background: var(--success);
   color: #fff;
   display: flex;
   align-items: center;
@@ -202,17 +203,17 @@ const difficultyClass = (difficulty?: string) => {
 }
 
 .q-difficulty.easy {
-  background: #dcfce7;
+  background: var(--success-fade);
   color: #166534;
 }
 
 .q-difficulty.medium {
-  background: #fef3c7;
+  background: var(--warning-fade);
   color: #92400e;
 }
 
 .q-difficulty.hard {
-  background: #fee2e2;
+  background: var(--danger-fade);
   color: #b91c1c;
 }
 
@@ -237,12 +238,12 @@ const difficultyClass = (difficulty?: string) => {
 }
 
 .type-tag {
-  background: #e0e7ff;
+  background: var(--accent-fade);
   color: #3730a3;
 }
 
 .subject-tag {
-  background: #f0fdf4;
+  background: var(--success-fade);
   color: #047857;
 }
 

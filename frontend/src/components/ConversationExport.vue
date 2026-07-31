@@ -1,3 +1,4 @@
+<!-- 对话导出对话框 — 支持将对话导出为 JSON / TXT / CSV / Markdown 格式 -->
 <template>
   <el-dialog
     v-model="visible"

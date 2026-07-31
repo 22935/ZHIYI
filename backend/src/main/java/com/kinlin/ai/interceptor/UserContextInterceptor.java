@@ -29,17 +29,6 @@ public class UserContextInterceptor implements HandlerInterceptor {
                 .orElseGet(() -> (UUID) request.getAttribute("userId"));
         if (authenticatedUserId != null) {
             USER_ID_CONTEXT.set(authenticatedUserId);
-            return true;
-        }
-
-        String userIdHeader = request.getHeader("X-User-Id");
-        if (userIdHeader != null && !userIdHeader.isEmpty()) {
-            try {
-                UUID userId = UUID.fromString(userIdHeader);
-                USER_ID_CONTEXT.set(userId);
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid user ID in header: {}", userIdHeader);
-            }
         }
         return true;
     }
