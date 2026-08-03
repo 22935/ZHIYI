@@ -191,6 +191,7 @@ import { computed, ref } from 'vue'
 import { ArrowDown, Cpu, Document, Link, CopyDocument, ChatLineSquare, Delete, Microphone, Download, FullScreen } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ImageViewer from '@/components/common/ImageViewer.vue'
+import { renderMarkdown } from '@/utils/markdown'
 
 interface Source {
   title?: string
@@ -372,7 +373,7 @@ const markdownToHtml = (raw: string) => {
 const renderedMessageHtml = computed(() => {
   const content = props.message.content || ''
   if (!content) return ''
-  if (props.message.role === 'assistant') return markdownToHtml(content)
+  if (props.message.role === 'assistant') return renderMarkdown(content)
   return escapeHtml(content).replace(/\n/g, '<br />')
 })
 
@@ -730,6 +731,53 @@ const formatTime = (date: Date) => {
   color: var(--primary-color);
   text-decoration: underline;
   word-break: break-all;
+}
+
+.message-text.markdown-body :deep(.markdown-table-wrap) {
+  width: 100%;
+  margin: 14px 0 18px;
+  overflow-x: auto;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.message-text.markdown-body :deep(table) {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.message-text.markdown-body :deep(th),
+.message-text.markdown-body :deep(td) {
+  padding: 10px 12px;
+  border-right: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.message-text.markdown-body :deep(th:last-child),
+.message-text.markdown-body :deep(td:last-child) {
+  border-right: 0;
+}
+
+.message-text.markdown-body :deep(tbody tr:last-child td) {
+  border-bottom: 0;
+}
+
+.message-text.markdown-body :deep(th) {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.message-text.markdown-body :deep(tbody tr:nth-child(even)) {
+  background: color-mix(in srgb, var(--bg-input) 46%, transparent);
 }
 
 /* Inline thinking status — compact, borderless and theme-token driven */

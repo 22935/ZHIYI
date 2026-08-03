@@ -2,13 +2,13 @@
 <template>
   <div class="role-view">
     <!-- 页面头部 -->
-    <div class="page-header">
+    <div class="page-header workspace-page-header">
       <!-- <button class="back-btn" @click="handleBack" title="返回">
         <el-icon><ArrowLeft /></el-icon>
       </button> -->
       <div class="header-inner">
         <div class="header-left">
-          <div class="header-icon-wrapper">
+          <div class="header-icon-wrapper workspace-page-header__icon">
             <el-icon class="header-icon"><UserFilled /></el-icon>
           </div>
           <div class="header-text">

@@ -1,4 +1,14 @@
 id: programmer
-name: Programmer Pack
+name: 程序员能力包
 version: 0.1.0
-description: Programmer workflow pack scaffold.
+module: packs.programmer
+description: 需求分析、代码库检索、代码生成与架构图能力。
+contributions:
+  agents:
+    - requirement_analysis
+    - codebase_search
+    - code_generation
+    - diagram_generation
+  workflows:
+    - programmer_requirement_analysis_v1
+  capabilities: []

@@ -525,6 +525,7 @@ def test_async_start_returns_before_planner_and_is_idempotent():
         first = response.json()
         assert first["accepted"] is True
         assert first["run"]["runId"]
+        assert first["acgTaskId"] == first["run"]["runId"]
         assert "idempotencyKey" not in first["run"]
         assert first["run"]["status"] in {"pending", "running"}
         assert first["run"]["lifecyclePhase"] in {"understanding", "planning"}
@@ -539,6 +540,7 @@ def test_async_start_returns_before_planner_and_is_idempotent():
         second = duplicate.json()
         assert second["task"]["taskId"] == first["task"]["taskId"]
         assert second["run"]["runId"] == first["run"]["runId"]
+        assert second["acgTaskId"] == first["acgTaskId"]
         assert calls == 1
 
         conflict = client.post(

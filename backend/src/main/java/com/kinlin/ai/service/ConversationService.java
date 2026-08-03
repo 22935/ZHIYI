@@ -29,6 +29,17 @@ public class ConversationService {
     @Transactional
     public List<Conversation> getUserConversations(UUID userId) {
         List<Conversation> conversations = conversationRepository.findRecentConversationsByUserId(userId);
+        return hydrateConversationPreviews(conversations);
+    }
+
+    @Transactional
+    public List<Conversation> getUserConversations(UUID userId, String workspaceMode) {
+        List<Conversation> conversations = conversationRepository
+                .findRecentConversationsByUserIdAndWorkspaceMode(userId, normalizeWorkspaceMode(workspaceMode));
+        return hydrateConversationPreviews(conversations);
+    }
+
+    private List<Conversation> hydrateConversationPreviews(List<Conversation> conversations) {
         // 为每个对话自动生成标题（如果还没有）
         conversations.forEach(conv -> {
             String preview = getPreviewContent(conv.getId());
@@ -44,6 +55,10 @@ public class ConversationService {
             }
         });
         return conversations;
+    }
+
+    private String normalizeWorkspaceMode(String workspaceMode) {
+        return "agent".equalsIgnoreCase(workspaceMode) ? "agent" : "chat";
     }
 
     /**
@@ -157,6 +172,17 @@ public class ConversationService {
     @Transactional
     public void deleteAllConversations(UUID userId) {
         List<Conversation> conversations = conversationRepository.findByUserId(userId);
+        deleteConversations(conversations);
+    }
+
+    @Transactional
+    public void deleteAllConversations(UUID userId, String workspaceMode) {
+        List<Conversation> conversations = conversationRepository
+                .findRecentConversationsByUserIdAndWorkspaceMode(userId, normalizeWorkspaceMode(workspaceMode));
+        deleteConversations(conversations);
+    }
+
+    private void deleteConversations(List<Conversation> conversations) {
         // 删除所有相关的消息
         for (Conversation conversation : conversations) {
             List<Message> messages = messageRepository.findByConversationIdOrderByCreatedAtAsc(conversation.getId());

@@ -34,12 +34,14 @@ public class ChatStreamPersistenceService {
         Map<String, Object> body = new LinkedHashMap<>(requestBody == null ? Map.of() : requestBody);
         String text = stringValue(body.get("text"));
         String contextId = stringValue(body.get("context_id"));
+        String workspaceMode = normalizeWorkspaceMode(body.get("workspace_mode"));
         UUID roleId = uuidValue(body.get("role_id"));
 
         Conversation conversation = contextId.isBlank()
-                ? createConversation(userId, roleId, text)
+                ? createConversation(userId, roleId, text, workspaceMode)
                 : conversationRepository.findByContextId(contextId)
-                        .orElseGet(() -> createConversation(userId, roleId, text, contextId));
+                        .filter(item -> workspaceMode.equals(item.getWorkspaceMode()))
+                        .orElseGet(() -> createConversation(userId, roleId, text, workspaceMode));
 
         Message userMessage = new Message();
         userMessage.setConversationId(conversation.getId());
@@ -73,17 +75,22 @@ public class ChatStreamPersistenceService {
         messageRepository.save(assistantMessage);
     }
 
-    private Conversation createConversation(UUID userId, UUID roleId, String text) {
-        return createConversation(userId, roleId, text, "ctx_" + UUID.randomUUID());
+    private Conversation createConversation(UUID userId, UUID roleId, String text, String workspaceMode) {
+        return createConversation(userId, roleId, text, "ctx_" + UUID.randomUUID(), workspaceMode);
     }
 
-    private Conversation createConversation(UUID userId, UUID roleId, String text, String contextId) {
+    private Conversation createConversation(UUID userId, UUID roleId, String text, String contextId, String workspaceMode) {
         Conversation conversation = new Conversation();
         conversation.setUserId(userId);
         conversation.setRoleId(roleId);
         conversation.setContextId(contextId);
         conversation.setTitle(text.length() > 50 ? text.substring(0, 50) + "..." : text);
+        conversation.setWorkspaceMode(workspaceMode);
         return conversationRepository.save(conversation);
+    }
+
+    private String normalizeWorkspaceMode(Object value) {
+        return "agent".equalsIgnoreCase(stringValue(value)) ? "agent" : "chat";
     }
 
     private List<Map<String, String>> buildContext(UUID conversationId) {

@@ -34,6 +34,9 @@ public class Conversation {
     @Column(name = "title", length = 200)
     private String title; // 对话标题
 
+    @Column(name = "workspace_mode", nullable = false, length = 16)
+    private String workspaceMode = "chat";
+
     @Transient
     private String preview;
 

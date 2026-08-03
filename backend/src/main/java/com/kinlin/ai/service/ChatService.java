@@ -41,7 +41,8 @@ public class ChatService {
         Conversation conversation = getOrCreateConversation(
                 request.getContextId(),
                 userId,
-                request.getRoleId()
+                request.getRoleId(),
+                request.getWorkspaceMode()
         );
 
         // 保存用户消息
@@ -180,23 +181,30 @@ public class ChatService {
     /**
      * 获取或创建对话
      */
-    private Conversation getOrCreateConversation(String contextId, UUID userId, UUID roleId) {
+    private Conversation getOrCreateConversation(String contextId, UUID userId, UUID roleId, String workspaceMode) {
+        String normalizedWorkspaceMode = normalizeWorkspaceMode(workspaceMode);
         if (contextId != null && !contextId.isEmpty()) {
             return conversationRepository.findByContextId(contextId)
-                    .orElseGet(() -> createNewConversation(userId, roleId));
+                    .filter(conversation -> normalizedWorkspaceMode.equals(conversation.getWorkspaceMode()))
+                    .orElseGet(() -> createNewConversation(userId, roleId, normalizedWorkspaceMode));
         }
-        return createNewConversation(userId, roleId);
+        return createNewConversation(userId, roleId, normalizedWorkspaceMode);
     }
 
     /**
      * 创建新对话
      */
-    private Conversation createNewConversation(UUID userId, UUID roleId) {
+    private Conversation createNewConversation(UUID userId, UUID roleId, String workspaceMode) {
         Conversation conversation = new Conversation();
         conversation.setUserId(userId);
         conversation.setRoleId(roleId);
         conversation.setContextId(UUID.randomUUID().toString());
+        conversation.setWorkspaceMode(workspaceMode);
         return conversationRepository.save(conversation);
+    }
+
+    private String normalizeWorkspaceMode(String workspaceMode) {
+        return "agent".equalsIgnoreCase(workspaceMode) ? "agent" : "chat";
     }
 
     /**

@@ -1245,6 +1245,8 @@ html[data-color-scheme='codex-dark'] .el-overlay {
   width: 100% !important;
   max-width: none !important;
   margin: 0 !important;
+  padding: 12px !important;
+  box-sizing: border-box !important;
 }
 
 .settings-view .page-header,
@@ -1398,3 +1400,145 @@ html[data-color-scheme='codex-dark'] .agent-panel .skill-panel .results-tab .el-
   color: var(--text-regular);
   border-color: var(--border-color);
 }
+
+/* Compact page toolbar shared by Knowledge and History workspaces. */
+.rag-view,
+.history-view,
+.role-view {
+  box-sizing: border-box !important;
+  padding: 12px !important;
+  gap: 12px !important;
+}
+
+.rag-view {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.rag-view .workspace-page-header,
+.history-view .workspace-page-header,
+.role-view .workspace-page-header {
+  box-sizing: border-box !important;
+  min-height: 50px !important;
+  padding: 7px 12px !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 8px !important;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.rag-view .workspace-page-header__icon,
+.history-view .workspace-page-header__icon,
+.role-view .workspace-page-header__icon {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--border-light) !important;
+  background: var(--surface-solid) !important;
+  box-shadow: none !important;
+}
+
+.rag-view .workspace-page-header__icon .header-icon,
+.history-view .workspace-page-header__icon .header-icon,
+.role-view .workspace-page-header__icon .header-icon {
+  font-size: 15px !important;
+}
+
+.rag-view .workspace-page-header .page-title,
+.history-view .workspace-page-header .page-title,
+.role-view .workspace-page-header .page-title {
+  margin: 0 !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+}
+
+.rag-view .workspace-page-header .page-subtitle,
+.history-view .workspace-page-header .page-subtitle,
+.role-view .workspace-page-header .page-subtitle {
+  display: none !important;
+}
+
+.rag-view .page-content,
+.history-view .page-content,
+.role-view .page-content {
+  padding: 0 !important;
+}
+
+.rag-view .content-inner,
+.history-view .content-inner,
+.role-view .content-inner {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.rag-view .tabs-nav,
+.history-view .tabs-nav {
+  margin-bottom: 8px !important;
+}
+
+.role-view .create-button {
+  height: 30px !important;
+  padding: 0 11px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  box-shadow: none !important;
+}
+
+.role-view .role-section {
+  margin-bottom: 18px !important;
+}
+
+.role-view .section-header {
+  gap: 7px !important;
+  margin-bottom: 8px !important;
+}
+
+.role-view .section-title {
+  padding-left: 0 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+.role-view .section-title::before {
+  display: none !important;
+}
+
+.role-view .section-count {
+  padding: 2px 7px !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+}
+
+.role-view .role-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.role-view .add-role-card {
+  box-sizing: border-box !important;
+  height: 116px !important;
+  min-height: 116px !important;
+  padding: 12px !important;
+  gap: 5px !important;
+  border: 1px dashed var(--border-light) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.role-view .add-role-card:hover {
+  transform: none !important;
+  border-color: var(--primary-line) !important;
+  background: var(--primary-fade) !important;
+}
+
+.role-view .add-icon-wrapper {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 6px !important;
+}
+
+.role-view .add-icon { font-size: 16px !important; }
+.role-view .add-text { font-size: 12px !important; }
+.role-view .add-hint { font-size: 10px !important; }

@@ -7,6 +7,7 @@ import json
 import os
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 from agentos.core.models.types import AgentTask, StepStatus, WorkflowRun, WorkflowStatus
 from agentos.stores.workflow_store import (
@@ -17,6 +18,7 @@ from agentos.stores.workflow_store import (
     paginate_items,
     status_value,
     status_values,
+    workflow_run_summary,
 )
 
 
@@ -51,7 +53,7 @@ class SQLiteWorkflowStore(WorkflowStore):
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             task_row = conn.execute(
-                "SELECT 1 FROM tasks WHERE task_id = ?", (run.task_id,)
+                "SELECT payload FROM tasks WHERE task_id = ?", (run.task_id,)
             ).fetchone()
             if task_row is None:
                 raise ValueError(f"workflow run task does not exist: {run.task_id}")
@@ -67,21 +69,56 @@ class SQLiteWorkflowStore(WorkflowStore):
                 if _reject_terminal_overwrite(existing, run):
                     return
             _validate_obvious_run_state_conflicts(run)
+            task = AgentTask.model_validate(json.loads(task_row["payload"]))
+            projection = _run_projection(run, title=task.title)
             conn.execute(
                 """
-                INSERT INTO runs(run_id, task_id, payload, updated_at)
-                VALUES(?, ?, ?, ?)
+                INSERT INTO runs(
+                    run_id, task_id, payload, updated_at, status, domain, workflow_id,
+                    lifecycle_phase, source, owner_user_id, owner_tenant_id, summary_payload
+                )
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(run_id) DO UPDATE SET
                     task_id=excluded.task_id,
                     payload=excluded.payload,
-                    updated_at=excluded.updated_at
+                    updated_at=excluded.updated_at,
+                    status=excluded.status,
+                    domain=excluded.domain,
+                    workflow_id=excluded.workflow_id,
+                    lifecycle_phase=excluded.lifecycle_phase,
+                    source=excluded.source,
+                    owner_user_id=excluded.owner_user_id,
+                    owner_tenant_id=excluded.owner_tenant_id,
+                    summary_payload=excluded.summary_payload
                 """,
                 (
                     run.run_id,
                     run.task_id,
                     json.dumps(run.model_dump(by_alias=True, mode="json"), ensure_ascii=False),
                     run.updated_at.isoformat(),
+                    *projection,
                 ),
+            )
+            conn.execute(
+                """
+                INSERT INTO run_summaries(
+                    run_id, task_id, updated_at, status, domain, workflow_id,
+                    lifecycle_phase, source, owner_user_id, owner_tenant_id, payload
+                )
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(run_id) DO UPDATE SET
+                    task_id=excluded.task_id,
+                    updated_at=excluded.updated_at,
+                    status=excluded.status,
+                    domain=excluded.domain,
+                    workflow_id=excluded.workflow_id,
+                    lifecycle_phase=excluded.lifecycle_phase,
+                    source=excluded.source,
+                    owner_user_id=excluded.owner_user_id,
+                    owner_tenant_id=excluded.owner_tenant_id,
+                    payload=excluded.payload
+                """,
+                (run.run_id, run.task_id, run.updated_at.isoformat(), *projection),
             )
             conn.commit()
 
@@ -120,42 +157,90 @@ class SQLiteWorkflowStore(WorkflowStore):
         task_id: str | None = None,
         lifecycle_phase: str | None = None,
         source: str | None = None,
+        sources=None,
         owner_user_id: str | None = None,
         owner_tenant_id: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> WorkflowStorePage[WorkflowRun]:
-        expected_status = status_value(status)
-        expected_statuses = status_values(statuses)
-        rows = self._fetch_all("SELECT payload FROM runs")
-        runs = [
-            run
-            for run in (WorkflowRun.model_validate(json.loads(row["payload"])) for row in rows)
-            if _matches_run(
-                run,
-                status=expected_status,
-                statuses=expected_statuses,
-                domain=domain,
-                workflow_id=workflow_id,
-                task_id=task_id,
-                lifecycle_phase=lifecycle_phase,
-                source=source,
-                owner_user_id=owner_user_id,
-                owner_tenant_id=owner_tenant_id,
-            )
-        ]
-        runs.sort(
-            key=lambda run: (_run_priority(run) if expected_statuses else 0, run.updated_at, run.run_id),
-            reverse=True,
+        where_sql, params, priority_sql = _run_filter_query(
+            status=status,
+            statuses=statuses,
+            domain=domain,
+            workflow_id=workflow_id,
+            task_id=task_id,
+            lifecycle_phase=lifecycle_phase,
+            source=source,
+            sources=sources,
+            owner_user_id=owner_user_id,
+            owner_tenant_id=owner_tenant_id,
         )
-        return paginate_items(runs, page=page, page_size=page_size)
+        total_row = self._fetch_one(f"SELECT COUNT(*) AS total FROM runs{where_sql}", tuple(params))
+        safe_page = max(1, page)
+        safe_page_size = max(1, page_size)
+        offset = (safe_page - 1) * safe_page_size
+        rows = self._fetch_all(
+            f"SELECT payload FROM runs{where_sql} "
+            f"ORDER BY {priority_sql}updated_at DESC, run_id DESC LIMIT ? OFFSET ?",
+            tuple([*params, safe_page_size, offset]),
+        )
+        return WorkflowStorePage(
+            items=tuple(WorkflowRun.model_validate(json.loads(row["payload"])) for row in rows),
+            total=int(total_row["total"]) if total_row is not None else 0,
+            page=safe_page,
+            page_size=safe_page_size,
+        )
+
+    def list_run_summaries(
+        self,
+        *,
+        status: WorkflowStatus | str | None = None,
+        statuses=None,
+        domain: str | None = None,
+        workflow_id: str | None = None,
+        task_id: str | None = None,
+        lifecycle_phase: str | None = None,
+        source: str | None = None,
+        sources=None,
+        owner_user_id: str | None = None,
+        owner_tenant_id: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> WorkflowStorePage[dict[str, Any]]:
+        where_sql, params, priority_sql = _run_filter_query(
+            status=status,
+            statuses=statuses,
+            domain=domain,
+            workflow_id=workflow_id,
+            task_id=task_id,
+            lifecycle_phase=lifecycle_phase,
+            source=source,
+            sources=sources,
+            owner_user_id=owner_user_id,
+            owner_tenant_id=owner_tenant_id,
+        )
+        total_row = self._fetch_one(f"SELECT COUNT(*) AS total FROM run_summaries{where_sql}", tuple(params))
+        safe_page = max(1, page)
+        safe_page_size = max(1, page_size)
+        offset = (safe_page - 1) * safe_page_size
+        rows = self._fetch_all(
+            f"SELECT payload FROM run_summaries{where_sql} "
+            f"ORDER BY {priority_sql}updated_at DESC, run_id DESC LIMIT ? OFFSET ?",
+            tuple([*params, safe_page_size, offset]),
+        )
+        return WorkflowStorePage(
+            items=tuple(json.loads(row["payload"]) for row in rows),
+            total=int(total_row["total"]) if total_row is not None else 0,
+            page=safe_page,
+            page_size=safe_page_size,
+        )
 
     def list_non_terminal_runs(self, *, limit: int = 200) -> tuple[WorkflowRun, ...]:
         safe_limit = max(1, limit)
         rows = self._fetch_all(
             """
             SELECT payload FROM runs
-            WHERE json_extract(payload, '$.status') NOT IN (?, ?, ?)
+            WHERE status NOT IN (?, ?, ?)
             ORDER BY updated_at DESC
             LIMIT ?
             """,
@@ -200,6 +285,7 @@ class SQLiteWorkflowStore(WorkflowStore):
                 WorkflowStatus.CANCELLED,
             }:
                 raise WorkflowRunNotTerminalError(run_id, run.status)
+            conn.execute("DELETE FROM run_summaries WHERE run_id = ?", (run_id,))
             conn.execute("DELETE FROM runs WHERE run_id = ?", (run_id,))
             task_deleted = False
             if delete_orphan_task:
@@ -229,6 +315,7 @@ class SQLiteWorkflowStore(WorkflowStore):
 
     def _init_schema(self) -> None:
         with self._connect() as conn:
+            conn.row_factory = sqlite3.Row
             journal_mode = conn.execute("PRAGMA journal_mode=WAL").fetchone()[0]
             if str(journal_mode).lower() != "wal":
                 raise RuntimeError(f"SQLite WAL mode is required, got: {journal_mode}")
@@ -251,7 +338,109 @@ class SQLiteWorkflowStore(WorkflowStore):
                 )
                 """
             )
+            self._ensure_run_projection_schema(conn)
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS run_summaries (
+                    run_id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    status TEXT,
+                    domain TEXT,
+                    workflow_id TEXT,
+                    lifecycle_phase TEXT,
+                    source TEXT,
+                    owner_user_id TEXT,
+                    owner_tenant_id TEXT,
+                    payload TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO run_summaries(
+                    run_id, task_id, updated_at, status, domain, workflow_id,
+                    lifecycle_phase, source, owner_user_id, owner_tenant_id, payload
+                )
+                SELECT
+                    run_id, task_id, updated_at, status, domain, workflow_id,
+                    lifecycle_phase, source, owner_user_id, owner_tenant_id, summary_payload
+                FROM runs
+                WHERE summary_payload IS NOT NULL
+                ON CONFLICT(run_id) DO UPDATE SET
+                    task_id=excluded.task_id,
+                    updated_at=excluded.updated_at,
+                    status=excluded.status,
+                    domain=excluded.domain,
+                    workflow_id=excluded.workflow_id,
+                    lifecycle_phase=excluded.lifecycle_phase,
+                    source=excluded.source,
+                    owner_user_id=excluded.owner_user_id,
+                    owner_tenant_id=excluded.owner_tenant_id,
+                    payload=excluded.payload
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_runs_updated_at ON runs(updated_at DESC)")
+            conn.execute("DROP INDEX IF EXISTS idx_runs_source_updated")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_runs_source_updated "
+                "ON runs(source, updated_at DESC)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_runs_status_updated "
+                "ON runs(status, updated_at DESC)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_run_summaries_source_updated "
+                "ON run_summaries(source, updated_at DESC)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_run_summaries_status_updated "
+                "ON run_summaries(status, updated_at DESC)"
+            )
             conn.commit()
+
+    def _ensure_run_projection_schema(self, conn: sqlite3.Connection) -> None:
+        columns = {str(row["name"]) for row in conn.execute("PRAGMA table_info(runs)").fetchall()}
+        projection_columns = {
+            "status": "TEXT",
+            "domain": "TEXT",
+            "workflow_id": "TEXT",
+            "lifecycle_phase": "TEXT",
+            "source": "TEXT",
+            "owner_user_id": "TEXT",
+            "owner_tenant_id": "TEXT",
+            "summary_payload": "TEXT",
+        }
+        for name, sql_type in projection_columns.items():
+            if name not in columns:
+                conn.execute(f"ALTER TABLE runs ADD COLUMN {name} {sql_type}")
+
+        stale_rows = conn.execute(
+            "SELECT run_id, payload FROM runs WHERE summary_payload IS NULL"
+        ).fetchall()
+        if not stale_rows:
+            return
+        task_titles: dict[str, str | None] = {}
+        for row in conn.execute("SELECT task_id, payload FROM tasks").fetchall():
+            try:
+                task_titles[str(row["task_id"])] = AgentTask.model_validate(
+                    json.loads(row["payload"])
+                ).title
+            except (TypeError, ValueError):
+                task_titles[str(row["task_id"])] = None
+        for row in stale_rows:
+            run = WorkflowRun.model_validate(json.loads(row["payload"]))
+            projection = _run_projection(run, title=task_titles.get(run.task_id))
+            conn.execute(
+                """
+                UPDATE runs SET
+                    status = ?, domain = ?, workflow_id = ?, lifecycle_phase = ?,
+                    source = ?, owner_user_id = ?, owner_tenant_id = ?, summary_payload = ?
+                WHERE run_id = ?
+                """,
+                (*projection, run.run_id),
+            )
 
     def _execute(self, sql: str, params: tuple) -> None:
         with self._connect() as conn:
@@ -327,6 +516,7 @@ def _matches_run(
     task_id: str | None,
     lifecycle_phase: str | None,
     source: str | None,
+    sources: set[str] | None,
     owner_user_id: str | None,
     owner_tenant_id: str | None,
 ) -> bool:
@@ -345,6 +535,8 @@ def _matches_run(
         return False
     if source is not None and run.input.get("source") != source:
         return False
+    if sources is not None and run.input.get("source") not in sources:
+        return False
     run_owner = str(run.input.get("authenticatedUserId") or "").strip()
     run_tenant = str(run.input.get("authenticatedTenantId") or "").strip()
     if owner_user_id is not None and run_owner and run_owner != owner_user_id:
@@ -352,6 +544,86 @@ def _matches_run(
     if owner_tenant_id is not None and run_tenant and run_tenant != owner_tenant_id:
         return False
     return True
+
+
+def _run_projection(run: WorkflowRun, *, title: str | None) -> tuple[object, ...]:
+    phase = run.lifecycle_phase.value if run.lifecycle_phase is not None else None
+    source = run.input.get("source")
+    owner_user_id = str(run.input.get("authenticatedUserId") or "").strip() or None
+    owner_tenant_id = str(run.input.get("authenticatedTenantId") or "").strip() or None
+    summary_payload = json.dumps(
+        workflow_run_summary(run, title=title),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return (
+        run.status.value,
+        run.domain,
+        run.workflow_id,
+        phase,
+        str(source) if source is not None else None,
+        owner_user_id,
+        owner_tenant_id,
+        summary_payload,
+    )
+
+
+def _run_filter_query(
+    *,
+    status: WorkflowStatus | str | None,
+    statuses,
+    domain: str | None,
+    workflow_id: str | None,
+    task_id: str | None,
+    lifecycle_phase: str | None,
+    source: str | None,
+    sources,
+    owner_user_id: str | None,
+    owner_tenant_id: str | None,
+) -> tuple[str, list[object], str]:
+    expected_status = status_value(status)
+    expected_statuses = status_values(statuses)
+    expected_sources = {str(item) for item in sources or [] if str(item)} or None
+    clauses: list[str] = []
+    params: list[object] = []
+
+    def equals(column: str, value: str | None) -> None:
+        if value is None:
+            return
+        clauses.append(f"{column} = ?")
+        params.append(value)
+
+    equals("status", expected_status)
+    if expected_statuses:
+        placeholders = ", ".join("?" for _ in expected_statuses)
+        clauses.append(f"status IN ({placeholders})")
+        params.extend(sorted(expected_statuses))
+    equals("domain", domain)
+    equals("workflow_id", workflow_id)
+    equals("task_id", task_id)
+    equals("lifecycle_phase", lifecycle_phase)
+    equals("source", source)
+    if expected_sources:
+        placeholders = ", ".join("?" for _ in expected_sources)
+        clauses.append(f"source IN ({placeholders})")
+        params.extend(sorted(expected_sources))
+    if owner_user_id is not None:
+        clauses.append("(owner_user_id IS NULL OR owner_user_id = '' OR owner_user_id = ?)")
+        params.append(owner_user_id)
+    if owner_tenant_id is not None:
+        clauses.append("(owner_tenant_id IS NULL OR owner_tenant_id = '' OR owner_tenant_id = ?)")
+        params.append(owner_tenant_id)
+
+    priority_sql = ""
+    if expected_statuses:
+        priority_sql = (
+            "CASE "
+            "WHEN status = 'waiting_review' THEN 2 "
+            "WHEN status NOT IN ('completed', 'failed', 'cancelled') THEN 1 "
+            "ELSE 0 END DESC, "
+        )
+    where_sql = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    return where_sql, params, priority_sql
 
 
 def _validate_obvious_run_state_conflicts(run: WorkflowRun) -> None:

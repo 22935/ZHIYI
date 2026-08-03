@@ -123,6 +123,7 @@
     <div v-if="hasData" class="legend">
       <span class="legend-item"><i class="dot step"></i>步骤</span>
       <span class="legend-item"><i class="dot agent"></i>智能体</span>
+      <span class="legend-item"><i class="dot skill"></i>技能</span>
       <span class="legend-item"><i class="dot memory"></i>记忆</span>
       <span class="legend-item"><i class="dot evidence"></i>证据</span>
       <span class="legend-item"><i class="dot control"></i>控制</span>
@@ -144,6 +145,7 @@ import { DataSet } from 'vis-data'
 import { Network } from 'vis-network'
 import type { AcgBlueprint, AcgNode, AcgEdge, AcgStepState } from '@/services/api/agentos'
 import { mapEdgeVisualState, mapNodeVisualState } from '@/utils/runtimePresentation'
+import { edgeActivationOpacity, graphEdgeWidth, mixGraphColor } from '@/utils/acgGraphVisuals'
 
 const props = defineProps<{
   blueprint: AcgBlueprint | null
@@ -301,25 +303,27 @@ const cssColor = (name: string, fallback: string) =>
   getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 
 function applyThemeToGraphStyles() {
-  const primary = cssColor('--primary-color', '#3f6b63')
-  const info = cssColor('--info', '#496b8f')
-  const accent = cssColor('--accent-color', '#6f668f')
-  const warning = cssColor('--warning', '#9a7432')
-  const danger = cssColor('--danger', '#b24a4a')
-  const textSecondary = cssColor('--text-secondary', '#5a635e')
-  const nodeSurface = cssColor('--bg-panel', '#ffffff')
-  const nodeSurfaceStrong = cssColor('--bg-input', '#f5f6f8')
+  // The topology is a technical drawing surface. Keep its semantic palette
+  // stable and bright even when the surrounding application uses a dark theme.
+  const primary = '#716c9e'
+  const info = '#4d7fdf'
+  const warning = '#a97626'
+  const danger = '#c94e54'
+  const success = '#387a5b'
+  const textSecondary = '#6f7284'
+  const nodeSurface = '#fcfdfd'
+  const nodeSurfaceStrong = '#f8faf9'
 
   Object.assign(NODE_STYLE, {
-    step: { background: nodeSurfaceStrong, border: primary, shape: 'box' },
-    agent: { background: nodeSurface, border: info, shape: 'ellipse' },
-    skill: { background: nodeSurface, border: accent, shape: 'ellipse' },
-    memory: { background: nodeSurfaceStrong, border: warning, shape: 'database' },
-    evidence: { background: nodeSurfaceStrong, border: danger, shape: 'diamond' },
-    control: { background: nodeSurfaceStrong, border: textSecondary, shape: 'hexagon' }
+    step: { background: mixGraphColor(success, nodeSurfaceStrong, 0.18), border: success, shape: 'box' },
+    agent: { background: mixGraphColor(info, nodeSurface, 0.15), border: info, shape: 'ellipse' },
+    skill: { background: mixGraphColor(primary, nodeSurface, 0.14), border: primary, shape: 'ellipse' },
+    memory: { background: mixGraphColor(warning, nodeSurfaceStrong, 0.19), border: warning, shape: 'database' },
+    evidence: { background: mixGraphColor(danger, nodeSurfaceStrong, 0.15), border: danger, shape: 'diamond' },
+    control: { background: mixGraphColor(textSecondary, nodeSurfaceStrong, 0.13), border: textSecondary, shape: 'hexagon' }
   })
   Object.assign(EDGE_STYLE, {
-    dependency: { color: primary, dashes: false },
+    dependency: { color: success, dashes: false },
     communication: { color: info, dashes: [4, 4] },
     control_flow: { color: warning, dashes: [2, 3] },
     write: { color: warning, dashes: [6, 3] },
@@ -331,12 +335,12 @@ function applyThemeToGraphStyles() {
 
 const buildNodeRows = (nodes: AcgNode[], completed: Set<string>, states: Map<string, AcgStepState>) => {
   applyThemeToGraphStyles()
-  const done = cssColor('--success', '#2f8f5b')
-  const textPrimary = cssColor('--text-primary', '#1d2422')
-  const textSecondary = cssColor('--text-secondary', '#5a635e')
-  const info = cssColor('--info', '#496b8f')
-  const warning = cssColor('--warning', '#9a7432')
-  const danger = cssColor('--danger', '#b24a4a')
+  const done = '#387a5b'
+  const textPrimary = '#26332f'
+  const textSecondary = '#66736f'
+  const info = '#4d7fdf'
+  const warning = '#a97626'
+  const danger = '#c94e54'
   return nodes.map((node) => {
     const style = NODE_STYLE[node.nodeType] || NODE_STYLE.step
     const stepState = states.get(node.nodeId)
@@ -347,7 +351,7 @@ const buildNodeRows = (nodes: AcgNode[], completed: Set<string>, states: Map<str
     const isStart = role === 'start'
     const isEnd = role === 'end'
     const endpointColor = isStart ? done : isEnd ? info : ''
-    const statusBorder = endpointColor || (isDone
+    const statusColor = isDone
       ? done
       : status === 'running'
         ? info
@@ -357,7 +361,7 @@ const buildNodeRows = (nodes: AcgNode[], completed: Set<string>, states: Map<str
             ? danger
             : status === 'cancelled' || status === 'skipped_by_condition'
               ? textSecondary
-            : style.border)
+              : ''
     const badges = [
       visual.runtimeAdded ? '+' : '',
       visual.bindingSwitched ? '⇄' : '',
@@ -379,16 +383,26 @@ const buildNodeRows = (nodes: AcgNode[], completed: Set<string>, states: Map<str
       shape: isStart ? 'circle' : isEnd ? 'box' : style.shape,
       color: {
         background: endpointColor || style.background,
-        border: statusBorder,
-        highlight: { background: endpointColor || style.background, border: statusBorder }
+        border: endpointColor || style.border,
+        highlight: { background: endpointColor || style.background, border: endpointColor || style.border },
+        hover: { background: endpointColor || style.background, border: endpointColor || style.border }
       },
-      borderWidth: isEndpoint ? 3 : status || visual.runtimeAdded ? 3 : 1.5,
+      borderWidth: isEndpoint ? 3.5 : status || visual.runtimeAdded ? 2.6 : 1.8,
+      borderWidthSelected: isEndpoint ? 5 : 4,
       opacity: visual.conditionalSkipped ? 0.42 : status === 'cancelled' ? 0.58 : 1,
       shadow: isEndpoint
         ? { enabled: true, color: endpointColor, size: 12, x: 0, y: 2 }
-        : status === 'running'
-          ? { enabled: true, color: info, size: 8, x: 0, y: 0 }
-          : false,
+        : statusColor
+          ? {
+              enabled: true,
+              color: statusColor,
+              size: status === 'running' ? 12 : status === 'failed' ? 9 : isDone ? 2 : 7,
+              x: 0,
+              y: 0
+            }
+          : visual.runtimeAdded
+            ? { enabled: true, color: '#5b5bd6', size: 7, x: 0, y: 0 }
+            : false,
       // Step 为主干节点（大、醒目）；Agent/Memory/Evidence 为认知卫星节点（小）
       size: isEndpoint ? 32 : isStep ? 26 : 16,
       font: {
@@ -406,11 +420,9 @@ const buildNodeRows = (nodes: AcgNode[], completed: Set<string>, states: Map<str
 }
 
 const buildEdgeRows = (edges: AcgEdge[]) => {
-  const done = cssColor('--success', '#2f8f5b')
   return edges.map((edge, index) => {
     const style = EDGE_STYLE[edge.edgeType] || EDGE_STYLE.dependency
     const activation = mapEdgeVisualState(edge.activation)
-    const isDep = edge.edgeType === 'dependency'
     const length = ({
       dependency: 190,
       communication: 165,
@@ -424,19 +436,22 @@ const buildEdgeRows = (edges: AcgEdge[]) => {
       id: edge.edgeId || `e-${index}`,
       from: edge.sourceId,
       to: edge.targetId,
-      arrows: { to: { enabled: true, scaleFactor: 0.72, type: 'arrow' } },
+      arrows: { to: { enabled: true, scaleFactor: 0.84, type: 'arrow' } },
       arrowStrikethrough: false,
       endPointOffset: { from: 2, to: 4 },
       color: {
-        color: activation === 'active' ? style.color : cssColor('--text-muted', '#8b938f'),
-        highlight: done,
-        opacity: activation === 'terminated' ? 0.28 : activation === 'superseded' ? 0.2 : activation === 'inactive' ? 0.48 : 1
+        color: style.color,
+        highlight: style.color,
+        hover: style.color,
+        opacity: edgeActivationOpacity(activation)
       },
       dashes: activation === 'inactive' ? [6, 5] : activation === 'terminated' ? [2, 6] : style.dashes,
       label: activation === 'active' ? undefined : activation.toUpperCase(),
       smooth: { enabled: true, type: 'continuous' },
       // 依赖主干边更粗更短（强弹簧），认知关联边更细
-      width: isDep ? 2.5 : edge.edgeType === 'execution' ? 1.5 : 1,
+      width: graphEdgeWidth(edge.edgeType),
+      selectionWidth: 1.4,
+      hoverWidth: 0.8,
       length
     }
   })
@@ -679,10 +694,28 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .acg-topology {
+  --primary-color: #5b5bd6;
+  --primary-fade: #ececff;
+  --success: #387a5b;
+  --info: #4d7fdf;
+  --warning: #a97626;
+  --danger: #c94e54;
+  --text-primary: #26332f;
+  --text-secondary: #66736f;
+  --text-muted: #7e8985;
+  --text-disabled: #919b97;
+  --bg-panel: #ffffff;
+  --bg-input: #f3f5f4;
+  --border-light: #dfe4e8;
+  --border-strong: #bcc6c2;
   display: flex;
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+  color: var(--text-primary);
+  background: #fcfdfd;
+  border-color: var(--border-light);
+  box-shadow: 0 1px 3px rgba(34, 61, 52, 0.08);
 }
 .panel-head {
   display: flex;
@@ -776,12 +809,13 @@ onBeforeUnmount(() => {
 }
 .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); }
 .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-.dot.step { background: #dbe7e3; border: 1.5px solid #3f6b63; }
-.dot.agent { background: #cfe0f0; border: 1.5px solid #496b8f; border-radius: 50%; }
-.dot.memory { background: #fcefd6; border: 1.5px solid #9a7432; }
-.dot.evidence { background: #f6dede; border: 1.5px solid #b24a4a; transform: rotate(45deg); }
-.dot.control { background: #e2e8e0; border: 1.5px solid #727c76; }
-.ring { width: 10px; height: 10px; border-radius: 50%; display: inline-block; border: 3px solid #2f8f5b; }
+.dot.step { background: color-mix(in srgb, var(--success) 18%, var(--bg-input)); border: 1.5px solid var(--success); }
+.dot.agent { background: color-mix(in srgb, var(--info) 15%, var(--bg-panel)); border: 1.5px solid var(--info); border-radius: 50%; }
+.dot.skill { background: color-mix(in srgb, #716c9e 14%, var(--bg-panel)); border: 1.5px solid #716c9e; border-radius: 50%; }
+.dot.memory { background: color-mix(in srgb, var(--warning) 19%, var(--bg-input)); border: 1.5px solid var(--warning); }
+.dot.evidence { background: color-mix(in srgb, var(--danger) 15%, var(--bg-input)); border: 1.5px solid var(--danger); transform: rotate(45deg); }
+.dot.control { background: color-mix(in srgb, var(--text-secondary) 13%, var(--bg-input)); border: 1.5px solid var(--text-secondary); }
+.ring { width: 10px; height: 10px; border-radius: 50%; display: inline-block; border: 3px solid var(--success); }
 .ring.running { border-color: var(--info); }
 .ring.waiting { border-color: var(--warning); }
 .ring.failed { border-color: var(--danger); }
@@ -794,7 +828,7 @@ onBeforeUnmount(() => {
   width: 100vw;
   height: 100vh;
   padding: 16px;
-  background: var(--bg-card);
+  background: #fcfdfd;
 }
 .acg-topology:fullscreen .graph-stage { flex: 1 1 auto; min-height: 0; }
 .acg-topology:fullscreen .graph-canvas,

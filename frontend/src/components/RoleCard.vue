@@ -8,7 +8,7 @@
     <div class="card-bg"></div>
     <div class="card-content">
       <div class="card-header">
-        <div class="avatar-wrapper" :style="{ background: roleGradient }">
+        <div class="avatar-wrapper">
           <span class="avatar-text">{{ role.name.charAt(0) }}</span>
         </div>
         <div class="role-meta">
@@ -94,22 +94,6 @@ const isFavorite = computed(() => roleStore.favorites.includes(props.role.id))
 const handleToggleFavorite = () => {
   roleStore.toggleFavorite(props.role.id)
 }
-
-// Generate gradient based on role ID/Type
-const roleGradient = computed(() => {
-  if (props.role.roleType === 'BUILTIN') {
-    const gradients = [
-      'linear-gradient(135deg, #6366f1, #8b5cf6)',
-      'linear-gradient(135deg, #3b82f6, #06b6d4)',
-      'linear-gradient(135deg, #f59e0b, #d97706)',
-      'linear-gradient(135deg, #10b981, #3b82f6)'
-    ]
-    const index = props.role.name.length % gradients.length
-    return gradients[index]
-  } else {
-    return 'linear-gradient(135deg, #ec4899, #8b5cf6)'
-  }
-})
 
 const handleClick = () => {
   emit('select', props.role)
@@ -342,4 +326,55 @@ $shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
     }
   }
 }
+
+/* Compact role management item. */
+.role-card {
+  height: 116px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+  backdrop-filter: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.role-card:hover {
+  transform: none;
+  box-shadow: none;
+  background: var(--bg-card);
+}
+
+.role-card.selected {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-line);
+  background: var(--primary-fade);
+}
+
+.card-content { padding: 10px; }
+.card-header { gap: 9px; margin-bottom: 6px; }
+.card-header .avatar-wrapper {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--primary-line);
+  border-radius: 7px;
+  color: var(--primary-color);
+  background: var(--primary-fade);
+  box-shadow: none;
+  font-size: 14px;
+}
+.card-header .role-meta .name-row { margin-bottom: 2px; }
+.card-header .role-meta .name-row h3 { font-size: 13px; }
+.card-header .role-meta .name-row .role-tag { height: 18px; padding: 0 6px; font-size: 9px; }
+.card-header .role-meta .name-row .header-right { gap: 5px; }
+.card-header .role-meta .name-row .favorite-btn { font-size: 14px; color: var(--text-disabled); }
+.card-header .role-meta .role-id { font-size: 9px; }
+.card-body .description { font-size: 10px; line-height: 1.4; -webkit-line-clamp: 1; }
+.card-footer {
+  min-height: 28px;
+  margin: 6px -10px -10px;
+  padding: 5px 10px;
+  background: transparent;
+}
+.card-footer .status-indicator { gap: 5px; font-size: 10px; }
+.card-footer .status-indicator .dot { width: 6px; height: 6px; }
+.card-footer .actions { gap: 2px; }
+.card-footer .actions .icon-btn { width: 22px; height: 22px; border-radius: 5px; }
 </style>

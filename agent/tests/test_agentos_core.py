@@ -473,6 +473,7 @@ def test_legacy_lawyer_agent_chat_endpoint_returns_status_payload():
     payload = response.json()
     assert payload["success"] is True
     assert payload["sessionId"] == "session_001"
+    assert payload["acgTaskId"] == payload["workflowRunId"]
     assert "法律初步分析" in payload["answer"]
     assert "风险等级" in payload["answer"]
     assert "Legal analysis completed" not in payload["answer"]
@@ -691,6 +692,7 @@ def test_legacy_programmer_agent_chat_endpoint_returns_full_deliverable():
     payload = response.json()
     assert payload["success"] is True
     assert payload["sessionId"] == "programmer_session_001"
+    assert payload["acgTaskId"] == payload["workflowRunId"]
     assert "功能规格" in payload["answer"]
     assert "```python" in payload["answer"]
     assert "```mermaid" in payload["answer"]
@@ -727,6 +729,7 @@ def test_legacy_teacher_agent_chat_endpoint_returns_chinese_lesson_plan():
     payload = response.json()
     assert payload["success"] is True
     assert payload["sessionId"] == "teacher_session_001"
+    assert payload["acgTaskId"] == payload["workflowRunId"]
     assert "教学设计" in payload["answer"]
     assert "教学目标" in payload["answer"]
     assert "Lesson plan ready" not in payload["answer"]
@@ -760,6 +763,7 @@ def test_legacy_writer_agent_chat_endpoint_detects_science_fiction_genre():
     payload = response.json()
     assert payload["success"] is True
     assert payload["sessionId"] == "writer_session_001"
+    assert payload["acgTaskId"] == payload["workflowRunId"]
     assert "科幻" in payload["answer"]
     assert "Story outline ready" not in payload["answer"]
     assert "outline_generate" in payload["skillsUsed"]

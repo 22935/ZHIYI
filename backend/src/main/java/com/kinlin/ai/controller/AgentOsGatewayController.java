@@ -87,6 +87,7 @@ public class AgentOsGatewayController {
             @RequestParam(required = false, name = "taskId") String taskId,
             @RequestParam(required = false, name = "lifecyclePhase") String lifecyclePhase,
             @RequestParam(required = false) String source,
+            @RequestParam(required = false) String sources,
             @RequestParam(defaultValue = "false") boolean summary,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize
@@ -100,6 +101,7 @@ public class AgentOsGatewayController {
                         "taskId", taskId,
                         "lifecyclePhase", lifecyclePhase,
                         "source", source,
+                        "sources", sources,
                         "summary", summary ? "true" : null,
                         "page", String.valueOf(page),
                         "pageSize", String.valueOf(pageSize)

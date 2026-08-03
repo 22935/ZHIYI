@@ -1,4 +1,11 @@
 id: writer
-name: Writer Pack
+name: 写作能力包
 version: 0.1.0
-description: Writer workflow pack scaffold.
+module: packs.writer
+description: 故事构思与大纲生成能力。
+contributions:
+  agents:
+    - outline_generate
+  workflows:
+    - writer_story_outline_v1
+  capabilities: []

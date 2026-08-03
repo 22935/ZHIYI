@@ -79,6 +79,8 @@ export interface LawyerAgentResponse {
   skillsUsed: string[]
   trace: AgentTraceStep[]
   routing?: AgentRoutingInfo
+  acgTaskId?: string
+  enabledPluginIds?: string[]
   workflowRunId?: string
   workflowId?: string
   workflowStatus?: string

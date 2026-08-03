@@ -110,6 +110,10 @@ export const useRoleStore = defineStore('role', () => {
     currentRole.value = role
   }
 
+  const clearCurrentRole = () => {
+    currentRole.value = null
+  }
+
   const updateRoleAvatar = (roleId: string, avatarUrl: string) => {
     const role = roles.value.find((r) => r.id === roleId)
     if (role) {
@@ -191,6 +195,7 @@ export const useRoleStore = defineStore('role', () => {
     loadRoles,
     selectRole,
     setCurrentRole,
+    clearCurrentRole,
     updateRoleAvatar,
     addRole,
     createRole,

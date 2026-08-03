@@ -107,6 +107,7 @@ class MemoryWorkflowStore(WorkflowStore):
         task_id: str | None = None,
         lifecycle_phase: str | None = None,
         source: str | None = None,
+        sources=None,
         owner_user_id: str | None = None,
         owner_tenant_id: str | None = None,
         page: int = 1,
@@ -126,6 +127,7 @@ class MemoryWorkflowStore(WorkflowStore):
                 task_id=task_id,
                 lifecycle_phase=lifecycle_phase,
                 source=source,
+                sources=set(sources) if sources else None,
                 owner_user_id=owner_user_id,
                 owner_tenant_id=owner_tenant_id,
             )
@@ -177,6 +179,7 @@ def _matches_run(
     task_id: str | None,
     lifecycle_phase: str | None,
     source: str | None,
+    sources: set[str] | None,
     owner_user_id: str | None,
     owner_tenant_id: str | None,
 ) -> bool:
@@ -194,6 +197,8 @@ def _matches_run(
     if lifecycle_phase is not None and phase != lifecycle_phase:
         return False
     if source is not None and run.input.get("source") != source:
+        return False
+    if sources is not None and run.input.get("source") not in sources:
         return False
     run_owner = str(run.input.get("authenticatedUserId") or "").strip()
     run_tenant = str(run.input.get("authenticatedTenantId") or "").strip()

@@ -61,7 +61,7 @@ describe('AcgRunManager', () => {
     await flushPromises()
 
     expect(workflowApi.listRuns).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'acg', summary: true }),
+      expect.objectContaining({ source: 'acg', summary: true, pageSize: 20 }),
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
     expect(wrapper.text()).toContain('运行中')
@@ -70,6 +70,62 @@ describe('AcgRunManager', () => {
     expect(wrapper.find('.acg-run-item.active').exists()).toBe(true)
     expect(wrapper.find('.acg-run-item__headline strong').text()).toBe('软件开发合同审查')
     expect(wrapper.find('.acg-run-item__identity code').text()).toContain('run_active')
+    wrapper.unmount()
+  })
+
+  it('keeps the previous list visible and coalesces overlapping refresh events', async () => {
+    const wrapper = mount(AcgRunManager, { global: { stubs: { 'el-icon': true } } })
+    await flushPromises()
+
+    let resolveRefresh!: (value: Awaited<ReturnType<typeof workflowApi.listRuns>>) => void
+    vi.mocked(workflowApi.listRuns).mockImplementationOnce(() => new Promise(resolve => {
+      resolveRefresh = resolve
+    }))
+
+    window.dispatchEvent(new Event('acg-runs-refresh'))
+    window.dispatchEvent(new Event('acg-runs-refresh'))
+    await Promise.resolve()
+
+    expect(workflowApi.listRuns).toHaveBeenCalledTimes(2)
+    expect(wrapper.findAll('.acg-run-item')).toHaveLength(3)
+    expect(wrapper.find('.acg-run-refreshing').exists()).toBe(true)
+    expect(wrapper.find('.acg-run-message').exists()).toBe(false)
+
+    resolveRefresh({
+      items: [run({ runId: 'run_fresh_1', title: 'Fresh run' })],
+      total: 1,
+      page: 1,
+      pageSize: 20
+    })
+    await flushPromises()
+
+    expect(wrapper.findAll('.acg-run-item')).toHaveLength(1)
+    expect(wrapper.find('.acg-run-refreshing').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('schedules the next poll only after the current request settles', async () => {
+    const wrapper = mount(AcgRunManager, { global: { stubs: { 'el-icon': true } } })
+    await flushPromises()
+
+    let resolvePoll!: (value: Awaited<ReturnType<typeof workflowApi.listRuns>>) => void
+    vi.mocked(workflowApi.listRuns).mockImplementationOnce(() => new Promise(resolve => {
+      resolvePoll = resolve
+    }))
+
+    vi.advanceTimersByTime(8_000)
+    await Promise.resolve()
+    expect(workflowApi.listRuns).toHaveBeenCalledTimes(2)
+
+    vi.advanceTimersByTime(16_000)
+    await Promise.resolve()
+    expect(workflowApi.listRuns).toHaveBeenCalledTimes(2)
+
+    resolvePoll({ items: [run({})], total: 1, page: 1, pageSize: 20 })
+    await flushPromises()
+    vi.advanceTimersByTime(8_000)
+    await flushPromises()
+    expect(workflowApi.listRuns).toHaveBeenCalledTimes(3)
     wrapper.unmount()
   })
 

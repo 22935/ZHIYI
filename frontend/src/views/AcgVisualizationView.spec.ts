@@ -113,6 +113,7 @@ describe('AcgVisualizationView async progress loop', () => {
     vi.useFakeTimers()
     vi.mocked(workflowApi.startWorkflowAsync).mockResolvedValue({
       accepted: true,
+      acgTaskId: 'run_1',
       task: { taskId: 'task_1', status: 'pending' },
       run: { runId: 'run_1', status: 'pending', lifecyclePhase: 'understanding' }
     })

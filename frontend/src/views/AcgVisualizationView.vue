@@ -166,6 +166,7 @@
     />
     <DynamicRunSummaryCard
       v-if="activeRunId"
+      class="run-summary-card"
       :progress="progressTracker.progress.value"
       :run="activeRun"
       :view="acgView"
@@ -647,6 +648,7 @@ let lastTopologyUpdatedAt: string | null = null
 let submitController: AbortController | null = null
 let inputCollapseTimer: ReturnType<typeof setTimeout> | null = null
 let inputPanelCompactTimer: ReturnType<typeof setTimeout> | null = null
+let terminalNotificationRunId: string | null = null
 
 const clearInputCollapseTimer = () => {
   if (inputCollapseTimer !== null) window.clearTimeout(inputCollapseTimer)
@@ -844,6 +846,8 @@ const scheduleTopologyRefresh = (value: DeepReadonly<WorkflowProgress>) => {
 }
 
 async function handleTerminal(value: WorkflowProgress): Promise<void> {
+  const shouldNotify = terminalNotificationRunId === value.runId
+  if (shouldNotify) terminalNotificationRunId = null
   clearTopologyTimer()
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await refreshAcgForRun(value.runId, true)
@@ -856,6 +860,7 @@ async function handleTerminal(value: WorkflowProgress): Promise<void> {
     if (projectionComplete) break
     await new Promise(resolve => window.setTimeout(resolve, 300))
   }
+  if (!shouldNotify) return
   if (value.phase === 'completed') ElMessage.success('ACG 引擎执行完成')
   if (value.phase === 'failed') ElMessage.error('ACG 工作流执行失败')
   if (value.phase === 'cancelled') ElMessage.info('ACG 工作流已取消')
@@ -916,6 +921,7 @@ watch(
     if (typeof value !== 'string' || !value.trim()) return
     const runId = value.trim()
     if (runId === activeRunId.value && progressTracker.runId.value === runId) return
+    terminalNotificationRunId = null
     progressTracker.reset()
     clearRunData()
     startError.value = null
@@ -1033,6 +1039,7 @@ const startRun = async () => {
   progressTracker.reset()
   clearRunData()
   activeRunId.value = ''
+  terminalNotificationRunId = null
   try {
     const clientRequestId = createClientRequestId()
     const request = buildWorkbenchStartRequest(draft, draftExtensions.value, clientRequestId)
@@ -1066,6 +1073,7 @@ const startRun = async () => {
       phase: res.run.lifecyclePhase
     })
     window.dispatchEvent(new Event('acg-runs-refresh'))
+    terminalNotificationRunId = res.run.runId
     void progressTracker.start(res.run.runId, { fresh: true })
     await router.replace({ query: { ...route.query, runId: res.run.runId } })
   } catch (error: unknown) {
@@ -1134,6 +1142,7 @@ onBeforeUnmount(() => {
 .acg-view.has-progress:not(.has-run) > :deep(.workflow-progress) { border-top: 0; border-radius: 0 0 8px 8px; }
 .acg-view.has-run > .run-scope { margin-top: 12px; }
 .acg-view.has-run > :deep(.workflow-progress) { margin-top: 16px; }
+.run-summary-card { margin-top: 10px; }
 .hero-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .ui-hero h3 { overflow: hidden; margin: 0; color: var(--text-primary); font-size: 18px; font-weight: 800; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .hero-right { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }

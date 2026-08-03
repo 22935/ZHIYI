@@ -85,7 +85,7 @@ def _client(runtime):
     return TestClient(app)
 
 
-def _save_summary_run(runtime, *, user_id, status, phase, suffix):
+def _save_summary_run(runtime, *, user_id, status, phase, suffix, source="chat"):
     run = WorkflowRun(
         runId=f"run_{suffix}",
         taskId=f"task_{suffix}",
@@ -98,7 +98,7 @@ def _save_summary_run(runtime, *, user_id, status, phase, suffix):
         input={
             "authenticatedUserId": user_id,
             "authenticatedTenantId": "tenant-a",
-            "source": "chat",
+            "source": source,
             "sensitiveDocument": "must-not-leak",
         },
         output={"secret": True},
@@ -166,6 +166,33 @@ def test_summary_list_is_bounded_owner_scoped_prioritized_and_safe():
     for item in payload["items"]:
         assert not {"input", "output", "steps", "trace", "checkpoints", "acgBlueprint"}.intersection(item)
         assert "sensitiveDocument" not in str(item)
+
+
+def test_summary_list_accepts_multiple_compatible_sources():
+    runtime = _runtime()
+    chat = _save_summary_run(
+        runtime, user_id="user-a", status=WorkflowStatus.COMPLETED,
+        phase=WorkflowProgressPhase.COMPLETED, suffix="s1", source="chat",
+    )
+    agent = _save_summary_run(
+        runtime, user_id="user-a", status=WorkflowStatus.COMPLETED,
+        phase=WorkflowProgressPhase.COMPLETED, suffix="s2", source="agent",
+    )
+    _save_summary_run(
+        runtime, user_id="user-a", status=WorkflowStatus.COMPLETED,
+        phase=WorkflowProgressPhase.COMPLETED, suffix="s3", source="console",
+    )
+
+    response = _client(runtime).get(
+        "/ai/core/workflows/runs",
+        params={"sources": "agent,chat", "summary": "true", "pageSize": 20},
+        headers=_headers("user-a"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert {item["runId"] for item in payload["items"]} == {chat.run_id, agent.run_id}
 
 
 def test_run_detail_and_review_hide_other_owners():

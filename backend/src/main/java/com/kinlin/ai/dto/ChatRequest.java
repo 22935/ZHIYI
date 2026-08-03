@@ -20,6 +20,8 @@ public class ChatRequest {
 
     private String contextId;
 
+    private String workspaceMode;
+
     private String fileUrl; // 文件URL（图片、文档等）
     
     private Boolean useRag; // 是否使用RAG增强

@@ -58,6 +58,8 @@ export interface TeacherAgentResponse {
   skillsUsed: string[]
   trace: AgentTraceStep[]
   routing?: AgentRoutingInfo
+  acgTaskId?: string
+  enabledPluginIds?: string[]
   workflowRunId?: string
   workflowId?: string
   workflowStatus?: string

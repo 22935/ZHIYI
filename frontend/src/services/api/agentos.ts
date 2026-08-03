@@ -366,6 +366,7 @@ export interface WorkflowRunQuery {
   taskId?: string
   lifecyclePhase?: WorkflowProgressPhase | ''
   source?: string
+  sources?: string
   summary?: boolean
   page?: number
   pageSize?: number
@@ -446,6 +447,7 @@ export interface AsyncWorkflowStartRequest extends WorkflowStartRequest {
 
 export interface AsyncWorkflowStartResponse {
   accepted: boolean
+  acgTaskId: string
   task: {
     taskId: string
     status: string
@@ -683,7 +685,10 @@ export const agentosApi = {
     ) {
       throw new WorkflowApiContractError('异步启动响应缺少 accepted、task.taskId 或 run.runId')
     }
-    return data
+    const acgTaskId = typeof data.acgTaskId === 'string' && data.acgTaskId.trim()
+      ? data.acgTaskId.trim()
+      : data.run.runId.trim()
+    return { ...data, acgTaskId }
   },
 
   async getWorkflowProgress(

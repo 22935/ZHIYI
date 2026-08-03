@@ -104,10 +104,11 @@ agent:
   async-start-timeout-ms: ${AGENT_ASYNC_START_TIMEOUT_MS:15000}
   trace-enabled: ${AGENT_TRACE_ENABLED:false}
   python:
-    lawyer-chat-url: ${AGENT_PYTHON_LAWYER_CHAT_URL:http://localhost:8000/ai/agent/lawyer/chat}
-    teacher-chat-url: ${AGENT_PYTHON_TEACHER_CHAT_URL:http://localhost:8000/ai/agent/teacher/chat}
-    programmer-chat-url: ${AGENT_PYTHON_PROGRAMMER_CHAT_URL:http://localhost:8000/ai/agent/programmer/chat}
-    writer-chat-url: ${AGENT_PYTHON_WRITER_CHAT_URL:http://localhost:8000/ai/agent/writer/chat}
+    base-url: ${AI_SERVICE_URL:http://localhost:8000}
+    lawyer-chat-url: ${AGENT_PYTHON_LAWYER_CHAT_URL:}
+    teacher-chat-url: ${AGENT_PYTHON_TEACHER_CHAT_URL:}
+    programmer-chat-url: ${AGENT_PYTHON_PROGRAMMER_CHAT_URL:}
+    writer-chat-url: ${AGENT_PYTHON_WRITER_CHAT_URL:}
   federated:
     enabled: ${AGENT_FEDERATED_ENABLED:false}
     trace: ${AGENT_FEDERATED_TRACE:true}

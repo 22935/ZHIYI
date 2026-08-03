@@ -426,7 +426,12 @@ async def _create_task_and_submit(
         if existing.status.value not in {"completed", "failed", "cancelled"}:
             await coordinator.submit(existing.run_id)
         latest = runtime.workflow_store.get_run(existing.run_id)
-        return {"accepted": True, "task": _to_json(task), "run": _to_json(latest)}
+        return {
+            "accepted": True,
+            "acgTaskId": latest.run_id,
+            "task": _to_json(task),
+            "run": _to_json(latest),
+        }
 
     task = runtime.create_task(
         title=request.title,
@@ -459,7 +464,12 @@ async def _create_task_and_submit(
         )
         raise
     latest = runtime.workflow_store.get_run(run.run_id)
-    return {"accepted": True, "task": _to_json(task), "run": _to_json(latest)}
+    return {
+        "accepted": True,
+        "acgTaskId": latest.run_id,
+        "task": _to_json(task),
+        "run": _to_json(latest),
+    }
 
 
 def _normalize_acg_start_request(request: WorkflowStartRequest) -> WorkflowStartRequest:
@@ -518,6 +528,7 @@ LEGACY_AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
         "domain": "legal",
         "intent": "case_analysis",
         "workflow_id": "legal_case_analysis_v1",
+        "plugin_id": "kinlin.legal",
         "input_key": "caseText",
         "skills": {
             "case_intake": "case_understanding",
@@ -530,6 +541,7 @@ LEGACY_AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
         "domain": "education",
         "intent": "lesson_plan",
         "workflow_id": "education_lesson_plan_v1",
+        "plugin_id": "education",
         "input_key": "topic",
         "skills": {"lesson_plan": "lesson_plan_generation"},
     },
@@ -538,6 +550,7 @@ LEGACY_AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
         "domain": "programmer",
         "intent": "requirement_analysis",
         "workflow_id": "programmer_requirement_analysis_v1",
+        "plugin_id": "programmer",
         "input_key": "requirement",
         "skills": {
             "requirement_analysis": "requirement_analysis",
@@ -551,6 +564,7 @@ LEGACY_AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
         "domain": "writer",
         "intent": "story_outline",
         "workflow_id": "writer_story_outline_v1",
+        "plugin_id": "writer",
         "input_key": "premise",
         "skills": {"outline_generate": "outline_generate"},
     },
@@ -1668,8 +1682,10 @@ def _legacy_response(role: str, role_config: Dict[str, Any], request: LegacyAgen
     if run.error:
         response["error"] = run.error
     response["workflowRunId"] = run.run_id
+    response["acgTaskId"] = run.run_id
     response["workflowId"] = run.workflow_id
     response["workflowStatus"] = run.status.value
+    response["enabledPluginIds"] = list(getattr(run, "enabled_plugin_ids", ()) or ())
     response["runtimeEngine"] = getattr(run, "runtime_engine", None)
     response["implementationId"] = getattr(run, "implementation_id", None)
     response["routing"] = {
@@ -1866,6 +1882,15 @@ def create_router(
                 return direct_response
 
         workflow_id = str(route_decision.get("workflowId") or _legacy_workflow_id_for_chat(role_key, role_config, text))
+        workflow = runtime.workflow_registry.get(workflow_id)
+        configured_plugin_id = str(role_config["plugin_id"])
+        workflow_plugin_id = str(getattr(workflow, "plugin_id", "") or "")
+        if getattr(workflow, "source", "native") == "plugin" and workflow_plugin_id != configured_plugin_id:
+            raise HTTPException(
+                status_code=500,
+                detail=f"role pack mismatch: {configured_plugin_id} != {workflow_plugin_id}",
+            )
+        enabled_plugin_ids = [configured_plugin_id] if workflow_plugin_id == configured_plugin_id else None
         workflow_input = _legacy_workflow_input(role_config, workflow_id, text)
         start_request = WorkflowStartRequest(
             title=f"{role_config['title']}: {text[:40]}",
@@ -1876,6 +1901,7 @@ def create_router(
             priority="normal",
             workflowId=workflow_id,
             reviewMode="human_in_loop" if workflow_id == "legal_contract_review_v1" else "auto",
+            enabledPluginIds=enabled_plugin_ids,
         )
         try:
             payload = await _create_task_and_start(runtime, start_request)
@@ -1898,6 +1924,7 @@ def create_router(
         task_id: Optional[str] = Query(None, alias="taskId"),
         lifecycle_phase: Optional[str] = Query(None, alias="lifecyclePhase"),
         source: Optional[str] = None,
+        sources: Optional[str] = None,
         summary: bool = False,
         page: int = Query(1, ge=1),
         page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
@@ -1906,7 +1933,13 @@ def create_router(
             workflow_id = runtime.resolve_workflow_id(workflow_id)
         actor = current_trusted_user()
         requested_statuses = [item.strip() for item in (statuses or "").split(",") if item.strip()]
-        result = runtime.workflow_store.list_runs(
+        requested_sources = [item.strip() for item in (sources or "").split(",") if item.strip()]
+        list_method = (
+            runtime.workflow_store.list_run_summaries
+            if summary
+            else runtime.workflow_store.list_runs
+        )
+        result = list_method(
             status=status,
             statuses=requested_statuses or None,
             domain=domain,
@@ -1914,33 +1947,20 @@ def create_router(
             task_id=task_id,
             lifecycle_phase=lifecycle_phase,
             source=source,
+            sources=requested_sources or None,
             owner_user_id=actor.user_id if actor else None,
             owner_tenant_id=actor.tenant_id if actor else None,
             page=page,
             page_size=page_size,
         )
-        if not summary:
-            return _page_to_json(result)
-        summary_items = []
-        for run in result.items:
-            try:
-                task_title = runtime.workflow_store.get_task(run.task_id).title
-            except KeyError:
-                task_title = None
-            summary_items.append(
-                {
-                    **_to_json(progress_assembler.assemble(run)),
-                    "source": run.input.get("source"),
-                    "title": task_title,
-                    "createdAt": run.created_at,
-                }
-            )
-        return {
-            "items": summary_items,
-            "total": result.total,
-            "page": result.page,
-            "pageSize": result.page_size,
-        }
+        if summary:
+            return {
+                "items": list(result.items),
+                "total": result.total,
+                "page": result.page,
+                "pageSize": result.page_size,
+            }
+        return _page_to_json(result)
 
     @router.get("/core/workflows/metrics")
     async def evaluate_workflows(

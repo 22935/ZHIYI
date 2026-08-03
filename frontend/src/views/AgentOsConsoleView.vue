@@ -13,7 +13,7 @@
       </button>
     </header>
 
-    <section class="console-layout">
+    <section ref="consoleLayoutRef" class="console-layout" :style="consoleLayoutStyle">
       <aside class="run-sidebar ui-surface ui-surface--pad" aria-label="Workflow 运行列表">
         <div class="filter-panel">
           <div class="filter-title">
@@ -93,6 +93,18 @@
           <button type="button" :disabled="filters.page >= totalPages" @click="changePage(1)">下一页</button>
         </footer>
       </aside>
+
+      <div
+        class="console-resizer console-resizer--left"
+        role="separator"
+        aria-label="调整运行列表宽度"
+        aria-orientation="vertical"
+        :aria-valuenow="leftPanelWidth"
+        tabindex="0"
+        @pointerdown="startPanelResize('left', $event)"
+        @dblclick="resetPanelWidth('left')"
+        @keydown="handleResizerKeydown('left', $event)"
+      ></div>
 
       <section class="console-main">
         <div v-if="!selectedRunId" class="selection-empty ui-surface">
@@ -174,6 +186,19 @@
         </template>
       </section>
 
+
+      <div
+        class="console-resizer console-resizer--right"
+        role="separator"
+        aria-label="调整摘要面板宽度"
+        aria-orientation="vertical"
+        :aria-valuenow="rightPanelWidth"
+        tabindex="0"
+        @pointerdown="startPanelResize('right', $event)"
+        @dblclick="resetPanelWidth('right')"
+        @keydown="handleResizerKeydown('right', $event)"
+      ></div>
+
       <aside class="console-side">
         <WorkflowReviewPanel
           v-if="selectedRunId"
@@ -240,6 +265,15 @@ const DEFAULT_STATUSES = ['pending', 'planning', 'running', 'retrying', 'waiting
 const TERMINAL = new Set(['completed', 'failed', 'cancelled'])
 const LIST_INTERVAL_MS = 7000
 const PAGE_SIZE = 50
+const CONSOLE_LEFT_WIDTH_KEY = 'agentos.console.left_width'
+const CONSOLE_RIGHT_WIDTH_KEY = 'agentos.console.right_width'
+const DEFAULT_LEFT_WIDTH = 320
+const DEFAULT_RIGHT_WIDTH = 340
+const MIN_LEFT_WIDTH = 240
+const MAX_LEFT_WIDTH = 420
+const MIN_RIGHT_WIDTH = 260
+const MAX_RIGHT_WIDTH = 460
+const MIN_MAIN_WIDTH = 360
 
 const route = useRoute()
 const router = useRouter()
@@ -252,12 +286,79 @@ const selectedAcgView = ref<AcgView | null>(null)
 const traceEvents = ref<TraceEvent[]>([])
 const checkpoints = ref<Checkpoint[]>([])
 const reviews = ref<ReviewRecord[]>([])
+const consoleLayoutRef = ref<HTMLElement | null>(null)
+const leftPanelWidth = ref(Number(localStorage.getItem(CONSOLE_LEFT_WIDTH_KEY)) || DEFAULT_LEFT_WIDTH)
+const rightPanelWidth = ref(Number(localStorage.getItem(CONSOLE_RIGHT_WIDTH_KEY)) || DEFAULT_RIGHT_WIDTH)
 const listLoading = ref(false)
 const detailLoading = ref(false)
 const detailExpanded = ref(false)
 const deletingRunId = ref('')
 const listError = ref('')
 const runError = ref('')
+const consoleLayoutStyle = computed(() => ({
+  '--console-left-width': `${leftPanelWidth.value}px`,
+  '--console-right-width': `${rightPanelWidth.value}px`
+}))
+
+let stopPanelResize: (() => void) | null = null
+const clampPanelWidth = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+const availablePanelWidth = (side: 'left' | 'right') => {
+  const total = consoleLayoutRef.value?.clientWidth || window.innerWidth
+  const opposite = side === 'left' ? rightPanelWidth.value : leftPanelWidth.value
+  return Math.max(0, total - opposite - MIN_MAIN_WIDTH - 10)
+}
+
+const setPanelWidth = (side: 'left' | 'right', value: number) => {
+  if (side === 'left') {
+    leftPanelWidth.value = clampPanelWidth(value, MIN_LEFT_WIDTH, Math.min(MAX_LEFT_WIDTH, availablePanelWidth(side)))
+    return
+  }
+  rightPanelWidth.value = clampPanelWidth(value, MIN_RIGHT_WIDTH, Math.min(MAX_RIGHT_WIDTH, availablePanelWidth(side)))
+}
+
+const persistPanelWidths = () => {
+  localStorage.setItem(CONSOLE_LEFT_WIDTH_KEY, String(Math.round(leftPanelWidth.value)))
+  localStorage.setItem(CONSOLE_RIGHT_WIDTH_KEY, String(Math.round(rightPanelWidth.value)))
+}
+
+const startPanelResize = (side: 'left' | 'right', event: PointerEvent) => {
+  if (event.button !== 0) return
+  event.preventDefault()
+  stopPanelResize?.()
+  const startX = event.clientX
+  const startWidth = side === 'left' ? leftPanelWidth.value : rightPanelWidth.value
+  document.body.classList.add('console-panel-resizing')
+
+  const move = (moveEvent: PointerEvent) => {
+    const delta = moveEvent.clientX - startX
+    setPanelWidth(side, startWidth + (side === 'left' ? delta : -delta))
+  }
+  const stop = () => {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', stop)
+    document.body.classList.remove('console-panel-resizing')
+    persistPanelWidths()
+    stopPanelResize = null
+  }
+  stopPanelResize = stop
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', stop, { once: true })
+}
+
+const resetPanelWidth = (side: 'left' | 'right') => {
+  setPanelWidth(side, side === 'left' ? DEFAULT_LEFT_WIDTH : DEFAULT_RIGHT_WIDTH)
+  persistPanelWidths()
+}
+
+const handleResizerKeydown = (side: 'left' | 'right', event: KeyboardEvent) => {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  event.preventDefault()
+  const current = side === 'left' ? leftPanelWidth.value : rightPanelWidth.value
+  const direction = event.key === 'ArrowRight' ? 1 : -1
+  setPanelWidth(side, current + direction * (side === 'left' ? 12 : -12))
+  persistPanelWidths()
+}
 const terminalDetailsLoaded = new Set<string>()
 const reviewDetailsLoaded = new Set<string>()
 const terminalDetailCache = new Map<string, { run: WorkflowRun; acg: AcgView }>()
@@ -628,6 +729,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopPanelResize?.()
   document.removeEventListener('visibilitychange', handleVisibility)
   clearListTimer()
   listGeneration += 1
@@ -648,8 +750,8 @@ const formatRelativeTime = (value?: string | null) => value ? new Date(value).to
 </script>
 
 <style scoped>
-.agentos-console { height: 100%; min-height: 0; color: var(--text-primary); overflow: hidden; }
-.console-header { flex: 0 0 auto; }
+.agentos-console { height: 100%; min-height: 0; padding: 0; gap: 0; color: var(--text-primary); overflow: hidden; }
+.console-header { z-index: 1; flex: 0 0 50px; min-height: 50px; border-width: 0 0 1px; border-radius: 0; box-shadow: none; }
 .console-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .console-refresh,
 .run-toolbar button,
@@ -660,10 +762,22 @@ const formatRelativeTime = (value?: string | null) => value ? new Date(value).to
 }
 .console-refresh:hover:not(:disabled), .run-toolbar button:hover:not(:disabled), .pagination button:hover:not(:disabled) { border-color: var(--primary-line); color: var(--primary-color); }
 button:disabled { cursor: not-allowed; opacity: 0.55; }
-.console-layout { display: grid; grid-template-columns: minmax(280px, 330px) minmax(0, 1fr) minmax(300px, 360px); align-items: stretch; gap: 14px; flex: 1 1 auto; height: auto; min-height: 0; overflow: hidden; }
+.console-layout { display: grid; grid-template-columns: var(--console-left-width) 5px minmax(360px, 1fr) 5px var(--console-right-width); align-items: stretch; gap: 0; flex: 1 1 auto; height: auto; min-height: 0; overflow: hidden; border: 0; border-radius: 0; background: var(--bg-card); }
 .run-sidebar, .console-main, .console-side { min-width: 0; min-height: 0; height: 100%; }
 .run-sidebar, .console-main, .console-side { overflow-y: auto; scrollbar-gutter: stable; }
-.console-main, .console-side { display: flex; flex-direction: column; gap: 12px; }
+.run-sidebar { padding: 12px; border: 0; border-radius: 0; box-shadow: none; }
+.console-main, .console-side { display: flex; flex-direction: column; gap: 0; background: var(--bg-card); }
+.console-main { border-left: 1px solid var(--border-light); border-right: 1px solid var(--border-light); }
+.console-main > .ui-surface,
+.console-main > :deep(.ui-surface),
+.console-side > .ui-surface,
+.console-side > :deep(.ui-surface) { border-width: 0 0 1px; border-radius: 0; box-shadow: none; }
+.console-side { padding: 0; }
+.console-resizer { position: relative; z-index: 3; width: 5px; min-width: 5px; cursor: col-resize; background: var(--bg-panel); outline: none; touch-action: none; }
+.console-resizer::after { content: ''; position: absolute; inset: 0 1px; background: transparent; transition: background-color 120ms ease; }
+.console-resizer:hover::after,
+.console-resizer:focus-visible::after { background: var(--primary-color); }
+.acg-summary { box-sizing: border-box; min-height: 84px; max-height: 280px; resize: vertical; overflow: auto; }
 .console-main > * { flex-shrink: 0; }
 .console-main > .selection-empty:last-child,
 .console-main > .run-facts:last-child,
@@ -731,6 +845,6 @@ select:focus, input:focus { border-color: var(--primary-line); box-shadow: 0 0 0
 .acg-summary__facts span { padding: 4px 7px; border-radius: 5px; background: var(--bg-input); font-size: 11px; }
 @keyframes list-progress { 0% { transform: translateX(-110%); } 100% { transform: translateX(270%); } }
 @media (prefers-reduced-motion: reduce) { .run-mini-progress.indeterminate > span { animation: none; transform: translateX(80%); } }
-@media (max-width: 1180px) { .agentos-console { height: auto; min-height: 100%; overflow: visible; } .console-layout { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); flex: none; height: auto; overflow: visible; } .run-sidebar, .console-main, .console-side { height: auto; } .console-side { grid-column: 2; } .run-sidebar { max-height: 720px; } }
-@media (max-width: 760px) { .agentos-console { padding: 12px; } .console-header { align-items: flex-start; flex-direction: column; } .console-layout { grid-template-columns: 1fr; } .console-side { grid-column: 1; } .run-sidebar { max-height: none; } .run-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .run-toolbar { align-items: flex-start; flex-direction: column; } .run-toolbar nav { justify-content: flex-start; } }
+@media (max-width: 1180px) { .agentos-console { height: auto; min-height: 100%; overflow: visible; } .console-layout { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); flex: none; height: auto; overflow: visible; } .console-resizer { display: none; } .run-sidebar, .console-main, .console-side { height: auto; } .console-side { grid-column: 2; } .run-sidebar { max-height: 720px; } }
+@media (max-width: 760px) { .agentos-console { padding: 0; } .console-header { align-items: flex-start; flex-direction: column; flex-basis: auto; } .console-layout { grid-template-columns: 1fr; } .console-side { grid-column: 1; } .run-sidebar { max-height: none; } .run-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .run-toolbar { align-items: flex-start; flex-direction: column; } .run-toolbar nav { justify-content: flex-start; } }
 </style>

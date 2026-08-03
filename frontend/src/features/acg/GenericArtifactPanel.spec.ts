@@ -56,17 +56,32 @@ describe('GenericArtifactPanel', () => {
     expect(wrapper.find('.decision-grid').text()).toContain('确认设备供应商报价')
   })
 
-  it('falls back to a plain final report when structured data is unavailable', () => {
+  it('renders an unstructured final report as safe Markdown', () => {
     const wrapper = mount(GenericArtifactPanel, {
       props: {
         status: 'completed',
-        finalReport: '# Final delivery\n\nComplete result.',
+        finalReport: [
+          '# Final delivery',
+          '',
+          '**Complete result.**',
+          '',
+          '| Risk | Level |',
+          '| --- | --- |',
+          '| Acceptance | High |',
+          '',
+          '<script>alert("unsafe")</script>'
+        ].join('\n'),
         finalArtifacts: [],
         stepOutputs: []
       }
     })
 
-    expect(wrapper.find('.report-fallback').text()).toContain('Complete result.')
+    const report = wrapper.find('.report-fallback')
+    expect(report.find('h1').text()).toBe('Final delivery')
+    expect(report.find('strong').text()).toBe('Complete result.')
+    expect(report.find('table').text()).toContain('AcceptanceHigh')
+    expect(report.find('script').exists()).toBe(false)
+    expect(report.html()).toContain('&lt;script&gt;')
     expect(wrapper.text()).toContain('已生成')
   })
 

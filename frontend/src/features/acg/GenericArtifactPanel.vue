@@ -32,7 +32,7 @@
       <article class="delivery-overview">
         <span class="artifact-kind">{{ artifactTypeLabel }}</span>
         <h5>{{ deliveryTitle }}</h5>
-        <p>{{ executiveSummary || reportContent }}</p>
+        <p v-if="executiveSummary">{{ executiveSummary }}</p>
       </article>
 
       <div v-if="hasStructuredDelivery" class="delivery-facts" aria-label="成果内容统计">
@@ -105,8 +105,7 @@
         </footer>
       </section>
 
-      <article v-else class="report-fallback">
-        <pre>{{ reportContent }}</pre>
+      <article v-else class="report-fallback markdown-body" v-html="renderedReportHtml">
       </article>
     </div>
 
@@ -134,6 +133,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { AcgDeliverable, AcgFinalArtifact } from '@/services/api/workflow'
+import { renderMarkdown } from '@/utils/markdown'
 
 type DeliveryTab = 'solution' | 'calculations' | 'decisions'
 
@@ -181,16 +181,21 @@ const asTextList = (value: unknown): string[] => Array.isArray(value)
 
 const primaryArtifact = computed(() => props.finalArtifacts[0] || null)
 const structuredData = computed(() => asRecord(primaryArtifact.value?.structuredData))
-const deliveryTitle = computed(() => (
-  asText(structuredData.value.title)
-  || asText(primaryArtifact.value?.title)
-  || '任务最终成果'
-))
 const executiveSummary = computed(() => asText(structuredData.value.executiveSummary))
 const reportContent = computed(() => (
   asText(primaryArtifact.value?.content)
   || asText(props.finalReport)
 ))
+const reportHeading = computed(() => reportContent.value.match(/^#\s+(.+)$/m)?.[1]?.trim() || '')
+const deliveryTitle = computed(() => {
+  const artifactTitle = asText(primaryArtifact.value?.title)
+  const isGenericTitle = /^workflow final report$/i.test(artifactTitle)
+  return asText(structuredData.value.title)
+    || (isGenericTitle ? reportHeading.value : artifactTitle)
+    || reportHeading.value
+    || '任务最终成果'
+})
+const renderedReportHtml = computed(() => renderMarkdown(reportContent.value))
 const artifactTypeLabel = computed(() => {
   const type = asText(primaryArtifact.value?.type).toLowerCase()
   if (type === 'report') return '实施方案'
@@ -469,7 +474,41 @@ summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset:
 .decision-grid li { margin: 0 0 7px; padding-left: 3px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
 .decision-grid footer { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--text-secondary); font-size: 11px; }
 .muted { color: var(--text-secondary); font-size: 12px; }
-.report-fallback pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.75 inherit; }
+.report-fallback {
+  padding: 4px 2px 18px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.75;
+}
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4),
+.markdown-body :deep(h5),
+.markdown-body :deep(h6) { margin: 20px 0 9px; color: var(--text-primary); line-height: 1.4; }
+.markdown-body :deep(h1) { margin-top: 0; padding-bottom: 10px; border-bottom: 1px solid var(--border-light); font-size: 22px; }
+.markdown-body :deep(h2) { padding-bottom: 6px; border-bottom: 1px solid var(--border-light); font-size: 17px; }
+.markdown-body :deep(h3) { font-size: 14px; }
+.markdown-body :deep(p) { margin: 7px 0; color: var(--text-secondary); }
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) { margin: 8px 0 12px; padding-left: 24px; }
+.markdown-body :deep(li) { margin: 5px 0; color: var(--text-secondary); }
+.markdown-body :deep(strong) { color: var(--text-primary); font-weight: 750; }
+.markdown-body :deep(code) { padding: 2px 5px; border-radius: 4px; background: var(--bg-input); font: 12px var(--font-mono, monospace); }
+.markdown-body :deep(pre) { padding: 12px; overflow-x: auto; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-input); }
+.markdown-body :deep(pre code) { padding: 0; background: transparent; }
+.markdown-body :deep(blockquote) { margin: 10px 0; padding: 8px 14px; border-left: 3px solid var(--primary-color); background: color-mix(in srgb, var(--primary-color) 5%, transparent); color: var(--text-secondary); }
+.markdown-body :deep(a) { color: var(--primary-color); text-decoration: none; }
+.markdown-body :deep(a:hover) { text-decoration: underline; }
+.markdown-body :deep(.markdown-table-wrap) { margin: 12px 0 18px; overflow-x: auto; border: 1px solid var(--border-light); border-radius: 8px; }
+.markdown-body :deep(table) { width: 100%; border-collapse: collapse; background: var(--bg-panel); font-size: 12px; }
+.markdown-body :deep(th),
+.markdown-body :deep(td) { min-width: 110px; padding: 9px 11px; border-right: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); text-align: left; vertical-align: top; }
+.markdown-body :deep(th) { color: var(--text-primary); background: var(--bg-input); font-weight: 700; }
+.markdown-body :deep(th:last-child),
+.markdown-body :deep(td:last-child) { border-right: 0; }
+.markdown-body :deep(tbody tr:last-child td) { border-bottom: 0; }
 
 .step-output-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-light); }
 .step-output-section > header { justify-content: space-between; margin-bottom: 9px; }

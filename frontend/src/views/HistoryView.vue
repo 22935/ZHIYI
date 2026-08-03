@@ -2,10 +2,10 @@
 <template>
   <div class="history-view">
     <!-- 页面头部 -->
-    <div class="page-header">
+    <div class="page-header workspace-page-header">
       <div class="header-inner">
         <div class="header-left">
-          <div class="header-icon-wrapper">
+          <div class="header-icon-wrapper workspace-page-header__icon">
             <el-icon class="header-icon"><Clock /></el-icon>
           </div>
           <div class="header-text">
@@ -66,6 +66,7 @@
             :key="`conversations-${refreshKey}`"
             :search-keyword="searchKeyword"
             :user-id="userStore.currentUser?.id"
+            workspace-mode="chat"
             @select="handleSelectConversation"
           />
           
@@ -99,7 +100,7 @@ const refreshKey = ref(0)
 
 const handleSelectConversation = (conversation: { id: string; contextId?: string }) => {
   const contextId = conversation.contextId || conversation.id
-  router.push(`/chat?contextId=${encodeURIComponent(contextId)}`)
+  router.push({ path: '/chat', query: { contextId, workspace: 'chat' } })
 }
 
 // 刷新当前标签页的数据
@@ -122,7 +123,7 @@ const clearAll = async () => {
       return
     }
     
-    await conversationApi.deleteAllConversations(userId)
+    await conversationApi.deleteAllConversations(userId, 'chat')
     ElMessage.success('历史记录已清空')
     refresh()
   } catch (error: any) {
@@ -399,4 +400,48 @@ const clearAll = async () => {
     padding: 10px 16px;
   }
 }
+
+/* Workbench v0: compact management surface instead of a card gallery. */
+.history-view { gap: 12px; padding: 12px; }
+.page-header {
+  box-sizing: border-box;
+  min-height: 50px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: var(--backdrop-blur);
+}
+.header-inner,
+.content-inner { width: 100%; max-width: none; }
+.header-left { gap: 10px; }
+.header-icon-wrapper {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--primary-color);
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+}
+.header-icon { font-size: 15px; color: var(--primary-color); }
+.header-text .page-title { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; }
+.header-text .page-subtitle { display: none; }
+.header-actions { gap: 6px; }
+.search-box { width: 260px; height: 30px; padding: 0 9px; border-radius: 6px; }
+.search-icon { margin-right: 6px; font-size: 14px; }
+.search-input { font-size: 12px; }
+.search-box:focus-within { box-shadow: 0 0 0 2px var(--primary-fade); }
+.action-button { height: 30px; padding: 0 10px; gap: 5px; border-radius: 6px; font-size: 12px; }
+.page-content { padding: 0; }
+.tabs-nav { height: 38px; gap: 2px; margin-bottom: 8px; }
+.tab-button { height: 38px; padding: 0 12px; gap: 6px; font-size: 12px; }
+.tab-button .el-icon { font-size: 14px; }
+.content-section {
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+}
+.files-content { padding: 0; }
 </style>

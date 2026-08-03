@@ -1982,4 +1982,154 @@ onMounted(async () => {
   color: var(--primary);
   opacity: 0.75;
 }
+
+/* 与其余工作区页面保持一致的紧凑布局 */
+.view-container {
+  max-width: none;
+  padding: 12px;
+}
+
+.view-header {
+  box-sizing: border-box;
+  min-height: 50px;
+  margin-bottom: 10px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.header-left {
+  gap: 10px;
+}
+
+.brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.brand-icon:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.brand-icon .el-icon {
+  font-size: 15px;
+}
+
+.brand-text h1 {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.brand-text p {
+  display: none;
+}
+
+.header-right,
+.system-status-bar {
+  gap: 6px;
+}
+
+.status-indicator,
+.round-badge {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.header-actions {
+  gap: 5px;
+}
+
+.action-btn {
+  height: 30px;
+  padding: 0 10px;
+  gap: 5px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.stats-row {
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.stat-card {
+  min-height: 72px;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.stat-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+}
+
+.stat-value {
+  font-size: 18px;
+}
+
+.stat-label {
+  font-size: 11px;
+}
+
+.stat-trend {
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+.viz-row,
+.detail-row {
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.detail-col {
+  gap: 10px;
+}
+
+.panel-card {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.panel-card-header {
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 7px 12px;
+}
+
+.panel-title-group {
+  gap: 7px;
+}
+
+.panel-title-group h2 {
+  font-size: 13px;
+}
+
+.icon-btn {
+  width: 30px;
+  height: 30px;
+}
+
+.training-metrics-row {
+  gap: 6px;
+  padding: 0 10px;
+  margin-top: 6px;
+}
+
+.mini-metric {
+  padding: 7px 5px;
+  border-radius: 7px;
+}
+
+.tasks-panel {
+  margin-top: 10px;
+}
 </style>

@@ -360,11 +360,27 @@ def test_sqlite_workflow_store_queries_tasks_and_runs_with_filters_and_paginatio
     assert run_page.total == 1
     assert [run.run_id for run in run_page.items] == [workbench_run.run_id]
 
+    compatible_sources = store.list_runs(sources=["chat", "workbench"], page=1, page_size=1)
+    assert compatible_sources.total == 2
+    assert [run.run_id for run in compatible_sources.items] == [workbench_run.run_id]
+
     paged_runs = store.list_runs(page=2, page_size=1)
     assert paged_runs.total == 2
     assert paged_runs.page == 2
     assert paged_runs.page_size == 1
     assert [run.run_id for run in paged_runs.items] == [chat_run.run_id]
+
+    summaries = store.list_run_summaries(sources=["chat", "workbench"], page_size=10)
+    assert summaries.total == 2
+    assert [item["runId"] for item in summaries.items] == [workbench_run.run_id, chat_run.run_id]
+    assert summaries.items[0]["title"] == workbench_task.title
+
+    # Summary reads must remain independent from the potentially very large full Run JSON.
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute("UPDATE runs SET payload = 'not-needed-for-summary' WHERE run_id = ?", (workbench_run.run_id,))
+        conn.commit()
+    lightweight = store.list_run_summaries(source="workbench")
+    assert [item["runId"] for item in lightweight.items] == [workbench_run.run_id]
 
 
 def test_sqlite_workflow_store_enables_wal_and_verified_backup(tmp_path, monkeypatch):

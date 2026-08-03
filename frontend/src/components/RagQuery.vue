@@ -473,6 +473,26 @@ onMounted(() => {
   opacity: 0;
   transform: translateY(20px);
 }
+
+/* Compact workbench treatment shared with ACG panels. */
+.query-card { height: 100%; border-radius: 8px; box-shadow: none; }
+.card-header { min-height: 42px; padding: 8px 10px; }
+.header-left { gap: 7px; }
+.header-icon { font-size: 15px; }
+.header-title { font-size: 13px; }
+.header-settings { gap: 6px; }
+.settings-label { font-size: 11px; }
+.k-input { width: 82px; }
+.query-body { padding: 12px; gap: 10px; }
+.query-textarea { min-height: 92px; padding: 12px; border-radius: 7px; font-size: 13px; line-height: 1.55; }
+.query-textarea:focus { box-shadow: 0 0 0 2px var(--primary-fade); }
+.submit-button { height: 30px; padding: 0 12px; border-radius: 6px; font-size: 12px; }
+.hint-text { font-size: 10px; }
+.result-area { margin-top: 14px; padding-top: 14px; }
+.result-header { margin-bottom: 10px; }
+.result-title { font-size: 13px; }
+.answer-box { margin-bottom: 14px; padding: 12px; border-radius: 7px; }
+.answer-content { font-size: 13px; line-height: 1.65; }
 </style>
 
 

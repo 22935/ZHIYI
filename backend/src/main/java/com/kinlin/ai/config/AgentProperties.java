@@ -27,9 +27,36 @@ public class AgentProperties {
 
     @Data
     public static class Python {
-        private String lawyerChatUrl = "http://localhost:8000/ai/agent/lawyer/chat";
-        private String teacherChatUrl = "http://localhost:8000/ai/agent/teacher/chat";
-        private String programmerChatUrl = "http://localhost:8000/ai/agent/programmer/chat";
-        private String writerChatUrl = "http://localhost:8000/ai/agent/writer/chat";
+        private String baseUrl = "http://localhost:8000";
+        private String lawyerChatUrl;
+        private String teacherChatUrl;
+        private String programmerChatUrl;
+        private String writerChatUrl;
+
+        public String getLawyerChatUrl() {
+            return resolveEndpoint(lawyerChatUrl, "/ai/agent/lawyer/chat");
+        }
+
+        public String getTeacherChatUrl() {
+            return resolveEndpoint(teacherChatUrl, "/ai/agent/teacher/chat");
+        }
+
+        public String getProgrammerChatUrl() {
+            return resolveEndpoint(programmerChatUrl, "/ai/agent/programmer/chat");
+        }
+
+        public String getWriterChatUrl() {
+            return resolveEndpoint(writerChatUrl, "/ai/agent/writer/chat");
+        }
+
+        private String resolveEndpoint(String overrideUrl, String path) {
+            if (overrideUrl != null && !overrideUrl.isBlank()) {
+                return overrideUrl.trim();
+            }
+            String normalizedBaseUrl = baseUrl == null || baseUrl.isBlank()
+                    ? "http://localhost:8000"
+                    : baseUrl.trim().replaceAll("/+$", "");
+            return normalizedBaseUrl + path;
+        }
     }
 }

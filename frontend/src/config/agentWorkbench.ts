@@ -299,7 +299,7 @@ export const roleTemplateGroups: RoleTemplateGroup[] = [
           intent: 'case_analysis',
           workflowId: 'legal_case_analysis_v1',
           workflowLabel: '法律案件分析流程',
-          runtimeLabel: 'Pack Workflow 已定义 / 页面待接入',
+          runtimeLabel: 'Pack Workflow 已接入 ACG',
           inputKey: 'caseText',
           defaultText: templateDisplayPrompts['lawyer-case'],
           steps: [
@@ -392,7 +392,7 @@ export const roleTemplateGroups: RoleTemplateGroup[] = [
         intent: 'lesson_plan',
         workflowId: 'education_lesson_plan_v1',
         workflowLabel: '教师教案生成流程',
-        runtimeLabel: 'Pack Workflow 已定义 / 页面待接入',
+        runtimeLabel: 'Pack Workflow 已接入 ACG',
         inputKey: 'topic',
         defaultText: templateDisplayPrompts['teacher-lesson'],
         steps: [
@@ -503,7 +503,7 @@ export const roleTemplateGroups: RoleTemplateGroup[] = [
         intent: 'requirement_analysis',
         workflowId: 'programmer_requirement_analysis_v1',
         workflowLabel: '程序员需求分析流程',
-        runtimeLabel: 'Pack Workflow 已定义 / 页面待接入',
+        runtimeLabel: 'Pack Workflow 已接入 ACG',
         inputKey: 'requirement',
         defaultText: templateDisplayPrompts['programmer-requirement'],
         steps: [
@@ -639,7 +639,7 @@ export const roleTemplateGroups: RoleTemplateGroup[] = [
         intent: 'story_outline',
         workflowId: 'writer_story_outline_v1',
         workflowLabel: '作家故事大纲流程',
-        runtimeLabel: 'Pack Workflow 已定义 / 页面待接入',
+        runtimeLabel: 'Pack Workflow 已接入 ACG',
         inputKey: 'premise',
         defaultText: templateDisplayPrompts['writer-outline'],
         steps: [

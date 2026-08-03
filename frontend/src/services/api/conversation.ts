@@ -7,6 +7,7 @@ export interface Conversation {
   contextId: string
   title?: string
   preview?: string
+  workspaceMode?: 'agent' | 'chat'
   createdAt: string
   updatedAt: string
 }
@@ -18,8 +19,15 @@ export interface ConversationDetail {
 
 export const conversationApi = {
   // 获取用户的对话列表
-  async getUserConversations(_userId?: string): Promise<Conversation[]> {
-    const response = await request.get<Conversation[]>('/conversations')
+  async getUserConversations(
+    _userId?: string,
+    workspaceMode?: 'agent' | 'chat',
+    options: { signal?: AbortSignal } = {}
+  ): Promise<Conversation[]> {
+    const response = await request.get<Conversation[]>('/conversations', {
+      params: workspaceMode ? { workspaceMode } : undefined,
+      signal: options.signal
+    })
     return response.data
   },
 
@@ -47,8 +55,10 @@ export const conversationApi = {
   },
 
   // 清空所有对话
-  async deleteAllConversations(_userId?: string): Promise<void> {
-    await request.delete('/conversations/all')
+  async deleteAllConversations(_userId?: string, workspaceMode?: 'agent' | 'chat'): Promise<void> {
+    await request.delete('/conversations/all', {
+      params: workspaceMode ? { workspaceMode } : undefined
+    })
   }
 }
 

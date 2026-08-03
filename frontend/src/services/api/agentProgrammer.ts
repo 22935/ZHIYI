@@ -74,6 +74,8 @@ export interface ProgrammerAgentResponse {
   skillsUsed: string[]
   trace: AgentTraceStep[]
   routing?: AgentRoutingInfo
+  acgTaskId?: string
+  enabledPluginIds?: string[]
   workflowRunId?: string
   workflowId?: string
   workflowStatus?: string

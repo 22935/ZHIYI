@@ -9,6 +9,7 @@ from agentos.core.planning.default_catalog import build_default_capability_catal
 from agentos.core.workflow.registry import WorkflowRegistry
 from agentos.core.models.types import WorkflowStatus
 from agentos.packs.registry import discover_pack_manifests, register_installed_packs
+from app.api.agentos_core import LEGACY_AGENT_CONFIG
 
 
 def test_pack_registry_discovers_installed_manifests():
@@ -38,6 +39,16 @@ def test_pack_registry_discovers_installed_manifests():
         "人工审核",
         "报告生成",
     }
+
+
+def test_each_professional_role_is_bound_to_a_declared_pack_workflow():
+    manifests = {manifest.pack_id: manifest for manifest in discover_pack_manifests()}
+
+    for role, config in LEGACY_AGENT_CONFIG.items():
+        plugin_id = config["plugin_id"]
+        workflow_id = config["workflow_id"]
+        assert plugin_id in manifests, role
+        assert workflow_id in manifests[plugin_id].workflows, role
 
 
 def test_pack_registry_registers_enabled_packs_from_manifest():

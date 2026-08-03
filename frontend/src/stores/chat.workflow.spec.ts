@@ -17,6 +17,7 @@ vi.mock('@/services/api/workflow', async (importOriginal) => {
 
 const acceptedResponse = {
   accepted: true,
+  acgTaskId: 'run_chat_1',
   task: { taskId: 'task_chat_1', status: 'pending' },
   run: { runId: 'run_chat_1', workflowId: 'legal_case_analysis_v1', status: 'pending' }
 }
@@ -47,12 +48,39 @@ describe('chat workflow binding', () => {
       conversationId: 'conversation_1',
       messageId: expect.any(String),
       taskId: 'task_chat_1',
+      acgTaskId: 'run_chat_1',
       runId: 'run_chat_1',
       workflowId: 'legal_case_analysis_v1',
+      source: 'chat',
       clientRequestId: 'request_1'
     }))
     expect(store.messages[store.messages.length - 1]?.content).toBe('已创建 ACG 运行任务')
     expect(JSON.parse(localStorage.getItem('chat.workflow_bindings.v1') || '{}').conversation_1).toHaveLength(1)
+  })
+
+  it('starts Agent runs as a lightweight Agent projection over ACG', async () => {
+    const store = useChatStore()
+
+    const result = await store.startAgentRun('制定跨部门发布计划', {
+      conversationId: 'conversation_agent_1',
+      clientRequestId: 'request_agent_1',
+      enabledPluginIds: ['programmer']
+    })
+
+    expect(workflowApi.startWorkflowAsync).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Agent ACG：制定跨部门发布计划',
+      enabledPluginIds: ['programmer'],
+      input: expect.objectContaining({
+        source: 'agent',
+        userIntent: '制定跨部门发布计划',
+        taskGoal: '制定跨部门发布计划'
+      })
+    }))
+    expect(result?.binding).toEqual(expect.objectContaining({
+      acgTaskId: 'run_chat_1',
+      runId: 'run_chat_1',
+      source: 'agent'
+    }))
   })
 
   it('keeps workflow submission independent while Chat is streaming', async () => {

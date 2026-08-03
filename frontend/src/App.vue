@@ -168,18 +168,56 @@
 
                 <button class="chat-submenu-action new-chat-action" type="button" @click="startNewChat">
                   <el-icon><EditPen /></el-icon>
-                  <span>新建对话</span>
+                  <span>{{ workspaceMode === 'agent' ? '新建 Agent 任务' : '新建对话' }}</span>
                 </button>
 
                 <div class="chat-submenu-section-head">
-                  <span>对话记录</span>
-                  <span v-if="recentConversations.length" class="chat-project-count">{{ recentConversations.length }}</span>
+                  <span>{{ workspaceMode === 'agent' ? 'Agent 记录' : '对话记录' }}</span>
+                  <span v-if="workspaceHistoryCount" class="chat-project-count">{{ workspaceHistoryCount }}</span>
+                  <span v-if="conversationListLoading && workspaceHistoryCount" class="chat-submenu-refreshing">更新中</span>
                 </div>
 
-                <div v-if="conversationListLoading" class="chat-submenu-loading">正在加载…</div>
-                <div v-else-if="recentConversations.length" class="chat-project-list" role="list" aria-label="对话记录">
+                <div v-if="conversationListLoading && !workspaceHistoryCount" class="chat-submenu-loading">正在加载…</div>
+                <div v-else-if="workspaceMode === 'agent' && recentAgentRuns.length" class="chat-project-list" role="list" aria-label="Agent 记录">
                   <div
-                    v-for="conversation in recentConversations"
+                    v-for="run in recentAgentRuns"
+                    :key="run.runId"
+                    class="chat-project-row"
+                    :class="{ active: route.query.runId === run.runId }"
+                    role="listitem"
+                  >
+                    <button
+                      class="chat-project-item"
+                      type="button"
+                      :title="agentRunTitle(run)"
+                      @click="openAgentRun(run)"
+                    >
+                      <span class="chat-project-icon" aria-hidden="true">
+                        <el-icon><Cpu /></el-icon>
+                      </span>
+                      <span class="chat-project-copy">
+                        <span class="chat-project-title">{{ agentRunTitle(run) }}</span>
+                        <span class="chat-project-time">
+                          {{ agentRunState(run) }} · {{ formatConversationTime(run.updatedAt || run.startedAt || run.createdAt || undefined) }}
+                        </span>
+                      </span>
+                      <el-icon class="chat-project-arrow" aria-hidden="true"><ArrowRight /></el-icon>
+                    </button>
+                    <button
+                      v-if="isAgentRunDeletable(run)"
+                      class="chat-project-delete"
+                      type="button"
+                      :aria-label="`删除 Agent 记录：${agentRunTitle(run)}`"
+                      title="删除 Agent 记录"
+                      @click="deleteSidebarAgentRun(run)"
+                    >
+                      <el-icon><Delete /></el-icon>
+                    </button>
+                  </div>
+                </div>
+                <div v-else-if="workspaceMode === 'chat' && visibleRecentConversations.length" class="chat-project-list" role="list" aria-label="对话记录">
+                  <div
+                    v-for="conversation in visibleRecentConversations"
                     :key="conversation.id"
                     class="chat-project-row"
                     :class="{ active: route.query.contextId === (conversation.contextId || conversation.id) }"
@@ -211,15 +249,17 @@
                     </button>
                   </div>
                 </div>
-                <div v-else class="chat-submenu-empty">暂无历史对话</div>
+                <div v-else class="chat-submenu-empty">
+                  {{ workspaceMode === 'agent' ? '暂无 Agent 任务记录' : '暂无历史对话' }}
+                </div>
 
-                <button class="chat-submenu-action history-action" type="button" @click="router.push('/history')">
+                <button class="chat-submenu-action history-action" type="button" @click="openWorkspaceHistory">
                   <span class="history-action__icon" aria-hidden="true">
                     <el-icon><Clock /></el-icon>
                   </span>
                   <span class="history-action__copy">
-                    <strong>查找所有聊天记录</strong>
-                    <small>搜索、编辑与管理</small>
+                    <strong>{{ workspaceMode === 'agent' ? '查看所有 Agent 记录' : '查找所有聊天记录' }}</strong>
+                    <small>{{ workspaceMode === 'agent' ? '搜索、审计与任务管理' : '搜索、编辑与管理' }}</small>
                   </span>
                   <el-icon class="history-action__arrow" aria-hidden="true"><ArrowRight /></el-icon>
                 </button>
@@ -423,10 +463,16 @@ import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import AcgRunManager from '@/components/agentos/AcgRunManager.vue'
 import { authApi } from '@/services/api/auth'
 import { conversationApi, type Conversation } from '@/services/api/conversation'
+import { workflowApi, type WorkflowRunSummary } from '@/services/api/workflow'
 import { useChatStore } from '@/stores/chat'
 import { useWorkflowRunsStore } from '@/stores/workflowRuns'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  getConversationWorkspace,
+  removeConversationWorkspace
+} from '@/utils/conversationWorkspace'
+import { resolveAcgTaskTitle } from '@/utils/acgTaskTitle'
 
 const route = useRoute()
 const router = useRouter()
@@ -454,6 +500,32 @@ const chatPanelWidth = ref(
 )
 const chatPanelResizing = ref(false)
 const recentConversations = ref<Conversation[]>([])
+const recentAgentRuns = ref<WorkflowRunSummary[]>([])
+let conversationLoadGeneration = 0
+let conversationLoadController: AbortController | null = null
+let conversationLoadPromise: Promise<void> | null = null
+let conversationLoadWorkspace: WorkspaceMode | null = null
+const SIDEBAR_HISTORY_PAGE_SIZE = 20
+const conversationWorkspaceVersion = ref(0)
+const agentConversationIds = computed(() => new Set(
+  Object.entries(chatStore.workflowBindings)
+    .filter(([, bindings]) => bindings.some(binding => !binding.invalidAt))
+    .map(([conversationId]) => conversationId)
+))
+const visibleRecentConversations = computed(() => {
+  // Make local workspace index updates reactive without duplicating it in App state.
+  void conversationWorkspaceVersion.value
+  return recentConversations.value.filter(conversation => {
+    const contextId = conversation.contextId || conversation.id
+    const resolvedMode = conversation.workspaceMode
+      || getConversationWorkspace(contextId, agentConversationIds.value)
+    return resolvedMode === workspaceMode.value
+  })
+})
+const workspaceHistoryCount = computed(() => workspaceMode.value === 'agent'
+  ? recentAgentRuns.value.length
+  : visibleRecentConversations.value.length
+)
 const conversationListLoading = ref(false)
 const SIDEBAR_COLLAPSED_KEY = 'layout.sidebar_collapsed'
 const SIDEBAR_WIDTH_KEY = 'layout.sidebar_width'
@@ -509,20 +581,50 @@ const handleSidebarWheel = (event: WheelEvent) => {
   })
 }
 
-const loadRecentConversations = async () => {
-  if (conversationListLoading.value) return
-
-  try {
-    conversationListLoading.value = true
-    const userId = localStorage.getItem('userId') || undefined
-    const conversations = await conversationApi.getUserConversations(userId)
-    recentConversations.value = [...conversations]
-      .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
-  } catch {
-    recentConversations.value = []
-  } finally {
-    conversationListLoading.value = false
+const loadRecentConversations = (): Promise<void> => {
+  const requestedWorkspace = workspaceMode.value
+  if (conversationLoadPromise && conversationLoadWorkspace === requestedWorkspace) {
+    return conversationLoadPromise
   }
+
+  conversationLoadController?.abort()
+  const controller = new AbortController()
+  conversationLoadController = controller
+  conversationLoadWorkspace = requestedWorkspace
+  const requestGeneration = ++conversationLoadGeneration
+  conversationListLoading.value = true
+
+  const pending = (async () => {
+    try {
+      if (requestedWorkspace === 'agent') {
+        const page = await workflowApi.listRuns(
+          { sources: 'agent,chat', summary: true, page: 1, pageSize: SIDEBAR_HISTORY_PAGE_SIZE },
+          { signal: controller.signal }
+        )
+        if (requestGeneration !== conversationLoadGeneration || requestedWorkspace !== workspaceMode.value) return
+        recentAgentRuns.value = page.items || []
+        return
+      }
+
+      const userId = localStorage.getItem('userId') || undefined
+      const conversations = await conversationApi.getUserConversations(userId, 'chat', { signal: controller.signal })
+      if (requestGeneration !== conversationLoadGeneration || requestedWorkspace !== workspaceMode.value) return
+      recentConversations.value = [...conversations]
+        .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+    } catch {
+      // Keep the last successful list visible during transient failures and cancelled refreshes.
+      if (controller.signal.aborted) return
+    } finally {
+      if (requestGeneration === conversationLoadGeneration) {
+        conversationListLoading.value = false
+        conversationLoadController = null
+        conversationLoadPromise = null
+        conversationLoadWorkspace = null
+      }
+    }
+  })()
+  conversationLoadPromise = pending
+  return pending
 }
 
 const handleChatNavToggle = () => {
@@ -579,6 +681,51 @@ const startNewChat = async () => {
   await router.push({ path: '/chat', query: { workspace: workspaceMode.value } })
 }
 
+const openWorkspaceHistory = () => {
+  if (workspaceMode.value === 'agent') {
+    void router.push({ path: '/agentos-console', query: { tab: 'runs', source: 'agent' } })
+    return
+  }
+  void router.push({ path: '/history', query: { workspace: 'chat' } })
+}
+
+const agentRunTitle = (run: WorkflowRunSummary) => resolveAcgTaskTitle(run)
+
+const agentRunState = (run: WorkflowRunSummary) => {
+  if (run.status === 'completed' || run.phase === 'completed') return '已完成'
+  if (run.status === 'failed' || run.phase === 'failed') return '执行失败'
+  if (run.status === 'cancelled' || run.phase === 'cancelled') return '已取消'
+  if (run.status === 'waiting_review' || run.phase === 'review') return '等待审核'
+  return '运行中'
+}
+
+const isAgentRunDeletable = (run: WorkflowRunSummary) =>
+  ['completed', 'failed', 'cancelled'].includes(run.status)
+
+const openAgentRun = async (run: WorkflowRunSummary) => {
+  chatStore.clearMessages()
+  await router.push({ path: '/chat', query: { workspace: 'agent', runId: run.runId } })
+}
+
+const deleteSidebarAgentRun = async (run: WorkflowRunSummary) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除 Agent 任务“${agentRunTitle(run)}”吗？其运行过程与结果将无法恢复。`,
+      '删除 Agent 记录',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
+    )
+    await workflowApi.deleteRun(run.runId)
+    recentAgentRuns.value = recentAgentRuns.value.filter(item => item.runId !== run.runId)
+    workflowRunsStore.removeReference(run.runId)
+    if (route.query.runId === run.runId) await startNewChat()
+    ElMessage.success('Agent 记录已删除')
+  } catch (error: any) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error?.message || '删除 Agent 记录失败')
+    }
+  }
+}
+
 const openConversation = async (conversation: Conversation) => {
   const contextId = conversation.contextId || conversation.id
   await router.push({ path: '/chat', query: { contextId, workspace: workspaceMode.value } })
@@ -620,6 +767,7 @@ const deleteSidebarConversation = async (conversation: Conversation) => {
     recentConversations.value = recentConversations.value.filter(item => item.id !== conversation.id)
 
     const deletedContextId = conversation.contextId || conversation.id
+    removeConversationWorkspace(deletedContextId)
     if (route.query.contextId === deletedContextId) {
       chatStore.clearMessages()
       await router.replace({ path: '/chat', query: { workspace: workspaceMode.value } })
@@ -635,6 +783,11 @@ const deleteSidebarConversation = async (conversation: Conversation) => {
 }
 
 const handleHistoryRefresh = () => {
+  if (chatNavOpen.value) void loadRecentConversations()
+}
+
+const handleConversationWorkspaceChange = () => {
+  conversationWorkspaceVersion.value += 1
   if (chatNavOpen.value) void loadRecentConversations()
 }
 
@@ -654,19 +807,24 @@ watch(
   () => route.query.workspace,
   workspace => {
     if (workspace !== 'agent' && workspace !== 'chat') return
+    const workspaceChanged = workspaceMode.value !== workspace
     workspaceMode.value = workspace
     localStorage.setItem(WORKSPACE_MODE_KEY, workspace)
+    if (workspaceChanged && chatNavOpen.value) void loadRecentConversations()
   },
   { immediate: true }
 )
 
 const selectWorkspaceMode = (mode: WorkspaceMode) => {
+  if (workspaceMode.value === mode) return
   workspaceMode.value = mode
   localStorage.setItem(WORKSPACE_MODE_KEY, mode)
+  chatStore.clearMessages()
   window.dispatchEvent(new CustomEvent('workspace-mode-change', { detail: { mode } }))
+  void loadRecentConversations()
   void router.replace({
     path: '/chat',
-    query: { ...route.query, workspace: mode }
+    query: { workspace: mode }
   })
 }
 
@@ -897,6 +1055,8 @@ const handleLogout = async () => {
 onMounted(() => {
   window.addEventListener('global-error', handleGlobalError as EventListener)
   window.addEventListener('history-refresh', handleHistoryRefresh)
+  window.addEventListener('acg-runs-refresh', handleHistoryRefresh)
+  window.addEventListener('conversation-workspace-change', handleConversationWorkspaceChange)
   mobileMediaQuery.addEventListener('change', handleViewportChange)
   if (chatNavOpen.value) void loadRecentConversations()
   if (localStorage.getItem('userId')) void userStore.loadCurrentUser()
@@ -904,10 +1064,13 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  conversationLoadController?.abort()
   stopSidebarResize()
   stopChatPanelResize()
   window.removeEventListener('global-error', handleGlobalError as EventListener)
   window.removeEventListener('history-refresh', handleHistoryRefresh)
+  window.removeEventListener('acg-runs-refresh', handleHistoryRefresh)
+  window.removeEventListener('conversation-workspace-change', handleConversationWorkspaceChange)
   mobileMediaQuery.removeEventListener('change', handleViewportChange)
 })
 </script>
@@ -995,7 +1158,8 @@ onUnmounted(() => {
 
 .sidebar-header {
   flex-shrink: 0;
-  height: 54px;
+  box-sizing: border-box;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1409,6 +1573,14 @@ onUnmounted(() => {
   background: var(--primary-fade);
   color: var(--primary-color);
   font-size: 10px;
+}
+
+.chat-submenu-refreshing {
+  margin-left: auto;
+  color: var(--primary-color);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .chat-submenu-action .el-icon {

@@ -1729,4 +1729,119 @@ onMounted(() => {
     padding: 14px var(--gap-md);
   }
 }
+
+/* 与其他管理页面共用的紧凑工作区节奏 */
+.model-management-view {
+  padding: 12px;
+  gap: 10px;
+}
+
+.page-header {
+  box-sizing: border-box;
+  min-height: 50px;
+  padding: 7px 12px;
+  gap: 10px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.header-brand {
+  gap: 10px;
+}
+
+.brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.page-header h1 {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.page-header p {
+  display: none;
+}
+
+.header-actions {
+  gap: 6px;
+}
+
+.header-actions :deep(.el-button) {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.stats-grid {
+  gap: 10px;
+}
+
+.stat-card {
+  min-height: 72px;
+  padding: 10px 12px;
+  gap: 10px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.stat-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+}
+
+.stat-value {
+  font-size: 18px;
+}
+
+.stat-label {
+  font-size: 11px;
+}
+
+.filter-bar {
+  min-height: 50px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  gap: 10px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.content-grid {
+  gap: 10px;
+}
+
+.card-grid {
+  gap: 10px;
+}
+
+.model-card {
+  padding: 14px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.description,
+.metric-item,
+.card-actions {
+  margin-top: 10px;
+}
+
+.metrics-row-compact {
+  margin-top: 10px;
+}
+
+.inline-panel {
+  padding: 14px;
+  border-radius: 8px;
+  box-shadow: none;
+  top: 10px;
+}
+
+.panel-header-area {
+  margin-bottom: 10px;
+}
 </style>

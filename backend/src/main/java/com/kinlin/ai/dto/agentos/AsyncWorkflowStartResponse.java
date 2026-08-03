@@ -6,6 +6,7 @@ import java.util.Objects;
 /** Typed response for an accepted asynchronous workflow run. */
 public record AsyncWorkflowStartResponse(
         boolean accepted,
+        String acgTaskId,
         Task task,
         Run run
 ) {
@@ -15,6 +16,9 @@ public record AsyncWorkflowStartResponse(
         if (run.runId() == null || run.runId().isBlank()) {
             throw new IllegalArgumentException("run.runId is required");
         }
+        if (acgTaskId == null || acgTaskId.isBlank()) {
+            acgTaskId = run.runId();
+        }
     }
 
     public record Task(String taskId, String status) {
@@ -22,6 +26,7 @@ public record AsyncWorkflowStartResponse(
 
     public record Run(
             String runId,
+            String workflowId,
             String status,
             String lifecyclePhase,
             String lifecycleMessage,

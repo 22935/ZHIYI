@@ -28,13 +28,16 @@ public class ConversationController {
      */
     @GetMapping
     public ResponseEntity<List<Conversation>> getUserConversations(
-            @RequestHeader(value = "X-User-Id", required = false) UUID userId
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId,
+            @RequestParam(value = "workspaceMode", required = false) String workspaceMode
     ) {
         userId = resolveUserId(userId);
         if (userId == null) {
             return ResponseEntity.badRequest().build();
         }
-        List<Conversation> conversations = conversationService.getUserConversations(userId);
+        List<Conversation> conversations = workspaceMode == null
+                ? conversationService.getUserConversations(userId)
+                : conversationService.getUserConversations(userId, workspaceMode);
         return ResponseEntity.ok(conversations);
     }
 
@@ -114,13 +117,18 @@ public class ConversationController {
      */
     @DeleteMapping("/all")
     public ResponseEntity<Void> deleteAllConversations(
-            @RequestHeader(value = "X-User-Id", required = false) UUID userId
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId,
+            @RequestParam(value = "workspaceMode", required = false) String workspaceMode
     ) {
         userId = resolveUserId(userId);
         if (userId == null) {
             return ResponseEntity.badRequest().build();
         }
-        conversationService.deleteAllConversations(userId);
+        if (workspaceMode == null) {
+            conversationService.deleteAllConversations(userId);
+        } else {
+            conversationService.deleteAllConversations(userId, workspaceMode);
+        }
         return ResponseEntity.ok().build();
     }
 

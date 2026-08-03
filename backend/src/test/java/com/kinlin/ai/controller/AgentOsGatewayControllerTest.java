@@ -313,11 +313,12 @@ class AgentOsGatewayControllerTest {
                 "percent", 50.0
         )));
         String path = "/ai/core/workflows/runs?statuses=running,waiting_review"
-                + "&taskId=task_001&lifecyclePhase=review&summary=true&page=1&pageSize=50";
+                + "&taskId=task_001&lifecyclePhase=review&sources=agent,chat&summary=true&page=1&pageSize=50";
         agentOsGatewayService.getResponses.put(path, response);
 
         mockMvc.perform(get("/api/agentos/core/workflows/runs")
                         .param("statuses", "running,waiting_review")
+                        .param("sources", "agent,chat")
                         .param("taskId", "task_001")
                         .param("lifecyclePhase", "review")
                         .param("summary", "true")
@@ -337,6 +338,7 @@ class AgentOsGatewayControllerTest {
         response.put("task", Map.of("taskId", "task_001", "status", "pending", "title", "合同审查"));
         Map<String, Object> run = new LinkedHashMap<>();
         run.put("runId", "run_001");
+        run.put("workflowId", "legal_contract_review_v1");
         run.put("status", "pending");
         run.put("lifecyclePhase", "understanding");
         run.put("lifecycleMessage", "任务已接受");
@@ -355,7 +357,9 @@ class AgentOsGatewayControllerTest {
                         ))))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.accepted").value(true))
+                .andExpect(jsonPath("$.acgTaskId").value("run_001"))
                 .andExpect(jsonPath("$.run.runId").value("run_001"))
+                .andExpect(jsonPath("$.run.workflowId").value("legal_contract_review_v1"))
                 .andExpect(jsonPath("$.run.lifecyclePhase").value("understanding"));
 
         assertEquals("/ai/core/workflows/start-async", agentOsGatewayService.lastPostPath);

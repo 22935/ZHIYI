@@ -6,6 +6,7 @@ export interface ChatRequest {
   message?: string
   roleId?: string
   contextId?: string
+  workspaceMode?: 'agent' | 'chat'
   fileUrl?: string
   emotionTag?: string
   context?: Array<{ role: string; content: string }>
@@ -51,6 +52,7 @@ export const chatApi = {
       text: chatRequest.text || chatRequest.message,
       roleId: chatRequest.roleId,
       contextId: chatRequest.contextId,
+      workspaceMode: chatRequest.workspaceMode,
       fileUrl: chatRequest.fileUrl,
       context: chatRequest.context,
       model: chatRequest.model,

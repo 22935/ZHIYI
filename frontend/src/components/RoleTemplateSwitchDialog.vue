@@ -27,7 +27,7 @@
           <div class="role-switcher-body">
             <nav class="role-switcher-roles" aria-label="选择角色">
               <button
-                v-for="role in roleTemplateGroups"
+                v-for="role in switchableRoleGroups"
                 :key="role.id"
                 type="button"
                 :class="['role-option', `role-option--${role.id}`, { active: pendingRoleId === role.id }]"
@@ -81,7 +81,7 @@
           </div>
 
           <footer class="role-switcher-footer">
-            <span>切换角色不会自动启动 Workflow；有历史消息时会先请求确认。</span>
+            <span>切换角色或模板会创建新上下文；当前任务仍保留在历史记录中。</span>
             <div>
               <button type="button" class="role-switcher-cancel" @click="emit('close')">取消</button>
               <button type="button" class="role-switcher-confirm" @click="confirmSelection">
@@ -100,6 +100,34 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { roleTemplateGroups, type RoleId } from '@/config/agentWorkbench'
 
+type SwitchableRoleId = RoleId | 'general'
+
+const generalRoleGroup = {
+  id: 'general' as const,
+  name: '通用模式',
+  short: '通',
+  summary: '不绑定垂直角色，适合跨领域问答与复杂任务',
+  tone: '动态路由',
+  templates: [{
+    key: 'general-auto',
+    name: '通用智能协作',
+    brief: '根据任务复杂度自动选择直接对话或 ACG 动态规划',
+    subtitle: '日常问题快速响应，复杂任务自动拆解、协作执行并形成交付。',
+    runtimeLabel: '智能路由',
+    workflowId: '动态规划',
+    steps: [
+      { id: 'understand', title: '理解意图' },
+      { id: 'route', title: '动态路由' },
+      { id: 'deliver', title: '生成交付' }
+    ],
+    outputTitle: '与任务匹配的回答或交付物',
+    workflowLabel: '按需启用 ACG',
+    domain: 'general'
+  }]
+}
+
+const switchableRoleGroups = [generalRoleGroup, ...roleTemplateGroups]
+
 const props = defineProps<{
   open: boolean
   currentRoleName?: string
@@ -108,12 +136,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  confirm: [selection: { roleId: RoleId; templateKey: string }]
+  confirm: [selection: { roleId: SwitchableRoleId; templateKey: string }]
 }>()
 
 const dialogRef = ref<HTMLElement | null>(null)
-const pendingRoleId = ref<RoleId>('lawyer')
-const pendingTemplateKey = ref(roleTemplateGroups[0].templates[0].key)
+const pendingRoleId = ref<SwitchableRoleId>('general')
+const pendingTemplateKey = ref(generalRoleGroup.templates[0].key)
 
 const roleAliases: Record<RoleId, string[]> = {
   lawyer: ['律师', '法律', 'lawyer'],
@@ -124,14 +152,15 @@ const roleAliases: Record<RoleId, string[]> = {
 
 const currentGroup = computed(() => {
   const name = (props.currentRoleName || '').toLowerCase()
-  return roleTemplateGroups.find(role => roleAliases[role.id].some(alias => name.includes(alias)))
+  if (!name) return generalRoleGroup
+  return roleTemplateGroups.find(role => roleAliases[role.id].some(alias => name.includes(alias))) || generalRoleGroup
 })
-const pendingRole = computed(() => roleTemplateGroups.find(role => role.id === pendingRoleId.value) || roleTemplateGroups[0])
+const pendingRole = computed(() => switchableRoleGroups.find(role => role.id === pendingRoleId.value) || generalRoleGroup)
 const pendingTemplate = computed(() => pendingRole.value.templates.find(item => item.key === pendingTemplateKey.value) || pendingRole.value.templates[0])
 
-const selectRole = (roleId: RoleId) => {
+const selectRole = (roleId: SwitchableRoleId) => {
   pendingRoleId.value = roleId
-  pendingTemplateKey.value = roleTemplateGroups.find(role => role.id === roleId)?.templates[0].key || ''
+  pendingTemplateKey.value = switchableRoleGroups.find(role => role.id === roleId)?.templates[0].key || ''
 }
 
 const confirmSelection = () => {
@@ -142,7 +171,7 @@ watch(
   () => props.open,
   async visible => {
     if (!visible) return
-    const role = currentGroup.value || roleTemplateGroups[0]
+    const role = currentGroup.value || generalRoleGroup
     pendingRoleId.value = role.id
     pendingTemplateKey.value = role.templates.some(item => item.key === props.currentTemplateKey)
       ? props.currentTemplateKey!
@@ -257,6 +286,7 @@ watch(
   font-weight: 800;
 }
 .role-option--lawyer { --role-tone: var(--info); }
+.role-option--general { --role-tone: var(--primary-color); }
 .role-option--teacher { --role-tone: var(--success); }
 .role-option--programmer { --role-tone: var(--accent-color); }
 .role-option--writer { --role-tone: var(--warning); }

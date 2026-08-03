@@ -708,4 +708,84 @@ function ensureSelectedModel(models: string[]): void {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* 与其他管理页面统一为紧凑工具栏和连续工作区 */
+.settings-view {
+  padding: 12px;
+  gap: 10px;
+}
+
+.page-header {
+  box-sizing: border-box;
+  min-height: 50px;
+  padding: 7px 12px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.page-header h1 {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.page-header p {
+  display: none;
+}
+
+.status-chip {
+  height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.tabs-bar {
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  gap: 4px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.tab-btn {
+  height: 34px;
+  padding: 0 10px;
+  gap: 5px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.content-panel {
+  padding: 12px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.form-grid {
+  gap: 12px;
+}
+
+.model-settings {
+  gap: 12px;
+}
+
+.footer-bar {
+  min-height: 50px;
+  box-sizing: border-box;
+  padding: 7px 12px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.actions :deep(.el-button) {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 12px;
+}
 </style>

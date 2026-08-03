@@ -2,10 +2,10 @@
 <template>
   <div class="rag-view">
     <!-- 页面头部 -->
-    <div class="page-header">
+    <div class="page-header workspace-page-header">
       <div class="header-inner">
         <div class="header-left">
-          <div class="header-icon-wrapper">
+          <div class="header-icon-wrapper workspace-page-header__icon">
             <el-icon class="header-icon"><Reading /></el-icon>
           </div>
           <div class="header-text">
@@ -832,4 +832,73 @@ onMounted(() => {
     min-height: 0;
   }
 }
+
+/* Workbench v0: align with the compact ACG workspace language. */
+.rag-view {
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.page-header {
+  box-sizing: border-box;
+  min-height: 50px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: var(--backdrop-blur);
+}
+
+.header-inner,
+.content-inner {
+  width: 100%;
+  max-width: none;
+}
+
+.header-left { gap: 10px; }
+.header-icon-wrapper {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--primary-color);
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+}
+.header-icon { font-size: 15px; color: var(--primary-color); }
+.header-text .page-title { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; }
+.header-text .page-subtitle { display: none; }
+.stat-badge { height: 30px; padding: 0 10px; border: 1px solid var(--border-light); border-radius: 6px; background: var(--surface-solid); }
+.stat-value { font-size: 13px; }
+.stat-label { font-size: 11px; }
+.stat-icon { font-size: 14px; }
+
+.page-content { flex: 1; min-height: 0; padding: 0; overflow: hidden; }
+.content-inner { height: 100%; min-height: 0; }
+.tabs-nav { flex: 0 0 38px; height: 38px; gap: 2px; margin: 0 0 8px; }
+.tab-button { height: 38px; padding: 0 12px; gap: 6px; font-size: 12px; }
+.tab-button .el-icon { font-size: 14px; }
+.layout-grid {
+  height: calc(100% - 46px);
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 10px;
+}
+.docs-card { border-radius: 8px; box-shadow: none; }
+.card-header { min-height: 42px; padding: 8px 10px; }
+.title-icon { font-size: 15px; }
+.title-text { font-size: 13px; }
+.upload-button { height: 28px; padding: 0 10px; border-radius: 6px; font-size: 12px; }
+.docs-list { padding: 8px; }
+.empty-docs { padding: 48px 16px; }
+.empty-icon-wrapper { width: 38px; height: 38px; margin-bottom: 10px; border-radius: 8px; }
+.empty-icon { font-size: 19px; }
+.empty-text { margin-bottom: 4px; font-size: 13px; }
+.empty-hint { font-size: 11px; }
+.doc-item { gap: 8px; padding: 8px; border-radius: 7px; }
+.doc-icon-wrapper { width: 30px; height: 30px; border-radius: 6px; }
+.doc-icon { font-size: 14px; }
+.doc-name { margin-bottom: 2px; font-size: 12px; }
+.doc-time { font-size: 10px; }
 </style>

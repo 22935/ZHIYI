@@ -24,5 +24,11 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
 
     @Query("SELECT c FROM Conversation c WHERE c.userId = :userId ORDER BY c.updatedAt DESC")
     List<Conversation> findRecentConversationsByUserId(@Param("userId") UUID userId);
+
+    @Query("SELECT c FROM Conversation c WHERE c.userId = :userId AND c.workspaceMode = :workspaceMode ORDER BY c.updatedAt DESC")
+    List<Conversation> findRecentConversationsByUserIdAndWorkspaceMode(
+            @Param("userId") UUID userId,
+            @Param("workspaceMode") String workspaceMode
+    );
 }
 

@@ -1,4 +1,11 @@
 id: education
-name: Education Pack
+name: 教育能力包
 version: 0.1.0
-description: Education workflow pack scaffold.
+module: packs.education
+description: 教案设计与教学任务执行能力。
+contributions:
+  agents:
+    - lesson_plan
+  workflows:
+    - education_lesson_plan_v1
+  capabilities: []

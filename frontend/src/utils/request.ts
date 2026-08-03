@@ -1,6 +1,18 @@
 import axios, { AxiosError, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 
+const USER_NOTIFIED_FLAG = '__kinlinUserNotified'
+
+type UserNotifiedError = Error & { [USER_NOTIFIED_FLAG]?: boolean }
+
+const markErrorAsUserNotified = <T extends Error>(error: T): T => {
+  (error as UserNotifiedError)[USER_NOTIFIED_FLAG] = true
+  return error
+}
+
+export const wasErrorUserNotified = (error: unknown): boolean =>
+  error instanceof Error && Boolean((error as UserNotifiedError)[USER_NOTIFIED_FLAG])
+
 // 创建axios实例
 const request = axios.create({
   baseURL: '/api',
@@ -45,7 +57,7 @@ request.interceptors.response.use(
       if ('success' in response.data && !response.data.success) {
         const message = response.data.message || '请求失败'
         ElMessage.error(message)
-        return Promise.reject(new Error(message))
+        return Promise.reject(markErrorAsUserNotified(new Error(message)))
       }
     }
     return response
@@ -57,18 +69,24 @@ request.interceptors.response.use(
       requestUrl.includes('/auth/register') ||
       requestUrl.includes('/auth/verify')
 
+    let userNotified = false
+    const notifyError = (message: string) => {
+      ElMessage.error(message)
+      userNotified = true
+    }
+
     if (error.response) {
       const status = error.response.status
       const backendMessage = (error.response.data as any)?.message as string | undefined
 
       switch (status) {
         case 400:
-          ElMessage.error(backendMessage || '请求参数错误')
+          notifyError(backendMessage || '请求参数错误')
           break
         case 401:
           // 登录、注册、验签接口自身返回401时，不做全局重定向，交由页面处理。
           if (!isAuthOperation) {
-            ElMessage.error('登录状态已过期，请重新登录')
+            notifyError('登录状态已过期，请重新登录')
             localStorage.removeItem('token')
             localStorage.removeItem('userId')
 
@@ -80,27 +98,28 @@ request.interceptors.response.use(
           }
           break
         case 403:
-          ElMessage.error(backendMessage || '拒绝访问')
+          notifyError(backendMessage || '拒绝访问')
           break
         case 404:
-          ElMessage.error(backendMessage || '请求资源不存在')
+          notifyError(backendMessage || '请求资源不存在')
           break
         case 500:
-          ElMessage.error(backendMessage || '服务器内部错误')
+          notifyError(backendMessage || '服务器内部错误')
           break
         case 502:
         case 503:
         case 504:
-          ElMessage.error('服务暂时不可用，请稍后重试')
+          notifyError('服务暂时不可用，请稍后重试')
           break
         default:
-          ElMessage.error(backendMessage || `请求失败: ${status}`)
+          notifyError(backendMessage || `请求失败: ${status}`)
       }
     } else if (error.request) {
-      ElMessage.error('网络错误，请检查网络连接')
+      notifyError('网络错误，请检查网络连接')
     } else {
-      ElMessage.error('请求配置错误')
+      notifyError('请求配置错误')
     }
+    if (userNotified) markErrorAsUserNotified(error)
     return Promise.reject(error)
   }
 )

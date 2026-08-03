@@ -30,7 +30,7 @@ describe('AgentOS async workflow API', () => {
       domain: 'legal',
       intent: 'contract_review',
       clientRequestId: 'request_1'
-    }, { signal })).resolves.toEqual(response)
+    }, { signal })).resolves.toEqual({ ...response, acgTaskId: 'run_1' })
 
     expect(post).toHaveBeenCalledWith('/core/workflows/start-async', expect.objectContaining({
       clientRequestId: 'request_1'
@@ -89,12 +89,12 @@ describe('AgentOS async workflow API', () => {
     const get = vi.spyOn(agentosRequest, 'get').mockResolvedValue({ data: payload } as never)
 
     const result = await agentosApi.listWorkflowRuns({
-      statuses: 'running,waiting_review', page: 1, pageSize: 50
+      statuses: 'running,waiting_review', sources: 'agent,chat', page: 1, pageSize: 50
     }, { signal })
 
     expect(result.items[0].percent).toBeNull()
     expect(get).toHaveBeenCalledWith('/core/workflows/runs', {
-      params: { summary: true, statuses: 'running,waiting_review', page: 1, pageSize: 50 },
+      params: { summary: true, statuses: 'running,waiting_review', sources: 'agent,chat', page: 1, pageSize: 50 },
       signal
     })
   })
