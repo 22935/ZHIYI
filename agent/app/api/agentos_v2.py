@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -19,7 +19,16 @@ from contracts.content import ContentKind
 from domain.models import MissionStatus, RunStatus
 from domain.repository import EntityNotFoundError
 from components.planner import ACGPlanningError, TaskDecompositionError
+from components.resource.auth import (
+    ResourceRequestAuthenticator,
+    ResourceRequestExpired,
+    ResourceRequestInvalid,
+    ResourceRequestNotFound,
+    ResourceRequestReplay,
+)
+from contracts.resource import ResourceProfile, ResourceSnapshot
 from components.mission_manager.state_machine import InvalidStateTransition
+from components.resource.store import StaleResourceObservation
 from runtime import ExecutionRuntime
 from runtime.v2 import IdentityQueryService
 from runtime.v2.workspace import (
@@ -70,6 +79,25 @@ class MaterialCreateRequest(BaseModel):
 
     content: str
     media_type: str = Field(default="text/plain", alias="mediaType", min_length=1)
+
+
+class RemoteResourceObservationRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    available_slots: int = Field(alias="availableSlots", ge=0)
+    observation_sequence: int = Field(alias="observationSequence", ge=0)
+    utilization: float = Field(ge=0.0, le=1.0)
+    latency_ms: float | None = Field(default=None, alias="latencyMs", ge=0.0)
+    observed_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), alias="observedAt"
+    )
+
+
+class RemoteResourceRegistrationRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    profile: ResourceProfile
+    snapshot: ResourceSnapshot
 
 
 class ReviewApplyRequest(BaseModel):
@@ -507,6 +535,15 @@ def create_router(
             "manifestId": artifact.content_ref,
         }
 
+    def require_resource_operator(owner_scope: str) -> None:
+        actor = current_trusted_user()
+        if actor is None:
+            raise HTTPException(status_code=401, detail="trusted operator context required")
+        if actor.role.strip().lower() not in {"admin", "operator", "system"}:
+            raise HTTPException(status_code=403, detail="resource registration requires operator role")
+        if actor.tenant_id and actor.tenant_id != owner_scope:
+            raise HTTPException(status_code=403, detail="resource owner scope does not match operator tenant")
+
     def prepare_execution_input(
         payload: dict[str, Any],
         material_refs: list[str] | None,
@@ -620,12 +657,148 @@ def create_router(
         items: list[dict[str, Any]] = []
         for profile in resource_service.profiles():
             versioned = resource_service.snapshot(profile.resource_id)
+            health = resource_service.health_monitor.health(profile.resource_id)
+            health_status = (
+                "online"
+                if health.healthy
+                else ("unknown" if health.last_heartbeat is None else "offline")
+            )
             items.append({
                 "profile": profile.model_dump(by_alias=True, mode="json"),
                 "snapshot": versioned.snapshot.model_dump(by_alias=True, mode="json"),
                 "snapshotVersion": versioned.version,
+                "health": {
+                    "healthy": health.healthy,
+                    "status": health_status,
+                    "reliability": health.reliability,
+                    "latencyMs": health.latency_ms,
+                    "lastHeartbeat": (
+                        health.last_heartbeat.isoformat()
+                        if health.last_heartbeat is not None
+                        else None
+                    ),
+                    "healthSource": type(resource_service.health_monitor.store).__name__,
+                },
             })
         return {"items": items, "total": len(items)}
+
+    @router.post("/resources/register", status_code=status.HTTP_201_CREATED)
+    async def register_remote_resource(request: RemoteResourceRegistrationRequest):
+        """Register a remote resource and issue its one-time credential secret."""
+        resource_service = getattr(runtime, "resource_service", None)
+        if resource_service is None:
+            raise HTTPException(status_code=503, detail="resource registration source unavailable")
+        profile = request.profile
+        if request.snapshot.resource_id != profile.resource_id:
+            raise HTTPException(status_code=422, detail="profile and snapshot resourceId must match")
+        require_resource_operator(str(profile.owner_scope or ""))
+        try:
+            issued = resource_service.register_remote(profile, request.snapshot)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {
+            "resourceId": issued.resource_id,
+            "credentialId": issued.credential_id,
+            "ownerScope": issued.owner_scope,
+            "secret": issued.secret,
+            "signatureAlgorithm": "HMAC-SHA256-SHA256(secret)",
+        }
+
+    @router.post("/resources/{resource_id}/credential/rotate")
+    async def rotate_remote_resource_credential(resource_id: str):
+        """Rotate a remote resource credential and return the new secret once."""
+        resource_service = getattr(runtime, "resource_service", None)
+        if resource_service is None:
+            raise HTTPException(status_code=503, detail="resource credential source unavailable")
+        try:
+            profile = resource_service.profile(resource_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="resource not found") from exc
+        require_resource_operator(str(profile.owner_scope or ""))
+        try:
+            issued = resource_service.rotate_credential(resource_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {
+            "resourceId": issued.resource_id,
+            "credentialId": issued.credential_id,
+            "ownerScope": issued.owner_scope,
+            "secret": issued.secret,
+            "signatureAlgorithm": "HMAC-SHA256-SHA256(secret)",
+        }
+
+    @router.post("/resources/{resource_id}/observation")
+    async def post_remote_resource_observation(
+        resource_id: str,
+        request: RemoteResourceObservationRequest,
+        raw_request: Request,
+        resource_credential: str | None = Header(default=None, alias="X-Resource-Credential"),
+        resource_timestamp: str | None = Header(default=None, alias="X-Resource-Timestamp"),
+        resource_nonce: str | None = Header(default=None, alias="X-Resource-Nonce"),
+        resource_signature: str | None = Header(default=None, alias="X-Resource-Signature"),
+    ):
+        """Accept a remote node's heartbeat plus its latest schedulable snapshot."""
+        resource_service = getattr(runtime, "resource_service", None)
+        if resource_service is None:
+            raise HTTPException(status_code=503, detail="resource observation source unavailable")
+        if not all((resource_credential, resource_timestamp, resource_nonce, resource_signature)):
+            raise HTTPException(status_code=401, detail="resource authentication headers are required")
+        try:
+            timestamp = int(resource_timestamp)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=401, detail="resource request timestamp is invalid") from exc
+        try:
+            ResourceRequestAuthenticator(resource_service).authenticate(
+                resource_id=resource_id,
+                credential_id=resource_credential,
+                method=raw_request.method,
+                path=raw_request.url.path,
+                timestamp=timestamp,
+                nonce=resource_nonce,
+                signature=resource_signature,
+                body=await raw_request.body(),
+            )
+        except ResourceRequestNotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ResourceRequestExpired as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        except ResourceRequestReplay as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ResourceRequestInvalid as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        try:
+            health = resource_service.observe_remote(
+                resource_id,
+                available_slots=request.available_slots,
+                utilization=request.utilization,
+                latency_ms=request.latency_ms,
+                observed_at=request.observed_at,
+                observation_sequence=request.observation_sequence,
+            )
+            versioned = resource_service.snapshot(resource_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="resource not found") from exc
+        except StaleResourceObservation as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "resourceId": resource_id,
+            "health": {
+                "healthy": health.healthy,
+                "reliability": health.reliability,
+                "latencyMs": health.latency_ms,
+                "lastHeartbeat": (
+                    health.last_heartbeat.isoformat()
+                    if health.last_heartbeat is not None
+                    else None
+                ),
+            },
+            "snapshot": versioned.snapshot.model_dump(by_alias=True, mode="json"),
+            "snapshotVersion": versioned.version,
+        }
 
     @router.get("/missions")
     async def list_missions(

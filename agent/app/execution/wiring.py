@@ -18,6 +18,8 @@ from components.evolution.store import SQLiteEvolutionStore
 from components.memory.store import SQLiteMemoryStore
 from components.content import SQLiteContentManifestStore
 from components.resource.service import ResourceService
+from components.resource.health import ResourceHealthMonitor
+from components.resource.health_store import SQLiteResourceHealthStore
 from components.resource.store import SQLiteResourceStore
 from components.recovery.checkpoint import ACGCheckpointStore
 from components.scheduler.leases import RedisLeaseCoordinator
@@ -48,6 +50,7 @@ _DEFAULT_DATABASES = {
     "AGENTOS_PROVENANCE_DB": "data/provenance.sqlite3",
     "AGENTOS_AUDIT_DB": "data/audit_decisions.sqlite3",
     "AGENTOS_RESOURCE_DB": "data/resources.sqlite3",
+    "AGENTOS_RESOURCE_HEALTH_DB": "data/resource_health.sqlite3",
     "AGENTOS_EVOLUTION_DB": "data/evolution.sqlite3",
 }
 
@@ -223,13 +226,23 @@ def build_default_runtime(
 ) -> ExecutionRuntime:
     """Construct all registries, stores, and external adapters in the application."""
     env = environment or os.environ
+    environment_name = str(env.get("ENVIRONMENT") or "development").strip().lower()
+    resource_credential_key = _read_optional_secret(env, "AGENTOS_RESOURCE_CREDENTIAL_KEY")
+    if environment_name in {"prod", "production"} and not resource_credential_key:
+        raise RuntimeError(
+            "AGENTOS_RESOURCE_CREDENTIAL_KEY is required in production"
+        )
     workflow_path = _workflow_db_path(env)
     acquire_workflow_instance_lock(str(workflow_path))
 
     resource_service = ResourceService(
         store=SQLiteResourceStore(
             Path(str(env.get("AGENTOS_RESOURCE_DB") or workflow_path.with_name("resources.sqlite3")))
-        )
+        ),
+        health_monitor=ResourceHealthMonitor(
+            store=SQLiteResourceHealthStore(_database_path(env, "AGENTOS_RESOURCE_HEALTH_DB"))
+        ),
+        credential_key=resource_credential_key,
     )
     coordination_url = str(env.get("AGENTOS_COORDINATION_REDIS_URL") or "").strip()
     scheduler_service = None
@@ -300,6 +313,7 @@ def close_runtime(runtime: ExecutionRuntime) -> None:
         runtime.content_manifest_store,
         runtime.memory_store,
         runtime.resource_service.store,
+        runtime.resource_service.health_monitor.store,
         runtime.scheduler_service.coordinator,
         runtime.evolution_service.store,
         runtime.provenance_store,

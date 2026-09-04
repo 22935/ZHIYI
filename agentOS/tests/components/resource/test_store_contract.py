@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from components.resource.store import (
     InMemoryResourceStore,
+    ResourceCredentialRecord,
     SQLiteResourceStore,
     VersionConflict,
 )
@@ -85,3 +87,100 @@ def test_sqlite_restart_keeps_profile_but_downgrades_snapshot_health(tmp_path: P
         assert restored.snapshot.health_status is ResourceHealthStatus.UNKNOWN
     finally:
         restarted.close()
+
+
+def test_resource_store_rotates_credential_without_changing_profile_or_snapshot(store) -> None:
+    profile = _profile("credential-rotation")
+    original_snapshot = _snapshot("credential-rotation")
+    store.register(profile, original_snapshot)
+    original = ResourceCredentialRecord(
+        resource_id="credential-rotation",
+        credential_id="rc_old",
+        owner_scope="tenant-a",
+        secret_digest="old-digest",
+        encrypted_secret="old-encrypted",
+        created_at=datetime(2026, 9, 3, tzinfo=timezone.utc),
+    )
+    replacement = ResourceCredentialRecord(
+        resource_id="credential-rotation",
+        credential_id="rc_new",
+        owner_scope="tenant-a",
+        secret_digest="new-digest",
+        encrypted_secret="new-encrypted",
+        created_at=datetime(2026, 9, 3, 0, 1, tzinfo=timezone.utc),
+    )
+    store.save_credential(original)
+
+    store.rotate_credential(replacement)
+
+    assert store.get_credential("credential-rotation") == replacement
+    assert store.get_profile("credential-rotation") == profile
+    assert store.get_snapshot("credential-rotation").snapshot == original_snapshot
+    assert store.get_snapshot("credential-rotation").version == 1
+
+
+def test_resource_store_rotation_requires_an_existing_credential(store) -> None:
+    profile = _profile("credential-without-current")
+    snapshot = _snapshot("credential-without-current")
+    store.register(profile, snapshot)
+    replacement = ResourceCredentialRecord(
+        resource_id="credential-without-current",
+        credential_id="rc_new",
+        owner_scope="tenant-a",
+        secret_digest="new-digest",
+        encrypted_secret="new-encrypted",
+        created_at=datetime(2026, 9, 3, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises(KeyError, match="credential not found"):
+        store.rotate_credential(replacement)
+
+    assert store.get_profile("credential-without-current") == profile
+    assert store.get_snapshot("credential-without-current").snapshot == snapshot
+
+
+def test_resource_store_register_remote_writes_profile_snapshot_and_credential_as_one_unit(store) -> None:
+    profile = _profile("remote-atomic")
+    snapshot = _snapshot("remote-atomic")
+    credential = ResourceCredentialRecord(
+        resource_id="remote-atomic",
+        credential_id="rc-atomic",
+        owner_scope="tenant-a",
+        secret_digest="digest",
+        encrypted_secret="encrypted",
+        created_at=datetime(2026, 9, 3, tzinfo=timezone.utc),
+    )
+
+    registered = store.register_remote(profile, snapshot, credential)
+
+    assert registered.version == 1
+    assert store.get_profile("remote-atomic") == profile
+    assert store.get_snapshot("remote-atomic").snapshot == snapshot
+    assert store.get_credential("remote-atomic") == credential
+
+
+def test_resource_store_register_remote_rolls_back_when_credential_write_fails(store) -> None:
+    store.register(_profile("existing"), _snapshot("existing"))
+    store.save_credential(ResourceCredentialRecord(
+        resource_id="existing",
+        credential_id="rc-duplicate",
+        owner_scope="tenant-a",
+        secret_digest="digest",
+        encrypted_secret="encrypted",
+        created_at=datetime(2026, 9, 3, tzinfo=timezone.utc),
+    ))
+    candidate = ResourceCredentialRecord(
+        resource_id="remote-rollback",
+        credential_id="rc-duplicate",
+        owner_scope="tenant-a",
+        secret_digest="digest-2",
+        encrypted_secret="encrypted-2",
+        created_at=datetime(2026, 9, 3, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises((ValueError, KeyError)):
+        store.register_remote(_profile("remote-rollback"), _snapshot("remote-rollback"), candidate)
+
+    with pytest.raises(KeyError, match="unknown resource"):
+        store.get_profile("remote-rollback")
+    assert store.get_credential("existing").credential_id == "rc-duplicate"

@@ -144,7 +144,10 @@ from .recovery import (
 )
 from .resource import (
     BindingRequirement,
+    ComputeCapacity,
+    DeploymentTier,
     ExecutionBinding,
+    ResourceEndpoint,
     ResourceHealthStatus,
     ResourceLease,
     ResourceProfile,
@@ -172,7 +175,7 @@ __all__ = [
     "ModelCapabilityEnvelope", "ModelCapabilitySource", "ModelFeatureSet",
     "ModelInvocationRequest", "ModelInvocationResponse", "ModelProvider", "ModelOutputPolicy", "ModelStreamEvent", "PolicyDecision",
     "RecoveryNodeTemplate", "RecoveryPlan", "RecoveryRecipe", "BindingRequirement", "ExecutionBinding",
-    "ResourceHealthStatus", "ResourceLease", "ResourceProfile", "ResourceSnapshot", "ResourceType",
+    "ComputeCapacity", "DeploymentTier", "ResourceEndpoint", "ResourceHealthStatus", "ResourceLease", "ResourceProfile", "ResourceSnapshot", "ResourceType",
     "RunId", "SchedulingDecision", "SchedulingRequest", "SkillCandidate", "SkillEvolutionProposal",
     "StepExecutionId", "TaskId", "TaskBindingPatch", "TaskImplementationBinding",
     "PlanExpansionRequest", "SemanticTaskRelationType", "TaskPlan", "PlannedTask", "TaskPlanPatch", "TaskPlanRelation",

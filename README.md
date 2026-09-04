@@ -67,7 +67,7 @@
 | 动态异构拓扑与低熵通信 | ACG、conditional routing、parallel superstep、Communication Broker、字段级投递、Provenance | ✅ 已实现并有测试 |
 | 动态异常与需求变更 | GraphPatch、review barrier、contract repair、Recovery Recipe、orphan reference ownership | ✅ 已实现并有测试 |
 | 多模型兼容与角色扩展 | AgentProfile binding、模型 failover、版本协商、健康刷新、Pack 注册 | ✅ 已实现并有测试 |
-| 端-边-云资源自适应调度 | ResourceDirectory、PluginScopeResolver、资源与隐私约束基础 | 🚧 调度基础已具备，真实端边云部署与模型切分待验收 |
+| 端-边-云资源自适应调度 | ResourceProfile 分层画像、资源注册、资源级 HMAC 签名观测、顺序校验、约束过滤、租约、快照竞态保护、执行 Adapter、边缘故障后云端切换 | 🚧 模型位置选择与受保护的资源接口已实现；真实多设备部署、生产密钥轮换、端到端故障演示和模型层切分待验收 |
 | 典型产业场景验证 | Legal 黄金纵切；Programmer、Education、Writer、General/Native Packs | 🚧 法律链路完整，第二个高完成度跨领域长任务仍需比赛级演示 |
 | 决策过程与推理轨迹展示 | Milan Workbench、Graph、Trace、Provenance、Checkpoint、Review、Output | ✅ 已完成 |
 
@@ -299,7 +299,8 @@ py -3.14 -m pytest tests -q
 - [x] Legal 黄金纵切；
 - [ ] 第二个高完成度跨领域长任务黄金纵切；
 - [ ] 数千步长程稳定性、Token/耗时、异常恢复成功率基准；
-- [ ] 隔离环境的真实端-边-云调度和模型切分演示；
+- [ ] 隔离环境的真实端-边-云多设备调度演示；
+- [ ] 模型层切分演示（当前只支持把完整模型/Agent 放在端、边或云的一处执行）；
 - [ ] 浏览器级 `WAITING_REVIEW -> approve -> resume` 与真实模型/工具验收；
 - [ ] 核心算法伪代码、复杂性分析、对照实验和演示视频统一归档；
 - [ ] 最终报名表、学校盖章与比赛提交包校验。
@@ -311,7 +312,9 @@ py -3.14 -m pytest tests -q
 - 当前项目是比赛稳定候选和工程原型，不等同于生产级商业系统。
 - 法律场景输出是辅助材料，不构成正式法律意见。
 - 六类运行 Store 当前使用独立 SQLite 文件；这是单实例部署选择，不代表已经完成生产级横向扩展。
-- 端-边-云真实设备部署、模型切分和第二条跨领域黄金纵切仍是比赛前交付项。
+- 当前已完成端、边、云资源的“位置选择”基础链路：资源画像、远程资源注册、资源级 HMAC 签名观测、带观测序号校验的远程观测、约束调度、租约后快照版本确认、远程执行 Adapter，以及边缘失败后的云端重绑定。仍需在隔离环境中接入真实多设备、生产级密钥轮换和故障演示。
+- 远程资源观测仍需同时通过服务级内部 Token 和资源级签名；注册响应中的资源 secret 只显示一次，服务端使用 `AGENTOS_RESOURCE_CREDENTIAL_KEY` 加密保存，并另存摘要用于校验。签名请求必须包含资源凭据 ID、时间戳、nonce 和请求体摘要，过期或重复 nonce 会被拒绝；生产环境缺少主密钥时拒绝启动。
+- 当前没有实现神经网络层级切分：一次模型调用仍由一个完整执行节点在单个资源上完成，不能把模型的不同层拆到端、边、云之间协同执行。
 - README 中的测试数字来自 2026-08-19 集成回归；代码变化后必须重新执行测试，不应把历史数字当作当前证明。
 
 ---

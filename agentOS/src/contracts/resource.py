@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator, model_validator
 
@@ -24,6 +25,45 @@ class ResourceType(str, Enum):
     SKILL = "skill"
 
 
+class DeploymentTier(str, Enum):
+    """资源实际部署位置；LOCAL 保留给现有进程内 Agent。"""
+
+    LOCAL = "local"
+    TERMINAL = "terminal"
+    EDGE = "edge"
+    CLOUD = "cloud"
+
+
+class ResourceEndpoint(BaseModel):
+    """远程资源的可调用地址；只保存凭据引用，不保存凭据内容。"""
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    protocol: Literal["local", "http", "https", "grpc"] = "local"
+    address: StrictStr = Field(min_length=1)
+    auth_reference: StrictStr | None = Field(default=None, alias="authReference")
+
+    @field_validator("address")
+    @classmethod
+    def reject_inline_credentials(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if parsed.username is not None or parsed.password is not None:
+            raise ValueError("resource endpoint must not contain inline credentials")
+        return value
+
+
+class ComputeCapacity(BaseModel):
+    """可用于放置决策的资源算力摘要，不代表完整监控指标。"""
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    cpu_cores: float = Field(default=0.0, ge=0.0, alias="cpuCores")
+    memory_mb: int = Field(default=0, ge=0, alias="memoryMb")
+    gpu_type: StrictStr | None = Field(default=None, alias="gpuType")
+    gpu_memory_mb: int = Field(default=0, ge=0, alias="gpuMemoryMb")
+    bandwidth_mbps: float = Field(default=0.0, ge=0.0, alias="bandwidthMbps")
+
+
 class ResourceHealthStatus(str, Enum):
     """Persistable health projection; UNKNOWN is the safe restart state."""
 
@@ -40,6 +80,7 @@ class ResourceProfile(BaseModel):
 
     resource_id: StrictStr = Field(alias="resourceId", min_length=1, description="资源唯一标识。")
     resource_type: ResourceType = Field(default=ResourceType.AGENT, alias="resourceType")
+    deployment_tier: DeploymentTier = Field(default=DeploymentTier.LOCAL, alias="deploymentTier")
     capabilities: list[StrictStr] = Field(min_length=1, description="资源可提供的能力，不能为空。")
     domains: list[StrictStr] = Field(default_factory=list, description="资源可服务的稳定领域。")
     labels: dict[str, str] = Field(default_factory=dict, description="用于筛选的稳定键值标签。")
@@ -48,6 +89,10 @@ class ResourceProfile(BaseModel):
     cost_metadata: dict[str, float] = Field(default_factory=dict, alias="costMetadata")
     capacity: int = Field(default=1, ge=1, description="该资源可并发承接的最大工作数。")
     owner_scope: StrictStr | None = Field(default=None, alias="ownerScope")
+    privacy_level: StrictStr = Field(default="internal", alias="privacyLevel")
+    execution_endpoint: ResourceEndpoint | None = Field(default=None, alias="executionEndpoint")
+    compute_capacity: ComputeCapacity = Field(default_factory=ComputeCapacity, alias="computeCapacity")
+    model_ids: list[StrictStr] = Field(default_factory=list, alias="modelIds")
     enabled: bool = Field(default=True, description="资源是否可接受新调度。")
     metadata: dict[str, Any] = Field(default_factory=dict)
     version: int = Field(default=1, ge=1)
@@ -59,6 +104,7 @@ class ResourceSnapshot(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     resource_id: StrictStr = Field(alias="resourceId", min_length=1, description="被观测资源标识。")
+    observation_sequence: int = Field(default=0, ge=0, alias="observationSequence", description="资源节点单调递增的观测序号。")
     observed_at: datetime = Field(default_factory=_utc_now, alias="observedAt", description="观测发生的 UTC 时间。")
     available_slots: int = Field(ge=0, alias="availableSlots", description="当前可供分配的空闲槽位数。")
     utilization: float = Field(ge=0.0, le=1.0, description="资源利用率，范围为 0 到 1。")
@@ -76,12 +122,18 @@ class BindingRequirement(BaseModel):
     required_capabilities: list[StrictStr] = Field(alias="requiredCapabilities", min_length=1)
     domain: StrictStr | None = None
     resource_types: list[ResourceType] = Field(default_factory=list, alias="resourceTypes")
+    allowed_deployment_tiers: list[DeploymentTier] = Field(default_factory=list, alias="allowedDeploymentTiers")
     allowed_resource_ids: list[StrictStr] = Field(default_factory=list, alias="allowedResourceIds")
     excluded_resource_ids: list[StrictStr] = Field(default_factory=list, alias="excludedResourceIds")
     data_zone: StrictStr | None = Field(default=None, alias="dataZone")
     owner_scope: StrictStr | None = Field(default=None, alias="ownerScope")
     labels: dict[str, str] = Field(default_factory=dict)
     max_cost: float | None = Field(default=None, alias="maxCost", ge=0.0)
+    max_latency_ms: float | None = Field(default=None, alias="maxLatencyMs", ge=0.0)
+    privacy_level: StrictStr = Field(default="internal", alias="privacyLevel")
+    required_model_ids: list[StrictStr] = Field(default_factory=list, alias="requiredModelIds")
+    min_gpu_memory_mb: int = Field(default=0, alias="minGpuMemoryMb", ge=0)
+    allow_remote_execution: bool = Field(default=True, alias="allowRemoteExecution")
     preferences: dict[str, Any] = Field(default_factory=dict)
     policy_metadata: dict[str, Any] = Field(default_factory=dict, alias="policyMetadata")
 

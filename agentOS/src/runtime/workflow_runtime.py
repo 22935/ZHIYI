@@ -42,6 +42,7 @@ from components.executor import (
     GraphPatchConflictError,
     GraphPatchService,
 )
+from components.executor.graph import ACGSuperstepError
 from components.memory import MemoryService, StructuredMemoryEvent
 from components.evolution.service import EvolutionService
 from contracts.evolution import (
@@ -53,7 +54,7 @@ from contracts.evolution import (
 from components.memory.store import SQLiteMemoryStore
 from components.content import ContentManifestStore, SQLiteContentManifestStore
 from contracts.memory import MemoryPolicy, MemoryType
-from contracts.resource import BindingRequirement, ResourceType
+from contracts.resource import BindingRequirement, DeploymentTier, ResourceType
 from contracts.acg_lifecycle import AcgIdentityLifecyclePort
 from contracts.planning import (
     TaskBindingPatch,
@@ -70,6 +71,13 @@ from components.recovery.checkpoint import (
     ExecutionResumeCommand,
 )
 from adapters.agent_invocation import AgentInvocationAdapter
+from adapters.resource_execution import (
+    ResourceAgentProxy,
+    ResourceExecutionAdapter,
+    ResourceExecutionError,
+    build_resource_execution_adapter,
+)
+from service.agents.base import AgentProfile
 from adapters.audited_tool_runtime import AuditedToolRuntime
 from adapters.guarded_model import GuardedModelRuntime
 from adapters.guarded_tool import GuardedToolRuntime
@@ -200,6 +208,7 @@ class ExecutionRuntime:
         identity_lifecycle: AcgIdentityLifecyclePort | None = None,
         require_planner_identity: bool = False,
         scheduler_wait_timeout: float = 300.0,
+        resource_execution_adapters: Optional[Mapping[str, ResourceExecutionAdapter]] = None,
     ):
         if scheduler_wait_timeout <= 0:
             raise ValueError("scheduler_wait_timeout must be positive")
@@ -219,6 +228,7 @@ class ExecutionRuntime:
             resource_service=self.resource_service
         )
         self.scheduler_wait_timeout = float(scheduler_wait_timeout)
+        self.resource_execution_adapters = dict(resource_execution_adapters or {})
         self.evolution_service = evolution_service or EvolutionService()
         # 注册表只保存应用层已创建的模型适配器；Runtime 不在内部创建网络客户端。
         # 调用方可传入 bootstrap 产生的同一实例，使启动装配与工作流执行共享路由。
@@ -899,6 +909,17 @@ class ExecutionRuntime:
             self.workflow_store.save_run(run)
             return run
         except Exception as exc:
+            if isinstance(exc, ACGSuperstepError):
+                recovered = self._recover_remote_acg_failure(
+                    run=run,
+                    state=execution_state,
+                    error=exc,
+                )
+                if recovered:
+                    return await self._execute_acg_locked(
+                        run,
+                        state=execution_state,
+                    )
             from components.recovery import RecoveryService, failure_event_from_exception
 
             failure = failure_event_from_exception(
@@ -929,6 +950,156 @@ class ExecutionRuntime:
             if self.identity_lifecycle is not None:
                 self._flush_identity_outbox()
             raise
+
+    @staticmethod
+    def _unwrap_resource_execution_error(error: BaseException) -> ResourceExecutionError | None:
+        """Find a remote execution error hidden behind an ACG superstep wrapper."""
+        current: BaseException | None = error
+        visited: set[int] = set()
+        while current is not None and id(current) not in visited:
+            visited.add(id(current))
+            if isinstance(current, ResourceExecutionError):
+                return current
+            cause = getattr(current, "cause", None)
+            if isinstance(cause, BaseException):
+                current = cause
+                continue
+            chained = current.__cause__
+            current = chained if isinstance(chained, BaseException) else None
+        return None
+
+    def _known_remote_resource_ids(self) -> set[str]:
+        """Return registered remote resources plus explicitly injected adapters."""
+        resource_ids = set(self.resource_execution_adapters)
+        for profile in self.resource_service.profiles():
+            if profile.deployment_tier is not DeploymentTier.LOCAL:
+                resource_ids.add(profile.resource_id)
+        return resource_ids
+
+    def _resource_execution_adapter(self, resource_id: str) -> ResourceExecutionAdapter | None:
+        """Lazily construct the adapter for a bound remote resource."""
+        existing = self.resource_execution_adapters.get(resource_id)
+        if existing is not None:
+            return existing
+        try:
+            profile = self.resource_service.profile(resource_id)
+        except KeyError:
+            return None
+        if profile.deployment_tier is DeploymentTier.LOCAL:
+            return None
+        try:
+            adapter = build_resource_execution_adapter(
+                profile,
+                credential_provider=self.resource_service,
+            )
+        except KeyError as exc:
+            raise ResourceExecutionError(
+                f"REMOTE_EXECUTION_CONFIG_INVALID: credential missing for {resource_id}"
+            ) from exc
+        self.resource_execution_adapters[resource_id] = adapter
+        return adapter
+
+    def _recover_remote_acg_failure(
+        self,
+        *,
+        run: RuntimeRunRecord,
+        state: ACGExecutionState,
+        error: ACGSuperstepError,
+    ) -> bool:
+        """Mark failed remote resources unhealthy and prepare one safe rebind.
+
+        The graph has already projected ``superstep_failed`` when this method is
+        called.  We therefore repair only nodes without a committed graph result;
+        committed nodes remain completed and are replayed from the value store.
+        Each step/resource pair gets at most one automatic failover attempt.
+        """
+        resource_error = self._unwrap_resource_execution_error(error)
+        if resource_error is None:
+            return False
+
+        execution_bindings = run.execution_state.get("executionBindings")
+        if not isinstance(execution_bindings, dict):
+            return False
+        history = list(run.execution_state.get("resourceFailoverHistory") or [])
+        failed_resources: list[dict[str, str]] = []
+        failed_step_ids = list(dict.fromkeys(error.failed_step_ids))
+        reset_step_ids = list(dict.fromkeys(
+            [*error.failed_step_ids, *error.cancelled_step_ids]
+        ))
+        # ACG exposes the first failed task's exception as ``cause``. Other
+        # failed tasks may have independent causes, and cancelled siblings did
+        # not necessarily contact their bound remote resource at all.
+        for step_id in failed_step_ids[:1]:
+            binding = execution_bindings.get(step_id)
+            if not isinstance(binding, dict):
+                continue
+            resource_id = str(binding.get("resourceId") or "")
+            if resource_id not in self.resource_execution_adapters:
+                try:
+                    if self.resource_service.profile(resource_id).deployment_tier is DeploymentTier.LOCAL:
+                        continue
+                except KeyError:
+                    continue
+            already_attempted = any(
+                isinstance(item, dict)
+                and item.get("stepId") == step_id
+                and item.get("resourceId") == resource_id
+                for item in history
+            )
+            if already_attempted:
+                continue
+            self.resource_service.set_health(resource_id, healthy=False)
+            failed_resources.append({"stepId": step_id, "resourceId": resource_id})
+
+        if not failed_resources:
+            return False
+
+        for item in failed_resources:
+            item["error"] = str(resource_error)[:500]
+        history.extend(failed_resources)
+        run.execution_state["resourceFailoverHistory"] = history
+        run.execution_state["recoveryOutcome"] = {
+            "action": "resource_failover",
+            "status": "applied",
+            "resources": list(failed_resources),
+        }
+        run.recovery_count += 1
+        run.error = None
+        run.active_step_ids = []
+        run.current_step_id = None
+
+        committed_step_ids = set(state.completed_step_ids)
+        for step_id in reset_step_ids:
+            if step_id in committed_step_ids:
+                continue
+            step = run.get_step(step_id)
+            if step.status in {
+                StepStatus.FAILED,
+                StepStatus.CANCELLED,
+                StepStatus.RETRYING,
+                StepStatus.RUNNING,
+            }:
+                # This is an explicit recovery projection, not a normal
+                # lifecycle transition from FAILED back to PENDING.
+                step.status = StepStatus.PENDING
+                step.error = None
+                step.completed_at = None
+
+        self.trace_store.append(
+            run,
+            TraceEventType.RUN_RECOVERED,
+            step_id=(failed_resources[0]["stepId"]),
+            observation="远程资源执行失败，已切换到备用资源重新调度",
+            payload={
+                "failedResources": list(failed_resources),
+                "retryStepIds": [
+                    step_id for step_id in reset_step_ids
+                    if step_id not in committed_step_ids
+                ],
+            },
+        )
+        self.workflow_store.save_run(run)
+        return True
 
     def _ready_node_runner(self, *, run: RuntimeRunRecord, runner: ACGNodeRunner):
         """Decorate NodeRunner after Executor readiness with binding and lease coordination."""
@@ -975,7 +1146,9 @@ class ExecutionRuntime:
                     resource_id = self.agent_registry.agent_id(local_agent)
                     if allowed_resource_ids and resource_id not in allowed_resource_ids:
                         continue
-                    self.resource_service.heartbeat(resource_id)
+                    profile = self.resource_service.profile(resource_id)
+                    if profile.deployment_tier is DeploymentTier.LOCAL:
+                        self.resource_service.heartbeat(resource_id, source="local")
                 decision = self.scheduler_service.schedule_ready(
                     run_id=run.run_id,
                     step_id=step_id,
@@ -1019,7 +1192,7 @@ class ExecutionRuntime:
                     else f"execution:{attempt_id}",
                 )
             )
-            profile = selected_agent.profile
+            profile = selected_profile
             base_events = [
                 self._lifecycle_event(
                     f"attempt.ensured:{attempt_id}", "attempt.ensured", run.run_id,
@@ -1332,13 +1505,29 @@ class ExecutionRuntime:
         bindings = run.execution_state.get("resourceBindings")
         if not isinstance(bindings, dict):
             raise ValueError("ACG run has no frozen resource bindings")
-        agents = {
-            step_id: self.agent_registry.resolve_by_id(
-                str(bindings[step_id]),
-                allowed_agent_ids=allowed_agent_ids,
+        agents = {}
+        resource_adapters = {}
+        for step_id, step in steps.items():
+            resource_id = str(bindings[step_id])
+            adapter = self._resource_execution_adapter(resource_id)
+            if adapter is None:
+                agents[step_id] = self.agent_registry.resolve_by_id(
+                    resource_id,
+                    allowed_agent_ids=allowed_agent_ids,
+                )
+                continue
+            profile = self.resource_service.profile(resource_id)
+            agents[step_id] = ResourceAgentProxy(
+                profile=AgentProfile(
+                    agentId=resource_id,
+                    agentName=step.agent_name or resource_id,
+                    domain=workflow.domain,
+                    capabilities=list(profile.capabilities),
+                    enabled=profile.enabled,
+                ),
+                adapter=adapter,
             )
-            for step_id in steps
-        }
+            resource_adapters[step_id] = adapter
         communication_rules = tuple(
             getattr(graph.communication_manifest, "rules", ())
             if graph.communication_manifest is not None
@@ -1436,6 +1625,7 @@ class ExecutionRuntime:
             agent_invoker=AgentInvocationAdapter(
                 registry=(self.agent_registry.scoped(allowed_agent_ids) if allowed_agent_ids is not None else self.agent_registry)
             ),
+            resource_execution_adapters=resource_adapters,
             decision_store=self.decision_store,
             fault_hook=self._fault_hook,
         )
@@ -1877,9 +2067,28 @@ class ExecutionRuntime:
                     allowed_agent_ids=(scope.agent_ids if scope is not None else None),
                 )
             except KeyError:
-                missing.append(step.agent_name or step.node_id)
+                remote_match = any(
+                    self._remote_resource_matches_step(resource_id, step, domain=domain)
+                    for resource_id in self._known_remote_resource_ids()
+                )
+                if not remote_match:
+                    missing.append(step.agent_name or step.node_id)
         if missing:
             raise ValueError("ACG references unregistered Agents: " + ", ".join(sorted(set(missing))))
+
+    def _remote_resource_matches_step(self, resource_id: str, step, *, domain: str) -> bool:
+        """Return whether a registered remote Adapter can execute this step."""
+        try:
+            profile = self.resource_service.profile(resource_id)
+            health = self.resource_service.health_monitor.health(resource_id)
+        except KeyError:
+            return False
+        return (
+            profile.enabled
+            and health.healthy
+            and (not profile.domains or domain in profile.domains or "general" in profile.domains)
+            and (not step.capability or step.capability in profile.capabilities)
+        )
 
     def _register_and_freeze_resources(
         self,
@@ -1902,28 +2111,51 @@ class ExecutionRuntime:
                 raise ValueError(
                     f"BindingManifest has no capability requirement: {step.step_id}"
                 )
-            allowed_agent_ids = list(scope.agent_ids)
+            allowed_resource_ids = list(dict.fromkeys(
+                [*scope.agent_ids, *self.resource_execution_adapters.keys()]
+            ))
             if rule.allowed_resource_ids:
-                allowed_agent_ids = [
-                    item for item in allowed_agent_ids
+                allowed_resource_ids = [
+                    item for item in allowed_resource_ids
                     if item in set(rule.allowed_resource_ids)
                 ]
+            selected_agent = None
             try:
                 selected = self.resource_directory.resolve_agent(
                     domain=rule.domain or workflow.domain,
                     agent_name=step.agent_name,
                     capability=required_capabilities[0],
-                    allowed_agent_ids=allowed_agent_ids,
+                    allowed_agent_ids=allowed_resource_ids,
                 )
             except ResourceNotFoundError as exc:
-                raise ValueError(f"ACG step has no eligible resource: {step.step_id}") from exc
-            bindings[step.step_id] = selected.agent_id
+                remote_ids = self._known_remote_resource_ids().intersection(allowed_resource_ids)
+                remote_requirement = BindingRequirement(
+                    requiredCapabilities=required_capabilities,
+                    domain=rule.domain or workflow.domain,
+                    allowedResourceIds=sorted(remote_ids),
+                )
+                candidates = [
+                    item
+                    for item in self.resource_service.find_candidates(remote_requirement)
+                    if item.profile.resource_id in remote_ids
+                ]
+                if not candidates:
+                    raise ValueError(f"ACG step has no eligible resource: {step.step_id}") from exc
+                selected_profile = candidates[0].profile
+                selected_id = selected_profile.resource_id
+            else:
+                selected_id = selected.agent_id
+                selected_agent = self.agent_registry.resolve_by_id(
+                    selected_id,
+                    allowed_agent_ids=scope.agent_ids,
+                )
+            bindings[step.step_id] = selected_id
             requirement = BindingRequirement(
                 requiredCapabilities=required_capabilities,
                 domain=rule.domain or workflow.domain,
-                resourceTypes=[ResourceType.AGENT],
-                allowedResourceIds=allowed_agent_ids,
-                preferences={"resourceId": selected.agent_id},
+                resourceTypes=[ResourceType.AGENT] if selected_agent is not None else [],
+                allowedResourceIds=allowed_resource_ids,
+                preferences={"resourceId": selected_id},
                 policyMetadata={
                     "source": "compiled-binding-manifest",
                     "stepId": step.step_id,
@@ -1933,13 +2165,10 @@ class ExecutionRuntime:
                 },
             )
             requirements[step.step_id] = requirement.model_dump(by_alias=True, mode="json")
-            agent = self.agent_registry.resolve_by_id(
-                selected.agent_id,
-                allowed_agent_ids=scope.agent_ids,
-            )
-            model_bindings[step.step_id] = self._freeze_model_binding(
-                step_id=step.step_id,
-                profile=agent.profile,
+            model_bindings[step.step_id] = (
+                self._freeze_model_binding(step_id=step.step_id, profile=selected_agent.profile)
+                if selected_agent is not None
+                else None
             )
         run.execution_state["resourceBindings"] = bindings
         run.execution_state["bindingRequirements"] = requirements

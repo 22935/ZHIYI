@@ -16,6 +16,7 @@ from contracts.resource import (
 from .binder import can_bind
 from .leases import InMemoryLeaseCoordinator, LeaseCoordinator
 from .models import CandidateDecision, FilterReason, ReadyNodeSchedulingResult
+from .placement import placement_reasons, placement_score
 from .scorer import score_candidate
 
 
@@ -71,8 +72,21 @@ class SchedulerService:
         for profile in self.resource_service.profiles():
             versioned = self.resource_service.snapshot(profile.resource_id)
             health = self.resource_service.health_monitor.health(profile.resource_id, now=current)
-            reasons = self._filter_reasons(profile, versioned.snapshot, health.healthy, requirement)
-            score = None if reasons else self._score(profile, versioned.snapshot, health.reliability, health.latency_ms, requirement)
+            reasons = placement_reasons(
+                profile,
+                versioned.snapshot,
+                healthy=health.healthy,
+                requirement=requirement,
+            )
+            score, score_factors = placement_score(
+                profile,
+                versioned.snapshot,
+                reliability=health.reliability,
+                latency_ms=health.latency_ms,
+                requirement=requirement,
+            )
+            if reasons:
+                score = None
             evaluations.append(
                 (
                     profile,
@@ -111,6 +125,13 @@ class SchedulerService:
             )
             if lease is None:
                 continue
+            confirmed = self.resource_service.snapshot(profile.resource_id)
+            if confirmed.version != versioned.version:
+                self.coordinator.release(lease.lease_id)
+                continue
+            health = self.resource_service.health_monitor.health(
+                profile.resource_id, now=current
+            )
             binding = ExecutionBinding(
                 bindingId=f"binding:{run_id}:{step_id}:{attempt_id}",
                 runId=run_id,
@@ -118,8 +139,23 @@ class SchedulerService:
                 attemptId=attempt_id,
                 resourceId=profile.resource_id,
                 resourceType=profile.resource_type,
-                snapshotVersion=versioned.version,
-                metadata={"score": decision.score},
+                snapshotVersion=confirmed.version,
+                metadata={
+                    "score": decision.score,
+                    "deploymentTier": profile.deployment_tier.value,
+                    "placementReasons": [
+                        f"deploymentTier={profile.deployment_tier.value}",
+                        f"resourceType={profile.resource_type.value}",
+                        f"latencyMs={confirmed.snapshot.latency_ms}",
+                    ],
+                    "scoreFactors": placement_score(
+                        profile,
+                        confirmed.snapshot,
+                        reliability=health.reliability,
+                        latency_ms=health.latency_ms,
+                        requirement=requirement,
+                    )[1],
+                },
             )
             return ReadyNodeSchedulingResult(
                 status="allocated",

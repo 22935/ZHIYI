@@ -9,10 +9,12 @@ from components.evolution.store import SQLiteEvolutionStore
 from components.memory.store import SQLiteMemoryStore
 from components.content import SQLiteContentManifestStore
 from components.resource.store import SQLiteResourceStore
+from components.resource.health_store import SQLiteResourceHealthStore
 from components.recovery.checkpoint import ACGCheckpointStore
 from components.scheduler.leases import RedisLeaseCoordinator
 from adapters.guarded_model import GuardedModelRuntime
 from runtime import ExecutionRuntime
+from contracts.resource import DeploymentTier, ResourceEndpoint, ResourceProfile, ResourceSnapshot, ResourceType
 from support.stores.sqlite_workflow_store import SQLiteWorkflowStore
 
 from app.execution.wiring import build_default_runtime, build_model_setup, close_runtime
@@ -49,6 +51,7 @@ def _environment(root: Path) -> dict[str, str]:
         "AGENTOS_PROVENANCE_DB": str(root / "provenance.sqlite3"),
         "AGENTOS_AUDIT_DB": str(root / "audit_decisions.sqlite3"),
         "AGENTOS_RESOURCE_DB": str(root / "resources.sqlite3"),
+        "AGENTOS_RESOURCE_HEALTH_DB": str(root / "resource_health.sqlite3"),
         "AGENTOS_EVOLUTION_DB": str(root / "evolution.sqlite3"),
     }
 
@@ -73,6 +76,7 @@ def test_application_builds_the_single_execution_runtime_with_six_stores(tmp_pat
         assert isinstance(runtime.provenance_store, SQLiteProvenanceStore)
         assert isinstance(runtime.decision_store, SQLiteDecisionStore)
         assert isinstance(runtime.resource_service.store, SQLiteResourceStore)
+        assert isinstance(runtime.resource_service.health_monitor.store, SQLiteResourceHealthStore)
         assert isinstance(runtime.evolution_service.store, SQLiteEvolutionStore)
         assert runtime.tool_runtime is tools
         assert isinstance(runtime._model_runtime, GuardedModelRuntime)
@@ -91,6 +95,58 @@ def test_application_builds_the_single_execution_runtime_with_six_stores(tmp_pat
         }
     finally:
         close_runtime(runtime)
+
+
+def test_application_resource_store_persists_remote_credentials(tmp_path: Path) -> None:
+    environment = _environment(tmp_path)
+    runtime = build_default_runtime(
+        environment=environment,
+        tool_runtime=_InjectedToolRuntime(),
+        model_runtime=_InjectedModelRuntime(),
+        intent_llm=_InjectedIntentLLM(),
+    )
+    try:
+        profile = ResourceProfile(
+            resourceId="wired-edge",
+            resourceType=ResourceType.WORKER,
+            deploymentTier=DeploymentTier.EDGE,
+            capabilities=["vision.infer"],
+            ownerScope="tenant-a",
+            executionEndpoint=ResourceEndpoint(
+                protocol="https",
+                address="https://wired-edge.example.test/execute",
+            ),
+        )
+        runtime.resource_service.register(
+            profile,
+            ResourceSnapshot(resourceId="wired-edge", availableSlots=1, utilization=0.0),
+        )
+        issued = runtime.resource_service.issue_credential("wired-edge")
+    finally:
+        close_runtime(runtime)
+
+    reopened = SQLiteResourceStore(environment["AGENTOS_RESOURCE_DB"])
+    try:
+        assert reopened.get_credential("wired-edge").credential_id == issued.credential_id
+    finally:
+        reopened.close()
+
+
+def test_production_runtime_requires_resource_credential_master_key(tmp_path: Path) -> None:
+    environment = _environment(tmp_path)
+    environment["ENVIRONMENT"] = "production"
+
+    try:
+        build_default_runtime(
+            environment=environment,
+            tool_runtime=_InjectedToolRuntime(),
+            model_runtime=_InjectedModelRuntime(),
+            intent_llm=_InjectedIntentLLM(),
+        )
+    except RuntimeError as error:
+        assert str(error) == "AGENTOS_RESOURCE_CREDENTIAL_KEY is required in production"
+    else:
+        raise AssertionError("production runtime accepted a missing resource credential key")
 
 
 def test_production_python_does_not_import_the_removed_agentos_package() -> None:

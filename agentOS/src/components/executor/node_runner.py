@@ -22,6 +22,7 @@ from components.auditor.decision_store import DecisionStore, InMemoryDecisionSto
 from components.memory import MemoryService, StructuredMemoryEventBuilder
 from components.content import ContentManifestStore, ContentWorksetSession
 from adapters.agent_invocation import AgentInvocationAdapter
+from adapters.resource_execution import ResourceExecutionAdapter
 from contracts.communication import validate_contract_payload
 from contracts.governance import AuditRequest
 from contracts.memory import MemoryPolicy, MemoryType
@@ -62,6 +63,7 @@ class ACGNodeRunner:
         execution_audit: ExecutionAuditService | None = None,
         decision_store: DecisionStore | None = None,
         agent_invoker: AgentInvocationAdapter | None = None,
+        resource_execution_adapters: Mapping[str, ResourceExecutionAdapter] | None = None,
         model_runtime: object | None = None,
         model_runtimes: Mapping[str, object] | None = None,
         capability_descriptors: Mapping[str, object] | None = None,
@@ -97,6 +99,7 @@ class ACGNodeRunner:
         # 实现；ExecutionRuntime 会注入可跨进程恢复的 SQLite 实现。
         self.decision_store = decision_store or InMemoryDecisionStore()
         self.agent_invoker = agent_invoker
+        self.resource_execution_adapters = dict(resource_execution_adapters or {})
         self.model_runtime = model_runtime
         # 模型绑定在 ``prepare_run`` 时冻结为 step → provider/model，再由 Runtime
         # 组装为此映射。节点不会从可变 Agent Profile 读取模型配置，恢复时也不会
@@ -118,13 +121,29 @@ class ACGNodeRunner:
         self._fault_hook = fault_hook
 
     @classmethod
-    def minimal(cls, *, agent: BaseAgent, entropy_budget: int | None = None) -> "ACGNodeRunner":
+    def minimal(
+        cls,
+        *,
+        agent: BaseAgent,
+        entropy_budget: int | None = None,
+        resource_execution_adapters: Mapping[str, ResourceExecutionAdapter] | None = None,
+    ) -> "ACGNodeRunner":
         """构造测试用最小节点运行器，生产运行时应显式注入全部运行范围。"""
         task = RuntimeMissionRecord(missionId="mission_000000000000", title="ACG node")
         run = RuntimeRunRecord(missionId=task.mission_id, workflowId="workflow", domain="general", runtimeEngine="acg")
         workflow = WorkflowDefinition(workflowId="workflow", name="workflow", domain="general", intent="general", runtimeEngine="acg")
         step = WorkflowStep(stepId="one", name="one", agentName=agent.profile.agent_name)
-        return cls(task=task, run=run, workflow=workflow, steps={"one": step}, agents={"one": agent}, communicator=CommunicatorService(run_id=run.run_id, mission_id=task.mission_id), memory=MemoryService(), entropy_budget=entropy_budget)
+        return cls(
+            task=task,
+            run=run,
+            workflow=workflow,
+            steps={"one": step},
+            agents={"one": agent},
+            communicator=CommunicatorService(run_id=run.run_id, mission_id=task.mission_id),
+            memory=MemoryService(),
+            entropy_budget=entropy_budget,
+            resource_execution_adapters=resource_execution_adapters,
+        )
 
     async def __call__(self, step_id: str, state: ACGExecutionState) -> dict[str, Any]:
         """执行一个 Step，并返回 Pregel 轮次可消费的受控结果。

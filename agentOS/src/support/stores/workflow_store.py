@@ -100,6 +100,7 @@ _SAFE_EXECUTION_STATE_KEYS = {
     "outputRefs",
     "parentRunId",
     "provenanceRefs",
+    "resourceFailoverHistory",
     "recoveryOutcome",
     "schedulingDecisions",
     "sourceBlueprintVersion",
