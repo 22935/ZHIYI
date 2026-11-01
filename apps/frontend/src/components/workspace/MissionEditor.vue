@@ -13,6 +13,7 @@
     <MissionRevisionNotice v-if="projection.missionSemanticView && projection.activeRun"
       :mission-id="projection.mission.missionId" :run-id="projection.activeRun.runId"
       :revision="projection.missionSemanticView.missionRevision" :run-status="projection.activeRun.status || ''"
+      :readonly="readonly"
       @changed="emit('semanticsSaved')" />
 
     <form v-if="editing" class="mission-editor__meta" @submit.prevent="saveSemantics">
@@ -60,6 +61,7 @@ import type { MissionWorkspaceProjection, WorkspaceEntry } from '@/services/api/
 const props = defineProps<{
   projection: MissionWorkspaceProjection
   entry: WorkspaceEntry
+  readonly?: boolean
 }>()
 const emit = defineEmits<{ semanticsSaved: [] }>()
 const editing = ref(false)

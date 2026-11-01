@@ -90,6 +90,7 @@
         :available="activeOpened.available"
         :runtime-observation="workbenchContext.runtimeObservation"
         :runtime-store="props.runtimeStore"
+        :readonly="workbenchContext.lifecycle?.isReadOnly"
         @select-semantic-task="emit('selectSemanticTask', $event)"
         @select-symbol="emit('selectSymbol', $event)"
         @open-semantic-task="emit('openSemanticTask', $event)"

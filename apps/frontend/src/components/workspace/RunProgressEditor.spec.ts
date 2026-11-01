@@ -515,7 +515,7 @@ describe('RunProgressEditor', () => {
 
     const wrapper = mountEditor({ runtimeObservation: observation([]), runtimeStore })
 
-    expect(wrapper.text()).toContain('PLANNING')
+    expect(wrapper.get('.run-progress__status').text()).toBe('RUNNING')
     expect(wrapper.text()).toContain('生成任务骨架')
     expect(wrapper.text()).toContain('模型响应中')
     expect(wrapper.text()).toContain('Attempt 1')

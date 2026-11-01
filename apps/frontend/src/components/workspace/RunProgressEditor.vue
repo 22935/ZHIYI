@@ -21,6 +21,8 @@
     <div v-if="!resolvedRunId" class="run-progress__empty">运行开始后，这里会显示任务规划和执行过程。</div>
 
     <template v-else>
+      <p v-if="lifecycle.failure" class="run-progress__waiting" role="status">{{ lifecycle.failure.layer }} · {{ lifecycle.failure.objectId }} · {{ lifecycle.failure.reason }} · Checkpoint / side effects: NOT_OBSERVED</p>
+      <p v-if="lifecycle.deliveryStatus === 'MISSING'" class="run-progress__waiting" role="status">Completed · Final deliverable missing</p>
       <div class="run-progress__toolbar">
         <div class="run-progress__toolbar-leading">
           <span class="run-progress__toolbar-label">OVERVIEW</span>
@@ -191,6 +193,7 @@ import PlanningStageArtifact from './PlanningStageArtifact.vue'
 import RunBreadcrumb from './RunBreadcrumb.vue'
 import RunSymbolRow from './RunSymbolRow.vue'
 import { findRunDocumentSymbol, projectRunDocument, type RunDocumentSymbol, type RunDocumentViewKey } from '@/workbench/runtime/runDocument'
+import { projectLifecycle } from '@/workbench/runtime/lifecycleProjection'
 
 type PlanningStageViewKey = Exclude<RunDocumentViewKey, 'intent-profile'>
 
@@ -214,6 +217,8 @@ const emit = defineEmits<{
 }>()
 
 const resolvedRunId = computed(() => props.runId || (props.entry.kind === 'run' ? props.entry.runId || null : null))
+const lifecycle = computed(() => projectLifecycle({ workspace: props.projection, selectedRunId: resolvedRunId.value,
+  run: props.runtimeObservation?.runId === resolvedRunId.value ? props.runtimeObservation.run : null }))
 const observedRun = computed(() => props.projection.runs.find(item => item.runId === resolvedRunId.value) || null)
 const runStatus = computed(() => (
   props.runtimeObservation?.runId === resolvedRunId.value
@@ -222,13 +227,14 @@ const runStatus = computed(() => (
 ))
 
 const TERMINAL_OK = new Set(['completed', 'succeeded'])
-const TERMINAL_BAD = new Set(['failed', 'cancelled'])
+const TERMINAL_BAD = new Set(['failed'])
 const formalControl = computed(() => props.runtimeObservation?.run?.runId === resolvedRunId.value
   ? props.runtimeObservation.run.formalControl : null)
-const runState = computed<'idle' | 'unknown' | 'running' | 'completed' | 'failed' | 'paused'>(() => {
+const runState = computed<'idle' | 'unknown' | 'running' | 'completed' | 'failed' | 'paused' | 'cancelled' | 'superseded'>(() => {
   if (!resolvedRunId.value) return 'idle'
   const status = runStatus.value
   if (!status) return 'unknown'
+  if (status === 'cancelled' || status === 'superseded') return status
   if (TERMINAL_OK.has(status)) return 'completed'
   if (TERMINAL_BAD.has(status)) return 'failed'
   if (status === 'waiting_review') return 'paused'
@@ -243,6 +249,8 @@ const STATE_LABELS: Record<string, string> = {
   completed: '运行完成',
   failed: '运行失败',
   paused: '等待审核',
+  cancelled: '已取消',
+  superseded: '已由后继 Run 替代',
   unknown: '状态未知'
 }
 const stateLabel = computed(() => {
@@ -251,10 +259,11 @@ const stateLabel = computed(() => {
     return formal.dispatch ? `Dispatch ${formal.dispatch.status}` : formal.permitStatus === 'ISSUED' ? 'Permit ISSUED'
       : formal.handoffStatus === 'STATE_PREPARED' ? 'STATE_PREPARED' : formal.status
   }
-  const planningStatus = props.runtimeStore?.planning.status
-  return planningStatus && ['STARTING', 'RUNNING'].includes(planningStatus)
-    ? 'PLANNING'
-    : (STATE_LABELS[runState.value] || '状态未知')
+  // Temporary planner SSE remains in the live output, not the durable Run label.
+  if (!resolvedRunId.value) return STATE_LABELS.idle
+  return ({ PLANNING: 'PLANNING', QUEUED: '等待执行', RUNNING: 'RUNNING', RECOVERING: '正在恢复',
+    WAITING_REVIEW: '等待审核', FAILED: '运行失败', COMPLETED: '运行完成', CANCELLED: '已取消',
+    SUPERSEDED: '已由后继 Run 替代' } as Record<string, string>)[lifecycle.value.phase] || '状态未知'
 })
 
 const shorten = (value: string, length: number) => value.length > length ? `${value.slice(0, length)}…` : value

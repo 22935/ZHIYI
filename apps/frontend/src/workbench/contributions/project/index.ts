@@ -19,6 +19,7 @@ import ProjectTaskIdentityInspector from './ProjectTaskIdentityInspector.vue'
 import ProjectTaskResultInspector from './ProjectTaskResultInspector.vue'
 import ProjectRunSidebarView from './ProjectRunSidebarView.vue'
 import RunSelectionInspector from './RunSelectionInspector.vue'
+import LifecycleEvidence from './LifecycleEvidence.vue'
 import type { WorkbenchContribution } from '@/workbench/types'
 import { workspaceDiagnostics } from '@/workbench/core/diagnostics'
 
@@ -31,7 +32,7 @@ export const projectContribution: WorkbenchContribution = {
     { id: 'project.activity', label: 'Projects', icon: FolderOpened, routeName: 'AcgVisualization' }
   ],
   sidebarViews: [
-    { id: 'project.explorer', title: 'Project Explorer', component: WorkspaceExplorer }
+    { id: 'project.explorer', title: 'Explorer', component: WorkspaceExplorer }
   ],
   auxiliaryViews: [
     {
@@ -88,6 +89,11 @@ export const projectContribution: WorkbenchContribution = {
     { id: 'project.mission-inspector', component: ProjectMissionInspector, matches: () => true }
   ],
   inspectorSections: [
+    {
+      id: 'project.lifecycle-evidence-section', title: 'Lifecycle', order: 80, component: LifecycleEvidence,
+      when: context => context.entry?.kind === 'task' && Boolean(context.lifecycle),
+      getProps: context => ({ lifecycle: context.lifecycle, observation: context.runtimeObservation })
+    },
     {
       id: 'project.run-selection-section',
       title: 'Selection',

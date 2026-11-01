@@ -103,6 +103,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   back: []
   open: [entry: WorkspaceEntry]
+  selectRun: [runId: string]
 }>()
 
 const expandedSections = ref<Record<string, boolean>>({
@@ -112,9 +113,10 @@ const expandedSections = ref<Record<string, boolean>>({
 })
 
 const groupLabels: Record<string, { label: string; empty: string }> = {
-  overview: { label: 'OVERVIEW', empty: '当前 Run 尚未生成概览文件' },
-  steps: { label: 'STEPS', empty: '当前 Run 尚无逻辑步骤' },
-  output: { label: 'OUTPUT', empty: '当前 Run 尚无已证明的最终产物' }
+  overview: { label: 'EXPLORER', empty: '当前 Run 尚未生成概览文件' },
+  runs: { label: 'RUNS', empty: '尚无 Run' },
+  steps: { label: 'TASKS', empty: '当前 Run 尚无逻辑步骤' },
+  output: { label: 'ARTIFACTS', empty: '当前 Run 尚无 Artifact' }
 }
 
 const sections = computed(() => Object.entries(groupLabels).map(([group, meta]) => ({
@@ -140,6 +142,7 @@ const taskChildren = (task: WorkspaceEntry) => props.projection.entries
   .sort((left, right) => left.displayOrder - right.displayOrder || left.entryId.localeCompare(right.entryId))
 
 const handleEntryClick = (entry: WorkspaceEntry) => {
+  if (entry.kind === 'run' && entry.runId) { emit('selectRun', entry.runId); return }
   emit('open', entry)
 }
 

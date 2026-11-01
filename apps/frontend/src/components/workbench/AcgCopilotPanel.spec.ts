@@ -96,19 +96,18 @@ describe('task Copilot', () => {
     await w.setProps({runtimeObservation:{runId:'run-2',run:{runId:'run-2',formalControl:{status:'ACTIVATED'}}} as any})
     expect(w.getComponent(FormalExecutionControls).props('run')).toBeNull()
   })
-  it('restores task permission across runs and preserves the source of historical proposals', async () => {
+  it('preserves historical proposals as evidence without escalating permission or applying them', async () => {
     const proposal = { sourceRunId: 'run-1', operationId: 'proposal', user: 'rerun', assistant: 'ready', createdAt: '2026-10-06T01:00:00Z', observedRevision: 3,
       action: { kind: 'rerun' as const, stepId: null, expectedRevision: 3, executeStepIds: ['A'], reusedStepIds: [], content: 'rerun', executionEnvironmentChanged: true } }
     vi.mocked(agentosApi.getCopilot).mockResolvedValue({ ...state(), runId: 'run-2', missionId: 'mission-1', latestRunId: 'run-2', taskPermission: 'read_only', exchanges: [proposal] })
     const w = await panel({ runId: 'run-2', historical: true })
     expect(w.get('.operation-card button').attributes('disabled')).toBeDefined()
     expect(w.text()).toContain('执行环境已更新')
-    await w.get('[aria-label="选择权限"]').trigger('click')
-    await w.get('.permission-menu button:last-of-type').trigger('click'); await flushPromises()
-    expect(agentosApi.setCopilotPermission).toHaveBeenCalledWith('run-2', 'task_collaboration')
-    vi.mocked(agentosApi.applyCopilotAction).mockResolvedValue({ operationId: 'receipt', user: '', assistant: 'queued', createdAt: '2026-10-06T01:01:00Z', observedRevision: 0 })
+    expect(w.get('[aria-label="选择权限"]').attributes('disabled')).toBeDefined()
+    await (w.vm as any).changePermission('task_collaboration')
+    expect(agentosApi.setCopilotPermission).not.toHaveBeenCalled()
     await w.get('.operation-card button').trigger('click'); await flushPromises()
-    expect(agentosApi.applyCopilotAction).toHaveBeenCalledWith('run-1', 'proposal', 3, 'task_collaboration')
+    expect(agentosApi.applyCopilotAction).not.toHaveBeenCalled()
   })
 
   it('provides explicit navigation from historical evidence to the current task run', async () => {
@@ -229,14 +228,16 @@ describe('task Copilot', () => {
     expect(agentosApi.answerPlanner).toHaveBeenCalledWith('run-1', 'question-1', '包含', 3, expect.any(String), 'task_collaboration')
     expect(agentosApi.streamCopilotMessage).not.toHaveBeenCalled()
   })
-  it('does not send during IME composition and allows task collaboration from historical runs', async () => {
+  it('does not send during IME composition and limits historical discussions to read_only', async () => {
     const w = await panel()
     await w.get('textarea').setValue('输入中文')
     await w.get('textarea').trigger('keydown', { key: 'Enter', isComposing: true })
     expect(agentosApi.streamCopilotMessage).not.toHaveBeenCalled()
     await w.setProps({ historical: true })
     expect(w.get('.send-button').attributes('disabled')).toBeUndefined()
-    expect(w.text()).toContain('任务助手仍可协作')
+    expect(w.text()).toContain('可讨论原始证据')
+    await w.get('form').trigger('submit'); await flushPromises()
+    expect(agentosApi.streamCopilotMessage).toHaveBeenCalledWith('run-1', '输入中文', expect.any(String), expect.any(Function), expect.anything(), expect.objectContaining({ permission: 'read_only' }))
   })
   it('routes the selected model and permission and changes the retry operation when options change', async () => {
     vi.mocked(agentosApi.getCopilot).mockResolvedValue({ ...state(), models: [{ id: 'provider/model-a', provider: 'provider', model: 'model-a' }], defaultModelId: 'provider/default' })

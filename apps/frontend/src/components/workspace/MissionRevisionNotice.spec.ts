@@ -11,6 +11,16 @@ beforeEach(() => {
   vi.mocked(agentosApi.getRunRevision).mockResolvedValue(observation())
 })
 describe('MissionRevisionNotice', () => {
+  it('keeps historical or identity-uncertain revision decisions read-only', async () => {
+    const wrapper = mount(MissionRevisionNotice, { props: { ...props, readonly: true } })
+    await flushPromises()
+    expect(wrapper.findAll('button')[0].attributes('disabled')).toBeDefined()
+    await (wrapper.vm as any).decide('CONTINUE')
+    await (wrapper.vm as any).apply()
+    expect(agentosApi.decideRunRevision).not.toHaveBeenCalled()
+    expect(agentosApi.applyRunRevision).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
   it('shows an explicit difference and retries exactly the same scoped decision', async () => {
     vi.mocked(agentosApi.decideRunRevision).mockRejectedValueOnce(new Error('lost response')).mockResolvedValueOnce({} as any)
     const wrapper = mount(MissionRevisionNotice, { props })

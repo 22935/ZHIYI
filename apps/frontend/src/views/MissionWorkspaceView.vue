@@ -34,6 +34,13 @@
       </template>
 
       <template #main="mainState">
+        <section class="workspace-document-surface">
+        <div v-if="projection" class="workspace-lifecycle" role="status" aria-live="polite">
+          <strong>{{ lifecycle.phase }}</strong>
+          <span>{{ lifecycle.deliveryStatus === 'MISSING' ? 'Completed · Final deliverable missing' : lifecycle.reason }}</span>
+          <small>Current: {{ lifecycle.currentRunId || '未确认' }} · Latest created: {{ lifecycle.latestRunId || '未观测' }}</small>
+          <button type="button" :aria-pressed="editorIntent.mode === 'follow'" @click="enableLifecycleFollow">{{ editorIntent.mode === 'follow' ? 'Following lifecycle' : 'Follow lifecycle' }}</button>
+        </div>
         <EditorGroup
           v-if="projection"
           :projection="projection"
@@ -54,7 +61,7 @@
           @restore-sidebar="mainState.restoreLeftPane()"
           @select-inspector="selectInspectorView(mainState)"
           @select-auxiliary="selectAuxiliaryView($event, mainState)"
-          @activate="activeEditorId = $event"
+          @activate="activateEditor"
           @close="closeEditor"
           @editor-status="activeEditorStatus = $event"
           @select-semantic-task="selectSemanticTask"
@@ -74,10 +81,11 @@
           <span>{{ loadError || '请从 Mission 导航进入一个 Project Workspace。' }}</span>
           <button v-if="loadError" type="button" @click="loadWorkspace()">重新加载</button>
         </section>
+        </section>
       </template>
 
       <template #right="rightState">
-        <div class="workspace-inspector-column">
+        <div v-if="projection" class="workspace-inspector-column">
         <WorkbenchAuxiliarySidebar
           v-if="activeAuxiliaryView"
           :view="activeAuxiliaryView"
@@ -217,10 +225,11 @@ import { RuntimeObservationAdapter, type RuntimeObservation, type RuntimeSelecti
 import { acquireRunRuntimeStore, releaseRunRuntimeStore, type RunRuntimeStore } from '@/workbench/runtime/runtimeEvents'
 import type { RunDocumentSymbol } from '@/workbench/runtime/runDocument'
 import type { ArtifactDocumentModel } from '@/workbench/runtime/artifactProjection'
-import { isRunDeliverableEntry } from '@/workbench/runtime/deliverableIdentity'
-import { chooseFailedRunRetryMode } from '@/utils/retryModeChoice'
+import { beginRunRecovery, pendingRunRecovery, completeRunRecovery } from '@/workbench/runtime/recoveryIdentity'
 import { isActiveRunStatus, isTerminalRunStatus } from '@/features/workspace/session'
 import { conversationBindingKey } from '@/features/workspace/navigation'
+import { projectLifecycle } from '@/workbench/runtime/lifecycleProjection'
+import { initialEditorIntent, selectLifecycleEditor } from '@/workbench/runtime/editorSelection'
 
 const route = useRoute()
 const router = useRouter()
@@ -232,6 +241,7 @@ const emit = defineEmits<{
   'open-workspace-file': [request: WorkspaceFileOpenRequest]
 }>()
 const openWorkspaceFile = (request: WorkspaceFileOpenRequest) => {
+  editorIntent.value.mode = 'user'
   const id = `local-file:${request.missionId}:${request.desktopWorkspaceId || request.workspaceRoot}:${request.relativePath}`
   if (openEditors.value.includes(id)) { activeEditorId.value = id; return }
   openEntry({entryId: id, kind: 'local_file',
@@ -248,9 +258,11 @@ const loadError = ref('')
 const requestErrorCollapsed = ref(false)
 const activeAuxiliaryId = ref<string | null>(null)
 const rerunPending = ref(false)
+let recoveryUiGeneration = 0
 const cancelPending = ref(false)
 const selectedRunId = ref<string | null>(typeof route.query.runId === 'string' ? route.query.runId : null)
-const currentRunId = ref<string | null>(null)
+watch(selectedRunId, () => { recoveryUiGeneration++; rerunPending.value = false }, { flush: 'sync' })
+const currentRunId = computed(() => lifecycle.value.currentRunId)
 const openEditors = ref<string[]>([])
 const activeEditorId = ref<string | null>(null)
 // 活动文件编辑器的元信息（语言/编码/行数/行列），转交给窗口底部状态栏展示。
@@ -266,6 +278,9 @@ const selectedGraphNodeId = ref<string | null>(null)
 // The snapshot is replaced as a whole, so deep Vue proxies only add work here.
 const runtimeObservation = shallowRef<RuntimeObservation | null>(null)
 const runtimeStore = shallowRef<RunRuntimeStore | null>(null)
+const lifecycle = computed(() => projectLifecycle({ workspace: projection.value, selectedRunId: selectedRunId.value,
+  run: runtimeObservation.value?.runId === selectedRunId.value ? runtimeObservation.value.run : null }))
+const editorIntent = ref(initialEditorIntent())
 let runtimeStoreRunId: string | null = null
 const artifactChoices = ref<WorkspaceEntry[]>([])
 const entryCache = ref<Record<string, WorkspaceEntry>>({})
@@ -360,16 +375,15 @@ const inspectorGraphNode = computed<WorkspaceGraphNode | null>(() => {
   if (inspectorEntry.value.kind === 'artifact') return null
   return projection.value?.graphNodes.find(node => node.acgNodeId === selectedGraphNodeId.value) || null
 })
-const isHistorical = computed(() => Boolean(
-  projection.value?.activeRun && currentRunId.value && projection.value.activeRun.runId !== currentRunId.value
-))
+const isHistorical = computed(() => lifecycle.value.isHistorical)
+const controlReadOnly = computed(() => lifecycle.value.isReadOnly || loading.value || Boolean(loadError.value))
 const canRerunSelectedRun = computed(() => Boolean(
   projection.value?.activeRun?.runId && isTerminalRunStatus(projection.value.activeRun.status)
 ))
 const shouldResumeSelectedRun = computed(() => projection.value?.activeRun?.status === 'failed')
 const canCancelActiveRun = computed(() => Boolean(
   projection.value?.activeRun?.runId
-  && !isHistorical.value
+  && !controlReadOnly.value
   && isActiveRunStatus(projection.value.activeRun.status)
   && !cancelPending.value
 ))
@@ -380,7 +394,9 @@ const rerunDisabledReason = computed(() => {
     ? '复用已完成节点，从失败节点继续执行'
     : '从当前 Run 创建新的执行版本'
 })
-const rerunLabel = computed(() => shouldResumeSelectedRun.value ? '从失败处继续' : '再次运行')
+const rerunLabel = computed(() => shouldResumeSelectedRun.value
+  ? runtimeObservation.value?.run?.steps.length === 0 ? '重新运行（新 Run）' : '从失败处继续（新 Run）'
+  : '再次运行')
 
 const workbenchContext = computed(() => createWorkbenchContext({
   missionId: missionId.value,
@@ -394,7 +410,8 @@ const workbenchContext = computed(() => createWorkbenchContext({
   activeEntryKind: activeOpened.value?.entry.kind || null,
   historicalMode: isHistorical.value,
   diagnostics: projection.value?.diagnostics || [],
-  runtimeObservation: runtimeObservation.value
+  runtimeObservation: runtimeObservation.value,
+  lifecycle: lifecycle.value
 }))
 
 const auxiliaryViews = computed(() => registry.getAuxiliaryViews(workbenchContext.value))
@@ -415,6 +432,7 @@ const auxiliaryViewProps = computed(() => ({
   canCancel: canCancelActiveRun.value,
   cancelPending: cancelPending.value,
   historical: isHistorical.value,
+  readonly: controlReadOnly.value,
   ...(activeAuxiliaryView.value?.getProps?.(workbenchContext.value) || {})
 }))
 type RightPaneState = {
@@ -423,6 +441,7 @@ type RightPaneState = {
 }
 
 const selectInspectorView = (pane: RightPaneState) => {
+  editorIntent.value.mode = 'user'
   if (activeAuxiliaryId.value) {
     activeAuxiliaryId.value = null
     if (!pane.rightPaneVisible) pane.toggleRightPane()
@@ -432,6 +451,7 @@ const selectInspectorView = (pane: RightPaneState) => {
 }
 
 const selectAuxiliaryView = (viewId: string, pane: RightPaneState) => {
+  editorIntent.value.mode = 'user'
   if (activeAuxiliaryId.value === viewId) {
     pane.toggleRightPane()
     return
@@ -448,9 +468,8 @@ const sidebarProps = computed(() => ({
   selectedRunId: selectedRunId.value
 }))
 
-const runPickerItems = computed(() => (projection.value?.entries || [])
-  .filter(entry => entry.kind === 'run' && entry.runId)
-  .map(entry => ({ runId: entry.runId as string, status: entry.status || null })))
+const runPickerItems = computed(() => (projection.value?.runs || [])
+  .map(run => ({ runId: run.runId, status: run.status || null })))
 const panelTabs = computed<WorkbenchBottomTab[]>(() => registry.getPanels(workbenchContext.value).map(panel => ({
   id: panel.id,
   label: panel.label,
@@ -484,37 +503,29 @@ const selectPanelTab = (tabId: string, collapsed: boolean, setCollapsed: (value:
 const resolvePanel = (panelId: string) => registry.resolvePanel(panelId, workbenchContext.value)
 const panelProps = (panelId: string) => resolvePanel(panelId)?.getProps?.(workbenchContext.value) || {}
 
-const defaultRunId = (items: MissionWorkspaceProjection['runs']) => {
-  const active = items.filter(item => item.status === 'pending' || item.status === 'running')
-  if (active.length) return active[active.length - 1].runId
-  const succeeded = items.filter(item => item.status === 'succeeded')
-  if (succeeded.length) return succeeded[succeeded.length - 1].runId
-  return items[items.length - 1]?.runId || null
+const followLifecycle = () => {
+  if (!projection.value || !isWorkspaceVisible()) return
+  const selection = selectLifecycleEditor(editorIntent.value, lifecycle.value)
+  editorIntent.value = selection.intent
+  if (!selection.handoff) return
+  activeAuxiliaryId.value = ['review', 'formal'].includes(lifecycle.value.recommendedInspector) ? 'acg-copilot.sidebar' : null
+  if (!openEditors.value.length) {
+    const progress = progressEntryFor(selectedRunId.value)
+    if (lifecycle.value.recommendedEditor === 'progress') { entryCache.value[progress.entryId] = progress; openEditors.value.push(progress.entryId) }
+    const seeds = [...projection.value.entries.filter(entry => entry.kind === 'virtual_document'), ...projection.value.entries.filter(entry => entry.kind === 'graph')]
+    for (const seed of seeds) {
+      entryCache.value[seed.entryId] = seed
+      openEditors.value.push(seed.entryId)
+    }
+  }
+  const entry = lifecycle.value.recommendedEntryId
+    ? entriesById.value.get(lifecycle.value.recommendedEntryId)
+    : lifecycle.value.recommendedEditor === 'mission'
+      ? entriesById.value.get('overview:mission.md') : progressEntryFor(selectedRunId.value)
+  if (entry) openEntry(entry, true)
 }
-
-const openDefaultEditor = (nextProjection: MissionWorkspaceProjection) => {
-  if (openEditors.value.length) return
-  const promptEntry = nextProjection.entries.find(entry => entry.entryId === 'overview:mission.md')
-  const first = nextProjection.entries.find(entry => entry.entryId === 'overview:graph.acg')
-  const finalEntry = nextProjection.entries.find(entry => entry.kind === 'artifact' && isRunDeliverableEntry(entry))
-  const runActive = nextProjection.activeRun?.status === 'running' || nextProjection.activeRun?.status === 'pending'
-  const progressEntry = progressEntryFor(nextProjection.activeRun?.runId || selectedRunId.value)
-  const openIds = [
-    ...(runActive ? [progressEntry.entryId] : []),
-    ...(runActive && promptEntry ? [promptEntry.entryId] : []),
-    ...(finalEntry ? [finalEntry.entryId] : first ? [first.entryId] : [])
-  ]
-  if (!openIds.length && promptEntry) openIds.push(promptEntry.entryId)
-  if (!openIds.length) return
-  openIds.forEach(entryId => {
-    const entry = entryId === progressEntry.entryId
-      ? progressEntry
-      : nextProjection.entries.find(item => item.entryId === entryId)
-    if (entry) entryCache.value[entry.entryId] = entry
-  })
-  openEditors.value = openIds
-  activeEditorId.value = runActive ? progressEntry.entryId : openIds[0]
-}
+const enableLifecycleFollow = () => { editorIntent.value = { ...editorIntent.value, mode: 'follow', handled: null }; followLifecycle() }
+const activateEditor = (id: string) => { editorIntent.value.mode = 'user'; activeEditorId.value = id }
 
 const syncProgressEditorIdentity = (nextProjection: MissionWorkspaceProjection, requestedRunId: string | null) => {
   const nextEntry = progressEntryFor(nextProjection.activeRun?.runId || requestedRunId)
@@ -645,7 +656,7 @@ const scheduleProjectionRefresh = () => {
     projectionRefreshTimer = null
     if (!viewActive || loading.value) return
     const projectionSnapshot = projection.value
-    if (projectionSnapshot && projectionActive(projectionSnapshot)) await loadWorkspace(selectedRunId.value)
+    if (projectionSnapshot) await loadWorkspace(selectedRunId.value)
   }, PROJECTION_REFRESH_MS)
 }
 
@@ -668,7 +679,16 @@ const loadWorkspace = async (runId = selectedRunId.value, options: { focusProgre
   if (!preserveRenderedWorkspace) {
     pendingObservation = null
     runtimeObservationAdapter.stop()
+    runtimeObservation.value = null
+    artifactProjection.value = null
+    projection.value = null
+    if (runSelectionChanged) {
+      releaseRunRuntimeStore(runtimeStoreRunId, runtimeStore.value)
+      runtimeStore.value = null
+      runtimeStoreRunId = null
+    }
   }
+  if (runId) selectedRunId.value = runId
   stopProjectionRefresh()
   controller = new AbortController()
   const requestController = controller
@@ -681,12 +701,11 @@ const loadWorkspace = async (runId = selectedRunId.value, options: { focusProgre
     if (nextProjection.mission.missionId !== missionId.value
       || (runId && nextProjection.activeRun?.runId !== runId)) throw new Error('Workspace identity mismatch')
     projection.value = nextProjection
-    currentRunId.value = defaultRunId(nextProjection.runs)
     selectedRunId.value = nextProjection.activeRun?.runId || runId || null
     nextProjection.entries.forEach(entry => { entryCache.value[entry.entryId] = entry })
     syncProgressEditorIdentity(nextProjection, runId)
-    openDefaultEditor(nextProjection)
-    if (options.focusProgress) focusProgressEditor(nextProjection, runId)
+    followLifecycle()
+    if (options.focusProgress) { focusProgressEditor(nextProjection, runId); editorIntent.value.mode = 'user' }
     const nextRunId = nextProjection.activeRun?.runId || runId || null
     const streamRunId = projectionActive(nextProjection) ? nextRunId : null
     if (runtimeStoreRunId !== streamRunId) {
@@ -697,10 +716,11 @@ const loadWorkspace = async (runId = selectedRunId.value, options: { focusProgre
     if (nextRunId) {
       if (runtimeObservation.value?.runId !== nextRunId) runtimeObservation.value = null
       const startObservation = () => runtimeObservationAdapter.start(nextRunId, {
-        historical: Boolean(currentRunId.value && currentRunId.value !== nextRunId),
+        historical: !projectionActive(nextProjection),
         diagnostics: nextProjection.diagnostics,
         onUpdate: observation => {
-          if (selectedRunId.value === observation.runId) {
+          if (controller === requestController && !requestController.signal.aborted
+            && selectedRunId.value === observation.runId && observation.run?.missionId === missionId.value) {
             runtimeObservation.value = observation
           }
         }
@@ -714,14 +734,16 @@ const loadWorkspace = async (runId = selectedRunId.value, options: { focusProgre
       } else startObservation()
     }
     // 降级投影等待 identity 注册：活跃 Run 期间周期重拉，直到 PLANNING_PROJECTION_PENDING 消失。
-    if (projectionActive(nextProjection)) scheduleProjectionRefresh()
+    scheduleProjectionRefresh()
     if (!route.query.runId && selectedRunId.value) void persistRunInUrl(selectedRunId.value)
   } catch (error: unknown) {
     if (!viewActive || controller !== requestController || requestController.signal.aborted) return
     if (isAbortError(error)) return
     // 重试梯子耗尽才到这里：活跃 Run 期间继续周期重拉，抖动恢复后错误条自动
     // 消失；一次网关抖动不应把报错钉在右上角并让工作台停止自愈。
-    loadError.value = projection.value
+    const status = responseStatus(error)
+    loadError.value = status === 401 || status === 403 ? '无权访问所选 Run，未切换到其他 Run。'
+      : status === 404 ? '所选 Run 不存在，未切换到其他 Run。' : projection.value
       ? 'Mission Workspace Projection 暂时刷新失败，正在自动重试…'
       : '无法加载 Mission Workspace Projection，请稍后重试。'
     scheduleProjectionRefresh()
@@ -730,15 +752,15 @@ const loadWorkspace = async (runId = selectedRunId.value, options: { focusProgre
   }
 }
 
-const persistRunInUrl = async (runId: string | null) => {
+const persistRunInUrl = async (runId: string | null, push = false) => {
   if (!isWorkspaceVisible()) return
   const query = { ...route.query }
   if (runId) query.runId = runId
   else delete query.runId
-  await router.replace({ query })
+  await router[push ? 'push' : 'replace']({ query })
 }
 
-const selectRun = async (runId: string) => {
+const selectRun = async (runId: string, userSelected = true) => {
   if (runId === selectedRunId.value && runId === projection.value?.activeRun?.runId && projection.value && !loading.value) {
     const progress = entriesWithProgress.value.find(entry => entry.kind === 'progress')
     if (progress) openEntry(progress)
@@ -751,8 +773,14 @@ const selectRun = async (runId: string) => {
   selectedSemanticTaskKey.value = null
   selectedGraphNodeId.value = null
   focusNodeId.value = null
-  await persistRunInUrl(runId)
-  await loadWorkspace(runId, { focusProgress: true })
+  // Retire old facts before the URL changes, including failed new selections.
+  controller?.abort()
+  runtimeObservationAdapter.stop()
+  releaseRunRuntimeStore(runtimeStoreRunId, runtimeStore.value)
+  runtimeStore.value = null; runtimeStoreRunId = null
+  runtimeObservation.value = null; artifactProjection.value = null; projection.value = null
+  if (userSelected) await persistRunInUrl(runId, true)
+  await loadWorkspace(runId, { focusProgress: userSelected })
 }
 
 const createClientRequestId = () => globalThis.crypto?.randomUUID?.()
@@ -827,45 +855,46 @@ const rerunSelectedRun = async () => {
   if (!sourceRunId || !canRerunSelectedRun.value || rerunPending.value) return
   rerunPending.value = true
   loadError.value = ''
-  const clientRequestId = createClientRequestId()
+  const sourceMission = missionId.value
+  const ownerGeneration = recoveryUiGeneration
+  const stillSelected = () => ownerGeneration === recoveryUiGeneration && isWorkspaceVisible()
+    && missionId.value === sourceMission && selectedRunId.value === sourceRunId
   try {
-    if (shouldResumeSelectedRun.value) {
+    let identity = pendingRunRecovery(sourceMission, sourceRunId, sessionStorage)
+    if (!identity && shouldResumeSelectedRun.value) {
       const sourceRun = await agentosApi.getWorkflowRun(sourceRunId)
+      if (sourceRun.runId !== sourceRunId || sourceRun.missionId !== sourceMission) throw new Error('源 Run 身份不匹配')
       const failedStep = sourceRun.steps.find(step => step.status === 'failed')
-      if (!failedStep?.stepId) {
-        throw new Error('未找到可恢复的失败节点')
-      }
-      const mode = await chooseFailedRunRetryMode(sourceRunId)
-      if (!mode) return
-      const nextRun = await agentosApi.retryWorkflowStepAsync(sourceRunId, failedStep.stepId, {
-        clientRequestId,
+      if (failedStep?.stepId) identity = beginRunRecovery(sourceMission, sourceRunId, { kind: 'retry', stepId: failedStep.stepId, payload: {
+        clientRequestId: createClientRequestId(),
         reason: 'resume_failed',
         expectedRuntimeRevision: sourceRun.runtimeRevision,
-        mode
-      })
-      currentRunId.value = nextRun.runId
-      selectedRunId.value = nextRun.runId
-      await persistRunInUrl(nextRun.runId)
-      await loadWorkspace(nextRun.runId, { focusProgress: true })
-      return
+        mode: 'successor_run'
+      } }, sessionStorage)
     }
-    const history = await agentosApi.getWorkflowHistoryConfig(sourceRunId)
-    const nextRun = await agentosApi.rerunWorkflowAsync(missionId.value, {
+    if (!identity) {
+      const history = await agentosApi.getWorkflowHistoryConfig(sourceRunId)
+      if (history.runId !== sourceRunId) throw new Error('源配置身份不匹配')
+      identity = beginRunRecovery(sourceMission, sourceRunId, { kind: 'rerun', payload: {
       reviewMode: history.reviewMode || 'auto',
       input: history.input || {},
       enabledPluginIds: history.enabledPluginIds || null,
-      clientRequestId,
+      clientRequestId: createClientRequestId(),
       sourceRunId,
       rerunReason: 'manual_rerun'
-    })
-    currentRunId.value = nextRun.runId
-    selectedRunId.value = nextRun.runId
-    await persistRunInUrl(nextRun.runId)
-    await loadWorkspace(nextRun.runId, { focusProgress: true })
+      } }, sessionStorage)
+    }
+    const nextRun = identity.kind === 'retry'
+      ? await agentosApi.retryWorkflowStepAsync(sourceRunId, identity.stepId, identity.payload)
+      : await agentosApi.rerunWorkflowAsync(sourceMission, identity.payload)
+    if (nextRun.missionId !== sourceMission || nextRun.runId === sourceRunId
+      || nextRun.lineage?.sourceRunId !== sourceRunId) throw new Error('Successor 响应身份或 lineage 不匹配，保留原操作等待核对')
+    completeRunRecovery(identity, sessionStorage)
+    if (stillSelected()) await selectRun(nextRun.runId)
   } catch (error: unknown) {
-    if (!isAbortError(error)) loadError.value = rerunErrorMessage(error)
+    if (stillSelected() && !isAbortError(error)) loadError.value = `${rerunErrorMessage(error)}；结果未确认时将重试同一操作。`
   } finally {
-    rerunPending.value = false
+    if (ownerGeneration === recoveryUiGeneration) rerunPending.value = false
   }
 }
 
@@ -905,9 +934,8 @@ const deletePickerRun = async (runId: string) => {
     if (selectedRunId.value === runId || projection.value?.activeRun?.runId === runId) {
       // 被删的是当前 Run：优先切到剩余 Run 的默认选择，全部删完则回到
       // Mission 级空工作区。
-      const nextRunId = defaultRunId(remaining)
+      const nextRunId = null
       selectedRunId.value = nextRunId
-      currentRunId.value = nextRunId
       await persistRunInUrl(nextRunId)
       await loadWorkspace(nextRunId)
       return
@@ -920,7 +948,8 @@ const deletePickerRun = async (runId: string) => {
   }
 }
 
-const openEntry = (entry: WorkspaceEntry) => {
+const openEntry = (entry: WorkspaceEntry, system = false) => {
+  if (!system) editorIntent.value.mode = 'user'
   entryCache.value[entry.entryId] = entry
   if (!openEditors.value.includes(entry.entryId)) openEditors.value.push(entry.entryId)
   activeEditorId.value = entry.entryId
@@ -968,6 +997,7 @@ const closeEditor = (entryId: string) => {
   if (entryCache.value[entryId]?.metadata?.dirty && !window.confirm('文件尚未保存，确定关闭并放弃修改？')) return
   const index = openEditors.value.indexOf(entryId)
   if (index < 0) return
+  editorIntent.value.mode = 'user'
   openEditors.value.splice(index, 1)
   if (activeEditorId.value !== entryId) return
   activeEditorId.value = openEditors.value[Math.max(0, index - 1)] || openEditors.value[0] || null
@@ -1050,10 +1080,11 @@ const locateGraph = (entry: WorkspaceEntry) => {
 }
 
 void loadWorkspace()
+watch(lifecycle, followLifecycle)
 watch(() => route.query.runId, value => {
   const runId = typeof value === 'string' ? value : null
   if (!viewActive || runId === selectedRunId.value) return
-  if (runId) void selectRun(runId)
+  if (runId) void selectRun(runId, false)
   else { selectedRunId.value = null; void loadWorkspace(null) }
 })
 watch(activeEditorId, () => {
@@ -1096,6 +1127,10 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .workspace-inspector-column { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+.workspace-document-surface { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
+.workspace-document-surface > :deep(.editor-group) { flex: 1 1 0; height: auto; min-height: 0; }
+.workspace-lifecycle { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 10px; color: var(--wb-text-muted); font-size: 11px; }
+.workspace-lifecycle span { flex: 1; }
 .workspace-inspector-column > :deep(.runtime-inspector), .workspace-inspector-column > :deep(.workbench-auxiliary-sidebar) { flex: 1; min-height: 0; }
 .mission-workspace-view { --editor-rail-height: 32px; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-app); }
 .mission-workspace-view :deep(.workbench-pane--left),

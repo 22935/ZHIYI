@@ -37,13 +37,13 @@ describe('WorkspaceExplorer', () => {
     expect(wrapper.text()).toContain('revision 2')
     expect(wrapper.text()).not.toContain('设备人员规划')
   })
-  it('renders the three projection sections, without the run switcher, and no global mission list', () => {
+  it('renders Explorer, Runs, Tasks and Artifacts without a global mission list', () => {
     const wrapper = mountExplorer()
-    expect(wrapper.findAll('.workspace-tree__section')).toHaveLength(3)
-    expect(wrapper.text()).toContain('OVERVIEW')
-    expect(wrapper.text()).toContain('STEPS')
-    expect(wrapper.text()).toContain('OUTPUT')
-    expect(wrapper.text()).not.toContain('RUNS')
+    expect(wrapper.findAll('.workspace-tree__section')).toHaveLength(4)
+    expect(wrapper.text()).toContain('EXPLORER')
+    expect(wrapper.text()).toContain('TASKS')
+    expect(wrapper.text()).toContain('ARTIFACTS')
+    expect(wrapper.text()).toContain('RUNS')
     expect(wrapper.text()).not.toContain('所有 Mission')
   })
 
@@ -58,17 +58,18 @@ describe('WorkspaceExplorer', () => {
 
   it('renders Task entries as the Steps count and keeps Artifact as a child', async () => {
     const wrapper = mountExplorer()
-    const steps = wrapper.findAll('.workspace-tree__section-toggle').find(item => item.text().includes('STEPS'))
+    const steps = wrapper.findAll('.workspace-tree__section-toggle').find(item => item.text().includes('TASKS'))
     expect(steps?.text()).toContain('1')
     expect(wrapper.find('.workspace-tree__entry--child').text()).toContain('capacity.md')
     await wrapper.findAll('.workspace-tree__entry').find(item => item.text().includes('Capacity planning'))?.trigger('click')
     expect(wrapper.emitted('open')?.at(-1)?.[0].kind).toBe('task')
   })
 
-  it('keeps run entries out of the explorer tree (run switching lives in the status bar)', () => {
+  it('routes Run entries through Run selection instead of opening them against another projection', async () => {
     const wrapper = mountExplorer()
-    expect(wrapper.findAll('.workspace-tree__entry').some(item => item.text().includes('run_2'))).toBe(false)
-    expect(wrapper.emitted('selectRun')).toBeUndefined()
+    await wrapper.findAll('.workspace-tree__entry').find(item => item.text().includes('run_2'))!.trigger('click')
+    expect(wrapper.emitted('selectRun')).toEqual([['run_2']])
+    expect(wrapper.emitted('open')).toBeUndefined()
   })
 
   it('keeps projection diagnostics out of the Explorer chrome', () => {

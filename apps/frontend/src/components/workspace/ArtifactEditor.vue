@@ -87,21 +87,30 @@ const loadContent = async () => {
   controller?.abort()
   content.value = null
   errorMessage.value = ''
+  loading.value = false
   if (!props.available || !props.runId || !contentRef.value) return
   controller = new AbortController()
   const requestController = controller
+  const requestedRunId = props.runId
+  const requestedRef = contentRef.value
   loading.value = true
   try {
     const requestedMediaType = normalizeMediaType(props.entry.mediaType || '')
     const typeHint = requestedMediaType || normalizeMediaType(props.entry.artifactType || '')
     if (bodyReadable(typeHint) || !typeHint) {
-      content.value = await agentosApi.getArtifactContent(props.runId, contentRef.value, { signal: requestController.signal })
+      const result = await agentosApi.getArtifactContent(requestedRunId, requestedRef, { signal: requestController.signal })
+      if (controller === requestController && !requestController.signal.aborted
+        && props.runId === requestedRunId && contentRef.value === requestedRef) content.value = result
     } else {
-      const detail = await agentosApi.getArtifactDetail(props.runId, contentRef.value, { signal: requestController.signal })
+      const detail = await agentosApi.getArtifactDetail(requestedRunId, requestedRef, { signal: requestController.signal })
       const detailContent = (detail as ArtifactContentResponse).content
-      content.value = { ...detail, content: typeof detailContent === 'string' ? detailContent : '' }
+      if (controller === requestController && !requestController.signal.aborted
+        && props.runId === requestedRunId && contentRef.value === requestedRef) {
+        content.value = { ...detail, content: typeof detailContent === 'string' ? detailContent : '' }
+      }
     }
   } catch (error: unknown) {
+    if (controller !== requestController || requestController.signal.aborted) return
     if ((error as { name?: string }).name === 'CanceledError' || (error as { name?: string }).name === 'AbortError') return
     const fallback = inlineContent()
     if (fallback) content.value = fallback

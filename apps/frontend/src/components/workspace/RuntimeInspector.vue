@@ -203,7 +203,7 @@ const safeLiveOutput = computed(() => {
 })
 const connectRuntime = (runId: string | null) => {
   if (!viewActive) return
-  if (props.runtimeStore) {
+  if (props.runtimeStore || props.historical || !['pending', 'planning', 'running', 'retrying', 'waiting_review'].includes(props.runStatus || '')) {
     releaseRunRuntimeStore(ownedRunId.value, ownedRuntimeStore.value)
     ownedRuntimeStore.value = null
     ownedRunId.value = null
@@ -214,7 +214,7 @@ const connectRuntime = (runId: string | null) => {
   ownedRuntimeStore.value = acquireRunRuntimeStore(runId)
   ownedRunId.value = runId
 }
-watch([() => props.runId, () => props.runtimeStore], () => connectRuntime(props.runId))
+watch([() => props.runId, () => props.runStatus, () => props.historical, () => props.runtimeStore], () => connectRuntime(props.runId))
 onMounted(() => connectRuntime(props.runId))
 const disconnectRuntime = () => {
   releaseRunRuntimeStore(ownedRunId.value, ownedRuntimeStore.value)
@@ -254,7 +254,7 @@ const taskInspectorTabs = [
 type TaskInspectorTab = typeof taskInspectorTabs[number]['id']
 const activeTaskTab = ref<TaskInspectorTab>('task-info')
 const taskInfoSections = computed(() => inspectorSections.value.filter(section => (
-  section.id === 'project.task-identity-section' || section.id === 'project.task-execution-section'
+  section.id === 'project.task-identity-section' || section.id === 'project.task-execution-section' || section.id === 'project.lifecycle-evidence-section'
 )))
 const taskEvidenceSections = computed(() => inspectorSections.value.filter(section => section.id === 'project.task-result-section'))
 const evidenceSummary = computed(() => {

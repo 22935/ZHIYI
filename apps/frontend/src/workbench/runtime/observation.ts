@@ -7,6 +7,7 @@ import {
   type RunContextPackSummary,
   type RunOperationalState,
   type RunLineage,
+  type RunExecutionTree,
   type NodeLifecycleQuery,
   type RuntimeInteraction,
   type RunProvenanceProjection,
@@ -109,6 +110,7 @@ export interface RuntimeSelection {
 }
 
 export interface RuntimeObservation {
+  executionTree?: RunExecutionTree | null
   run?: WorkflowRun | null
   runId: string
   runStatus: string | null
@@ -714,6 +716,7 @@ export const readRuntimeObservation = async (
   return {
     runId,
     run,
+    ...(executionTree?.run?.runId === runId ? { executionTree } : {}),
     runStatus: run?.status || trace?.status || null,
     traces,
     events: normalizeEvents(traces),

@@ -25,6 +25,16 @@
         { label: 'Runtime Status', value: runtimeStatus, code: true }
       ]" />
     </div>
+    <details v-for="item in attempts" :key="item.attempt.attemptId" class="execution-details">
+      <summary>Attempt {{ item.attempt.attemptNumber }} · {{ item.attempt.status }} · {{ item.attempt.attemptId }}</summary>
+      <InspectorPropertyList :rows="[
+        { label: 'Run', value: item.attempt.runId, code: true },
+        { label: 'Task', value: item.attempt.taskId, code: true },
+        { label: 'Failure', value: item.attempt.failureReason || 'NOT_OBSERVED' },
+        { label: 'Executions', value: item.executions.map(execution => `${execution.stepExecutionId}: ${execution.status}`).join(', ') || 'NOT_OBSERVED' }
+      ]" />
+    </details>
+    <p v-if="!attempts.length">Attempt history NOT_OBSERVED。Task 状态保留 Workspace 的语义投影，不由某一次 Attempt 推断。</p>
   </InspectorSection>
 </template>
 
@@ -34,8 +44,19 @@ import type { WorkspaceEntry } from '@/services/api/agentos'
 import InspectorPropertyList from '@/components/workbench/InspectorPropertyList.vue'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
 import { statusSemanticTone } from '@/utils/statusSemantic'
+import type { RuntimeObservation } from '@/workbench/runtime/observation'
 
-const props = defineProps<{ entry: WorkspaceEntry }>()
+const props = defineProps<{ entry: WorkspaceEntry; runId?: string | null; runtimeObservation?: RuntimeObservation | null }>()
+const attempts = computed(() => {
+  const runId = props.runId || props.entry.runId
+  const observation = props.runtimeObservation
+  if (!runId || observation?.runId !== runId || observation.executionTree?.run.runId !== runId) return []
+  return observation.executionTree.nodes.filter(node => (props.entry.taskId && node.task.taskId === props.entry.taskId)
+    || (props.entry.semanticTaskKey && node.task.semanticTaskKey === props.entry.semanticTaskKey)
+    || (props.entry.acgNodeId && node.acgNodeId === props.entry.acgNodeId))
+    .flatMap(node => node.attempts).filter(item => item.attempt.runId === runId)
+    .sort((a, b) => a.attempt.attemptNumber - b.attempt.attemptNumber)
+})
 const detailsExpanded = ref(false)
 const latestAttemptId = computed(() => props.entry.latestAttemptId || props.entry.attemptId || null)
 const statusValue = computed(() => props.entry.status || 'pending')

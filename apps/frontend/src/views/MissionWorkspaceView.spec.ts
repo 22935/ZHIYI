@@ -15,6 +15,7 @@ const defaultLayoutStubState = {
   restoreLeftPane: () => undefined
 }
 let layoutStubState = { ...defaultLayoutStubState }
+const mountedWorkspaces: VueWrapper[] = []
 
 const workspaceLayoutStub = {
   setup: () => ({ noop: () => undefined, state: layoutStubState }),
@@ -126,6 +127,8 @@ const mountWorkspace = async (
   vi.spyOn(agentosApi, 'getRunProvenance').mockResolvedValue({ runId: 'run_2', events: [], productions: [], consumptions: [], interactions: [] })
   vi.spyOn(agentosApi, 'listResources').mockResolvedValue({ items: [], total: 0 })
   vi.spyOn(agentosApi, 'getExecutionTree').mockResolvedValue({ nodes: [] } as any)
+  vi.spyOn(agentosApi, 'listWorkflowReviews').mockResolvedValue({ items: [] } as any)
+  vi.spyOn(agentosApi, 'listRunContextPacks').mockResolvedValue({ items: [] } as any)
   vi.spyOn(agentosApi, 'getCopilot').mockResolvedValue({ runId: 'run_2', status: 'completed', revision: 0,
     modelAvailable: false, question: null, humanAnswers: [], exchanges: [], decision: null, steps: [] })
   const wrapper = mount(MissionWorkspaceView, {
@@ -141,12 +144,15 @@ const mountWorkspace = async (
       }
     }
   })
+  mountedWorkspaces.push(wrapper)
   await flushPromises()
   return { wrapper, router }
 }
 
 describe('MissionWorkspaceView', () => {
-  afterEach(() => {
+  afterEach(async () => {
+    for (const wrapper of mountedWorkspaces.splice(0)) if (wrapper.exists()) wrapper.unmount()
+    await flushPromises()
     notifyArtifactReady = true
     layoutStubState = { ...defaultLayoutStubState }
     vi.unstubAllGlobals()
@@ -157,7 +163,7 @@ describe('MissionWorkspaceView', () => {
     const { wrapper } = await mountWorkspace()
     expect(agentosApi.getMissionWorkspace).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('PROJECT')
-    expect(wrapper.text()).toContain('OVERVIEW')
+    expect(wrapper.text()).toContain('EXPLORER')
     expect(wrapper.find('.editor-inspector-trigger').attributes('aria-label')).toBe('收起 Inspector')
     expect(wrapper.find('.editor-navigator-trigger').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('MISSION WORKSPACE')
@@ -236,7 +242,7 @@ describe('MissionWorkspaceView', () => {
         ...folders(),
         { entryId: 'overview:graph.acg', kind: 'graph', name: 'graph.acg', group: 'overview', displayOrder: 0 },
         { entryId: 'overview:mission.md', kind: 'virtual_document', name: 'mission.md', group: 'overview', displayOrder: 1, content: '# Mission' },
-        { entryId: 'artifact:final', kind: 'artifact', name: 'final.md', group: 'output', displayOrder: 0, artifactKey: 'final', artifactType: 'run_deliverable', artifactId: 'artifact_final', identityQuality: 'canonical', runId: 'run_1' }
+        { entryId: 'artifact:final', kind: 'artifact', name: 'final.md', group: 'output', displayOrder: 0, artifactKey: 'final', artifactType: 'run_deliverable', artifactId: 'artifact_final', contentRef: 'manifest_final', identityQuality: 'canonical', runId: 'run_1' }
       ]
     })
     const { wrapper } = await mountWorkspace(completed)
@@ -244,7 +250,7 @@ describe('MissionWorkspaceView', () => {
     expect(wrapper.find('.editor-tab.is-active').text()).toContain('final.md')
   })
 
-  it('stops the active Run from the project workspace', async () => {
+  it('refuses to stop a selected Run without authoritative current identity', async () => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
     const cancel = vi.spyOn(agentosApi, 'cancelWorkflowRun').mockResolvedValue({
       runId: 'run_2', missionId: 'mission_1', workflowId: 'workflow_1', domain: 'ops', status: 'cancelled', steps: []
@@ -254,8 +260,9 @@ describe('MissionWorkspaceView', () => {
     await wrapper.find('.progress-editor-stub__cancel').trigger('click')
     await flushPromises()
 
-    expect(cancel).toHaveBeenCalledWith('run_2')
-    expect(wrapper.find('.progress-editor-stub__cancel').exists()).toBe(false)
+    expect(cancel).not.toHaveBeenCalled()
+    expect(ElMessageBox.confirm).not.toHaveBeenCalled()
+    expect(wrapper.find('.progress-editor-stub__cancel').exists()).toBe(true)
   })
 
   it('opens mission.md and artifacts as separate tabs without duplicate identities', async () => {
@@ -423,6 +430,7 @@ describe('MissionWorkspaceView', () => {
   })
 
   it('switches from current to historical Run through a new workspace request', async () => {
+    vi.spyOn(agentosApi, 'getWorkflowRun').mockImplementation(async runId => ({ runId, missionId: 'mission_1', status: runId === 'run_1' ? 'succeeded' : 'running', steps: [], lineage: runId === 'run_1' ? { supersededByRunId: 'run_2' } : {} } as any))
     const historical = projection({ activeRun: { runId: 'run_1', status: 'succeeded', createdAt: '2026-08-28T00:01:00Z', isActive: true }, entries: projection().entries.filter(item => item.entryId !== 'task:capacity:primary') })
     const getWorkspace = vi.spyOn(agentosApi, 'getMissionWorkspace').mockImplementation(async (_id, options) => options.runId === 'run_1' ? historical : projection())
     const { wrapper } = await mountWorkspace()
@@ -461,7 +469,7 @@ describe('MissionWorkspaceView', () => {
       runId: 'run_1', reviewMode: 'auto', enabledPluginIds: ['plugin_1'], input: { taskGoal: '设备规划' }
     })
     const rerun = vi.spyOn(agentosApi, 'rerunWorkflowAsync').mockResolvedValue({
-      runId: 'run_3', missionId: 'mission_1', workflowId: 'workflow_1', domain: 'ops', status: 'pending', steps: []
+      runId: 'run_3', missionId: 'mission_1', workflowId: 'workflow_1', domain: 'ops', status: 'pending', steps: [], lineage: { sourceRunId: 'run_1' }
     } as any)
     const { wrapper, router } = await mountWorkspace(runId => runId === 'run_3' ? successor : source, '/agentos/missions/mission_1/workspace?runId=run_1')
 
@@ -496,7 +504,7 @@ describe('MissionWorkspaceView', () => {
       ]
     } as any)
     const resume = vi.spyOn(agentosApi, 'retryWorkflowStepAsync').mockResolvedValue({
-      runId: 'run_3', missionId: 'mission_1', workflowId: 'workflow_1', domain: 'ops', status: 'pending', steps: []
+      runId: 'run_3', missionId: 'mission_1', workflowId: 'workflow_1', domain: 'ops', status: 'pending', steps: [], lineage: { sourceRunId: 'run_1' }
     } as any)
     const rerun = vi.spyOn(agentosApi, 'rerunWorkflowAsync')
     const { wrapper, router } = await mountWorkspace(

@@ -1,5 +1,6 @@
 <template>
   <div class="sidebar-view-stack">
+    <LifecycleEvidence v-if="context?.lifecycle" :lifecycle="context.lifecycle" :observation="runtimeObservation" />
     <InspectorSection title="运行状态" :badge="statusLabel" badge-tone="status">
       <div class="sidebar-status">
         <span class="sidebar-status__dot" :style="{ background: statusDotColor }" aria-hidden="true"></span>
@@ -128,6 +129,7 @@ import type { GraphProjection, WorkspaceEntry, WorkspaceGraphNode } from '@/serv
 import type { NodeExecutionPhase } from '@/services/api/agentos'
 import InspectorPropertyList from '@/components/workbench/InspectorPropertyList.vue'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
+import LifecycleEvidence from './LifecycleEvidence.vue'
 import type { RuntimeObservation } from '@/workbench/runtime/observation'
 import type { WorkbenchInspectorContext } from '@/workbench/types'
 import type { RuntimeEventStore } from '@/workbench/runtime/runtimeEvents'

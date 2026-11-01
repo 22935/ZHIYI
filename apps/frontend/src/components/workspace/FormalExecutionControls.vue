@@ -1,6 +1,6 @@
 <template>
   <section v-if="visible" class="formal-control" :class="{ 'is-embedded': embedded }" aria-label="正式运行控制">
-    <FormalToolApprovals :run-id="runId" :active="run?.status === 'running'" />
+    <FormalToolApprovals v-if="!historical && !readonly && runId" :run-id="runId" :active="run?.status === 'running'" />
     <header><strong>{{ embedded ? '任务进展' : '运行控制' }}</strong><button type="button" :disabled="pending" @click="emit('refresh')">刷新</button></header>
     <dl v-if="!embedded" aria-live="polite">
       <div><dt>任务</dt><dd>{{ run?.status || '状态不可用' }}</dd></div>
@@ -19,7 +19,7 @@
       </button>
     </div>
     <p v-if="error" class="formal-control__error" role="alert">{{ error }}</p>
-    <small v-if="readonly && !historical && action">切换为“按需确认”权限后可操作。</small>
+    <small v-if="readonly && !historical && action">当前视图仅供查看，正式操作已禁用。</small>
     <WorkflowReviewPanel v-if="showReview && run?.status === 'waiting_review' && !historical && !blocked && !readonly" :run-id="run.runId"
       :run="reviewRun" :progress="null" compact @reviewed="emit('refresh')" @conflict="emit('refresh')" />
     <details v-if="control"><summary>{{ embedded ? '运行状态与授权引用' : '授权与关联引用' }}</summary><dl>

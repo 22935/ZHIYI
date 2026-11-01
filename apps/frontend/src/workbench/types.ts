@@ -8,6 +8,7 @@ import type {
 } from '@/services/api/agentos'
 import type { RuntimeObservation } from './runtime/observation'
 import type { RunDocumentSymbolType } from './runtime/runDocument'
+import type { LifecycleProjection } from './runtime/lifecycleProjection'
 
 export type WorkbenchSlot = 'activityBar' | 'sidebarViews' | 'editors' | 'inspectors' | 'inspectorSections' | 'secondarySidebarViews' | 'auxiliaryViews' | 'panels' | 'commands'
 
@@ -25,6 +26,7 @@ export interface WorkbenchContext {
   historicalMode: boolean
   diagnostics: readonly WorkspaceDiagnostic[]
   runtimeObservation: RuntimeObservation | null
+  lifecycle?: LifecycleProjection
 }
 
 export interface WorkbenchInspectorContext extends WorkbenchContext {
