@@ -167,6 +167,12 @@ class SessionRecheckGateTest {
         // adjustments must have no role in this five-second validity interval.
         java.util.concurrent.atomic.AtomicLong time =
                 new java.util.concurrent.atomic.AtomicLong(Long.MAX_VALUE - TimeUnit.SECONDS.toNanos(2));
+        // The virtual clock must keep the periodic recheck dormant, but the
+        // zero-delay first tick can still race ahead on loaded runners. An
+        // unstubbed probe would default to false and fail-closed revoke before
+        // the first admit; with this stub a racing tick only refreshes the lease
+        // to the same t0+lease value and can never revoke.
+        when(loginSessionService.isSessionActive(any(), any())).thenReturn(true);
         gate = new SessionRecheckGate(loginSessionService, sid, userId,
                 Duration.ofSeconds(3), Duration.ofSeconds(1), Duration.ofSeconds(5),
                 Schedulers.boundedElastic(), () -> { }, time::get);
