@@ -66,6 +66,12 @@ let activeStreams = 0, maximumStreams = 0
 let runtimeWriter: ReadableStreamDefaultController<Uint8Array>
 let newestRun = 'run'
 const settle = async () => { await flushPromises(); await vi.dynamicImportSettled(); await flushPromises() }
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((ok, fail) => { resolve = ok; reject = fail })
+  return { promise, resolve, reject }
+}
 const state = () => wrapper!.findComponent(MissionWorkspaceView).vm as any
 const mountShell = async (url = '/chat?workspace=chat&contextId=ctx&missionId=mission&runId=run', initialContext: string | null = 'ctx') => {
   const pinia = createPinia(); setActivePinia(pinia)
@@ -137,7 +143,7 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
       return Response.json({ context_windows: {} })
     }))
   })
-  afterEach(async () => { wrapper?.unmount(); wrapper = undefined; await flushPromises(); expect(agentosRequest.post).not.toHaveBeenCalled(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); resetOpenFile(); workspaceDocuments.reset() })
+  afterEach(async () => { wrapper?.unmount(); wrapper = undefined; await flushPromises(); expect(activeStreams).toBe(0); expect(agentosRequest.post).not.toHaveBeenCalled(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); resetOpenFile(); workspaceDocuments.reset() })
 
   it('A: retains the actual Conversation instance, unsent text, messages, files, role and reading position', async () => {
     const model = JSON.stringify({ provider: 'system', selectedModel: 'chosen-model', models: ['chosen-model'], thinkingMode: 'standard' })
@@ -361,5 +367,174 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     expect(second.chat.messages[0].content).toBe('restored from history')
     expect(second.chat.currentRoleId).toBe('original-role')
     expect((wrapper!.get('.composer-card textarea').element as HTMLTextAreaElement).value).toBe('')
+  })
+
+  it.each([false, true])('R1: a late Agent launch stays with A when B was preloaded=%s', async preloaded => {
+    vi.mocked(agentosApi.getWorkflowRun).mockImplementation(async runId => ({
+      runId, missionId: 'mission', status: 'completed', steps: [], input: {}, output: {}, trace: [], checkpoints: []
+    } as any))
+    const launch = deferred<any>()
+    const create = vi.spyOn(workflowApi, 'startWorkflowAsync').mockReturnValue(launch.promise)
+    const { chat, router } = await mountShell('/chat?workspace=agent&contextId=A', 'A')
+    chat.addWorkflowBinding({ ...binding('B'), conversationAliases: [], runId: 'run-B', acgTaskId: 'run-B' })
+    const original = wrapper!.findComponent(ChatView).vm.$.uid
+    await wrapper!.get('.composer-card textarea').setValue('A submitted objective')
+    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(create.mock.calls[0][0].input).toMatchObject({ conversationId: 'A', source: 'agent' })
+    expect(chat.getLatestWorkflowBinding('A')?.runId).toBe('run')
+    if (preloaded) await chat.loadHistory('B')
+    await router.push('/chat?workspace=agent&contextId=B&runId=run-B'); await settle()
+    expect(chat.contextId).toBe('B'); expect(chat.isLoadingConversation).toBe(false)
+    expect(chatApi.getHistory).toHaveBeenCalledWith('B')
+    expect(chat.messages[0].content).toBe('restored from history')
+    const visible = wrapper!.findComponent(ChatView).vm as any
+    expect(visible.$.uid === original).toBe(preloaded)
+    expect(visible.activeWorkflowRunId).toBe('run-B')
+    expect(chat.pendingMissionLaunch('A')?.submissionState).toBe('submitting')
+    expect(create.mock.calls[0][1]?.signal?.aborted).not.toBe(true)
+    const messages = JSON.stringify(chat.messages)
+    await wrapper!.get('.composer-card textarea').setValue('B unsent text')
+    launch.resolve({ runId: 'late-A', missionId: 'mission', status: 'running' }); await settle()
+    expect(router.currentRoute.value.path).toBe('/chat')
+    expect(router.currentRoute.value.query).toMatchObject({ contextId: 'B', runId: 'run-B' })
+    expect(visible.activeWorkflowRunId).toBe('run-B')
+    expect(visible.selectedConversationId).toBe('B')
+    expect(visible.inputText).toBe('B unsent text'); expect(visible.workflowStartError).toBeNull()
+    expect(JSON.stringify(chat.messages)).toBe(messages)
+    expect(chat.getLatestWorkflowBinding('A')).toMatchObject({ conversationId: 'A', runId: 'late-A' })
+    expect(chat.getLatestWorkflowBinding('B')).toMatchObject({ conversationId: 'B', runId: 'run-B' })
+    expect(useWorkflowRunsStore().references['late-A'].conversationId).toBe('A')
+    expect(chat.pendingMissionLaunch('A')).toBeNull()
+    await router.push('/chat?workspace=agent&contextId=A'); await settle()
+    expect((wrapper!.findComponent(ChatView).vm as any).activeWorkflowRunId).toBe('late-A')
+    await toWorkbench(); await toChat(); await toWorkbench(); await toChat()
+    expect(router.currentRoute.value.query).toMatchObject({ contextId: 'A', runId: 'late-A' })
+    expect(create).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([false, true])('R1: A failure never restores its error or input into B when preloaded=%s', async preloaded => {
+    const launch = deferred<any>()
+    const create = vi.spyOn(workflowApi, 'startWorkflowAsync').mockReturnValue(launch.promise)
+    const { chat, router } = await mountShell('/chat?workspace=agent&contextId=A', 'A')
+    await wrapper!.get('.composer-card textarea').setValue('A failed objective')
+    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    expect(create).toHaveBeenCalledTimes(1)
+    if (preloaded) await chat.loadHistory('B')
+    await router.push('/chat?workspace=agent&contextId=B'); await settle()
+    await wrapper!.get('.composer-card textarea').setValue('B keeps this input')
+    const visible = wrapper!.findComponent(ChatView).vm as any
+    const messages = JSON.stringify(chat.messages)
+    launch.reject(new Error('A failed')); await settle()
+    expect(visible.workflowStartError).toBeNull()
+    expect(visible.inputText).toBe('B keeps this input')
+    expect(visible.loading).toBe(false); expect(visible.isSubmittingWorkflow).toBe(false)
+    expect(JSON.stringify(chat.messages)).toBe(messages)
+    expect(router.currentRoute.value.query).toEqual({ workspace: 'agent', contextId: 'B' })
+    expect(chat.pendingMissionLaunch('A')).not.toBeNull()
+    expect(chat.pendingMissionLaunch('B')).toBeNull()
+    expect(chat.workflowBindings.B).toBeUndefined()
+  })
+
+  it.each(['success', 'failure'])('R1: A %s finally cannot finish B own pending launch', async outcome => {
+    const a = deferred<any>(), b = deferred<any>()
+    const create = vi.spyOn(workflowApi, 'startWorkflowAsync').mockImplementation(request =>
+      request.input?.conversationId === 'A' ? a.promise : b.promise)
+    const { chat, router } = await mountShell('/chat?workspace=agent&contextId=A', 'A')
+    await wrapper!.get('.composer-card textarea').setValue('A objective')
+    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    await chat.loadHistory('B')
+    await router.push('/chat?workspace=agent&contextId=B'); await settle()
+    const visible = wrapper!.findComponent(ChatView).vm as any
+    await wrapper!.get('.composer-card textarea').setValue('B objective')
+    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    try {
+      expect(create).toHaveBeenCalledTimes(2)
+      expect(visible.loading).toBe(true); expect(visible.isSubmittingWorkflow).toBe(true)
+      if (outcome === 'success') a.resolve({ runId: 'late-A', missionId: 'mission', status: 'running' })
+      else a.reject(new Error('A failed'))
+      await settle()
+      expect(visible.loading).toBe(true); expect(visible.isSubmittingWorkflow).toBe(true)
+      expect(visible.workflowStartError).toBeNull(); expect(visible.inputText).toBe('')
+      expect(router.currentRoute.value.query).toEqual({ workspace: 'agent', contextId: 'B' })
+      expect(chat.pendingMissionLaunch('B')?.commandSnapshot.semantics?.objective).toBe('B objective')
+    } finally {
+      a.resolve({ runId: 'late-A', missionId: 'mission', status: 'running' })
+      b.resolve({ runId: 'own-B', missionId: 'mission', status: 'running' }); await settle()
+    }
+    expect(visible.loading).toBe(false); expect(visible.isSubmittingWorkflow).toBe(false)
+    expect(visible.activeWorkflowRunId).toBe('own-B')
+    expect(router.currentRoute.value.query).toMatchObject({ contextId: 'B', runId: 'own-B' })
+    expect(chat.getLatestWorkflowBinding('B')).toMatchObject({ conversationId: 'B', runId: 'own-B' })
+    expect(create).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['success', 'failure'])('R1: resumed A %s belongs to its original owner after same-instance navigation', async outcome => {
+    const receipt = deferred<any>()
+    const create = vi.spyOn(workflowApi, 'startWorkflowAsync').mockRejectedValue(new Error('response lost'))
+    const reconcile = vi.spyOn(workflowApi, 'reconcileMissionLaunch').mockReturnValue(receipt.promise)
+    const { chat, router } = await mountShell('/chat?workspace=agent&contextId=A', 'A')
+    chat.addWorkflowBinding({ ...binding('B'), conversationAliases: [], runId: 'run-B', acgTaskId: 'run-B' })
+    await wrapper!.get('.composer-card textarea').setValue('A uncertain objective')
+    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    const operationId = chat.pendingMissionLaunch('A')!.operationId
+    const original = wrapper!.findComponent(ChatView).vm.$.uid
+    await wrapper!.findAll('button').find(button => button.text() === '核对并恢复原提交')!.trigger('click')
+    await settle(); expect(reconcile).toHaveBeenCalledTimes(1)
+    expect(reconcile.mock.calls[0][0].clientRequestId).toBe(operationId)
+    await chat.loadHistory('B')
+    await router.push('/chat?workspace=agent&contextId=B&runId=run-B'); await settle()
+    const visible = wrapper!.findComponent(ChatView).vm as any
+    expect(visible.$.uid).toBe(original)
+    await wrapper!.get('.composer-card textarea').setValue('B recovery-independent input')
+    const messages = JSON.stringify(chat.messages)
+    if (outcome === 'success') receipt.resolve({ status: 'CREATED', missionId: 'mission', runId: 'recovered-A',
+      run: { missionId: 'mission', runId: 'recovered-A', status: 'running' } })
+    else receipt.reject(new Error('A reconciliation failed'))
+    await settle()
+    expect(visible.activeWorkflowRunId).toBe('run-B'); expect(visible.workflowStartError).toBeNull()
+    expect(visible.inputText).toBe('B recovery-independent input')
+    expect(visible.isSubmittingWorkflow).toBe(false)
+    expect(JSON.stringify(chat.messages)).toBe(messages)
+    expect(router.currentRoute.value.query).toMatchObject({ contextId: 'B', runId: 'run-B' })
+    expect(chat.getLatestWorkflowBinding('B')?.runId).toBe('run-B')
+    if (outcome === 'success') {
+      expect(chat.getLatestWorkflowBinding('A')).toMatchObject({ runId: 'recovered-A', clientRequestId: operationId })
+      expect(chat.pendingMissionLaunch('A')).toBeNull()
+      await router.push('/chat?workspace=agent&contextId=A'); await settle()
+      expect((wrapper!.findComponent(ChatView).vm as any).activeWorkflowRunId).toBe('recovered-A')
+      await toWorkbench(); await toChat()
+    } else expect(chat.pendingMissionLaunch('A')?.operationId).toBe(operationId)
+    expect(create).toHaveBeenCalledTimes(1); expect(reconcile).toHaveBeenCalledTimes(1)
+  })
+
+  it('R1: a real launch completes while its aliased Conversation is in Workbench and restores without recreation', async () => {
+    vi.useFakeTimers()
+    const launch = deferred<any>()
+    const create = vi.spyOn(workflowApi, 'startWorkflowAsync').mockReturnValue(launch.promise)
+    const { chat, router } = await mountShell('/chat?workspace=agent&contextId=ctx&runId=run')
+    const uid = wrapper!.findComponent(ChatView).vm.$.uid
+    expect(chat.getLatestWorkflowBinding('draft:original')?.conversationId).toBe('ctx')
+    await wrapper!.get('.composer-card textarea').setValue('canonical Conversation objective')
+    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    await toWorkbench()
+    launch.resolve({ runId: 'hidden-created', missionId: 'mission', status: 'running' }); await settle()
+    expect(router.currentRoute.value.query.runId).toBe('run')
+    expect(state().selectedRunId).toBe('run')
+    expect(chat.getLatestWorkflowBinding('ctx')?.runId).toBe('hidden-created')
+    expect(chat.getLatestWorkflowBinding('draft:original')?.conversationId).toBe('ctx')
+    await toChat()
+    expect(wrapper!.findComponent(ChatView).vm.$.uid).toBe(uid)
+    // Explicit history selection remains selected; new launch is available through
+    // its own canonical Binding rather than stealing the current Workbench Run.
+    await router.push('/chat?workspace=agent&contextId=ctx&runId=hidden-created'); await settle()
+    expect((wrapper!.findComponent(ChatView).vm as any).activeWorkflowRunId).toBe('hidden-created')
+    await toWorkbench(); await toChat()
+    expect(create).toHaveBeenCalledTimes(1)
+    wrapper!.unmount(); wrapper = undefined; await settle()
+    expect(activeStreams).toBe(0)
+    const polls = vi.mocked(workflowApi.getWorkflowProgress).mock.calls.length
+    await vi.advanceTimersByTimeAsync(20000); await settle()
+    expect(workflowApi.getWorkflowProgress).toHaveBeenCalledTimes(polls)
   })
 })

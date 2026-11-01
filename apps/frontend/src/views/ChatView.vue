@@ -723,7 +723,7 @@ import { setConversationWorkspace } from '@/utils/conversationWorkspace'
 import { wasErrorUserNotified } from '@/utils/request'
 import { plainMissionTitle } from '@/utils/missionTitle'
 import { loadModelSettings } from '@/config/modelSettings'
-import { contextQuery, conversationBindings, isTerminalRunStatus, runMatchesSelection, selectSessionRun } from '@/features/workspace/session'
+import { belongsToConversation, contextQuery, conversationBindings, isTerminalRunStatus, runMatchesSelection, selectSessionRun } from '@/features/workspace/session'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -750,7 +750,20 @@ let composerGeneration = 0
 let viewActive = true
 let viewSuspended = false
 let savedScrollTop = 0
-const isConversationVisible = () => viewActive && router.currentRoute.value.path === '/chat'
+const isSameConversation = (owner: string, target: string) => owner === target || (
+  Boolean(owner && target) && conversationBindings(chatStore.workflowBindings, owner)
+    .some(binding => belongsToConversation(binding, target))
+)
+const isConversationVisible = (owner = currentConversationId.value) => {
+  const visibleRoute = router.currentRoute.value
+  if (!viewActive || visibleRoute.path !== '/chat' || visibleRoute.query.newConversation === '1') return false
+  const context = typeof visibleRoute.query.contextId === 'string' ? visibleRoute.query.contextId.trim() : ''
+  return isSameConversation(owner, currentConversationId.value)
+    && isSameConversation(owner, context || chatStore.contextId || draftConversationId.value)
+}
+const ownsComposerRequest = (owner: string, generation: number) =>
+  generation === composerGeneration && isSameConversation(owner, currentConversationId.value)
+  && (router.currentRoute.value.path !== '/chat' || isConversationVisible(owner))
 let selectedConversationId = ''
 // A single read result is handed to the existing detail loader, avoiding a second GET on restoration.
 let restoredRunDetail: WorkflowRun | null = null
@@ -1687,6 +1700,7 @@ const sendAgentWorkspaceMessage = async () => {
   if (!userText) return
 
   loading.value = true
+  const conversationId = currentConversationId.value
   const generation = ++composerGeneration
   const composerStartRect = chatStore.messages.length === 0
     ? composerRef.value?.getBoundingClientRect()
@@ -1695,15 +1709,15 @@ const sendAgentWorkspaceMessage = async () => {
   try {
     inputText.value = userText
     await upgradeChatToWorkflow()
-    if (generation !== composerGeneration) return
+    if (!ownsComposerRequest(conversationId, generation)) return
     if (composerStartRect) await animateComposerToConversation(composerStartRect)
-    scrollToBottom()
+    if (ownsComposerRequest(conversationId, generation)) scrollToBottom()
   } catch (error: any) {
-    if (generation !== composerGeneration) return
+    if (!ownsComposerRequest(conversationId, generation)) return
     inputText.value = userText
     if (!wasErrorUserNotified(error)) ElMessage.error(error?.message || 'Send failed')
   } finally {
-    if (generation === composerGeneration) loading.value = false
+    if (ownsComposerRequest(conversationId, generation)) loading.value = false
   }
 }
 
@@ -1749,18 +1763,21 @@ const sendMessage = async () => {
 const activateWorkflowRun = async (
   runId: string,
   binding: ChatWorkflowBinding | null,
-  fresh: boolean
+  fresh: boolean,
+  conversationId: string
 ) => {
+  if (!isSameConversation(conversationId, currentConversationId.value)
+    || (binding && !belongsToConversation(binding, conversationId))) return
   conversationGeneration += 1
   workflowProgressState.reset()
   invalidateWorkflowResultRequest()
   activeWorkflowRunId.value = runId
-  selectedConversationId = currentConversationId.value
+  selectedConversationId = conversationId
   activeWorkflowBinding.value = binding
   activeWorkflowRun.value = null
   activeAcgView.value = null
   workflowStartError.value = null
-  if (isConversationVisible()) {
+  if (isConversationVisible(conversationId)) {
     void workflowProgressState.start(runId, { fresh })
     await router.replace({ path: '/chat', query: { ...route.query, runId } })
   }
@@ -1801,37 +1818,55 @@ const upgradeChatToWorkflow = async () => {
         reasoningEffort: loadModelSettings().reasoningEffort
       }
     })
-    if (generation !== composerGeneration) return
+    if (!ownsComposerRequest(conversationId, generation)) return
     if (result) {
-      await activateWorkflowRun(result.binding.runId, result.binding, true)
-      ElMessage.success(`已创建 WorkflowRun：${result.binding.runId}`)
+      await activateWorkflowRun(result.binding.runId, result.binding, true, conversationId)
+      if (ownsComposerRequest(conversationId, generation) && isConversationVisible(conversationId)) {
+        ElMessage.success(`已创建 WorkflowRun：${result.binding.runId}`)
+      }
     }
-    scrollToBottom()
+    if (ownsComposerRequest(conversationId, generation)) scrollToBottom()
   } catch (error: unknown) {
-    if (generation !== composerGeneration) return
+    if (!ownsComposerRequest(conversationId, generation)) return
     inputText.value = userText
     workflowStartError.value = workflowStartErrorMessage(error)
     pendingLaunchForView.value = chatStore.pendingMissionLaunch(conversationId)
   } finally {
-    if (generation === composerGeneration) isSubmittingWorkflow.value = false
+    if (ownsComposerRequest(conversationId, generation)) isSubmittingWorkflow.value = false
   }
 }
 
 const pendingLaunchForView = ref<ReturnType<typeof chatStore.pendingMissionLaunch>>(null)
 const resumePendingConversationLaunch = async () => {
   if (isSubmittingWorkflow.value) return
+  const conversationId = currentConversationId.value
   const generation = composerGeneration
   isSubmittingWorkflow.value = true
   try {
-    const result = await chatStore.resumeMissionLaunch(currentConversationId.value)
-    if (generation !== composerGeneration) return
+    const result = await chatStore.resumeMissionLaunch(conversationId)
+    if (!ownsComposerRequest(conversationId, generation)) return
     if (result) {
       pendingLaunchForView.value = null
-      await activateWorkflowRun(result.binding.runId, result.binding, true)
+      await activateWorkflowRun(result.binding.runId, result.binding, true, conversationId)
     }
-  } catch (error) { if (generation === composerGeneration) workflowStartError.value = workflowStartErrorMessage(error) }
-  finally { if (generation === composerGeneration) isSubmittingWorkflow.value = false }
+  } catch (error) { if (ownsComposerRequest(conversationId, generation)) workflowStartError.value = workflowStartErrorMessage(error) }
+  finally { if (ownsComposerRequest(conversationId, generation)) isSubmittingWorkflow.value = false }
 }
+// Store history may already contain the route target. Identity changes must still
+// retire the previous composer's callbacks, even when no history fetch is needed.
+watch(currentConversationId, (id, previous) => {
+  if (isSameConversation(previous, id)) return
+  // The existing first-send proof migrates Draft bindings in the context watcher
+  // below. Do not retire that request before it can establish the Alias.
+  if (previous === sendingDraftId && previous === draftConversationId.value
+    && !route.query.contextId && !chatStore.isLoadingConversation && id === chatStore.contextId) return
+  ++composerGeneration
+  sendingDraftId = null
+  loading.value = false
+  isSubmittingWorkflow.value = false
+  inputText.value = ''
+  workflowStartError.value = null
+}, { flush: 'sync' })
 watch(currentConversationId, id => {
   try {
     pendingLaunchForView.value = chatStore.pendingMissionLaunch(id)
@@ -2148,10 +2183,6 @@ watch(
     if (!targetContextId) return
     if (chatStore.contextId === targetContextId) return
 
-    ++composerGeneration
-    sendingDraftId = null
-    loading.value = false
-    isSubmittingWorkflow.value = false
     await chatStore.loadHistory(targetContextId)
     scrollToBottom()
   },
@@ -2243,7 +2274,7 @@ const restoreWorkflowForConversation = async (resume = false) => {
     await loadActiveAcgView(runId)
   }
   if (restoreGeneration !== conversationGeneration || runId !== activeWorkflowRunId.value) return
-  if (!routeRunId && resolved) {
+  if (!routeRunId && resolved && isConversationVisible(conversationId)) {
     await router.replace({ query: { ...route.query, runId } })
   }
 }
