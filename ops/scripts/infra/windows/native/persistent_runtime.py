@@ -123,8 +123,11 @@ def pg_env(creds):
 
 
 def sql(info, creds, text):
+    # psql 的连接类报错跟随 Windows UI 语言输出 GBK（如「psql: 错误: …」）；
+    # postgres 就绪轮询会反复捕获这些字节，utf-8 严格解码会让读取线程崩溃。
+    # stderr 在失败分支本就不外露，replace 只保证捕获过程自身不炸。
     result = subprocess.run([str(Path(info['postgresBin'])/'psql.exe'), '-X', '-q', '-t', '-A',
-                             '-v', 'ON_ERROR_STOP=1'], input=text, text=True, encoding='utf-8',
+                             '-v', 'ON_ERROR_STOP=1'], input=text, text=True, encoding='utf-8', errors='replace',
                             capture_output=True, env=dict(pg_env(creds),PGPORT=str(ports(info)['postgres'])))
     if result.returncode:
         # DDL errors can echo a password literal; never expose that stderr.
