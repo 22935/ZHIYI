@@ -111,16 +111,30 @@ def test_each_request_rechecks_current_grant(delivery, client_factory, monkeypat
         calls.append((principal, mission_id, action))
         return granted[0]
     monkeypatch.setattr(rt.mission_semantic_service, "authorize", authorize)
+    before = rt.workflow_store.get_run(rid).model_dump(mode='json')
+    body_calls = []
     with client_factory(rt) as client:
         url = f'/agentos/v2/runs/{rid}/artifacts/{artifact[reference]}{suffix}'
         assert client.get(f'/agentos/v2/missions/{artifact["missionId"]}/workspace').status_code == 200
+        start = len(calls)
         assert client.get(url).status_code == 200
+        body_calls.extend(calls[start:])
         granted[0] = False
+        start = len(calls)
         assert client.get(url).status_code == 403
+        body_calls.extend(calls[start:])
         assert client.get(f'/agentos/v2/missions/{artifact["missionId"]}/workspace').status_code == 403
         granted[0] = True
+        start = len(calls)
         assert client.get(url).status_code == 200
-    assert all(p == OWNER and m == artifact["missionId"] and a == "read" for p, m, a in calls)
+        body_calls.extend(calls[start:])
+    # Content access keeps its original read-only authorization contract.
+    # Workspace additionally probes write permission to describe UI offers;
+    # a permission probe is not a mutation or a retained execution grant.
+    assert body_calls and all(p == OWNER and m == artifact["missionId"] and a == "read" for p, m, a in body_calls)
+    assert all(p == OWNER and m == artifact["missionId"] and a in {"read", "write"} for p, m, a in calls)
+    assert any(a == 'write' for _, _, a in calls)
+    assert rt.workflow_store.get_run(rid).model_dump(mode='json') == before
 
 
 @pytest.mark.freeze_gate

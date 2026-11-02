@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
+import pytest
 
 from components.executor.graph import ACGExecutionGraph
 from runtime.workflow_runtime import ExecutionRuntime
@@ -205,15 +207,67 @@ def test_local_runtime_integration_does_not_route_chat_acg_or_desktop_host() -> 
 
 
 
-def test_electron_host_does_not_embed_execution_authority() -> None:
-    """The Electron desktop host stays a window shell: no executor, scheduler, or process spawning."""
+def _assert_desktop_execution_boundary(sources: dict[str, str]) -> None:
+    """IDE helpers may spawn fixed tools; none may become a Run executor."""
+    reviewed_ide_hosts = {
+        'lib/lsp-client.ts': ('spawn(this.options.command, this.options.args', 'this.child?.kill()'),
+        'lib/workspace-git.ts': ("spawn('git', args", 'GIT_TIMEOUT_MS', 'MAX_OUTPUT_BYTES', 'child.kill()'),
+        'lib/workspace-search.ts': ("spawn('rg', args", 'RIPGREP_TIMEOUT_MS', 'child.kill()'),
+        'lib/workspace-diagnostics.ts': ('runProcess(process.execPath', "'typescript', 'bin', 'tsc'",
+            "['-m', 'ruff', '--version']", 'TSC_TIMEOUT_MS', 'RUFF_TIMEOUT_MS', 'child.kill()'),
+    }
+    process_hosts = set()
+    for name, source in sources.items():
+        for marker in ('LocalRuntime', 'ExecutionBackend', 'WorkflowStore', 'ExecutionRuntime', 'NodeRunner', 'ACGExecutionGraph'):
+            assert marker not in source, f'{name} embeds {marker}'
+        if 'child_process' not in source:
+            continue
+        process_hosts.add(name)
+        assert name in reviewed_ide_hosts, f'{name} is an unreviewed process host'
+        imports = re.findall(r"import\s*\{([^}]+)\}\s*from\s*['\"]node:child_process['\"]", source)
+        assert len(imports) == 1, f'{name} must use the reviewed named spawn import'
+        assert set(item.strip() for item in imports[0].split(',')) <= {'spawn', 'type ChildProcessWithoutNullStreams'}
+        assert not re.search(r'\bshell\s*:\s*true', source), f'{name} enables shell execution'
+        for marker in ('missionId', 'runId', 'runtimeRevision', 'operationId', 'executionPermit'):
+            assert marker not in source, f'{name} accepts Run execution identity {marker}'
+        assert all(fragment in source for fragment in reviewed_ide_hosts[name]), f'{name} changed its bounded IDE invocation'
+    assert process_hosts == set(reviewed_ide_hosts)
+    assert not re.search(r'export\s+(?:async\s+)?(?:function|const)\s+runProcess', sources['lib/workspace-diagnostics.ts'])
+    assert not re.search(r'export\s+(?:async\s+)?(?:function|const)\s+runGit', sources['lib/workspace-git.ts'])
+    assert 'command: process.execPath' in sources['lib/lsp-host.ts']
+    assert "args: [this.serverPath, '--stdio']" in sources['lib/lsp-host.ts']
+    main = sources['main.ts']
+    channels = {'lspOpen', 'lspChange', 'lspClose', 'lspDiagnostics', 'lspDefinition', 'workspaceSearch',
+        'workspaceDiagnostics', 'workspaceGitStatus', 'workspaceGitDiff', 'workspaceGitShow',
+        'workspaceGitStage', 'workspaceGitUnstage', 'workspaceGitCommit'}
+    handlers = list(re.finditer(r'ipcMain.handle\(IPC\.(lsp\w+|workspace(?:Search|Diagnostics|Git\w+)),\s*async\s*\([^)]*\)\s*=>\s*\{\s*guard\(event\)', main))
+    assert {match[1] for match in handlers} == channels, 'IDE IPC lost its owner renderer guard'
+    for match in handlers:
+        end = main.find('ipcMain.handle(', match.end())
+        body = main[match.end():end if end >= 0 else len(main)]
+        validator = 'validateGitRoot' if match[1].startswith('workspaceGit') else 'validateSearchRoot' if match[1] == 'workspaceSearch' else 'validateDiagnosticsRoot'
+        assert f'await {validator}(root)' in body, f'{match[1]} lost its workspace root boundary'
+
+
+def _desktop_sources() -> dict[str, str]:
     electron_src = SRC.parents[1] / "desktop" / "electron" / "src"
     assert electron_src.is_dir(), "Electron host sources are expected under apps/desktop/electron/src"
-    forbidden = ("LocalRuntime", "ExecutionBackend", "child_process", "node:child_process")
-    for path in electron_src.rglob("*.ts"):
-        source = path.read_text(encoding="utf-8")
-        for marker in forbidden:
-            assert marker not in source, f"{path.name} references {marker}"
+    return {path.relative_to(electron_src).as_posix(): path.read_text(encoding='utf-8') for path in electron_src.rglob('*.ts')}
+
+
+def test_electron_host_does_not_embed_execution_authority() -> None:
+    _assert_desktop_execution_boundary(_desktop_sources())
+
+
+@pytest.mark.parametrize('attack', ['new_process_host', 'run_identity_in_ide_host'])
+def test_desktop_boundary_rejects_unreviewed_processes_and_agent_execution_identity(attack) -> None:
+    sources = _desktop_sources()
+    if attack == 'new_process_host':
+        sources['lib/rogue-executor.ts'] = "import { spawn } from 'node:child_process'"
+    else:
+        sources['lib/lsp-client.ts'] += "\nconst runId = 'injected-run';\n"
+    with pytest.raises(AssertionError):
+        _assert_desktop_execution_boundary(sources)
 
 
 def test_chat_terminal_keeps_its_existing_composition() -> None:
