@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from support.async_tasks import await_owned, await_settled, run_blocking
 import json
 from collections.abc import AsyncIterator, Callable
 from threading import RLock
@@ -87,7 +88,7 @@ class HttpJsonTransport:
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """异步提交 JSON；底层标准库阻塞请求在工作线程执行。"""
-        return await asyncio.to_thread(
+        return await run_blocking(
             self._post_json_sync,
             path=path,
             payload=payload,
@@ -102,16 +103,23 @@ class HttpJsonTransport:
         idempotency_key: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """读取 OpenAI 兼容 SSE，并在停止消费时关闭底层响应。"""
-        response = await asyncio.to_thread(
+        opening = asyncio.create_task(asyncio.to_thread(
             self._open_stream_sync,
             path=path,
             payload=payload,
             idempotency_key=idempotency_key,
-        )
+        ), name="model-stream-open")
+        try:
+            response = await await_owned(opening)
+        except asyncio.CancelledError:
+            results = await await_settled(asyncio.gather(opening, return_exceptions=True), propagate_cancel=False)
+            if not isinstance(results[0], BaseException):
+                await await_settled(asyncio.create_task(run_blocking(results[0].close)))
+            raise
         data_lines: list[str] = []
         try:
             while True:
-                raw_line = await asyncio.to_thread(response.readline)
+                raw_line = await run_blocking(response.readline)
                 if not raw_line:
                     if data_lines:
                         event = self._parse_sse_data(data_lines)
@@ -138,7 +146,7 @@ class HttpJsonTransport:
         finally:
             close = getattr(response, "close", None)
             if callable(close):
-                await asyncio.to_thread(close)
+                await await_settled(asyncio.create_task(run_blocking(close), name="model-stream-close"))
 
     def _post_json_sync(
         self,

@@ -57,7 +57,7 @@ class LeaseKeepAlive:
 
     def start(self) -> None:
         if self._task is None:
-            self._task = asyncio.create_task(self._run())
+            self._task = asyncio.create_task(self._run(), name=f"lease-renewal:{self.lease.lease_id}")
 
     async def stop(self) -> None:
         self._stopped.set()

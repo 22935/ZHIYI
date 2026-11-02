@@ -10,6 +10,7 @@ from time import monotonic
 from typing import TYPE_CHECKING, Any
 
 from components.planner import ACGPlanningError, TaskDecompositionError
+from support.async_tasks import cancel_and_wait
 
 if TYPE_CHECKING:
     from runtime import ExecutionRuntime
@@ -114,7 +115,12 @@ class RunExecutionCoordinator:
         task.add_done_callback(lambda settled: self._forget_finished_task(run_id, settled))
 
     def _forget_finished_task(self, run_id: str, task: asyncio.Task[None]) -> None:
-        if task.done() and self._tasks.get(run_id) is task:
+        if not task.done():
+            return
+        failure = None if task.cancelled() else task.exception()
+        if failure is not None:
+            logger.error("managed task cleanup failed", exc_info=failure, extra={"runId": run_id})
+        if self._tasks.get(run_id) is task:
             self._tasks.pop(run_id, None)
 
     def _create_permitted_task(self, command):
@@ -159,7 +165,8 @@ class RunExecutionCoordinator:
             task = self._tasks.get(run_id)
         if task is None or task.done() or task is asyncio.current_task():
             return False
-        task.cancel()
+        if not task.cancelling():
+            task.cancel("operator_cancel")
         return True
 
     async def startup(self, *, orphan_limit: int = 200) -> list[str]:
@@ -229,13 +236,7 @@ class RunExecutionCoordinator:
             self._accepting = False
             tasks = list(self._tasks.values())
             monitor = self._wake_task
-        if monitor is not None:
-            monitor.cancel()
-            await asyncio.gather(monitor, return_exceptions=True)
-        for task in tasks:
-            task.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+        await cancel_and_wait([*tasks, *([monitor] if monitor is not None else [])], reason="worker_shutdown")
         # A Task cancelled before its coroutine first runs never enters that
         # coroutine's finally block. Prune only settled tasks owned above;
         # _accepting=False prevents a new submission during this shutdown.

@@ -15,6 +15,7 @@ AgentOS 内部实现。它只负责图的编译产物执行、状态通道、并
 from __future__ import annotations
 
 import asyncio
+from support.async_tasks import cancel_and_wait
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -473,99 +474,92 @@ class ACGExecutionGraph:
                 step_id: asyncio.create_task(execute(step_id, state), name=f"acg:{state.run_id}:{step_id}")
                 for step_id in ready
             }
-            pending_tasks = dict(tasks)
-            while pending_tasks:
-                try:
-                    done, pending = await asyncio.wait(
-                        pending_tasks.values(), return_when=asyncio.FIRST_COMPLETED
-                    )
-                except asyncio.CancelledError:
-                    for task in pending_tasks.values():
-                        if not task.done():
-                            task.cancel()
-                    await asyncio.gather(*pending_tasks.values(), return_exceptions=True)
-                    state.active_step_ids = []
-                    raise
-                failures = [
-                    step_id
-                    for step_id, task in pending_tasks.items()
-                    if task in done and not task.cancelled() and task.exception() is not None
-                ]
-                if failures:
-                    # 已经原子提交的节点结果继续保留；尚未提交的兄弟节点进入取消态。
-                    # 这样一个慢节点失败时，不会回滚此前已经可查询的完整答案。
-                    cancelled = [
-                        step_id for step_id in ready
-                        if step_id not in failures and step_id not in state.completed_step_ids
-                    ]
-                    for task in pending:
-                        task.cancel()
-                    if pending:
-                        await asyncio.gather(*pending, return_exceptions=True)
-                    state.active_step_ids = []
-                    cause = pending_tasks[failures[0]].exception()
-                    assert cause is not None
-                    # 进程终止、测试模拟断电等 ``BaseException`` 不能被误标为业务节点
-                    # 失败或触发 failed run 投影；让调用栈直接中断，下一进程从持久化边界
-                    # 继续。普通 ``Exception`` 仍保留完整的超步失败语义。
-                    if not isinstance(cause, Exception):
-                        raise cause
-                    raw_audit = getattr(cause, "audit", None)
-                    safe_audit_keys = {
-                        "provider", "model", "latencyMs", "promptVersion",
-                        "promptTemplateHash", "usage", "finishReason", "capability",
-                        "outputPolicy", "requestedOutputTokens", "effectiveOutputTokens",
-                        "effectiveReason", "outputExhausted", "partIndex", "callChainId",
-                        "streamDiagnostics",
-                    }
-                    failure_invocations = (
-                        [{key: value for key, value in raw_audit.items() if key in safe_audit_keys}]
-                        if isinstance(raw_audit, dict) and raw_audit
-                        else []
-                    )
-                    yield {
-                        "type": "superstep_failed",
-                        "stepId": failures[0],
-                        "failedStepIds": failures,
-                        "cancelledStepIds": cancelled,
-                        "modelInvocations": failure_invocations,
-                    }
-                    raise ACGSuperstepError(
-                        failed_step_ids=tuple(failures),
-                        cancelled_step_ids=tuple(cancelled),
-                        cause=cause,
-                    ) from cause
-
-                completed_ids = sorted(
-                    (step_id for step_id, task in pending_tasks.items() if task in done),
-                    key=ready.index,
-                )
-                for step_id in completed_ids:
+            try:
+                pending_tasks = dict(tasks)
+                while pending_tasks:
                     try:
-                        event, review_payload = self._commit_node_result(
-                            state=state,
-                            route_values=route_values,
-                            step_id=step_id,
-                            result=pending_tasks[step_id].result(),
+                        done, pending = await asyncio.wait(
+                            pending_tasks.values(), return_when=asyncio.FIRST_COMPLETED
                         )
-                    except BaseException:
-                        for task in pending_tasks.values():
-                            if not task.done():
-                                task.cancel()
-                        await asyncio.gather(*pending_tasks.values(), return_exceptions=True)
+                    except asyncio.CancelledError as exc:
+                        await cancel_and_wait(pending_tasks.values(), reason=str(exc) or "execution_cancelled")
                         state.active_step_ids = []
                         raise
-                    yield event
-                    pending_tasks.pop(step_id)
-                    if review_payload is not None:
-                        for task in pending_tasks.values():
-                            if not task.done():
-                                task.cancel()
-                        await asyncio.gather(*pending_tasks.values(), return_exceptions=True)
-                        from components.recovery.checkpoint import ExecutionInterrupt
+                    failures = [
+                        step_id
+                        for step_id, task in pending_tasks.items()
+                        if task in done and not task.cancelled() and task.exception() is not None
+                    ]
+                    if failures:
+                        # 已经原子提交的节点结果继续保留；尚未提交的兄弟节点进入取消态。
+                        # 这样一个慢节点失败时，不会回滚此前已经可查询的完整答案。
+                        cancelled = [
+                            step_id for step_id in ready
+                            if step_id not in failures and step_id not in state.completed_step_ids
+                        ]
+                        await cancel_and_wait(pending, reason="sibling_failure")
+                        state.active_step_ids = []
+                        cause = pending_tasks[failures[0]].exception()
+                        assert cause is not None
+                        # 进程终止、测试模拟断电等 ``BaseException`` 不能被误标为业务节点
+                        # 失败或触发 failed run 投影；让调用栈直接中断，下一进程从持久化边界
+                        # 继续。普通 ``Exception`` 仍保留完整的超步失败语义。
+                        if not isinstance(cause, Exception):
+                            raise cause
+                        raw_audit = getattr(cause, "audit", None)
+                        safe_audit_keys = {
+                            "provider", "model", "latencyMs", "promptVersion",
+                            "promptTemplateHash", "usage", "finishReason", "capability",
+                            "outputPolicy", "requestedOutputTokens", "effectiveOutputTokens",
+                            "effectiveReason", "outputExhausted", "partIndex", "callChainId",
+                            "streamDiagnostics",
+                        }
+                        failure_invocations = (
+                            [{key: value for key, value in raw_audit.items() if key in safe_audit_keys}]
+                            if isinstance(raw_audit, dict) and raw_audit
+                            else []
+                        )
+                        yield {
+                            "type": "superstep_failed",
+                            "stepId": failures[0],
+                            "failedStepIds": failures,
+                            "cancelledStepIds": cancelled,
+                            "modelInvocations": failure_invocations,
+                        }
+                        raise ACGSuperstepError(
+                            failed_step_ids=tuple(failures),
+                            cancelled_step_ids=tuple(cancelled),
+                            cause=cause,
+                        ) from cause
 
-                        raise ExecutionInterrupt("execution requires review", review_payload)
-            state.active_step_ids = []
+                    completed_ids = sorted(
+                        (step_id for step_id, task in pending_tasks.items() if task in done),
+                        key=ready.index,
+                    )
+                    for step_id in completed_ids:
+                        try:
+                            event, review_payload = self._commit_node_result(
+                                state=state,
+                                route_values=route_values,
+                                step_id=step_id,
+                                result=pending_tasks[step_id].result(),
+                            )
+                        except BaseException:
+                            await cancel_and_wait(pending_tasks.values(), reason="result_commit_failure")
+                            state.active_step_ids = []
+                            raise
+                        yield event
+                        pending_tasks.pop(step_id)
+                        if review_payload is not None:
+                            await cancel_and_wait(pending_tasks.values(), reason="review_interrupt")
+                            from components.recovery.checkpoint import ExecutionInterrupt
+
+                            raise ExecutionInterrupt("execution requires review", review_payload)
+            finally:
+                try:
+                    await cancel_and_wait(tasks.values(), reason="graph_closed")
+                finally:
+                    state.active_step_ids = []
             for step_id in ready:
                 state.blackboard_snapshots.pop(step_id, None)
             self._advance_controls(state, route_values)

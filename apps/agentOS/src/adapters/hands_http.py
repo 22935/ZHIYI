@@ -6,15 +6,25 @@ checksum validation. UNKNOWN/network ambiguity is non-retryable to the Agent.
 import asyncio
 import hashlib
 import json
+import logging
 from uuid import uuid5, NAMESPACE_URL
 
 from adapters.local_runtime_http import HttpLocalRuntimeTransport
 from contracts.local_runtime import LocalRuntimeExecutionResult, LocalRuntimeExecutionError
+from support.async_tasks import await_owned, await_settled, cancel_and_wait
 
 
 class HandsOutcomeUnknown(RuntimeError):
     code = 'HANDS_OUTCOME_UNKNOWN'
     retryable = False
+
+
+class HandsExecutionCancelled(asyncio.CancelledError):
+    """Cancellation settled with a verified terminal receipt, not an admission ACK."""
+
+    def __init__(self, result, reason):
+        super().__init__(reason)
+        self.result = result
 
 
 class HandsAdmissionRejected(RuntimeError):
@@ -58,6 +68,30 @@ class HandsHttpTransport(HttpLocalRuntimeTransport):
         return await self.execute_with_identity(request, {})
 
     async def execute_with_identity(self, request, identity, event_sink=None):
+        admission = {'ready': asyncio.Event(), 'executionId': None}
+        task = asyncio.create_task(self._execute_with_identity(request, identity, event_sink, admission),
+                                   name=f"hands-execution:{request.invocation_id}")
+        try:
+            return await await_owned(task)
+        except asyncio.CancelledError as exc:
+            async def request_cancel():
+                waiter = asyncio.create_task(admission['ready'].wait(), name=f"hands-admission:{request.invocation_id}")
+                try:
+                    await asyncio.wait({task, waiter}, return_when=asyncio.FIRST_COMPLETED)
+                    if admission['executionId'] is not None and not task.done():
+                        execution_id = admission['executionId']
+                        await self._call('POST','/'+execution_id+'/cancel',{'executionId':execution_id})
+                finally:
+                    await cancel_and_wait([waiter], reason='admission_settled')
+            cancel_task = asyncio.create_task(request_cancel(), name=f"hands-cancel:{request.invocation_id}")
+            results = await await_settled(asyncio.gather(task, cancel_task, return_exceptions=True), propagate_cancel=False)
+            if isinstance(results[1], Exception):
+                logging.getLogger(__name__).warning('Hands cancellation request failed; execution reconciliation completed', exc_info=results[1])
+            if isinstance(results[0], BaseException):
+                raise results[0]
+            raise HandsExecutionCancelled(results[0], str(exc) or 'execution_cancelled')
+
+    async def _execute_with_identity(self, request, identity, event_sink, admission):
         wire = request.model_dump(by_alias=True,mode='json')
         wire.pop('resourceId')  # Hands is already selected by the signed endpoint.
         wire['requestId'] = str(uuid5(NAMESPACE_URL,request.idempotency_key))
@@ -70,6 +104,8 @@ class HandsHttpTransport(HttpLocalRuntimeTransport):
         try:
             record = await self._call('POST',payload=wire,key=request.idempotency_key)
             execution_id = record['executionId']
+            admission['executionId'] = execution_id
+            admission['ready'].set()
             cursor = -1
             deadline = asyncio.get_running_loop().time()+request.limits.timeout_seconds+30
             while record['state'] not in {'COMPLETED','FAILED','CANCELLED','UNKNOWN'}:
@@ -114,10 +150,6 @@ class HandsHttpTransport(HttpLocalRuntimeTransport):
                 expected = 'failed'
             return LocalRuntimeExecutionResult(requestId=request.request_id,invocationId=request.invocation_id,
                 status=expected,output=output,error=failure,startedAt=receipt['startedAt'],completedAt=receipt['completedAt'])
-        except asyncio.CancelledError:
-            if execution_id:
-                await asyncio.shield(self._call('POST','/'+execution_id+'/cancel',{'executionId':execution_id}))
-            raise
         except HandsOutcomeUnknown:
             raise
         except HandsAdmissionRejected:

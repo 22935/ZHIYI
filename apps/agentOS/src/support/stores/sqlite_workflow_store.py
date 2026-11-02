@@ -359,10 +359,14 @@ class SQLiteWorkflowStore(WorkflowStore, MissionSemanticStore):
             )
             conn.commit()
 
-    def save_run_with_events(self, run: RuntimeRunRecord, events) -> None:
+    def save_run_with_events(self, run: RuntimeRunRecord, events, *, expected_snapshot: RuntimeRunRecord | None = None) -> None:
         """Commit the run snapshot and step lifecycle facts in one Execution Runtime transaction."""
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
+            if expected_snapshot is not None:
+                current = conn.execute("SELECT payload FROM runs WHERE run_id=?", (run.run_id,)).fetchone()
+                if current is None or RuntimeRunRecord.model_validate_json(current[0]) != expected_snapshot:
+                    raise ValueError('Run changed before persistence')
             if not self._upsert_run(conn, run):
                 return
             for event in events:

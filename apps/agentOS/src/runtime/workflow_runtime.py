@@ -18,6 +18,7 @@ from typing import Any, Callable, Mapping, Optional
 from service.agents import AgentRegistry
 from support.acg.legacy.workflow_adapter import promote_workflow_to_acg
 from support.acg.schema import RuntimeBlueprintSpec
+from support.async_tasks import run_blocking
 from components.auditor.governance.evaluation import WorkflowEvaluator
 from components.mission_manager.store import WorkflowRegistry
 from components.auditor.governance.review import ReviewManager
@@ -1029,7 +1030,7 @@ class ExecutionRuntime(CollaboratorAccess):
                 )
                 self.workflow_store.save_run(run)
                 try:
-                    run = await asyncio.to_thread(
+                    run = await run_blocking(
                         self._materialize_deferred_acg_run,
                         run.run_id,
                     )

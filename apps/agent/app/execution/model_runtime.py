@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from support.async_tasks import await_owned, await_settled
 from concurrent.futures import ThreadPoolExecutor
 import os
 from typing import Any, Dict
@@ -121,11 +122,18 @@ class GatewayStructuredGenerationRuntime:
                 kwargs["max_tokens"] = max_output_tokens
             return gateway.generate_json(prompt, schema, **kwargs)
 
+        work = loop.run_in_executor(self._executor, invoke)
         try:
-            raw = await asyncio.wait_for(
-                loop.run_in_executor(self._executor, invoke),
-                timeout=max(1.0, timeout_seconds),
-            )
+            try:
+                raw = await asyncio.wait_for(
+                    await_owned(work), timeout=max(1.0, timeout_seconds),
+                )
+            except (asyncio.CancelledError, TimeoutError):
+                # Cancelling an asyncio Future cannot stop an active pool thread.
+                # Keep ownership (and the enclosing execution lease) until the
+                # provider call actually returns, then preserve the original error.
+                await await_settled(asyncio.gather(work, return_exceptions=True), propagate_cancel=False)
+                raise
         except asyncio.TimeoutError as exc:
             raise StructuredGenerationError(
                 "MODEL_TIMEOUT",

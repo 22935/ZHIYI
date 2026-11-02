@@ -308,7 +308,9 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
         return task
 
     @_mission_locked
-    def save_run_with_events(self, run: RuntimeRunRecord, events) -> None:
+    def save_run_with_events(self, run: RuntimeRunRecord, events, *, expected_snapshot: RuntimeRunRecord | None = None) -> None:
+        if expected_snapshot is not None and self.get_run(run.run_id) != expected_snapshot:
+            raise ValueError('Run changed before persistence')
         tasks_snapshot = dict(self._tasks)
         outbox_snapshot = dict(self._lifecycle_outbox)
         run_snapshot = dict(self._runs)

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import asyncio
+from support.async_tasks import await_owned, await_settled
 from time import time
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
@@ -17,6 +19,8 @@ from service.agents.base import AgentOutput, AgentRunContext, BaseAgent
 
 class ResourceExecutionError(RuntimeError):
     """A bound resource could not execute a step safely."""
+
+    outcome_unknown = False
 
 
 class ResourceExecutionAdapter(Protocol):
@@ -110,13 +114,32 @@ class HttpResourceExecutionAdapter:
                 body=body,
             ),
         }
-        try:
-            response = await self._client.post(
+        request_task = asyncio.create_task(self._client.post(
                 self.address,
                 content=body,
                 headers=headers,
                 timeout=self.timeout_seconds,
-            )
+            ), name=f"resource-request:{context.run.run_id}:{context.step.step_id}")
+        try:
+            try:
+                response = await await_owned(request_task)
+            except asyncio.CancelledError:
+                # A disconnected HTTP client is not evidence of remote stop.
+                # Retain ownership until the admitted request settles.
+                results = await await_settled(asyncio.gather(request_task, return_exceptions=True), propagate_cancel=False)
+                result = results[0]
+                settled = False
+                if not isinstance(result, BaseException) and not result.is_error and result.status_code != 202:
+                    try:
+                        AgentOutput.model_validate(result.json())
+                        settled = True
+                    except (ValueError, TypeError):
+                        pass
+                if not settled:
+                    error = ResourceExecutionError("REMOTE_EXECUTION_OUTCOME_UNKNOWN: cancellation requires reconciliation")
+                    error.outcome_unknown = True
+                    raise error
+                raise
         except httpx.TimeoutException as exc:
             raise ResourceExecutionError("REMOTE_EXECUTION_FAILED: timeout") from exc
         except httpx.HTTPError as exc:

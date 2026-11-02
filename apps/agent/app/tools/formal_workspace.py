@@ -7,6 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from adapters.audited_tool_runtime import AuditedToolRuntime
+from adapters.hands_http import HandsExecutionCancelled, HandsOutcomeUnknown
+from support.async_tasks import await_settled
 from components.scheduler.binder import LeaseKeepAlive
 from contracts.resource import ExecutionRequirement, RuntimeKind
 from contracts.local_runtime import LocalRuntimeExecutionRequest, LocalRuntimeExecutionLimits
@@ -124,20 +126,24 @@ class FormalWorkspaceTools:
         if scheduled.binding is None or scheduled.lease is None: raise RuntimeError('Hands lease unavailable: '+str(scheduled.reason))
         keepalive = LeaseKeepAlive(rt.resource_binder.coordinator,scheduled.lease)
         keepalive.start()
-        request = LocalRuntimeExecutionRequest(protocolVersion='1',requestId=operation_key,invocationId=operation_key,
-            resourceId=scheduled.binding.resource_id,capabilityId=TOOLS[name],authorization=authorization,
-            input=data,limits=LocalRuntimeExecutionLimits(timeoutSeconds=90,maxStdoutBytes=64000,maxStderrBytes=32000),
-            idempotencyKey=operation_key)
-        key = operation_key+':request'
-        rt.execution_value_store.put_tool_value(run_id=run_id,step_id=step_id,key=key,
-            payload={'request':request.model_dump(by_alias=True,mode='json'),'identity':identity})
+        outcome_unknown = False
         try:
+            request = LocalRuntimeExecutionRequest(protocolVersion='1',requestId=operation_key,invocationId=operation_key,
+                resourceId=scheduled.binding.resource_id,capabilityId=TOOLS[name],authorization=authorization,
+                input=data,limits=LocalRuntimeExecutionLimits(timeoutSeconds=90,maxStdoutBytes=64000,maxStderrBytes=32000),
+                idempotencyKey=operation_key)
+            key = operation_key+':request'
+            rt.execution_value_store.put_tool_value(run_id=run_id,step_id=step_id,key=key,
+                payload={'request':request.model_dump(by_alias=True,mode='json'),'identity':identity})
             self.guard()
             if authority: authority.resolve(context.run)
             await emit('execution_started',{'tool':name,'bindingId':scheduled.binding.binding_id,**identity})
-            result = await rt.local_runtime_transport.execute_with_identity(request,identity,
-                event_sink=lambda event: emit('hands_event',event))
-            if keepalive.failure: raise RuntimeError('Hands lease renewal failed; reconcile before retry')
+            cancellation = None
+            try:
+                result = await rt.local_runtime_transport.execute_with_identity(request,identity,
+                    event_sink=lambda event: emit('hands_event',event))
+            except HandsExecutionCancelled as exc:
+                cancellation, result = exc, exc.result
             receipt = result.output.get('handsReceipt')
             if not receipt: raise RuntimeError('Verified Hands receipt required before node completion')
             ref = rt.execution_value_store.put_tool_value(run_id=run_id,step_id=step_id,key=operation_key+':receipt',payload=receipt)
@@ -147,9 +153,27 @@ class FormalWorkspaceTools:
             record['workspaceId'] = authorization.workspace_id
             record['grantId'] = authorization.grant_id
             await emit('execution_completed',record)
+            if cancellation is not None:
+                raise cancellation
+            if keepalive.failure: raise RuntimeError('Hands lease renewal failed; reconcile before retry')
             data = dict(result.output, status=result.status)
             if result.error: data['error'] = result.error.model_dump(mode='json')
             return SimpleNamespace(data=data,record=record)
+        except HandsOutcomeUnknown:
+            outcome_unknown = True
+            # Retain the request/admission WAL and quarantine this execution
+            # resource. An unknown external operation is never a release receipt.
+            rt.resource_plane.set_runtime_health(scheduled.binding.resource_id, healthy=False)
+            rt.resource_plane.set_runtime_enabled(scheduled.binding.resource_id, enabled=False)
+            rt.execution_value_store.put_tool_value(run_id=run_id,step_id=step_id,key=operation_key+':unsettled',
+                payload={'leaseId':scheduled.lease.lease_id,'resourceId':scheduled.binding.resource_id,
+                         'reason':'external_outcome_unknown', **identity})
+            raise
         finally:
-            await keepalive.stop()
-            rt.resource_binder.release(scheduled.lease.lease_id)
+            async def cleanup():
+                try:
+                    await keepalive.stop()
+                finally:
+                    if not outcome_unknown:
+                        rt.resource_binder.release(scheduled.lease.lease_id)
+            await await_settled(asyncio.create_task(cleanup(), name=f"hands-lease-cleanup:{operation_key}"))

@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable, Mapping
 import json
 import logging
 import threading
+import sys
 from time import monotonic
 from typing import Any
 
@@ -52,6 +53,7 @@ from components.scheduler.models import (
     SchedulerAllocationTimeout,
     SchedulerNoEligibleResource,
 )
+from components.scheduler.leases import LeaseRenewalFailedError
 from components.recovery.checkpoint import ExecutionInterrupt, ExecutionResumeCommand
 from adapters.agent_invocation import AgentInvocationAdapter
 from adapters.resource_execution import (
@@ -75,6 +77,7 @@ from runtime.execution_migration import ExecutionEngineMigratingError
 from runtime.ports import CollaboratorAccess, RuntimeCollaborators
 from runtime.binding import execution_requirements_for, requirements_match_manifest
 from runtime.state_persistence import ACGStatePersistenceService
+from support.async_tasks import await_settled, cancel_and_wait
 from contracts.runtime_events import TRANSIENT_RUNTIME_EVENT_TYPES
 
 
@@ -227,6 +230,7 @@ class ACGExecutionService(CollaboratorAccess):
         else:
             self._mark_running(task)
         cancel_requested = self._cancellation_event(run.run_id)
+        stream = None
         try:
             if self._observe_boundary is not None and _resume_planning and (is_resuming or command is not None):
                 # Human/control review is resolved by the graph's resume command,
@@ -307,6 +311,8 @@ class ACGExecutionService(CollaboratorAccess):
             self.workflow_store.save_run(run)
             return run
         except Exception as exc:
+            if stream is not None:
+                await await_settled(asyncio.create_task(stream.aclose(), name=f"acg-stream-error-close:{run.run_id}"))
             if isinstance(exc, ACGSuperstepError):
                 recovered = self._recover_remote_acg_failure(
                     run=run,
@@ -355,6 +361,9 @@ class ACGExecutionService(CollaboratorAccess):
             if self.identity_lifecycle is not None:
                 self._flush_identity_outbox()
             raise
+        finally:
+            if stream is not None:
+                await await_settled(asyncio.create_task(stream.aclose(), name=f"acg-stream-close:{run.run_id}"))
 
     @staticmethod
     def _unwrap_resource_execution_error(error: BaseException) -> ResourceExecutionError | None:
@@ -676,122 +685,132 @@ class ACGExecutionService(CollaboratorAccess):
                 self.resource_binder.coordinator, decision.lease
             )
             keep_alive.start()
-            binding = decision.binding
-            selected_resource_id = binding.resource_id
-            remote_adapter = self._remote_runtime_adapter(selected_resource_id)
-            if remote_adapter is not None:
-                runtime_profile = self.resource_plane.runtime(selected_resource_id)
-                runner.resource_execution_adapters[step_id] = remote_adapter
-                remote_agent_id = binding.metadata.get("agentId") or selected_resource_id
-                runner.agents[step_id] = ResourceAgentProxy(
-                    profile=AgentProfile(
-                        agentId=str(remote_agent_id),
-                        agentName=step.agent_name or str(remote_agent_id),
-                        domain=run.domain,
-                        capabilities=list(runtime_profile.capabilities),
-                        enabled=runtime_profile.enabled,
-                    ),
-                    adapter=remote_adapter,
-                )
-                selected_profile = runner.agents[step_id].profile
-                agent_id = str(selected_profile.agent_id or selected_resource_id)
-            else:
-                runner.resource_execution_adapters.pop(step_id, None)
-                selected_agent = self._resolve_embedded_agent(
-                    run=run,
-                    step=step,
-                    role_hint=requirement.preferences.get("agentRole"),
-                )
-                agent_id = str(self.agent_registry.agent_id(selected_agent))
-                runner.agents[step_id] = selected_agent
-                selected_profile = selected_agent.profile
-            run.execution_state.setdefault("logicalAgents", {})[step_id] = agent_id
-            model_binding = self._resolve_model_binding(
-                step_id=step_id,
-                binding=binding,
-                profile=selected_profile,
-            )
-            run.execution_state.setdefault("modelBindings", {})[step_id] = model_binding
-            if model_binding is not None:
-                model_runtime = self._model_runtime_from_binding(model_binding)
-                if model_runtime is not None:
-                    runner.model_runtimes[step_id] = model_runtime
-            runner.attempt_ids[step_id] = attempt_id
-            step_execution_id = (
-                run.execution_state.setdefault("stepExecutionIds", {}).setdefault(
-                    attempt_key,
-                    new_step_execution_id()
-                    if self.identity_lifecycle is not None
-                    else f"execution:{attempt_id}",
-                )
-            )
-            profile = selected_profile
-            base_events = [
-                self._lifecycle_event(
-                    f"attempt.ensured:{attempt_id}", "attempt.ensured", run.run_id,
-                    {"runId": run.run_id, "missionId": run.mission_id, "stepId": step_id,
-                     "attemptId": attempt_id, "attemptNumber": attempt_number},
-                ),
-                self._lifecycle_event(
-                    f"resource.bound:{attempt_id}", "resource.bound", attempt_id,
-                    {"attemptId": attempt_id,
-                     "binding": decision.binding.model_dump(by_alias=True, mode="json"),
-                     "agentId": str(profile.agent_id or decision.binding.resource_id),
-                     "modelId": str(profile.model_name or "runtime-default")},
-                ),
-                self._lifecycle_event(
-                    f"step.started:{step_execution_id}", "step.started", step_execution_id,
-                    {"runId": run.run_id, "attemptId": attempt_id, "stepId": step_id,
-                     "stepExecutionId": step_execution_id},
-                ),
-            ]
-            run.execution_state.setdefault("executionBindings", {})[step_id] = (
-                decision.binding.model_dump(by_alias=True, mode="json")
-            )
-            run.execution_state.setdefault("schedulingDecisions", []).append(
-                {
-                    "stepId": step_id,
-                    "attemptId": attempt_id,
-                    "candidates": [
-                        item.model_dump(by_alias=True, mode="json") for item in decision.candidates
-                    ],
-                    "binding": decision.binding.model_dump(by_alias=True, mode="json"),
-                    "lease": decision.lease.model_dump(by_alias=True, mode="json"),
-                }
-            )
-            run.execution_state.setdefault("resourceBindings", {})[step_id] = (
-                decision.binding.resource_id
-            )
-            base_events = self._reuse_persisted_lifecycle_events(base_events)
-            self.workflow_store.save_run_with_events(run, base_events)
-            self._flush_identity_outbox()
+            remote_adapter = None
+            selected_resource_id = decision.binding.resource_id
+            outcome_unknown = False
+            step_execution_id = None
+            cancellation_reason = "attempt_settled"
             try:
+                binding = decision.binding
+                selected_resource_id = binding.resource_id
+                remote_adapter = self._remote_runtime_adapter(selected_resource_id)
+                if remote_adapter is not None:
+                    runtime_profile = self.resource_plane.runtime(selected_resource_id)
+                    runner.resource_execution_adapters[step_id] = remote_adapter
+                    remote_agent_id = binding.metadata.get("agentId") or selected_resource_id
+                    runner.agents[step_id] = ResourceAgentProxy(
+                        profile=AgentProfile(
+                            agentId=str(remote_agent_id),
+                            agentName=step.agent_name or str(remote_agent_id),
+                            domain=run.domain,
+                            capabilities=list(runtime_profile.capabilities),
+                            enabled=runtime_profile.enabled,
+                        ),
+                        adapter=remote_adapter,
+                    )
+                    selected_profile = runner.agents[step_id].profile
+                    agent_id = str(selected_profile.agent_id or selected_resource_id)
+                else:
+                    runner.resource_execution_adapters.pop(step_id, None)
+                    selected_agent = self._resolve_embedded_agent(
+                        run=run,
+                        step=step,
+                        role_hint=requirement.preferences.get("agentRole"),
+                    )
+                    agent_id = str(self.agent_registry.agent_id(selected_agent))
+                    runner.agents[step_id] = selected_agent
+                    selected_profile = selected_agent.profile
+                run.execution_state.setdefault("logicalAgents", {})[step_id] = agent_id
+                model_binding = self._resolve_model_binding(
+                    step_id=step_id,
+                    binding=binding,
+                    profile=selected_profile,
+                )
+                run.execution_state.setdefault("modelBindings", {})[step_id] = model_binding
+                if model_binding is not None:
+                    model_runtime = self._model_runtime_from_binding(model_binding)
+                    if model_runtime is not None:
+                        runner.model_runtimes[step_id] = model_runtime
+                runner.attempt_ids[step_id] = attempt_id
+                step_execution_id = (
+                    run.execution_state.setdefault("stepExecutionIds", {}).setdefault(
+                        attempt_key,
+                        new_step_execution_id()
+                        if self.identity_lifecycle is not None
+                        else f"execution:{attempt_id}",
+                    )
+                )
+                profile = selected_profile
+                base_events = [
+                    self._lifecycle_event(
+                        f"attempt.ensured:{attempt_id}", "attempt.ensured", run.run_id,
+                        {"runId": run.run_id, "missionId": run.mission_id, "stepId": step_id,
+                         "attemptId": attempt_id, "attemptNumber": attempt_number},
+                    ),
+                    self._lifecycle_event(
+                        f"resource.bound:{attempt_id}", "resource.bound", attempt_id,
+                        {"attemptId": attempt_id,
+                         "binding": decision.binding.model_dump(by_alias=True, mode="json"),
+                         "agentId": str(profile.agent_id or decision.binding.resource_id),
+                         "modelId": str(profile.model_name or "runtime-default")},
+                    ),
+                    self._lifecycle_event(
+                        f"step.started:{step_execution_id}", "step.started", step_execution_id,
+                        {"runId": run.run_id, "attemptId": attempt_id, "stepId": step_id,
+                         "stepExecutionId": step_execution_id},
+                    ),
+                ]
+                run.execution_state.setdefault("executionBindings", {})[step_id] = (
+                    decision.binding.model_dump(by_alias=True, mode="json")
+                )
+                run.execution_state.setdefault("schedulingDecisions", []).append(
+                    {
+                        "stepId": step_id,
+                        "attemptId": attempt_id,
+                        "candidates": [
+                            item.model_dump(by_alias=True, mode="json") for item in decision.candidates
+                        ],
+                        "binding": decision.binding.model_dump(by_alias=True, mode="json"),
+                        "lease": decision.lease.model_dump(by_alias=True, mode="json"),
+                    }
+                )
+                run.execution_state.setdefault("resourceBindings", {})[step_id] = (
+                    decision.binding.resource_id
+                )
+                base_events = self._reuse_persisted_lifecycle_events(base_events)
+                self.workflow_store.save_run_with_events(run, base_events)
+                self._flush_identity_outbox()
                 if permit_authority is not None and "graphActivation" in run.execution_state:
                     try:
                         permit_authority.assert_dispatchable(run)
                     except (ValueError, KeyError, TypeError) as exc:
                         raise ExecutionRunCancelled("execution permit changed before node dispatch") from exc
                 execution_started = monotonic()
-                runner_task = asyncio.create_task(runner(step_id, state))
-                renewal_failure_task = asyncio.create_task(keep_alive.wait_failed())
-                done, pending = await asyncio.wait(
-                    {runner_task, renewal_failure_task},
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                if renewal_failure_task in done:
-                    runner_task.cancel()
-                    await asyncio.gather(runner_task, return_exceptions=True)
-                    raise renewal_failure_task.result()
-                renewal_failure_task.cancel()
-                await asyncio.gather(renewal_failure_task, return_exceptions=True)
-                result = runner_task.result()
+                runner_task = asyncio.create_task(runner(step_id, state), name=f"acg-runner:{run.run_id}:{step_id}")
+                renewal_failure_task = asyncio.create_task(keep_alive.wait_failed(), name=f"acg-renewal:{run.run_id}:{step_id}")
+                try:
+                    done, _ = await asyncio.wait(
+                        {runner_task, renewal_failure_task}, return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if renewal_failure_task in done:
+                        cancellation_reason = "lease_renewal_failure"
+                        raise renewal_failure_task.result()
+                    result = runner_task.result()
+                except asyncio.CancelledError as exc:
+                    cancellation_reason = ("operator_cancel" if self._cancellation_requested(run.run_id)
+                                           else str(exc) or "execution_cancelled")
+                    raise
+                finally:
+                    results = await cancel_and_wait((runner_task, renewal_failure_task), reason=cancellation_reason)
+                    if cancellation_reason != "attempt_settled" and isinstance(results[0], Exception):
+                        raise results[0]
                 execution_outcome = "completed"
                 self._observe_resource_execution(
                     selected_resource_id,
                     success=True,
-                    latency_ms=(monotonic() - execution_started) * 1000,
+                    latency_ms=(monotonic() - (execution_started or monotonic())) * 1000,
                 )
-                self.workflow_store.save_run_with_events(run, [self._lifecycle_event(
+                self._save_attempt_events(run, [self._lifecycle_event(
                     f"step.succeeded:{step_execution_id}", "step.succeeded", step_execution_id,
                     {"runId": run.run_id, "attemptId": attempt_id,
                      "stepExecutionId": step_execution_id,
@@ -801,18 +820,19 @@ class ACGExecutionService(CollaboratorAccess):
                 return result
             except ExecutionRunCancelled:
                 execution_outcome = "cancelled"
-                reason = "step scheduling stopped by operator cancellation"
-                self.workflow_store.save_run_with_events(run, [self._lifecycle_event(
+                reason = "operator_cancel" if self._cancellation_requested(run.run_id) else "execution_authority_changed"
+                self._save_attempt_events(run, [self._lifecycle_event(
                     f"step.cancelled:{step_execution_id}", "step.cancelled", step_execution_id,
                     {"runId": run.run_id, "attemptId": attempt_id,
                      "stepExecutionId": step_execution_id, "reason": reason},
                 )])
                 self._flush_identity_outbox()
                 raise
-            except asyncio.CancelledError:
+            except asyncio.CancelledError as exc:
                 execution_outcome = "cancelled"
-                reason = "ACG superstep cancelled after sibling failure"
-                self.workflow_store.save_run_with_events(run, [self._lifecycle_event(
+                reason = ("operator_cancel" if self._cancellation_requested(run.run_id)
+                          else str(exc) or "execution_cancelled")
+                self._save_attempt_events(run, [self._lifecycle_event(
                     f"step.cancelled:{step_execution_id}", "step.cancelled", step_execution_id,
                     {"runId": run.run_id, "attemptId": attempt_id,
                      "stepExecutionId": step_execution_id, "reason": reason},
@@ -828,6 +848,19 @@ class ACGExecutionService(CollaboratorAccess):
                     or getattr(exc, "cause_code", None)
                     or type(exc).__name__
                 )
+                outcome_unknown = bool(getattr(exc, "outcome_unknown", False))
+                if outcome_unknown:
+                    execution_outcome = "unknown"
+                    self.resource_plane.set_runtime_health(selected_resource_id, healthy=False)
+                    self.resource_plane.set_runtime_enabled(selected_resource_id, enabled=False)
+                if self._cancellation_requested(run.run_id) and step_execution_id is not None:
+                    self._save_attempt_events(run, [self._lifecycle_event(
+                        f"step.cancelled:{step_execution_id}", "step.cancelled", step_execution_id,
+                        {"runId": run.run_id, "attemptId": attempt_id,
+                         "stepExecutionId": step_execution_id, "reason": "operator_cancel",
+                         "settlement": "unknown" if outcome_unknown else "ended_with_error",
+                         "errorCode": error_code},
+                    )])
                 await runtime_event_broker.publish(
                     run.run_id,
                     RuntimeEvent(
@@ -848,38 +881,80 @@ class ACGExecutionService(CollaboratorAccess):
                 self._observe_resource_execution(
                     selected_resource_id,
                     success=False,
-                    latency_ms=(monotonic() - execution_started) * 1000,
+                    latency_ms=(monotonic() - (execution_started or monotonic())) * 1000,
                 )
-                self.workflow_store.save_run_with_events(run, [self._lifecycle_event(
-                    f"step.failed:{step_execution_id}", "step.failed", step_execution_id,
-                    {"runId": run.run_id, "attemptId": attempt_id,
-                     "stepExecutionId": step_execution_id, "reason": self._safe_error_message(exc)},
-                )])
+                if step_execution_id is not None:
+                    self._save_attempt_events(run, [self._lifecycle_event(
+                        f"step.failed:{step_execution_id}", "step.failed", step_execution_id,
+                        {"runId": run.run_id, "attemptId": attempt_id,
+                         "stepExecutionId": step_execution_id, "reason": self._safe_error_message(exc),
+                         "reasonCode": "lease_renewal_failure" if isinstance(exc, LeaseRenewalFailedError) else error_code},
+                    )])
                 self._flush_identity_outbox()
                 raise
             finally:
-                await keep_alive.stop()
-                finished = monotonic()
-                started = execution_started or finished
-                run.execution_state.setdefault("stepPerformance", {})[step_id] = {
-                    "schedulingWaitMs": round((started - scheduling_started) * 1000),
-                    "executionMs": round((finished - started) * 1000),
-                    "totalMs": round((finished - scheduling_started) * 1000),
-                    "outcome": execution_outcome,
-                    "resourceId": selected_resource_id,
-                }
-                released = self.resource_binder.release(decision.lease.lease_id)
-                if released:
-                    for scheduling_item in reversed(
-                        run.execution_state.get("schedulingDecisions") or []
-                    ):
-                        lease = scheduling_item.get("lease") if isinstance(scheduling_item, dict) else None
-                        if isinstance(lease, dict) and lease.get("leaseId") == decision.lease.lease_id:
-                            lease["status"] = "released"
-                            break
+                failure = sys.exception()
+                async def cleanup():
+                    stop_error = None
+                    try:
+                        await keep_alive.stop()
+                    except BaseException as exc:
+                        stop_error = exc
+                        raise
+                    finally:
+                        finished = monotonic()
+                        started = execution_started or finished
+                        run.execution_state.setdefault("stepPerformance", {})[step_id] = {
+                            "schedulingWaitMs": round((started - scheduling_started) * 1000),
+                            "executionMs": round((finished - started) * 1000),
+                            "totalMs": round((finished - scheduling_started) * 1000),
+                            "outcome": execution_outcome,
+                            "resourceId": selected_resource_id,
+                        }
+                        lease_state = "retained_unknown" if outcome_unknown else "release_failed"
+                        try:
+                            if not outcome_unknown:
+                                released = self.resource_binder.release(decision.lease.lease_id)
+                                lease_state = "released" if released else "not_owned"
+                        finally:
+                            cleanup_error = sys.exception()
+                            settlement = {"taskState": "ended", "outcome": execution_outcome,
+                                          "leaseState": lease_state, "leaseId": decision.lease.lease_id,
+                                          "trigger": cancellation_reason}
+                            if failure is not None and not isinstance(failure, asyncio.CancelledError):
+                                settlement["errorType"] = type(failure).__name__
+                            if cleanup_error is not None or stop_error is not None:
+                                settlement["cleanupErrorType"] = type(cleanup_error or stop_error).__name__
+                            run.execution_state.setdefault("taskSettlement", {})[attempt_id] = settlement
+                            latest = self.workflow_store.get_run(run.run_id)
+                            candidate = latest.model_copy(deep=True)
+                            candidate.execution_state.setdefault("taskSettlement", {})[attempt_id] = settlement
+                            candidate.execution_state.setdefault("stepPerformance", {})[step_id] = run.execution_state["stepPerformance"][step_id]
+                            for snapshot in (run, candidate):
+                                for item in snapshot.execution_state.get("schedulingDecisions", []):
+                                    lease = item.get("lease") or {}
+                                    if lease.get("leaseId") == decision.lease.lease_id and lease_state == "released":
+                                        lease["status"] = "released"
+                            candidate.updated_at = max(utc_now(), latest.updated_at)
+                            # Cleanup metadata is not another Run transition.
+                            # Commit it with CAS without emitting run.finished again.
+                            self.workflow_store.save_run_with_events(candidate, [], expected_snapshot=latest)
+
+                await await_settled(asyncio.create_task(cleanup(), name=f"acg-cleanup:{run.run_id}:{step_id}"))
 
         execute.prepare_superstep = runner.prepare_superstep
         return execute
+
+    def _save_attempt_events(self, run: RuntimeRunRecord, events: list[dict]) -> None:
+        latest = self.workflow_store.get_run(run.run_id)
+        if latest.status in self._terminal_run_statuses:
+            # Only cancellation/cleanup facts may arrive after durable cancellation.
+            events = [event for event in events if event["eventType"] == "step.cancelled"]
+            if not events or latest.status != WorkflowStatus.CANCELLED:
+                return
+            self.workflow_store.save_run_with_events(latest, events, expected_snapshot=latest)
+        else:
+            self.workflow_store.save_run_with_events(run, events, expected_snapshot=latest)
 
     def _observe_resource_execution(self, runtime_id: str, *, success: bool, latency_ms: float) -> None:
         """把一次 attempt 的真实执行结果回写资源观测（延迟/可靠性/健康事件）。
@@ -1754,6 +1829,9 @@ class ACGExecutionService(CollaboratorAccess):
         的内存投影覆盖它，让审计能看到取消前实际完成的步骤，而不改变终态，
         也绝不把已取消的任务推进为 COMPLETED。
         """
+        latest = self.workflow_store.get_run(run.run_id)
+        if latest.status in self._terminal_run_statuses:
+            return latest
         if execution_state is not None:
             self.state_persistence.persist(run, execution_state)
         if run.status in self._terminal_run_statuses:

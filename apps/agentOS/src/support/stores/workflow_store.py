@@ -410,7 +410,7 @@ class WorkflowStore(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def save_run_with_events(self, run: RuntimeRunRecord, events: Sequence[dict]) -> None:
+    def save_run_with_events(self, run: RuntimeRunRecord, events: Sequence[dict], *, expected_snapshot: RuntimeRunRecord | None = None) -> None:
         """Atomically save the execution Run snapshot and append lifecycle Outbox events."""
         raise NotImplementedError
 
