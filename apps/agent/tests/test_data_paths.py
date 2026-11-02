@@ -1,4 +1,7 @@
 from pathlib import Path
+import subprocess
+import sys
+import textwrap
 
 
 def test_canonical_app_data_paths():
@@ -13,10 +16,27 @@ def test_canonical_app_data_paths():
 
 
 def test_main_static_mount_uses_canonical_app_data_dir():
-    import app.main as main
-    from app.paths import APP_DATA_DIR
-
-    assert main._data_dir == APP_DATA_DIR
+    # main constructs a process-owned assembly on import. Isolate that import
+    # and close its owners instead of leaking its database lock/registries into
+    # every later Runtime fixture in this pytest process.
+    subprocess.run([sys.executable, '-c', textwrap.dedent('''
+        import asyncio
+        import app.main as main
+        from app.paths import APP_DATA_DIR
+        from app.lifespan import run_cleanups
+        from app.execution.wiring import aclose_runtime
+        try:
+            assert main._data_dir == APP_DATA_DIR
+        finally:
+            async def close():
+                failures = await run_cleanups([
+                    ('coordinator', main.coordinator.shutdown),
+                    ('model_setup', main.model_setup.close),
+                    ('runtime', lambda: aclose_runtime(main.runtime)),
+                ])
+                assert not failures, failures
+            asyncio.run(close())
+    ''')], check=True, timeout=120)
 
 
 def test_digital_human_service_uses_canonical_paths():

@@ -138,6 +138,7 @@ def test_application_builds_the_single_execution_runtime_with_authoritative_reso
             "industrial",
             "kinlin.legal",
             "programmer",
+            "workspace",
             "writer",
         }
     finally:

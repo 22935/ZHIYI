@@ -54,6 +54,11 @@ def test_native_reasoning_options_cover_openai_and_qwen():
         "high",
     )
     assert deepseek_options == {
+        "reasoning_effort": "high",
+        "extra_body": {"thinking": {"type": "enabled"}},
+    }
+    # The current provider contract preserves explicit high and max separately.
+    assert completion_options("deepseek-v4-pro", "https://api.deepseek.com/v1", "max") == {
         "reasoning_effort": "max",
         "extra_body": {"thinking": {"type": "enabled"}},
     }

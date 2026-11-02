@@ -54,6 +54,9 @@ def test_missing_default_baseline_blocks_before_test_discovery(tmp_path, monkeyp
                                     "apps/agent/app/main.py",
                                     "apps/agent/app/execution/wiring.py",
                                     "apps/agent/app/execution/instance_lock.py",
+                                    "apps/agent/app/execution/coordinator.py",
+                                    "apps/agent/app/execution/model_runtime.py",
+                                    "apps/agent/app/tools/formal_workspace.py",
                                     "scripts/upgrade_agentos_c2_schema.py"])
 def test_committed_external_changes_use_fixed_reference_not_head(tmp_path, monkeypatch, source):
     gate = load()
@@ -99,6 +102,10 @@ def test_committed_external_changes_use_fixed_reference_not_head(tmp_path, monke
     ("apps/agent/app/execution/wiring.py", "tests/components/planner/test_production_authority_assembly.py"),
     ("apps/agent/app/execution/instance_lock.py", "tests/storage/test_runtime_assembly_failure_cleanup.py"),
     ("apps/agent/app/main.py", "tests/storage/test_runtime_assembly_failure_cleanup.py"),
+    ("src/support/async_tasks.py", "../agent/tests/test_execution_adapter_settlement.py"),
+    ("apps/agent/app/execution/coordinator.py", "../agent/tests/test_managed_execution_settlement.py"),
+    ("apps/agent/app/execution/model_runtime.py", "../agent/tests/test_execution_adapter_settlement.py"),
+    ("apps/agent/app/tools/formal_workspace.py", "../agent/tests/test_execution_adapter_settlement.py"),
 ])
 def test_relevant_source_resolves_real_related_tests(source, required):
     gate = load()
@@ -138,6 +145,61 @@ def test_production_composition_root_is_pinned_and_drift_forces_assembly_tests()
     assert source in gate["changed_external_paths"](drifted)
     selected, uncovered = gate["resolve_tests"](gate["changed_external_paths"](drifted))
     assert uncovered == [] and "tests/components/planner/test_production_authority_assembly.py" in selected
+
+
+@pytest.mark.parametrize("source", ["apps/agent/app/execution/coordinator.py",
+    "apps/agent/app/execution/model_runtime.py", "apps/agent/app/tools/formal_workspace.py"])
+def test_execution_owners_are_tracked_and_drift_forces_real_settlement_tests(source):
+    gate = load()
+    assert source in gate["EXTERNAL_SOURCES"]
+    assert gate["external_snapshot"]()[source] == hashlib.sha256((ROOT / source).read_bytes()).hexdigest()
+    drifted = dict(gate["external_snapshot"]())
+    drifted[source] = "0" * 64
+    assert source in gate["changed_external_paths"](drifted)
+    selected, uncovered = gate["resolve_tests"]([source])
+    assert not uncovered
+    assert any(path.endswith(("test_managed_execution_settlement.py", "test_execution_adapter_settlement.py")) for path in selected)
+
+
+def test_external_app_test_bytes_participate_in_the_source_fingerprint(tmp_path, monkeypatch):
+    gate = load()
+    source = 'apps/agent/tests/test_execution_adapter_settlement.py'
+    assert source in gate['EXTERNAL_SOURCES']
+    ns = gate['external_snapshot'].__globals__
+    monkeypatch.setitem(ns, 'ROOT', tmp_path)
+    path = tmp_path / source
+    path.parent.mkdir(parents=True)
+    path.write_text('before', encoding='utf-8')
+    before = gate['external_snapshot']()
+    path.write_text('after', encoding='utf-8')
+    after = gate['external_snapshot']()
+    assert before[source] != after[source]
+    selected, uncovered = gate['resolve_tests']([source])
+    assert not uncovered and '../agent/tests/test_execution_adapter_settlement.py' in selected
+
+
+def test_real_cross_root_collection_and_manifest_execution_cannot_drop_app_tests(tmp_path):
+    gate = load()
+    nodes, code, output = gate['collect_node_ids']([
+        '../agent/tests/test_execution_adapter_settlement.py::test_repeated_parent_cancellation_waits_for_child_cleanup',
+        'tests/support/test_execution_settlement_persistence.py::test_stale_event_snapshot_cas_preserves_run_mission_and_outbox[memory]',
+    ], timeout=120)
+    assert code == 0, output
+    assert set(nodes) == {
+        'apps/agent/tests/test_execution_adapter_settlement.py::test_repeated_parent_cancellation_waits_for_child_cleanup',
+        'apps/agentOS/tests/support/test_execution_settlement_persistence.py::test_stale_event_snapshot_cas_preserves_run_mission_and_outbox[memory]',
+    }
+    manifest = tmp_path / 'cross-root.nodeids'
+    gate['write_node_manifest'](nodes, manifest)
+    observed = tmp_path / 'observed.json'
+    env = {**gate['pytest_environment'](), 'FREEZE_GATE_OBSERVATION_PATH': str(observed),
+           'FREEZE_GATE_INVOCATION_ID': 'cross-root'}
+    done = subprocess.run(gate['build_pytest_command'](manifest), cwd=gate['ROOT'], env=env,
+                          capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120)
+    assert done.returncode == 0, done.stdout + done.stderr
+    evidence = json.loads(observed.read_text())
+    assert sorted(evidence['collectedNodeIds']) == nodes
+    assert {entry['nodeId'] for entry in evidence['reports']} == set(nodes)
 
 
 def test_instance_lock_is_pinned_and_drift_forces_cleanup_tests():
@@ -307,9 +369,10 @@ def test_duration_history_preserves_maxima_and_records_last_observation(tmp_path
 
 def _gate_harness(tmp_path, monkeypatch, gate, history, popen):
     ns = gate["main"].__globals__
-    test_file = tmp_path / "agentOS/tests/test_target.py"
+    test_file = tmp_path / "tests/test_target.py"
     test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text("def test_target(): pass\n", encoding="utf-8")
+    (tmp_path / 'pytest.ini').write_text('[pytest]\n', encoding='utf-8')
     baseline = tmp_path / "accepted.json"
     baseline.write_bytes(gate["DEFAULT_BASELINE"].read_bytes())
 

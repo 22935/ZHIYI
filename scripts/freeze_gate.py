@@ -42,6 +42,30 @@ FAST_OR_CRITICAL = (
 # counterexamples in those modules carry @pytest.mark.freeze_gate. New rules
 # should be added alongside the implementation that introduces the module.
 SOURCE_TEST_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    # PR-UI-04.2: retain the original INT-1 manifest; cover the real managed
+    # cancellation chain and previously unmapped adapter/store deltas.
+    ("src/support/async_tasks.py", ("../agent/tests/test_execution_adapter_settlement.py", "../agent/tests/test_managed_execution_settlement.py")),
+    ("src/runtime/acg_execution.py", ("../agent/tests/test_managed_execution_settlement.py",)),
+    ("src/runtime/workflow_runtime.py", ("../agent/tests/test_managed_execution_settlement.py",)),
+    ("src/components/executor/graph.py", ("../agent/tests/test_execution_adapter_settlement.py",)),
+    ("src/components/scheduler/binder.py", ("../agent/tests/test_managed_execution_settlement.py",)),
+    ("src/adapters/audited_tool_runtime.py", ("tests/adapters/test_audited_tool_runtime.py", "tests/adapters/test_hands_integration.py")),
+    ("src/adapters/guarded_tool.py", ("tests/adapters/test_guarded_runtime.py", "tests/adapters/test_hands_integration.py")),
+    ("src/adapters/hands_http.py", ("tests/adapters/test_hands_integration.py", "../agent/tests/test_execution_adapter_settlement.py")),
+    ("src/adapters/http_transport.py", ("tests/adapters/test_http_transport.py", "../agent/tests/test_execution_adapter_settlement.py")),
+    ("src/adapters/model/native.py", ("tests/adapters/test_native_agent.py", "tests/adapters/test_model_audit_metadata.py", "../agent/tests/test_runtime_streaming_production_e2e.py")),
+    ("src/adapters/openai_runtime.py", ("tests/adapters/test_model_runtime.py", "tests/adapters/test_model_runtime_streaming.py")),
+    ("src/adapters/resource_execution.py", ("tests/adapters/test_resource_execution.py", "../agent/tests/test_execution_adapter_settlement.py")),
+    ("src/components/memory/service.py", ("tests/components/memory/test_execution_memory.py", "tests/components/memory/test_hybrid_capsule.py", "tests/test_acg_execution_graph.py")),
+    ("src/components/mission_manager/service.py", ("tests/support/test_branch_safe_mission_projection.py", "tests/runtime/test_mission_semantic_convergence.py")),
+    ("src/support/acg/capabilities.py", ("tests/adapters/test_native_agent.py", "tests/components/executor/test_advanced_acg_capabilities.py")),
+    ("src/support/stores/_policy.py", ("tests/support/test_workflow_store_contract.py", "tests/support/test_branch_safe_mission_projection.py")),
+    ("src/support/stores/memory_workflow_store.py", ("tests/support/test_workflow_store_contract.py", "tests/support/test_execution_settlement_persistence.py", "tests/support/test_branch_safe_mission_projection.py")),
+    ("src/support/stores/sqlite_workflow_store.py", ("tests/support/test_workflow_store_contract.py", "tests/support/test_execution_settlement_persistence.py", "tests/support/test_branch_safe_mission_projection.py")),
+    ("src/support/stores/workflow_store.py", ("tests/support/test_workflow_store_contract.py", "tests/support/test_execution_settlement_persistence.py")),
+    ("apps/agent/app/execution/coordinator.py", ("../agent/tests/test_execution_coordinator.py", "../agent/tests/test_managed_execution_settlement.py")),
+    ("apps/agent/app/execution/model_runtime.py", ("../agent/tests/test_acg_model_runtime.py", "../agent/tests/test_execution_adapter_settlement.py")),
+    ("apps/agent/app/tools/formal_workspace.py", ("tests/adapters/test_hands_integration.py", "../agent/tests/test_execution_adapter_settlement.py")),
     ("src/runtime/human_review_policy.py", ("tests/components/planner/test_human_review_policy.py",)),
     ("src/runtime/v2/queries.py", ("tests/runtime/v2/test_artifact_identity.py", "tests/runtime/v2/test_workspace_projection.py")),
     ("src/runtime/v2/workspace.py", ("tests/runtime/v2/test_artifact_identity.py", "tests/runtime/v2/test_workspace_projection.py")),
@@ -147,9 +171,14 @@ EXTERNAL_BASELINE = {
     # (cancellation safety); drift forces the lifespan cleanup tests.
     "apps/agent/app/lifespan.py": "1e4f5e7cabfd5df60ed8a7d3deb1ccd5e72b3f59499e6389ff01a422ced19b01",
     "apps/agent/app/api/agentos_v2.py": "b78ffdd8d0b1c004f9befdd63c7372070cf9a733c244f86591328897791ccc21",
-    # INT-2C closeout: explicit Dispatch mode is also enforced by Native claim.
-    # Preserve all assembly/schema mappings and drift-forces-tests assertions.
-    "apps/agent/app/execution/wiring.py": "29f9dd70a4803fb8d0329ef230eb854fdd4e190fda013473c270b7070375ecbf",
+    # PR-UI-04.2 assembly review: existing workspace authorization/composition
+    # changes were rechecked against the assembly/schema suites. INT-1 stays fixed.
+    "apps/agent/app/execution/wiring.py": "961b6810af095ebf7fb5b2cfe296844ac686fe1644f715bb68b9ac7e65aa5af6",
+    # New ownership boundaries await independent reference acceptance. None
+    # forces their real tests on every gate; actual bytes still fingerprint the run.
+    "apps/agent/app/execution/coordinator.py": None,
+    "apps/agent/app/execution/model_runtime.py": None,
+    "apps/agent/app/tools/formal_workspace.py": None,
     # Instance lock reviewed at INT-2A-1-FIX-REVIEW-FIX;
     # drift forces the assembly failure-cleanup tests mapped above.
     "apps/agent/app/execution/instance_lock.py": "b52efb5e1fd6c193ffb63734f3e10bf83597277dbe5992bce59deb7a1b7ff757",
@@ -159,7 +188,23 @@ EXTERNAL_BASELINE = {
     "scripts/freeze_gate_pytest_runner.py": "68736bccd5b3cfaf0fbbd02a800ef23b12d03c269c471e4693a11ca77a8345ef",
     "scripts/upgrade_agentos_c2_schema.py": None,
 }
+# These test inputs live outside AgentOS's src/tests snapshot. Track their
+# actual bytes in the external fingerprint and always select them until an
+# independent review accepts a fixed reference; never reuse a partial profile.
+APP_TEST_INPUTS = (
+    "apps/agent/tests/test_execution_adapter_settlement.py",
+    "apps/agent/tests/test_managed_execution_settlement.py",
+    "apps/agent/tests/test_execution_coordinator.py",
+    "apps/agent/tests/test_acg_model_runtime.py",
+    "apps/agent/tests/test_runtime_streaming_production_e2e.py",
+    "apps/agent/tests/test_mission_semantic_commands.py",
+    "apps/agent/tests/test_execution_runtime_application_wiring.py",
+    "apps/agent/tests/test_branch_safe_mission_lifecycle.py",
+    "apps/agent/tests/conftest.py",
+)
+EXTERNAL_BASELINE.update(dict.fromkeys(APP_TEST_INPUTS))
 EXTERNAL_SOURCES = tuple(EXTERNAL_BASELINE)
+PYTHONPATH_SEPARATOR = os.pathsep
 
 
 def external_snapshot() -> dict[str, str | None]:
@@ -229,13 +274,19 @@ def resolve_tests(changed_paths: list[str]) -> tuple[list[str], list[str]]:
     changed_sources = [
         path.removeprefix("apps/agentOS/")
         for path in changed_paths
-        if (path.startswith("apps/agentOS/src/") or path in EXTERNAL_SOURCES) and path.endswith(".py")
+        if (path.startswith("apps/agentOS/src/") or path in EXTERNAL_SOURCES)
+        and path.endswith(".py") and path not in APP_TEST_INPUTS
     ]
     changed_tests = [
         path.removeprefix("apps/agentOS/")
         for path in changed_paths
         if path.startswith("apps/agentOS/tests/") and path.endswith(".py")
     ]
+    changed_tests.extend("../agent/tests/" + Path(path).name for path in changed_paths
+                         if path in APP_TEST_INPUTS and Path(path).name.startswith("test_"))
+    if "apps/agent/tests/conftest.py" in changed_paths:
+        changed_tests.extend("../agent/tests/" + Path(path).name for path in APP_TEST_INPUTS
+                             if Path(path).name.startswith("test_"))
     selected: set[str] = set(changed_tests)
     uncovered: list[str] = []
     for source in changed_sources:
@@ -467,19 +518,29 @@ def _load_complete_estimate(source_sha, node_ids):
         return unknown
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return {**unknown, 'reason': 'INVALID_OR_UNREADABLE_PROFILE'}
+def pytest_environment():
+    env = os.environ.copy()
+    roots = (AGENTOS / "src", AGENTOS, ROOT / "apps/agent", AGENTOS / "tests/runtime",
+             AGENTOS / "tests/components/planner", ROOT / "apps/agent/tests")
+    prior = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = PYTHONPATH_SEPARATOR.join([*(str(path) for path in roots), *([prior] if prior else [])])
+    env["PYTHONUTF8"] = "1"
+    return env
+
+
 def collect_node_ids(paths: list[str], timeout: float) -> tuple[list[str], int, str]:
     command = [
         sys.executable, "-m", "pytest", "--collect-only", "-q", *paths,
-        "-m", FAST_OR_CRITICAL,
+        "--rootdir", str(ROOT), "-c", str(AGENTOS / "pytest.ini"), "-m", FAST_OR_CRITICAL,
     ]
     completed = subprocess.run(
         command, cwd=AGENTOS, text=True, encoding="utf-8", errors="replace",
-        capture_output=True, timeout=timeout,
+        capture_output=True, timeout=timeout, env=pytest_environment(),
     )
     node_ids = sorted({
         line.strip().replace("\\", "/")
         for line in completed.stdout.splitlines()
-        if line.strip().startswith("tests/") and "::" in line
+        if line.strip().replace("\\", "/").startswith(("tests/", "apps/agentOS/tests/", "apps/agent/tests/")) and "::" in line
     })
     return node_ids, completed.returncode, completed.stdout + completed.stderr
 
@@ -501,7 +562,7 @@ def build_pytest_command(manifest_path: Path) -> list[str]:
     """Constant-length pytest launch; the node IDs travel in the manifest."""
     return [
         sys.executable, str(PYTEST_RUNNER), str(manifest_path),
-        "--tb=short", "--durations=0",
+        "--rootdir", str(ROOT), "-c", str(AGENTOS / "pytest.ini"), "--tb=short", "--durations=0",
     ]
 
 
@@ -636,7 +697,7 @@ def main() -> int:
     report["node_manifest_sha256"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
     report["node_manifest_count"] = len(node_ids)
     report["log_path"] = str(log_path.relative_to(ROOT))
-    env = os.environ.copy()
+    env = pytest_environment()
     env["PYTHONUTF8"] = "1"
     observation_path = output_dir / (stamp + '.observation.json')
     env['FREEZE_GATE_OBSERVATION_PATH'] = str(observation_path)
@@ -653,7 +714,7 @@ def main() -> int:
             timed_out = True
         else:
             try:
-                process = subprocess.Popen(command, cwd=AGENTOS, stdout=log, stderr=subprocess.STDOUT, env=env)
+                process = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, env=env)
             except OSError as exc:
                 # The launcher itself could not start (e.g. Windows WinError
                 # 206 command-line overflow).  This is not a test run: report
