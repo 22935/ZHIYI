@@ -34,6 +34,23 @@ TERMINAL_RUN_STATUSES = frozenset(
 )
 
 
+def mission_status_from_runs(statuses) -> WorkflowStatus | None:
+    """Compatibility summary, never an execution permission or branch pointer.
+
+    Any active branch outranks terminal history. Among active branches prefer
+    executing work, then recovery/planning/review/accepted work. With no active
+    work, failure and cancellation remain visible rather than reporting success.
+    Superseded history contributes only when no other Run status exists.
+    """
+    present = set(statuses)
+    return next((status for status in (
+        WorkflowStatus.RUNNING, WorkflowStatus.RETRYING, WorkflowStatus.PLANNING,
+        WorkflowStatus.WAITING_REVIEW, WorkflowStatus.PENDING,
+        WorkflowStatus.FAILED, WorkflowStatus.CANCELLED, WorkflowStatus.COMPLETED,
+        WorkflowStatus.SUPERSEDED,
+    ) if status in present), None)
+
+
 def acg_review_subject(payload: object) -> tuple[str, str]:
     """Return the single persisted ACG review subject from canonical or v1 payloads."""
 

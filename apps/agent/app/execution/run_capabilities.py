@@ -79,7 +79,7 @@ def project_run_capabilities(runtime, run, *, formal_control=None):
     def finish(reason=None):
         if reason:
             for action in ACTIONS:
-                if action not in {'canInspect', 'canDiscuss'}:
+                if action not in ({'canInspect', 'canDiscuss', 'canDelete'} if reason == 'RUN_SUPERSEDED' else {'canInspect', 'canDiscuss'}):
                     result[action] = False
                 if not result[action]:
                     reasons[action] = reason
@@ -116,12 +116,16 @@ def project_run_capabilities(runtime, run, *, formal_control=None):
         allow('canDiscuss')
         if status not in ACTIVE | TERMINAL:
             return finish('UNKNOWN_STATUS')
-        if is_superseded(run):
-            return finish('RUN_SUPERSEDED')
         if mission.record_state != MissionRecordState.ACTIVE:
             return finish('MISSION_NOT_ACTIVE')
         if semantic:
             semantic.require_write_access(principal, run.mission_id)
+        if is_superseded(run):
+            # Soft deletion hides a terminal record; it never resumes execution
+            # or removes its persisted evidence. Match the existing Store/API.
+            if status in TERMINAL:
+                allow('canDelete')
+            return finish('RUN_SUPERSEDED')
         formal_write_proven = not run.execution_state.get('planningCommitRequired') or semantic is not None
         if status in ACTIVE:
             allow('canCancel')

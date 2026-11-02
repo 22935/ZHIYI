@@ -153,34 +153,9 @@ class MissionManager:
         return self.transition(task, WorkflowStatus.RUNNING)
 
     def mark_running_for_new_run(self, task: RuntimeMissionRecord | str, *, run_id: str) -> RuntimeMissionRecord:
-        """为新身份模型的独立 Run 重开旧 RuntimeMissionRecord 状态投影。
-
-        旧状态机仍保持终态不可逆；只有新 ACG 接线明确创建了另一个 Run 时，
-        才把兼容层 RuntimeMissionRecord 投影为该 Run 的当前状态。
-        """
-        resolved_task = self._task(task)
-        if resolved_task.status not in {
-            WorkflowStatus.COMPLETED,
-            WorkflowStatus.FAILED,
-            WorkflowStatus.CANCELLED,
-        }:
-            return self.mark_running(resolved_task)
-        old_status = resolved_task.status
-        resolved_task.status = WorkflowStatus.RUNNING
-        resolved_task.updated_at = utc_now()
-        self.workflow_store.save_mission(resolved_task)
-        self._record_task_event(
-            resolved_task,
-            TraceEventType.TASK_STATUS_CHANGED,
-            observation=f"Task status projected for new Run: {old_status.value} -> running",
-            payload={
-                "fromStatus": old_status.value,
-                "toStatus": WorkflowStatus.RUNNING.value,
-                "runId": run_id,
-                "projection": "new-acg-run",
-            },
-        )
-        return resolved_task
+        """Refresh all branches after validating the callback's Run ownership."""
+        self._require_run(task, run_id)
+        return self.transition(task, WorkflowStatus.RUNNING)
 
     def mark_waiting_review(self, task: RuntimeMissionRecord | str) -> RuntimeMissionRecord:
         """将任务推进到等待审核；副作用与合法性校验委托 ``transition``。"""
@@ -195,26 +170,13 @@ class MissionManager:
         return self.transition(task, WorkflowStatus.FAILED)
 
     def mark_failed_for_run(self, task: RuntimeMissionRecord | str, *, run_id: str) -> RuntimeMissionRecord:
-        """Project the controlling Run's failure, including failures before execution starts."""
-        resolved = self._task(task)
-        run = self.workflow_store.get_run(run_id)
-        if run.mission_id != resolved.mission_id:
-            raise ValueError("failure Run does not belong to the mission")
-        latest = self.workflow_store.list_mission_run_summaries([resolved.mission_id],
-            owner_user_id=run.input.get("authenticatedUserId"),
-            owner_tenant_id=run.input.get("authenticatedTenantId"))[resolved.mission_id].latest_run
-        if latest is None or latest.run_id != run_id:
-            return resolved
-        if resolved.status not in {WorkflowStatus.COMPLETED, WorkflowStatus.CANCELLED}:
-            return self.mark_failed(resolved)
-        old_status = resolved.status
-        resolved.status = WorkflowStatus.FAILED
-        resolved.updated_at = utc_now()
-        self.workflow_store.save_mission(resolved)
-        self._record_task_event(resolved, TraceEventType.TASK_STATUS_CHANGED,
-            observation=f"Task status projected for Run: {old_status.value} -> failed",
-            payload={"fromStatus": old_status.value, "toStatus": "failed", "runId": run_id, "projection": "run-failure"})
-        return resolved
+        """A failed branch is not a latest/current execution authority."""
+        self._require_run(task, run_id)
+        return self.transition(task, WorkflowStatus.FAILED)
+
+    def _require_run(self, task, run_id):
+        if self.workflow_store.get_run(run_id).mission_id != self._task(task).mission_id:
+            raise ValueError("Run does not belong to the mission")
 
     def mark_completed(self, task: RuntimeMissionRecord | str) -> RuntimeMissionRecord:
         """将任务推进到完成；副作用与合法性校验委托 ``transition``。"""
@@ -225,12 +187,16 @@ class MissionManager:
         return self.transition(task, WorkflowStatus.CANCELLED)
 
     def transition(self, task: RuntimeMissionRecord | str, status: WorkflowStatus | str) -> RuntimeMissionRecord:
-        """执行合法状态迁移并持久化任务。
+        """有 Run 时刷新兼容汇总；无 Run 时保留原状态机及错误轨迹。
 
-        成功时更新 ``updated_at`` 并记录状态变更轨迹；失败时保留原任务状态、追加错误轨迹
-        后重新抛出异常。单次状态机校验为 ``O(1)``。
+        Run 状态只由 Runtime 及 WorkflowStore 写入，回调次序不决定 Mission 状态。
         """
         resolved_task = self._task(task)
+        # Once Runs exist, their persisted set defines the compatibility summary.
+        # Callback order and stale Mission snapshots cannot authorize execution.
+        projected = self.workflow_store.project_mission_status(resolved_task.mission_id)
+        if projected is not None:
+            return projected
         old_status = resolved_task.status
         target_value = status.value if isinstance(status, WorkflowStatus) else str(status)
         try:
@@ -275,9 +241,8 @@ class MissionManager:
         )
 
     def _task(self, task: RuntimeMissionRecord | str) -> RuntimeMissionRecord:
-        if isinstance(task, RuntimeMissionRecord):
-            return task
-        return self.workflow_store.get_mission(task)
+        mission_id = task.mission_id if isinstance(task, RuntimeMissionRecord) else task
+        return self.workflow_store.get_mission(mission_id).model_copy(deep=True)
 
     def _select_workflow(
         self,

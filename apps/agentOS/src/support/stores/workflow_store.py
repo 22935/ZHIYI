@@ -291,8 +291,16 @@ class WorkflowStore(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def save_run(self, run: RuntimeRunRecord) -> None:
-        """持久化运行；实现必须维护终态不可被旧快照覆盖的不变量。"""
+    def save_run(self, run: RuntimeRunRecord, *, expected_snapshot: RuntimeRunRecord | None = None) -> None:
+        """Save Run and Mission summary atomically; optional full snapshot CAS.
+
+        A CAS conflict raises ValueError without modifying Run, Mission or outbox.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def project_mission_status(self, mission_id: str) -> RuntimeMissionRecord | None:
+        """Atomically refresh from all persisted Runs; None for a runless Mission."""
         raise NotImplementedError
 
     @abstractmethod

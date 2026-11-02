@@ -22,7 +22,7 @@ from support.stores.mission_semantic_store import (
 )
 
 from contracts.workflow import MissionRecordState, RunRecordState, RuntimeMissionRecord, RuntimeRunRecord, WorkflowStatus, utc_now
-from support.stores._policy import matches_mission, reject_terminal_overwrite, validate_run_state
+from support.stores._policy import matches_mission, reject_terminal_overwrite, validate_run_state, mission_status_from_runs
 from support.stores.workflow_store import (
     RuntimeMissionRunSummary,
     RuntimeRunListSummary,
@@ -211,8 +211,14 @@ class SQLiteWorkflowStore(WorkflowStore, MissionSemanticStore):
 
     def save_mission(self, task: RuntimeMissionRecord) -> None:
         """以任务标识 UPSERT JSON 快照并提交事务；SQLite 错误由驱动层原样抛出。"""
-        payload = json.dumps(task.model_dump(by_alias=True, mode="json"), ensure_ascii=False)
         with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            task = task.model_copy(deep=True)
+            projected = mission_status_from_runs(WorkflowStatus(row[0]) for row in conn.execute(
+                "SELECT status FROM runs WHERE mission_id=?", (task.mission_id,)))
+            if projected is not None:
+                task.status = projected
+            payload = json.dumps(task.model_dump(by_alias=True, mode="json"), ensure_ascii=False)
             conn.execute(
                 """INSERT INTO tasks(mission_id, payload, updated_at)
                    VALUES(?, ?, ?)
@@ -323,7 +329,7 @@ class SQLiteWorkflowStore(WorkflowStore, MissionSemanticStore):
             conn.commit()
             return task, len(runs)
 
-    def save_run(self, run: RuntimeRunRecord) -> None:
+    def save_run(self, run: RuntimeRunRecord, *, expected_snapshot: RuntimeRunRecord | None = None) -> None:
         """在单连接事务中保存运行。
 
         要求父任务存在且 ``mission_id`` 不可变；拒绝终态被旧/不同状态覆盖，验证明显状态冲突后
@@ -331,6 +337,10 @@ class SQLiteWorkflowStore(WorkflowStore, MissionSemanticStore):
         """
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
+            if expected_snapshot is not None:
+                current = conn.execute("SELECT payload FROM runs WHERE run_id=?", (run.run_id,)).fetchone()
+                if current is None or RuntimeRunRecord.model_validate_json(current[0]) != expected_snapshot:
+                    raise ValueError('Run changed before persistence')
             if not self._upsert_run(conn, run):
                 return
             event_type = lifecycle_run_event_type(run)
@@ -453,7 +463,32 @@ class SQLiteWorkflowStore(WorkflowStore, MissionSemanticStore):
                 run.record_state.value,
             ),
         )
+        SQLiteWorkflowStore._project_mission_status(conn, run.mission_id)
         return True
+
+    def project_mission_status(self, mission_id: str) -> RuntimeMissionRecord | None:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            return self._project_mission_status(conn, mission_id)
+
+    @staticmethod
+    def _project_mission_status(conn, mission_id: str) -> RuntimeMissionRecord | None:
+        status = mission_status_from_runs(WorkflowStatus(row[0]) for row in conn.execute(
+            "SELECT status FROM runs WHERE mission_id=?", (mission_id,)))
+        if status is None:
+            return None
+        row = conn.execute("SELECT payload FROM tasks WHERE mission_id=?", (mission_id,)).fetchone()
+        task = RuntimeMissionRecord.model_validate_json(row[0])
+        if task.status != status:
+            task.status = status
+            task.updated_at = utc_now()
+            payload = json.dumps(task.model_dump(by_alias=True, mode='json'), ensure_ascii=False)
+            conn.execute("UPDATE tasks SET payload=?,updated_at=? WHERE mission_id=?",
+                (payload, task.updated_at.isoformat(), mission_id))
+            SQLiteWorkflowStore._append_outbox(conn,
+                SQLiteWorkflowStore._snapshot_event_id('mission.created', mission_id, payload),
+                'mission.created', mission_id, payload)
+        return task
 
     def list_outbox(self, *, limit: int = 200) -> list[dict]:
         rows = self._fetch_all(

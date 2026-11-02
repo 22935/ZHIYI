@@ -40,6 +40,7 @@ def test_each_status_has_independent_offers_and_no_fabricated_current(authority,
     assert caps['canInspect'] and caps['canDiscuss']
     assert caps['canCancel'] == (status.value in {'pending', 'planning', 'running', 'retrying', 'waiting_review'})
     assert caps['canRerunSuccessor'] == (status.value in {'completed', 'failed', 'cancelled'})
+    assert caps['canDelete'] == (status.value in {'completed', 'failed', 'cancelled', 'superseded'})
     assert not caps['canReview']  # no authoritative checkpoint
     assert not caps['canExecuteFormalAction']  # no C2 authority
     assert not caps['canRetrySuccessor']  # no persisted compiled recovery evidence

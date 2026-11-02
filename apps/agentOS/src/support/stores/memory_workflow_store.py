@@ -25,6 +25,7 @@ from support.stores._policy import (
     reject_terminal_overwrite,
     run_priority,
     validate_run_state,
+    mission_status_from_runs,
 )
 from support.stores.workflow_store import (
     RuntimeRunRecordDeleteResult,
@@ -174,6 +175,10 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
     @_mission_locked
     def save_mission(self, task: RuntimeMissionRecord) -> None:
         """按任务标识保存内存对象；调用方保留传入任务所有权。"""
+        task = task.model_copy(deep=True)
+        projected = mission_status_from_runs(run.status for run in self._runs.values() if run.mission_id == task.mission_id)
+        if projected is not None:
+            task.status = projected
         self._tasks[task.mission_id] = task
         payload = task.model_dump(by_alias=True, mode="json")
         self._append_lifecycle_event(
@@ -226,10 +231,11 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
             raise
         return run.model_copy(deep=True)
 
+    @_mission_locked
     def get_mission(self, mission_id: str) -> RuntimeMissionRecord:
-        """读取任务引用；缺失时抛出带上下文的 ``KeyError``。"""
+        """读取任务副本，避免过期调用方绕过存储修改兼容投影。"""
         try:
-            return self._tasks[mission_id]
+            return self._tasks[mission_id].model_copy(deep=True)
         except KeyError as exc:
             raise KeyError(f"task not found: {mission_id}") from exc
 
@@ -254,23 +260,20 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
         return task.model_copy(deep=True), len(runs)
 
     @_mission_locked
-    def save_run(self, run: RuntimeRunRecord) -> None:
+    def save_run(self, run: RuntimeRunRecord, *, expected_snapshot: RuntimeRunRecord | None = None) -> None:
         """深复制保存运行，并拒绝终态被不同状态或更旧快照覆盖。
 
         失败到重试是唯一允许的终态回退兼容路径；与 Mission 清除共享锁。
         """
-        if not self._save_run_snapshot(run):
-            return
+        if expected_snapshot is not None and self.get_run(run.run_id) != expected_snapshot:
+            raise ValueError('Run changed before persistence')
         event_type = lifecycle_run_event_type(run)
-        if event_type is None:
-            return
-        payload = lifecycle_run_payload(run)
-        self._append_lifecycle_event(
-            event_id=self._snapshot_event_id(event_type, run.run_id, payload),
-            event_type=event_type,
-            aggregate_id=run.run_id,
-            payload=payload,
-        )
+        events = []
+        if event_type is not None:
+            payload = lifecycle_run_payload(run)
+            events.append({'eventId': self._snapshot_event_id(event_type, run.run_id, payload),
+                'eventType': event_type, 'aggregateId': run.run_id, 'payload': payload})
+        self.save_run_with_events(run, events)
 
     def _save_run_snapshot(self, run: RuntimeRunRecord) -> bool:
         if run.mission_id not in self._tasks:
@@ -289,10 +292,24 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
         elif terminal_status == WorkflowStatus.FAILED and run.status == WorkflowStatus.RETRYING:
             self._terminal_run_statuses.pop(run.run_id, None)
         self._runs[run.run_id] = run.model_copy(deep=True)
+        self.project_mission_status(run.mission_id)
         return True
 
     @_mission_locked
+    def project_mission_status(self, mission_id: str) -> RuntimeMissionRecord | None:
+        status = mission_status_from_runs(run.status for run in self._runs.values() if run.mission_id == mission_id)
+        if status is None:
+            return None
+        task = self.get_mission(mission_id)
+        if task.status != status:
+            task.status = status
+            task.updated_at = utc_now()
+            self.save_mission(task)
+        return task
+
+    @_mission_locked
     def save_run_with_events(self, run: RuntimeRunRecord, events) -> None:
+        tasks_snapshot = dict(self._tasks)
         outbox_snapshot = dict(self._lifecycle_outbox)
         run_snapshot = dict(self._runs)
         terminal_snapshot = dict(self._terminal_run_statuses)
@@ -313,6 +330,7 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
                     raise ValueError(f"lifecycle event payload conflict: {event_id}")
                 self._lifecycle_outbox[event_id] = payload
         except Exception:
+            self._tasks = tasks_snapshot
             self._lifecycle_outbox = outbox_snapshot
             self._runs = run_snapshot
             self._terminal_run_statuses = terminal_snapshot
@@ -322,6 +340,7 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
     def save_graph_patch_transition(
         self, old_run: RuntimeRunRecord, new_run: RuntimeRunRecord, event: dict
     ) -> None:
+        tasks_snapshot = dict(self._tasks)
         runs_snapshot = dict(self._runs)
         terminal_snapshot = dict(self._terminal_run_statuses)
         outbox_snapshot = dict(self._lifecycle_outbox)
@@ -341,6 +360,7 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
                 raise ValueError(f"lifecycle event payload conflict: {event_id}")
             self._lifecycle_outbox[event_id] = payload
         except Exception:
+            self._tasks = tasks_snapshot
             self._runs = runs_snapshot
             self._terminal_run_statuses = terminal_snapshot
             self._lifecycle_outbox = outbox_snapshot
@@ -381,6 +401,7 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
         if applied:
             self._lifecycle_outbox.pop(event_id, None)
 
+    @_mission_locked
     def get_run(self, run_id: str) -> RuntimeRunRecord:
         """返回运行的深复制快照，避免调用方绕过存储修改内部状态。"""
         try:

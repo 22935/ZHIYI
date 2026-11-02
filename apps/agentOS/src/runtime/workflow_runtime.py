@@ -2456,24 +2456,28 @@ class ExecutionRuntime(CollaboratorAccess):
                 return latest  # Internal duplicate cancellation must not rewrite historical Trace.
             if latest.status in _TERMINAL_RUN_STATUSES:
                 raise InvalidStateTransition('terminal Run cannot be cancelled')
-            # 先写协作式取消信号，再落终态：执行中的图会在下一个调度边界停止
-            # 推进，而不是继续跑完后继步骤后与已持久化的终态互踩。
-            self._signal_run_cancellation(run_id)
             run = latest.model_copy(deep=True)
             self._transition_run(run, WorkflowStatus.CANCELLED)
-            self.mission_manager.mark_cancelled(run.mission_id)
+            if run.status is not WorkflowStatus.CANCELLED:
+                raise InvalidStateTransition('Run changed before cancellation')
             self.trace_store.append(
                 run=run,
                 event_type=TraceEventType.RUN_CANCELLED,
                 observation="Workflow cancelled.",
             )
-            self.workflow_store.save_run(run)
-            if (
-                self.identity_lifecycle is not None
-                and self._normalize_runtime_engine(run.runtime_engine) == "acg"
-            ):
-                self._flush_identity_outbox()
-            self._publish_run_terminal_event(run, "run.cancelled")
+            # Commit Run + Trace + Mission summary before publishing the signal.
+            # Full-snapshot CAS also protects progress written outside this
+            # process's Run lock. Failure leaves no cancellation side effect.
+            self.workflow_store.save_run(run, expected_snapshot=latest)
+            self._signal_run_cancellation(run_id)
+            # The durable outbox is retryable; notification failure cannot turn
+            # a committed cancellation into a failed command with a live signal.
+            try:
+                if self.identity_lifecycle is not None and self._normalize_runtime_engine(run.runtime_engine) == "acg":
+                    self._flush_identity_outbox(raise_on_failure=False)
+                self._publish_run_terminal_event(run, "run.cancelled")
+            except Exception:
+                logger.exception('cancel_notification_failed', extra={'runId': run_id})
             return run
 
     def _resolve_workflow(
