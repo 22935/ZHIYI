@@ -4,11 +4,7 @@ import { ElMessageBox } from 'element-plus'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { agentosApi, type MissionWorkspaceProjection, type WorkspaceEntry } from '@/services/api/agentos'
 import MissionWorkspaceView from './MissionWorkspaceView.vue'
-import { chooseFailedRunRetryMode } from '@/utils/retryModeChoice'
-
-vi.mock('@/utils/retryModeChoice', () => ({
-  chooseFailedRunRetryMode: vi.fn().mockResolvedValue('successor_run')
-}))
+import { capabilitiesFixture } from '@/test/fixtures/runCapabilities'
 
 const defaultLayoutStubState = {
   leftAutoHidden: false,
@@ -69,7 +65,8 @@ const artifact = (key = 'primary', id = 'artifact_1', legacy = false): Workspace
   contentRef: `manifest_${id}`, mediaType: 'text/markdown', identityQuality: legacy ? 'legacy' : 'canonical', runId: 'run_2'
 })
 
-const projection = (overrides: Partial<MissionWorkspaceProjection> = {}): MissionWorkspaceProjection => ({
+const projection = (overrides: Partial<MissionWorkspaceProjection> = {}): MissionWorkspaceProjection => {
+  const value: MissionWorkspaceProjection = {
   mission: { missionId: 'mission_1', userId: 'user_1', goal: '设备人员规划', description: '目标', metadata: { domain: 'ops' }, createdAt: '2026-08-28T00:00:00Z', updatedAt: '2026-08-28T00:00:00Z', status: 'created' },
   activeRun: { runId: 'run_2', status: 'running', createdAt: '2026-08-28T00:02:00Z', isActive: true },
   runs: [
@@ -88,7 +85,13 @@ const projection = (overrides: Partial<MissionWorkspaceProjection> = {}): Missio
     ...runEntries()
   ],
   ...overrides
-})
+  }
+  for (const row of [...value.runs, ...(value.activeRun ? [value.activeRun] : [])]) {
+    row.actionCapabilities ??= capabilitiesFixture(row.runId, 'mission_1', row.status === 'succeeded' ? 'completed' : row.status, 1,
+      { canRetrySuccessor: row.status === 'failed', retryStepId: row.status === 'failed' ? 'node_capacity' : null })
+  }
+  return value
+}
 
 const mountWorkspace = async (
   resolved: MissionWorkspaceProjection | ((runId?: string) => MissionWorkspaceProjection) = projection(),
@@ -250,12 +253,15 @@ describe('MissionWorkspaceView', () => {
     expect(wrapper.find('.editor-tab.is-active').text()).toContain('final.md')
   })
 
-  it('refuses to stop a selected Run without authoritative current identity', async () => {
+  it('refuses to stop a selected Run without authoritative action capabilities', async () => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
     const cancel = vi.spyOn(agentosApi, 'cancelWorkflowRun').mockResolvedValue({
       runId: 'run_2', missionId: 'mission_1', workflowId: 'workflow_1', domain: 'ops', status: 'cancelled', steps: []
     } as any)
-    const { wrapper } = await mountWorkspace()
+    const unresolved = projection()
+    unresolved.activeRun!.actionCapabilities = null
+    unresolved.runs.forEach(run => { run.actionCapabilities = null })
+    const { wrapper } = await mountWorkspace(unresolved)
 
     await wrapper.find('.progress-editor-stub__cancel').trigger('click')
     await flushPromises()
@@ -430,7 +436,10 @@ describe('MissionWorkspaceView', () => {
   })
 
   it('switches from current to historical Run through a new workspace request', async () => {
-    vi.spyOn(agentosApi, 'getWorkflowRun').mockImplementation(async runId => ({ runId, missionId: 'mission_1', status: runId === 'run_1' ? 'succeeded' : 'running', steps: [], lineage: runId === 'run_1' ? { supersededByRunId: 'run_2' } : {} } as any))
+    vi.spyOn(agentosApi, 'getWorkflowRun').mockImplementation(async runId => ({ runId, missionId: 'mission_1', runtimeRevision: 1,
+      status: runId === 'run_1' ? 'completed' : 'running', steps: [], lineage: runId === 'run_1' ? { supersededByRunId: 'run_2' } : {},
+      actionCapabilities: capabilitiesFixture(runId, 'mission_1', runId === 'run_1' ? 'completed' : 'running', 1,
+        runId === 'run_1' ? { isSuperseded: true, lineage: { supersededByRunId: 'run_2' }, canRerunSuccessor: false, canDelete: false } : {}) } as any))
     const historical = projection({ activeRun: { runId: 'run_1', status: 'succeeded', createdAt: '2026-08-28T00:01:00Z', isActive: true }, entries: projection().entries.filter(item => item.entryId !== 'task:capacity:primary') })
     const getWorkspace = vi.spyOn(agentosApi, 'getMissionWorkspace').mockImplementation(async (_id, options) => options.runId === 'run_1' ? historical : projection())
     const { wrapper } = await mountWorkspace()
@@ -486,10 +495,11 @@ describe('MissionWorkspaceView', () => {
   })
 
   it('continues a failed Run from its failed step instead of replaying completed work', async () => {
-    vi.mocked(chooseFailedRunRetryMode).mockResolvedValue('successor_run')
     const source = projection({
       activeRun: { runId: 'run_1', status: 'failed', createdAt: '2026-08-28T00:01:00Z', isActive: true }
     })
+    source.activeRun!.actionCapabilities = capabilitiesFixture('run_1', 'mission_1', 'failed', 9,
+      { canRetrySuccessor: true, retryStepId: 'design' })
     const successor = projection({
       activeRun: { runId: 'run_3', status: 'running', createdAt: '2026-08-28T00:03:00Z', isActive: true },
       runs: [...source.runs, { runId: 'run_3', status: 'running', createdAt: '2026-08-28T00:03:00Z', isActive: true }]

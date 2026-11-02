@@ -38,7 +38,7 @@
         <div v-if="projection" class="workspace-lifecycle" role="status" aria-live="polite">
           <strong>{{ lifecycle.phase }}</strong>
           <span>{{ lifecycle.deliveryStatus === 'MISSING' ? 'Completed · Final deliverable missing' : lifecycle.reason }}</span>
-          <small>Current: {{ lifecycle.currentRunId || '未确认' }} · Latest created: {{ lifecycle.latestRunId || '未观测' }}</small>
+          <small>Selected: {{ selectedRunId || '未选择' }} · Latest created: {{ lifecycle.latestRunId || '未观测' }} · Active Runs: {{ activeRunIds.join(', ') || '未观测' }}</small>
           <button type="button" :aria-pressed="editorIntent.mode === 'follow'" @click="enableLifecycleFollow">{{ editorIntent.mode === 'follow' ? 'Following lifecycle' : 'Follow lifecycle' }}</button>
         </div>
         <EditorGroup
@@ -226,7 +226,7 @@ import { acquireRunRuntimeStore, releaseRunRuntimeStore, type RunRuntimeStore } 
 import type { RunDocumentSymbol } from '@/workbench/runtime/runDocument'
 import type { ArtifactDocumentModel } from '@/workbench/runtime/artifactProjection'
 import { beginRunRecovery, pendingRunRecovery, completeRunRecovery } from '@/workbench/runtime/recoveryIdentity'
-import { isActiveRunStatus, isTerminalRunStatus } from '@/features/workspace/session'
+import { readRunCapabilities } from '@/workbench/runtime/runCapabilities'
 import { conversationBindingKey } from '@/features/workspace/navigation'
 import { projectLifecycle } from '@/workbench/runtime/lifecycleProjection'
 import { initialEditorIntent, selectLifecycleEditor } from '@/workbench/runtime/editorSelection'
@@ -262,7 +262,10 @@ let recoveryUiGeneration = 0
 const cancelPending = ref(false)
 const selectedRunId = ref<string | null>(typeof route.query.runId === 'string' ? route.query.runId : null)
 watch(selectedRunId, () => { recoveryUiGeneration++; rerunPending.value = false }, { flush: 'sync' })
-const currentRunId = computed(() => lifecycle.value.currentRunId)
+const activeRunIds = computed(() => (projection.value?.runs || []).flatMap(run => {
+  const capabilities = readRunCapabilities(run.actionCapabilities, missionId.value, run.runId)
+  return capabilities?.isExecutionActive && !capabilities.isSuperseded ? [run.runId] : []
+}))
 const openEditors = ref<string[]>([])
 const activeEditorId = ref<string | null>(null)
 // 活动文件编辑器的元信息（语言/编码/行数/行列），转交给窗口底部状态栏展示。
@@ -378,18 +381,18 @@ const inspectorGraphNode = computed<WorkspaceGraphNode | null>(() => {
 const isHistorical = computed(() => lifecycle.value.isHistorical)
 const controlReadOnly = computed(() => lifecycle.value.isReadOnly || loading.value || Boolean(loadError.value))
 const canRerunSelectedRun = computed(() => Boolean(
-  projection.value?.activeRun?.runId && isTerminalRunStatus(projection.value.activeRun.status)
+  projection.value?.activeRun?.runId && (lifecycle.value.capabilities?.canRetrySuccessor || lifecycle.value.capabilities?.canRerunSuccessor)
 ))
-const shouldResumeSelectedRun = computed(() => projection.value?.activeRun?.status === 'failed')
+const shouldResumeSelectedRun = computed(() => lifecycle.value.capabilities?.canRetrySuccessor === true)
 const canCancelActiveRun = computed(() => Boolean(
   projection.value?.activeRun?.runId
   && !controlReadOnly.value
-  && isActiveRunStatus(projection.value.activeRun.status)
+  && lifecycle.value.capabilities?.canCancel === true
   && !cancelPending.value
 ))
 const rerunDisabledReason = computed(() => {
   if (rerunPending.value) return '正在创建新的 Run'
-  if (!canRerunSelectedRun.value) return '当前运行尚未结束'
+  if (!canRerunSelectedRun.value) return '服务端未提供创建后继 Run 的能力'
   return shouldResumeSelectedRun.value
     ? '复用已完成节点，从失败节点继续执行'
     : '从当前 Run 创建新的执行版本'
@@ -433,6 +436,7 @@ const auxiliaryViewProps = computed(() => ({
   cancelPending: cancelPending.value,
   historical: isHistorical.value,
   readonly: controlReadOnly.value,
+  actionCapabilities: lifecycle.value.capabilities,
   ...(activeAuxiliaryView.value?.getProps?.(workbenchContext.value) || {})
 }))
 type RightPaneState = {
@@ -469,7 +473,8 @@ const sidebarProps = computed(() => ({
 }))
 
 const runPickerItems = computed(() => (projection.value?.runs || [])
-  .map(run => ({ runId: run.runId, status: run.status || null })))
+  .map(run => ({ runId: run.runId, status: run.status || null,
+    canDelete: readRunCapabilities(run.actionCapabilities, missionId.value, run.runId)?.canDelete === true })))
 const panelTabs = computed<WorkbenchBottomTab[]>(() => registry.getPanels(workbenchContext.value).map(panel => ({
   id: panel.id,
   label: panel.label,
@@ -641,10 +646,6 @@ const stopProjectionRefresh = () => {
   }
 }
 
-const projectionPending = (projection: MissionWorkspaceProjection) => Boolean(
-  projection.diagnostics?.some(item => item.code === 'PLANNING_PROJECTION_PENDING')
-  && ACTIVE_PROJECTION_RUN_STATUSES.has(projection.activeRun?.status || '')
-)
 const projectionActive = (projection: MissionWorkspaceProjection) => (
   ACTIVE_PROJECTION_RUN_STATUSES.has(projection.activeRun?.status || '')
 )
@@ -811,6 +812,7 @@ const cancelErrorMessage = (error: unknown) => {
 const cancelActiveRun = async () => {
   const run = projection.value?.activeRun
   if (!run?.runId || !canCancelActiveRun.value) return
+  const expectedRuntimeRevision = lifecycle.value.capabilities!.runtimeRevision
   try {
     await ElMessageBox.confirm(
       '确定要停止当前运行吗？已完成的步骤会保留，后续步骤不再执行。',
@@ -820,23 +822,14 @@ const cancelActiveRun = async () => {
   } catch {
     return
   }
-
+  if (selectedRunId.value !== run.runId || !canCancelActiveRun.value) return
   cancelPending.value = true
   loadError.value = ''
   try {
-    const cancelled = await agentosApi.cancelWorkflowRun(run.runId)
-    const status = cancelled.status
-    projection.value = projection.value
-      ? {
-          ...projection.value,
-          activeRun: projection.value.activeRun?.runId === run.runId
-            ? { ...projection.value.activeRun, status, isActive: false }
-            : projection.value.activeRun,
-          runs: projection.value.runs.map(item => item.runId === run.runId
-            ? { ...item, status, isActive: false }
-            : item)
-        }
-      : projection.value
+    await agentosApi.cancelWorkflowRun(run.runId, { expectedRuntimeRevision })
+    if (selectedRunId.value !== run.runId) return
+    runtimeObservation.value = null
+    await loadWorkspace(run.runId)
     ElMessage.success('运行已停止')
   } catch (error: unknown) {
     if (responseStatus(error) === 409) {
@@ -853,6 +846,7 @@ const cancelActiveRun = async () => {
 const rerunSelectedRun = async () => {
   const sourceRunId = projection.value?.activeRun?.runId
   if (!sourceRunId || !canRerunSelectedRun.value || rerunPending.value) return
+  const { canRetrySuccessor, runtimeRevision, retryStepId } = lifecycle.value.capabilities!
   rerunPending.value = true
   loadError.value = ''
   const sourceMission = missionId.value
@@ -861,14 +855,16 @@ const rerunSelectedRun = async () => {
     && missionId.value === sourceMission && selectedRunId.value === sourceRunId
   try {
     let identity = pendingRunRecovery(sourceMission, sourceRunId, sessionStorage)
-    if (!identity && shouldResumeSelectedRun.value) {
+    if (!identity && canRetrySuccessor) {
       const sourceRun = await agentosApi.getWorkflowRun(sourceRunId)
       if (sourceRun.runId !== sourceRunId || sourceRun.missionId !== sourceMission) throw new Error('源 Run 身份不匹配')
-      const failedStep = sourceRun.steps.find(step => step.status === 'failed')
-      if (failedStep?.stepId) identity = beginRunRecovery(sourceMission, sourceRunId, { kind: 'retry', stepId: failedStep.stepId, payload: {
+      if (sourceRun.runtimeRevision !== runtimeRevision) throw new Error('源 Run 版本已变化，请刷新能力后重试')
+      const failedStep = sourceRun.steps.find(step => step.stepId === retryStepId && step.status === 'failed')
+      if (!failedStep) throw new Error('服务端恢复目标已变化，禁止改为其他恢复操作')
+      identity = beginRunRecovery(sourceMission, sourceRunId, { kind: 'retry', stepId: failedStep.stepId, payload: {
         clientRequestId: createClientRequestId(),
         reason: 'resume_failed',
-        expectedRuntimeRevision: sourceRun.runtimeRevision,
+        expectedRuntimeRevision: runtimeRevision,
         mode: 'successor_run'
       } }, sessionStorage)
     }
@@ -910,6 +906,8 @@ const deleteRunErrorMessage = (error: unknown) => {
 
 const deletePickerRun = async (runId: string) => {
   if (deletingRunId.value) return
+  const source = projection.value?.runs.find(item => item.runId === runId)
+  if (!readRunCapabilities(source?.actionCapabilities, missionId.value, runId)?.canDelete) return
   try {
     await ElMessageBox.confirm(
       `Run ${runId} 将从运行列表移除，执行审计事实仍会保留。`,

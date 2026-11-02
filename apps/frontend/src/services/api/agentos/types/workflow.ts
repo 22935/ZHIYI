@@ -168,6 +168,7 @@ export interface TraceEvent {
   createdAt?: string
 }
 export interface WorkflowRun {
+  actionCapabilities?: RunActionCapabilities | null
   formalControl?: FormalControl | null
   error?: { code?: string } | null
   failureCode?: string | null
@@ -203,6 +204,33 @@ export interface WorkflowRun {
   plannerAlgorithmVersion?: string | null
   planningCandidateCount?: number
   selectedPlanningVariantId?: string | null
+}
+/** Per-Run UI offers. Commands always recheck their existing server authority. */
+export interface RunActionCapabilities {
+  schemaVersion: 1
+  missionId: string
+  runId: string
+  runtimeRevision: number
+  status: string
+  isExecutionActive: boolean
+  isSuperseded: boolean
+  lineage: NonNullable<WorkflowRun['lineage']>
+  canInspect: boolean
+  canDiscuss: boolean
+  canCancel: boolean
+  canReview: boolean
+  canExecuteFormalAction: boolean
+  formalActions: Array<'materialize' | 'activate' | 'handoff' | 'permit' | 'dispatch'>
+  canResolveToolApproval: boolean
+  canAnswerPlanner: boolean
+  canCollaborate: boolean
+  canRetrySuccessor: boolean
+  retryStepId: string | null
+  canRerunSuccessor: boolean
+  canDecideRevision: boolean
+  canApplyRevision: boolean
+  canDelete: boolean
+  unavailableReasons: Array<{ action: string; code: string }>
 }
 /** Read-only projection of server facts; never an executable snapshot. */
 export interface FormalControl {

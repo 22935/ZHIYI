@@ -91,6 +91,7 @@
         :runtime-observation="workbenchContext.runtimeObservation"
         :runtime-store="props.runtimeStore"
         :readonly="workbenchContext.lifecycle?.isReadOnly"
+        :action-capabilities="workbenchContext.actionCapabilities"
         @select-semantic-task="emit('selectSemanticTask', $event)"
         @select-symbol="emit('selectSymbol', $event)"
         @open-semantic-task="emit('openSemanticTask', $event)"

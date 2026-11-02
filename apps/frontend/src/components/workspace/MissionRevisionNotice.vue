@@ -6,10 +6,10 @@
     <p v-if="state.successorRunId">已创建后继 Run：{{ state.successorRunId }}。可在运行历史中打开。</p>
     <p v-else-if="state.decisionStatus === 'DECISION_STALE'">已记录的目标版本过期。请重新选择；旧 Run 已取消时，可从现有新建 Run 入口使用当前版本。</p>
     <template v-if="!terminal && state.targetRevision > 0">
-      <button :disabled="busy || readonly" @click="decide('CONTINUE')">继续按旧依据执行</button>
-      <button :disabled="busy || readonly" @click="decide('REQUEST_REPLAN')">申请按最新版本重新规划</button>
+      <button :disabled="busy || readonly || !capabilities?.canDecideRevision" @click="decide('CONTINUE')">继续按旧依据执行</button>
+      <button :disabled="busy || readonly || !capabilities?.canDecideRevision" @click="decide('REQUEST_REPLAN')">申请按最新版本重新规划</button>
     </template>
-    <button v-if="latest?.decision === 'REQUEST_REPLAN' && state.runStatus === 'cancelled' && !state.successorRunId && state.decisionStatus !== 'DECISION_STALE'" :disabled="busy || readonly" @click="apply">按已选版本新建 Run</button>
+    <button v-if="latest?.decision === 'REQUEST_REPLAN' && state.runStatus === 'cancelled' && !state.successorRunId && state.decisionStatus !== 'DECISION_STALE'" :disabled="busy || readonly || !capabilities?.canApplyRevision" @click="apply">按已选版本新建 Run</button>
     <p v-if="latest?.decision === 'REQUEST_REPLAN' && !terminal">请先通过 Run 的取消入口停止旧 Run，再按已选版本新建 Run。取消不会撤销已发生的操作。</p>
     <button v-if="error" :disabled="busy" @click="refresh">刷新版本与决定</button>
     <p v-if="error" role="alert">{{ error }}</p>
@@ -21,7 +21,10 @@
 import { computed, ref, watch } from 'vue'
 import { agentosApi } from '@/services/api/agentos'
 import type { MissionRunRevision, MissionRunRevisionDecision } from '@/services/api/agentos/api/mission'
-const props = defineProps<{ missionId: string; runId: string; revision: number; runStatus: string; readonly?: boolean }>()
+import type { RunActionCapabilities } from '@/services/api/agentos'
+import { readRunCapabilities } from '@/workbench/runtime/runCapabilities'
+const props = defineProps<{ missionId: string; runId: string; revision: number; runStatus: string; readonly?: boolean; actionCapabilities?: RunActionCapabilities | null }>()
+const capabilities = computed(() => readRunCapabilities(props.actionCapabilities, props.missionId, props.runId, undefined, props.runStatus))
 const emit = defineEmits<{ changed: [] }>()
 const state = ref<MissionRunRevision | null>(null)
 const error = ref('')
@@ -44,7 +47,7 @@ watch(() => [props.missionId, props.runId, props.revision], () => {
 }, { immediate: true })
 watch(() => props.runStatus, () => { void refresh() })
 async function decide(decision: MissionRunRevisionDecision['decision']) {
-  if (!state.value || props.readonly || busy.value) return
+  if (!state.value || props.readonly || busy.value || !capabilities.value?.canDecideRevision) return
   if (!pending || pending.decision !== decision) pending = {
     operationId: crypto.randomUUID(), decision,
     sourceRevision: state.value.sourceRevision, targetRevision: state.value.targetRevision,
@@ -63,7 +66,7 @@ async function decide(decision: MissionRunRevisionDecision['decision']) {
   } finally { busy.value = false }
 }
 async function apply() {
-  if (!latest.value || props.readonly || busy.value) return
+  if (!latest.value || props.readonly || busy.value || !capabilities.value?.canApplyRevision) return
   busy.value = true
   const current = generation
   const mission = props.missionId, run = props.runId, operation = latest.value.operationId

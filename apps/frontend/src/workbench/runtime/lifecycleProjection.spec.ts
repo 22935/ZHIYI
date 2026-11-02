@@ -40,13 +40,14 @@ describe('lifecycle presentation facts, never authorization', () => {
     expect(projectLifecycle({ workspace: w, selectedRunId: 'a' }).recommendedEntryId).toBe('final')
   })
   it('does not turn selected/isActive/latest timestamps into current authority', () => {
-    expect(project('succeeded')).toMatchObject({ latestRunId: 'b', currentRunId: null, isCurrent: null, isReadOnly: true })
+    expect(project('succeeded')).toMatchObject({ latestRunId: 'b', isReadOnly: true })
+    expect(project('succeeded')).not.toHaveProperty('currentRunId')
     const detail = run('failed'); detail.lineage = { supersededByRunId: 'b' }
-    expect(projectLifecycle({ workspace: workspace('failed'), selectedRunId: 'a', run: detail })).toMatchObject({ isHistorical: true, successorRunId: 'b', isCurrent: false })
+    expect(projectLifecycle({ workspace: workspace('failed'), selectedRunId: 'a', run: detail })).toMatchObject({ isHistorical: true, successorRunId: 'b' })
   })
   it('ignores foreign Run details and leaves unobserved data explicit', () => {
     const detail = run('completed'); detail.runId = 'b'
-    expect(projectLifecycle({ workspace: workspace('planning'), selectedRunId: 'a', run: detail })).toMatchObject({ phase: 'PLANNING', notObserved: expect.arrayContaining(['runDetail', 'currentRunAuthority']) })
+    expect(projectLifecycle({ workspace: workspace('planning'), selectedRunId: 'a', run: detail })).toMatchObject({ phase: 'PLANNING', notObserved: expect.arrayContaining(['runDetail', 'actionCapabilities']) })
     expect(projectLifecycle({ workspace: workspace(), selectedRunId: null }).phase).toBe('CREATED')
     expect(projectLifecycle({ workspace: null, selectedRunId: 'a' }).phase).toBe('UNKNOWN')
   })

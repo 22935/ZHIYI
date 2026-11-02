@@ -1,5 +1,5 @@
 import type { GraphProjection } from './graph'
-import type { WorkflowStatus } from './workflow'
+import type { WorkflowStatus, RunActionCapabilities } from './workflow'
 import type { InputAttachment } from './artifacts'
 
 export type WorkspaceEntryKind = 'local_file' | 'folder' | 'graph' | 'virtual_document' | 'task' | 'artifact' | 'run' | 'progress'
@@ -16,6 +16,7 @@ export interface WorkspaceMission {
   status: string
 }
 export interface WorkspaceRunSummary {
+  actionCapabilities?: RunActionCapabilities | null
   runId: string
   status: WorkspaceRunStatus
   parentRunId?: string | null

@@ -33,5 +33,5 @@ export const createWorkbenchContext = (input: WorkbenchContextInput): WorkbenchC
   historicalMode: Boolean(input.historicalMode),
   diagnostics: input.diagnostics || [],
   runtimeObservation: input.runtimeObservation || null,
-  ...(input.lifecycle ? { lifecycle: input.lifecycle } : {})
+  ...(input.lifecycle ? { lifecycle: input.lifecycle, actionCapabilities: input.lifecycle.capabilities } : {})
 })

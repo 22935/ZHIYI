@@ -118,9 +118,9 @@ describe('WorkbenchStatusBar', () => {
         runId: 'run_2',
         runStatus: 'running',
         runs: [
-          { runId: 'run_1', status: 'succeeded' },
+          { runId: 'run_1', status: 'succeeded', canDelete: true },
           { runId: 'run_2', status: 'running' },
-          { runId: 'run_3', status: 'failed' }
+          { runId: 'run_3', status: 'failed', canDelete: true }
         ],
         deletingRunId: null
       }
@@ -148,7 +148,7 @@ describe('WorkbenchStatusBar', () => {
         collapsed: false,
         runId: 'run_1',
         runStatus: 'succeeded',
-        runs: [{ runId: 'run_1', status: 'succeeded' }],
+        runs: [{ runId: 'run_1', status: 'succeeded', canDelete: true }],
         deletingRunId: 'run_1'
       }
     })

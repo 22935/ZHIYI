@@ -8,9 +8,11 @@
 
     <div v-show="tab === 'chat'" ref="messageList" class="conversation" :class="{ 'has-run-controls': hasFormalControl }" aria-live="polite" @scroll="trackScroll">
       <FormalExecutionControls :key="runId || ''" :run="controlRun" :run-id="runId"
+        :action-capabilities="actionCapabilities"
         :mission-id="missionId || state?.missionId || ''" :historical="historical"
         :can-cancel="canCancel" :cancel-pending="cancelPending" embedded
-        :readonly="readonly || historical || busy || loading || !state || permission !== 'task_collaboration'"
+        :readonly="readonly || historical || busy || loading || !state"
+        :execution-readonly="permission !== 'task_collaboration'"
         :show-review="!state?.review" @refresh="refreshRun" @cancel="emit('cancel-run')" />
       <div v-if="loading && !state" class="empty-state"><el-icon class="is-loading"><Loading /></el-icon><p>正在读取任务对话…</p></div>
       <div v-else-if="!messages.length && !state?.question && !state?.review" class="empty-state">
@@ -25,7 +27,7 @@
           <strong>{{ actionLabel(message.action.kind) }}</strong>
           <p v-if="message.action.kind === 'user_input'">在当前执行片段结束后，由 Planner 重新观察并处理补充要求。</p>
           <template v-else><p>重新执行：{{ stepNames(message.action.executeStepIds) }}</p><p>复用结果：{{ stepNames(message.action.reusedStepIds) || '无' }}</p><p v-if="message.action.executionEnvironmentChanged">执行环境已更新：保持原计划与输入，使用当前可用能力重新执行。</p><small>创建新 Run，保留原运行记录与上游证据。</small></template>
-          <button type="button" :disabled="busy || loading || permission !== 'task_collaboration' || readonly || historical || !!receipts[receiptKey(message.sourceRunId, message.proposalId)]" @click="confirmAction(message.proposalId, message.action, message.sourceRunId)">{{ receipts[receiptKey(message.sourceRunId, message.proposalId)] ? '已提交' : '确认操作' }}</button>
+          <button type="button" :disabled="busy || loading || permission !== 'task_collaboration' || readonly || historical || !proposalAllowed(message.action, message.sourceRunId) || !!receipts[receiptKey(message.sourceRunId, message.proposalId)]" @click="confirmAction(message.proposalId, message.action, message.sourceRunId)">{{ receipts[receiptKey(message.sourceRunId, message.proposalId)] ? '已提交' : '确认操作' }}</button>
         </div>
         <div v-if="message.receipt" class="operation-receipt"><span>{{ message.receipt.kind === 'user_input' ? '等待 Planner 处理' : '运行已提交' }}</span><button v-if="message.receipt.runId !== runId" type="button" @click="emit('select-run', message.receipt.runId)">查看新运行 <el-icon><ArrowRight /></el-icon></button></div>
       </article>
@@ -43,10 +45,10 @@
           <details><summary>{{ state.review.decisionRejected ? '查看技术详情' : '查看等待原因与处理建议' }}</summary><p>暂停记录：{{ state.review.reason }}</p><p v-if="state.decision?.reason">运行决策：{{ state.decision.reason }}</p></details>
           <textarea v-model="reviewComment" rows="2" maxlength="2000" :placeholder="state.review.subjectType === 'planner' ? '说明要补充的材料或调整的执行要求…' : '填写审核意见…'" aria-label="审核意见" :disabled="busy" />
         <div class="review-actions">
-          <button v-if="state.review.canApprove" :disabled="busy || loading || permission !== 'task_collaboration' || readonly || historical" @click="submitReview('approved')">{{ state.review.subjectType === 'planner' ? '确认条件已满足' : '批准并继续' }}</button>
-            <button v-if="state.review.subjectType === 'planner'" :disabled="busy || loading || permission !== 'task_collaboration' || readonly || historical || !reviewComment.trim()" @click="submitReviewInput">预览调整方案</button>
+          <button v-if="state.review.canApprove" :disabled="busy || loading || permission !== 'task_collaboration' || readonly || historical || !allows('canReview')" @click="submitReview('approved')">{{ state.review.subjectType === 'planner' ? '确认条件已满足' : '批准并继续' }}</button>
+            <button v-if="state.review.subjectType === 'planner'" :disabled="busy || loading || permission !== 'task_collaboration' || readonly || historical || !allows('canCollaborate') || !reviewComment.trim()" @click="submitReviewInput">预览调整方案</button>
           <button v-if="failedSteps.length" @click="tab = 'trace'">查看失败详情</button>
-            <button :disabled="busy || loading || permission !== 'task_collaboration' || readonly || historical" @click="submitReview('rejected')">{{ state.review.subjectType === 'planner' ? '结束本次运行' : '拒绝并结束本次运行' }}</button>
+            <button :disabled="busy || loading || permission !== 'task_collaboration' || readonly || historical || !allows('canReview')" @click="submitReview('rejected')">{{ state.review.subjectType === 'planner' ? '结束本次运行' : '拒绝并结束本次运行' }}</button>
         </div>
         <small v-if="permission !== 'task_collaboration' && !readonly && !historical">切换为“按需确认”权限后可操作。</small>
         <small v-if="historical">请前往当前运行处理审核。</small>
@@ -73,23 +75,23 @@
 
     <div v-if="reviewReceipt" class="wait-note" role="status">{{ reviewReceipt }}</div>
     <div v-if="error" class="error-note" role="alert"><span>{{ error }}</span><button @click="refresh()">刷新</button></div>
-    <div v-if="historical || readonly" class="readonly-note">{{ historical ? '历史 Run 只读，可讨论原始证据。' : '当前 Run 身份未确认，仅可讨论。' }}<button v-if="state?.latestRunId && state.latestRunId !== runId" type="button" @click="emit('select-run', state.latestRunId)">查看最新创建的 Run</button></div>
+    <div v-if="historical || readonly || !allows('canCollaborate')" class="readonly-note">{{ historical ? '历史 Run 只读，可讨论原始证据。' : '操作按所选 Run 的服务端能力限制。' }}<button v-if="state?.latestRunId && state.latestRunId !== runId" type="button" @click="emit('select-run', state.latestRunId)">查看最新创建的 Run</button></div>
     <form ref="composerRoot" class="composer" :class="{ 'is-answering': answering && state?.question }" @submit.prevent="send" @keydown.esc="openMenu = null">
       <div v-if="state?.question" class="composer-mode"><button type="button" :class="{ selected: answering }" @click="answering = true">回答问题</button><button type="button" :class="{ selected: !answering }" @click="answering = false">询问助手</button></div>
       <textarea ref="composerInput" v-model="draft" rows="3" :maxlength="answering && state?.question ? 2000 : 4000" :disabled="!runId || busy" :placeholder="composerPlaceholder" aria-label="任务对话输入" @keydown="onKeydown"></textarea>
       <div class="composer-footer">
-        <div class="composer-picker"><button type="button" class="picker-trigger" aria-label="任务操作" :disabled="busy || loading || !state || permission !== 'task_collaboration' || readonly || historical" :aria-expanded="openMenu === 'operation'" @click="openMenu = openMenu === 'operation' ? null : 'operation'"><el-icon><CircleCheck /></el-icon></button>
+        <div class="composer-picker"><button type="button" class="picker-trigger" aria-label="任务操作" :disabled="busy || loading || !state || permission !== 'task_collaboration' || readonly || historical || !(allows('canCollaborate') || allows('canRetrySuccessor') || allows('canRerunSuccessor'))" :aria-expanded="openMenu === 'operation'" @click="openMenu = openMenu === 'operation' ? null : 'operation'"><el-icon><CircleCheck /></el-icon></button>
           <div v-if="openMenu === 'operation'" class="picker-menu operation-menu">
             <div class="menu-heading">任务操作</div>
-            <button type="button" @click="prepareOperation('rerun')"><span><strong>原样重跑</strong><small>沿用当前计划与输入，创建新运行</small></span></button>
+            <button type="button" :disabled="!allows('canRerunSuccessor')" @click="prepareOperation('rerun')"><span><strong>原样重跑</strong><small>沿用当前计划与输入，创建新运行</small></span></button>
             <label>起始节点<select v-model="operationStep" aria-label="选择重跑节点"><option value="" disabled>选择一个节点</option><option v-for="step in state?.steps" :key="step.stepId" :value="step.stepId">{{ step.name }}</option></select></label>
-            <button type="button" :disabled="!operationStep" @click="prepareOperation('rerun_node')"><span><strong>从指定节点重跑</strong><small>重新执行该节点及其受影响的后续步骤</small></span></button>
-            <button type="button" @click="prepareOperation('recover')"><span><strong>恢复失败任务</strong><small>复用已提交结果，重试失败节点</small></span></button>
-            <button type="button" :disabled="!draft.trim()" @click="prepareOperation('user_input')"><span><strong>提交补充要求</strong><small>将输入框中的要求交给 Planner 重新决策</small></span></button>
+            <button type="button" :disabled="!operationStep || !allows('canRerunSuccessor')" @click="prepareOperation('rerun_node')"><span><strong>从指定节点重跑</strong><small>重新执行该节点及其受影响的后续步骤</small></span></button>
+            <button type="button" :disabled="!allows('canRetrySuccessor')" @click="prepareOperation('recover')"><span><strong>恢复失败任务</strong><small>复用已提交结果，重试失败节点</small></span></button>
+            <button type="button" :disabled="!draft.trim() || !allows('canCollaborate')" @click="prepareOperation('user_input')"><span><strong>提交补充要求</strong><small>将输入框中的要求交给 Planner 重新决策</small></span></button>
           </div>
         </div>
         <div class="composer-picker permission-picker">
-          <button type="button" class="picker-trigger" aria-label="选择权限" aria-haspopup="menu" :aria-expanded="openMenu === 'permission'" :disabled="busy || !state || readonly || historical" @click="openMenu = openMenu === 'permission' ? null : 'permission'"><el-icon><Lock /></el-icon><span>{{ readonly || historical || permission === 'read_only' ? '仅对话' : '按需确认' }}</span><el-icon class="chevron"><ArrowDown /></el-icon></button>
+          <button type="button" class="picker-trigger" aria-label="选择权限" aria-haspopup="menu" :aria-expanded="openMenu === 'permission'" :disabled="busy || !state || readonly || historical || !allows('canCollaborate')" @click="openMenu = openMenu === 'permission' ? null : 'permission'"><el-icon><Lock /></el-icon><span>{{ readonly || historical || !allows('canCollaborate') || permission === 'read_only' ? '仅对话' : '按需确认' }}</span><el-icon class="chevron"><ArrowDown /></el-icon></button>
           <div v-if="openMenu === 'permission'" class="picker-menu permission-menu" role="menu" aria-label="任务助手权限">
             <div class="menu-heading">权限范围 · 整个任务</div>
             <button v-for="option in permissionOptions" :key="option.value" type="button" role="menuitemradio" :aria-checked="permission === option.value" @click="changePermission(option.value)"><el-icon><Lock v-if="option.value === 'read_only'" /><CircleCheck v-else /></el-icon><span><strong>{{ option.label }}</strong><small>{{ option.description }}</small></span><el-icon v-if="permission === option.value" class="selected-check"><Check /></el-icon></button>
@@ -116,7 +118,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { ArrowDown, ArrowRight, ArrowUp, ChatDotRound, Check, CircleCheck, Clock, Connection, Cpu, Loading, Lock, Share } from '@element-plus/icons-vue'
-import { agentosApi, type GraphProjection, type WorkspaceEntry, type WorkspaceGraphNode, type ModelCallUsage } from '@/services/api/agentos'
+import { agentosApi, type GraphProjection, type WorkspaceEntry, type WorkspaceGraphNode, type ModelCallUsage, type RunActionCapabilities } from '@/services/api/agentos'
+import { readRunCapabilities, type RunCapabilityAction } from '@/workbench/runtime/runCapabilities'
 import type { CopilotPermission, CopilotState, CopilotAction, CopilotActionKind } from '@/services/api/agentos/api/copilot'
 import type { RuntimeObservation } from '@/workbench/runtime/observation'
 import { renderMarkdown } from '@/utils/markdown'
@@ -126,11 +129,22 @@ import FormalExecutionControls from '@/components/workspace/FormalExecutionContr
 const props = withDefaults(defineProps<{
   entry?: WorkspaceEntry | null; graphNode?: WorkspaceGraphNode | null; graphNodes?: WorkspaceGraphNode[]
   graph?: GraphProjection | null; runId?: string | null; runStatus?: string | null
-  runtimeObservation?: RuntimeObservation | null; historical?: boolean; readonly?: boolean
+  runtimeObservation?: RuntimeObservation | null; historical?: boolean; readonly?: boolean; actionCapabilities?: RunActionCapabilities | null
   missionId?: string; canCancel?: boolean; cancelPending?: boolean
 }>(), { entry: null, graphNode: null, graphNodes: () => [], graph: null, runId: null, runStatus: null, runtimeObservation: null, historical: false, readonly: false, missionId: '', canCancel: false, cancelPending: false })
 const emit = defineEmits<{ 'select-run': [runId: string]; 'refresh-run': []; 'cancel-run': [] }>()
 const controlRun = computed(() => props.runtimeObservation?.runId === props.runId ? props.runtimeObservation?.run || null : null)
+const offeredCapabilities = computed(() => props.actionCapabilities === undefined ? controlRun.value?.actionCapabilities : props.actionCapabilities)
+function allows(action: RunCapabilityAction) {
+  const mutation = !['canInspect', 'canDiscuss'].includes(action)
+  const caps = readRunCapabilities(offeredCapabilities.value, props.missionId || state.value?.missionId || controlRun.value?.missionId || '',
+    props.runId, mutation ? state.value?.revision : undefined, mutation ? state.value?.status : undefined)
+  return caps?.[action] === true && (!mutation || !props.historical && !props.readonly)
+}
+function proposalAllowed(action: CopilotAction, sourceRunId?: string) {
+  return (!sourceRunId || sourceRunId === props.runId) && action.expectedRevision === offeredCapabilities.value?.runtimeRevision
+    && allows(action.kind === 'user_input' ? 'canCollaborate' : action.kind === 'recover' ? 'canRetrySuccessor' : 'canRerunSuccessor')
+}
 const hasFormalControl = computed(() => Boolean(controlRun.value?.formalControl || controlRun.value?.executionState?.planningCommitRequired))
 const refreshRun = () => { emit('refresh-run'); void refresh() }
 const state = ref<CopilotState | null>(null)
@@ -168,7 +182,7 @@ const targetTitle = computed(() => props.graphNode?.name || props.entry?.name ||
 const failedSteps = computed(() => state.value?.steps.filter(step => step.status === 'failed') || [])
 const statusLabel = computed(() => ({ pending: '等待执行', planning: '规划中', running: '执行中', retrying: '准备恢复', waiting_review: state.value?.question ? '等待你的回答' : '已暂停', completed: '已完成', failed: '执行失败', cancelled: '已取消', superseded: '已替换' } as Record<string, string>)[state.value?.status || props.runStatus || ''] || '尚未启动')
 const composerPlaceholder = computed(() => !props.runId ? '先选择一项任务' : answering.value && state.value?.question ? '补充你的选择或信息，让任务继续…' : '询问当前任务，或一起梳理下一步…')
-const canSend = computed(() => !!props.runId && !!state.value && !loading.value && !busy.value && !!draft.value.trim() && (answering.value && state.value.question ? permission.value === 'task_collaboration' : selectedModel.value ? availableModels.value.some(m => m.id === selectedModel.value) : state.value.modelAvailable))
+const canSend = computed(() => !!props.runId && !!state.value && allows('canDiscuss') && !loading.value && !busy.value && !!draft.value.trim() && (answering.value && state.value.question && allows('canAnswerPlanner') ? permission.value === 'task_collaboration' : selectedModel.value ? availableModels.value.some(m => m.id === selectedModel.value) : state.value.modelAvailable))
 const messages = computed(() => [
   ...(state.value?.exchanges || []).flatMap(e => [ ...(e.user ? [{ id: `${e.sourceRunId || props.runId}:${e.operationId}-u`, role: 'user', content: e.user, time: e.createdAt, planner: false, action: undefined, receipt: undefined, proposalId: e.operationId, sourceRunId: e.sourceRunId || props.runId || undefined }] : []), { id: `${e.sourceRunId || props.runId}:${e.operationId}-a`, role: 'assistant', content: e.assistant, time: e.createdAt, planner: false, action: e.action, receipt: e.receipt, proposalId: e.operationId, sourceRunId: e.sourceRunId || props.runId || undefined }]),
   ...(state.value?.humanAnswers || []).flatMap(a => [{ id: `${a.questionId}-q`, role: 'assistant', content: a.prompt, time: a.answeredAt, planner: true, action: undefined, receipt: undefined, proposalId: '', sourceRunId: a.sourceRunId }, { id: `${a.questionId}-r`, role: 'user', content: a.answer, time: a.answeredAt, planner: true, action: undefined, receipt: undefined, proposalId: '', sourceRunId: a.sourceRunId }])
@@ -192,7 +206,7 @@ function trackScroll() { const e = messageList.value; if (e) followBottom.value 
 function scrollBottom() { if (followBottom.value) void nextTick(() => { const e = messageList.value; if (e) e.scrollTop = e.scrollHeight }) }
 function errorMessage(e: any) { return typeof e?.response?.data?.detail === 'string' ? e.response.data.detail : e?.response?.data?.message || e?.message || '连接暂时不可用，请重试。你的输入已保留。' }
 async function changePermission(value: CopilotPermission) {
-  if (!props.runId || busy.value || props.historical || props.readonly) return
+  if (!props.runId || busy.value || !allows('canCollaborate')) return
   const token = generation
   busy.value = true; openMenu.value = null
   try {
@@ -233,7 +247,7 @@ async function loadCalls(more = false) {
 }
 async function send() {
   if (!canSend.value || !state.value || !props.runId) return
-  const id = props.runId, token = generation, content = draft.value.trim(), question = answering.value && !props.historical && !props.readonly ? state.value.question : null
+  const id = props.runId, token = generation, content = draft.value.trim(), question = answering.value && allows('canAnswerPlanner') ? state.value.question : null
   const target = question?.questionId || 'chat'
   const options = JSON.stringify([question ? '' : selectedModel.value, permission.value, reasoningEffort.value])
   if (!requestKey || requestKey.content !== content || requestKey.target !== target || requestKey.options !== options) requestKey = { content, target, options, id: crypto.randomUUID() }
@@ -246,7 +260,7 @@ async function send() {
       const exchange = await agentosApi.streamCopilotMessage(id, content, requestKey.id, event => {
         if (token !== generation) return
         if (event.type === 'content') { streamContent.value = event.content || ''; scrollBottom() }
-      }, controller?.signal, { ...(selectedModel.value ? { modelId: selectedModel.value } : {}), permission: props.historical || props.readonly ? 'read_only' : permission.value, ...(reasoningEffort.value ? { reasoningEffort: reasoningEffort.value } : {}) })
+      }, controller?.signal, { ...(selectedModel.value ? { modelId: selectedModel.value } : {}), permission: !allows('canCollaborate') ? 'read_only' : permission.value, ...(reasoningEffort.value ? { reasoningEffort: reasoningEffort.value } : {}) })
       if (token === generation && !state.value.exchanges.some(e => e.operationId === exchange.operationId)) state.value.exchanges.push(exchange)
       if (token === generation) { pendingUser.value = ''; streamContent.value = '' }
     }
@@ -257,7 +271,7 @@ async function send() {
   finally { if (token === generation) { busy.value = false; streamContent.value = ''; pendingUser.value = '' } }
 }
 async function prepareOperation(kind: CopilotActionKind) {
-  if (!state.value || !props.runId || busy.value || props.historical || props.readonly || permission.value !== 'task_collaboration') return
+  if (!state.value || !props.runId || busy.value || !allows(kind === 'user_input' ? 'canCollaborate' : kind === 'recover' ? 'canRetrySuccessor' : 'canRerunSuccessor') || permission.value !== 'task_collaboration') return
   const id = props.runId, token = generation
   const stepId = kind === 'rerun_node' ? operationStep.value : undefined
   const content = kind === 'user_input' ? draft.value.trim() : `${actionLabel(kind)}${stepId ? `：${stepNames([stepId])}` : ''}`
@@ -282,7 +296,7 @@ async function submitReviewInput() {
 }
 async function submitReview(decision: 'approved' | 'rejected') {
   const review = state.value?.review, id = props.runId, token = generation
-  if (!review || !id || busy.value || props.historical || props.readonly || permission.value !== 'task_collaboration' || (decision === 'approved' && !review.canApprove)) return
+  if (!review || !id || busy.value || !allows('canReview') || permission.value !== 'task_collaboration' || (decision === 'approved' && !review.canApprove)) return
   const comment = reviewComment.value.trim()
   if (!reviewRequest || reviewRequest.subject !== review.subjectId || reviewRequest.revision !== review.expectedRunUpdatedAt || reviewRequest.decision !== decision || reviewRequest.comment !== comment) reviewRequest = { subject: review.subjectId, revision: review.expectedRunUpdatedAt, decision, comment, id: crypto.randomUUID() }
   busy.value = true; error.value = ''
@@ -296,7 +310,7 @@ async function submitReview(decision: 'approved' | 'rejected') {
   finally { if (token === generation) busy.value = false }
 }
 async function confirmAction(proposalId: string, action: CopilotAction, sourceRunId?: string) {
-  if (!props.runId || busy.value || props.historical || props.readonly || permission.value !== 'task_collaboration') return
+  if (!props.runId || busy.value || !proposalAllowed(action, sourceRunId) || permission.value !== 'task_collaboration') return
   const id = props.runId, token = generation
   busy.value = true; error.value = ''
   try {

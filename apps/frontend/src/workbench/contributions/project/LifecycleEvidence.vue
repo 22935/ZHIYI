@@ -4,10 +4,13 @@
     <p v-if="lifecycle.isReadOnly">{{ lifecycle.unavailableReasons[0] }}</p>
     <InspectorPropertyList :rows="[
       { label: 'Selected Run', value: lifecycle.runId, code: true },
-      { label: 'Current Run', value: lifecycle.currentRunId || 'NOT_OBSERVED', code: true },
       { label: 'Latest created', value: lifecycle.latestRunId || 'NOT_OBSERVED', code: true },
       { label: 'Successor', value: lifecycle.successorRunId || 'NOT_OBSERVED', code: true }
     ]" />
+    <p v-if="lifecycle.capabilities">Run r{{ lifecycle.capabilities.runtimeRevision }} · {{ lifecycle.capabilities.isExecutionActive ? 'Active execution branch' : 'Terminal / inactive branch' }}</p>
+    <details v-if="lifecycle.capabilities"><summary>操作能力与不可用原因</summary>
+      <p v-for="reason in lifecycle.capabilities.unavailableReasons" :key="reason.action">{{ reason.action }}: {{ reason.code }}</p>
+    </details>
     <template v-if="lifecycle.failure">
       <strong>Failure evidence</strong>
       <InspectorPropertyList :rows="[

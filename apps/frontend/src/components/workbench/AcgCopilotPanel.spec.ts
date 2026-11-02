@@ -6,6 +6,7 @@ import { agentosApi } from '@/services/api/agentos'
 import type { CopilotState } from '@/services/api/agentos/api/copilot'
 import { clearCopilotSession } from './copilotSessionCache'
 import FormalExecutionControls from '@/components/workspace/FormalExecutionControls.vue'
+import { capabilitiesFixture } from '@/test/fixtures/runCapabilities'
 
 vi.mock('@/services/api/agentos', () => ({ agentosApi: { getCopilot: vi.fn(), setCopilotPermission: vi.fn(), streamCopilotMessage: vi.fn(), answerPlanner: vi.fn(), listRunResourceCalls: vi.fn(), previewCopilotAction: vi.fn(), applyCopilotAction: vi.fn(), applyWorkflowReview: vi.fn() } }))
 const state = (): CopilotState => ({ runId: 'run-1', status: 'running', revision: 3, modelAvailable: true,
@@ -17,7 +18,7 @@ describe('explicit review interaction', () => {
   it('shows a rejected proposal as blocked and previews new requirements without approving failed work', async () => {
     vi.mocked(agentosApi.getCopilot).mockResolvedValue({ ...state(), status: 'waiting_review', review: review(true), decision: { action: 'recover', reason: 'Retry failed nodes' }, steps: [{ stepId: 'A', name: '提取事实', status: 'failed' }] })
     vi.mocked(agentosApi.previewCopilotAction).mockResolvedValue({ operationId: 'proposal', user: '恢复', assistant: '待确认', createdAt: '2026-10-06T12:00:00Z', observedRevision: 3 })
-    const w = await panel()
+    const w = await panel({ actionCapabilities: capabilitiesFixture('run-1', 'mission-1', 'waiting_review', 3) })
     expect(w.find('.empty-state').exists()).toBe(false)
     expect(w.get('.review-card').text()).toContain('任务暂停，未能自动恢复')
     expect(w.get('.review-card').text()).toContain('提取事实')
@@ -32,7 +33,7 @@ describe('explicit review interaction', () => {
   it('submits the persisted review subject and revision, then shows a receipt after the card disappears', async () => {
     vi.mocked(agentosApi.getCopilot).mockResolvedValue({ ...state(), status: 'waiting_review', review: review() })
     vi.mocked(agentosApi.applyWorkflowReview).mockResolvedValue({} as any)
-    const w = await panel()
+    const w = await panel({ actionCapabilities: capabilitiesFixture('run-1', 'mission-1', 'waiting_review', 3, { canReview: true }) })
     await w.get('[aria-label="审核意见"]').setValue('条件已满足')
     vi.mocked(agentosApi.getCopilot).mockResolvedValue(state())
     await w.get('.review-actions button').trigger('click'); await flushPromises()
@@ -42,7 +43,8 @@ describe('explicit review interaction', () => {
   })
 })
 async function panel(props = {}) {
-  const wrapper = mount(AcgCopilotPanel, { props: { runId: 'run-1', ...props }, global: { stubs: { ElIcon: { template: '<span><slot /></span>' } } } })
+  const wrapper = mount(AcgCopilotPanel, { props: { runId: 'run-1', missionId: 'mission-1',
+    actionCapabilities: capabilitiesFixture('run-1', 'mission-1', 'running', 3), ...props }, global: { stubs: { ElIcon: { template: '<span><slot /></span>' } } } })
   wrappers.push(wrapper)
   await flushPromises()
   return wrapper
@@ -50,6 +52,14 @@ async function panel(props = {}) {
 beforeEach(() => { vi.clearAllMocks(); clearCopilotSession('run-1'); clearCopilotSession('run-2'); vi.mocked(agentosApi.getCopilot).mockResolvedValue(state()); vi.mocked(agentosApi.setCopilotPermission).mockImplementation(async (_, permission) => ({ missionId: 'mission-1', taskPermission: permission })); vi.mocked(agentosApi.listRunResourceCalls).mockResolvedValue({ runId: 'run-1', items: [], total: 0 }) })
 afterEach(() => { wrappers.splice(0).forEach(w => w.unmount()); vi.useRealTimers() })
 describe('task Copilot', () => {
+  it('cannot apply another Run proposal or replace its expected revision with the selected Run capability', async () => {
+    vi.mocked(agentosApi.getCopilot).mockResolvedValue({ ...state(), status: 'failed' })
+    const wrapper = await panel({ actionCapabilities: capabilitiesFixture('run-1', 'mission-1', 'failed', 3) })
+    const action = { kind: 'rerun', stepId: null, expectedRevision: 3, executeStepIds: [], reusedStepIds: [], content: '' } as const
+    await (wrapper.vm as any).confirmAction('proposal', action, 'run-2')
+    await (wrapper.vm as any).confirmAction('proposal', { ...action, expectedRevision: 2 }, 'run-1')
+    expect(agentosApi.applyCopilotAction).not.toHaveBeenCalled()
+  })
   it('pauses cached-view polling and resumes one loop while retaining its unsent draft', async () => {
     vi.useFakeTimers()
     const visible = ref(true)
@@ -82,7 +92,7 @@ describe('task Copilot', () => {
     expect(w.emitted('cancel-run')).toHaveLength(1)
     await w.get('[aria-label="选择权限"]').trigger('click')
     await w.get('.permission-menu button:first-of-type').trigger('click'); await flushPromises()
-    expect(controls.props('readonly')).toBe(true)
+    expect(controls.props()).toMatchObject({ readonly: false, executionReadonly: true })
     await w.get('.copilot-tabs button:last-child').trigger('click')
     expect(controls.exists()).toBe(true)
     expect(w.get('.conversation').isVisible()).toBe(false)
@@ -123,7 +133,7 @@ describe('task Copilot', () => {
     const receipt = { operationId: 'receipt', user: '', assistant: '已创建新的运行', observedRevision: 0, createdAt: '2026-10-05T12:01:00Z', receipt: { proposalId: 'proposal', runId: 'run-2', kind: 'rerun_node' as const, status: 'queued', executeStepIds: ['B'], reusedStepIds: ['A'] } }
     vi.mocked(agentosApi.previewCopilotAction).mockResolvedValue(proposal)
     vi.mocked(agentosApi.applyCopilotAction).mockResolvedValue(receipt)
-    const w = await panel({ entry: { entryId: 'step:B', kind: 'task', name: '生成报告', group: 'steps', displayOrder: 2, acgNodeId: 'B' } })
+    const w = await panel({ actionCapabilities: capabilitiesFixture('run-1', 'mission-1', snapshot.status, 3, { canRerunSuccessor: true }), entry: { entryId: 'step:B', kind: 'task', name: '生成报告', group: 'steps', displayOrder: 2, acgNodeId: 'B' } })
     await w.get('[aria-label="任务操作"]').trigger('click')
     expect((w.get('select').element as HTMLSelectElement).value).toBe('B')
     await w.get('.operation-menu button:nth-of-type(2)').trigger('click'); await flushPromises()
@@ -222,7 +232,7 @@ describe('task Copilot', () => {
     s.question = { questionId: 'question-1', prompt: '是否包含税费？', choices: ['包含', '不包含'] }
     vi.mocked(agentosApi.getCopilot).mockResolvedValue(s)
     vi.mocked(agentosApi.answerPlanner).mockResolvedValue({ ...s, question: null, status: 'retrying' })
-    const w = await panel()
+    const w = await panel({ actionCapabilities: capabilitiesFixture('run-1', 'mission-1', 'waiting_review', 3, { canAnswerPlanner: true }) })
     await w.get('.question-choices button').trigger('click')
     await w.get('form').trigger('submit'); await flushPromises()
     expect(agentosApi.answerPlanner).toHaveBeenCalledWith('run-1', 'question-1', '包含', 3, expect.any(String), 'task_collaboration')
@@ -256,8 +266,8 @@ describe('task Copilot', () => {
     expect(vi.mocked(agentosApi.streamCopilotMessage).mock.calls[1][2]).not.toBe(vi.mocked(agentosApi.streamCopilotMessage).mock.calls[0][2])
   })
   it('blocks clarification in read-only mode and allows it after choosing confirmation', async () => {
-    vi.mocked(agentosApi.getCopilot).mockResolvedValue({ ...state(), question: { questionId: 'q', prompt: '请确认', choices: ['确认'] } })
-    const w = await panel()
+    vi.mocked(agentosApi.getCopilot).mockResolvedValue({ ...state(), status: 'waiting_review', question: { questionId: 'q', prompt: '请确认', choices: ['确认'] } })
+    const w = await panel({ actionCapabilities: capabilitiesFixture('run-1', 'mission-1', 'waiting_review', 3, { canAnswerPlanner: true }) })
     await w.get('.question-choices button').trigger('click')
     expect(w.get('[aria-label="选择对话模型"]').attributes('disabled')).toBeDefined()
     await w.get('[aria-label="选择权限"]').trigger('click')

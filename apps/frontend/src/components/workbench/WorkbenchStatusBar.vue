@@ -113,6 +113,7 @@ import { statusSemanticColor } from '@/utils/statusSemantic'
 export interface WorkbenchRunSummary {
   runId: string
   status?: string | null
+  canDelete?: boolean
 }
 
 const props = withDefaults(defineProps<{
@@ -194,10 +195,9 @@ const requestRerun = () => {
   emit('rerun')
 }
 
-const terminalRunStatuses = new Set(['completed', 'succeeded', 'failed', 'cancelled', 'superseded'])
-const runDeletable = (run: WorkbenchRunSummary) => terminalRunStatuses.has((run.status || '').toLowerCase())
+const runDeletable = (run: WorkbenchRunSummary) => run.canDelete === true
 const requestDeleteRun = (runId: string) => {
-  if (props.deletingRunId === runId) return
+  if (props.deletingRunId === runId || !props.runs.some(run => run.runId === runId && runDeletable(run))) return
   emit('delete-run', runId)
 }
 

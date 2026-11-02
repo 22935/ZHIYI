@@ -6,8 +6,11 @@ import MissionWorkspaceView from './MissionWorkspaceView.vue'
 import EditorGroup from '@/components/workspace/EditorGroup.vue'
 import GraphEditor from '@/components/workspace/GraphEditor.vue'
 import WorkspaceViewHost from '@/components/app/WorkspaceViewHost.vue'
+import { capabilitiesFixture } from '@/test/fixtures/runCapabilities'
 import { agentosRequest } from '@/services/api/agentos/client'
 import { agentosApi, type MissionWorkspaceProjection, type WorkflowRun, type WorkspaceEntry } from '@/services/api/agentos'
+import type { RunActionCapabilities } from '@/services/api/agentos'
+import { ElMessageBox } from 'element-plus'
 
 let wrapper: VueWrapper | undefined
 let status = 'planning'
@@ -16,11 +19,22 @@ let streams = 0
 let details: Record<string, WorkflowRun> = {}
 let runList: MissionWorkspaceProjection['runs'] | null = null
 let unexpectedReads: string[] = []
-const detail = (id = 'a'): WorkflowRun => details[id] || ({ runId: id, missionId: 'm', workflowId: 'workflow', domain: 'general', status, steps: [], review: status === 'waiting_review' ? { stepId: 'node' } : undefined } as any)
+let offersByRun: Record<string, Partial<RunActionCapabilities> | null> = {}
+const detail = (id = 'a'): WorkflowRun => {
+  const run = details[id] || ({ runId: id, missionId: 'm', workflowId: 'workflow', domain: 'general', status, steps: [], review: status === 'waiting_review' ? { stepId: 'node' } : undefined } as any)
+  const superseded = run.status === 'superseded' || Boolean(run.lineage?.supersededByRunId)
+  return { ...run, runtimeRevision: run.runtimeRevision ?? 1,
+    actionCapabilities: offersByRun[id] === null ? null : capabilitiesFixture(id, 'm', run.status, run.runtimeRevision ?? 1, { lineage: run.lineage || {},
+      isSuperseded: superseded, canCancel: !superseded && ['pending', 'planning', 'running', 'waiting_review', 'retrying'].includes(run.status),
+      canCollaborate: !superseded && ['pending', 'planning', 'running', 'waiting_review', 'retrying'].includes(run.status),
+      canReview: !superseded && Boolean(run.review), canRetrySuccessor: !superseded && run.status === 'failed' && run.steps.some(step => step.status === 'failed'),
+      retryStepId: run.steps.find(step => step.status === 'failed')?.stepId || null,
+      canRerunSuccessor: !superseded && ['completed', 'failed', 'cancelled'].includes(run.status), canDelete: !superseded && ['completed', 'failed', 'cancelled'].includes(run.status), ...offersByRun[id] }) }
+}
 const workspace = (id = 'a'): MissionWorkspaceProjection => ({
   mission: { missionId: 'm', userId: 'u', goal: 'Lifecycle', status: 'created', metadata: {}, createdAt: '1', updatedAt: '1', description: '' },
-  activeRun: { runId: id, status: detail(id).status, createdAt: '2026-11-01', isActive: true } as any,
-  runs: runList || [{ runId: id, status: detail(id).status, createdAt: '2026-11-01', isActive: true }] as any,
+  activeRun: { runId: id, status: detail(id).status, createdAt: '2026-11-01', isActive: true, actionCapabilities: detail(id).actionCapabilities } as any,
+  runs: (runList || [{ runId: id, status: detail(id).status, createdAt: '2026-11-01', isActive: true }]).map(run => ({ ...run, actionCapabilities: detail(run.runId).actionCapabilities })) as any,
   entries: [{ entryId: 'overview:mission.md', kind: 'virtual_document', group: 'overview', name: 'mission.md', content: '# Mission', displayOrder: 0 }, ...entries.filter(entry => !entry.runId || entry.runId === id)],
   graphNodes: [], diagnostics: []
 })
@@ -45,6 +59,7 @@ const open = async (url = '/agentos/missions/m/workspace?runId=a') => {
 beforeEach(() => {
   vi.useFakeTimers(); localStorage.clear(); sessionStorage.clear(); status = 'planning'; entries = []; streams = 0; details = {}; runList = null
   unexpectedReads = []
+  offersByRun = {}
   vi.spyOn(agentosRequest, 'get').mockImplementation(async (path: string) => { unexpectedReads.push(path); throw new Error(`Unmocked fixture GET: ${path}`) })
   vi.spyOn(agentosRequest, 'post').mockRejectedValue(new Error('Unexpected mutation from a presentation transition'))
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
@@ -71,6 +86,84 @@ beforeEach(() => {
   }))
 })
 afterEach(async () => { wrapper?.unmount(); wrapper = undefined; await settle(); expect(streams).toBe(0); expect(unexpectedReads).toEqual([]); expect(agentosRequest.post).not.toHaveBeenCalled(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+it('restores Cancel independently for each active Run and preserves the comparison revision', async () => {
+  status = 'running'
+  details.a = { ...detail(), runtimeRevision: 9 }
+  details.b = { ...detail('b'), runtimeRevision: 3 }
+  const cancel = vi.spyOn(agentosApi, 'cancelWorkflowRun').mockImplementation(async id => {
+    details[id] = { ...detail(id), status: 'cancelled', runtimeRevision: detail(id).runtimeRevision! + 1 }
+    return detail(id)
+  })
+  vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+  await open()
+  expect(view().canCancelActiveRun).toBe(true)
+  expect(view().controlReadOnly).toBe(false)
+  await wrapper!.get('[aria-label="打开 ACG Copilot"]').trigger('click'); await settle()
+  const stop = wrapper!.findAll('.formal-control__actions button').find(button => button.text() === '取消任务')!
+  expect(stop).toBeDefined()
+  await stop.trigger('click'); await settle()
+  expect(cancel).toHaveBeenCalledWith('a', { expectedRuntimeRevision: 9 })
+  expect(view().lifecycle.phase).toBe('CANCELLED')
+  expect(view().canCancelActiveRun).toBe(false)
+  await view().selectRun('b'); await settle()
+  expect(view().canCancelActiveRun).toBe(true)
+  offersByRun.b = { canCancel: false, canCollaborate: false }
+  await view().loadWorkspace('b'); await settle()
+  await view().cancelActiveRun()
+  expect(cancel).toHaveBeenCalledTimes(1)
+})
+
+it('does not turn Cancel permission into Review, tool approval or formal permission', async () => {
+  status = 'waiting_review'
+  offersByRun.a = { canReview: false, canExecuteFormalAction: false, canResolveToolApproval: false }
+  vi.mocked(agentosApi.getCopilot).mockResolvedValue({ runId: 'a', missionId: 'm', status, revision: 1,
+    modelAvailable: true, question: null, humanAnswers: [], exchanges: [], decision: null, steps: [],
+    review: { subjectId: 'node', subjectType: 'step', reason: 'Review requested', reasonCode: 'REVIEW_REQUIRED',
+      canApprove: true, decisionRejected: false, expectedRunUpdatedAt: '2026-11-02T00:00:00Z' } })
+  await open()
+  expect(view().canCancelActiveRun).toBe(true)
+  if (!wrapper!.findComponent({ name: 'AcgCopilotPanel' }).exists()) {
+    await wrapper!.get('[aria-label="打开 ACG Copilot"]').trigger('click'); await settle()
+  }
+  const copilot = wrapper!.findComponent({ name: 'AcgCopilotPanel' })
+  const review = vi.spyOn(agentosApi, 'applyWorkflowReview')
+  await (copilot.vm as any).submitReview('approved')
+  expect(copilot.get('.review-actions button').attributes('disabled')).toBeDefined()
+  expect(review).not.toHaveBeenCalled()
+  expect(wrapper!.findComponent({ name: 'FormalToolApprovals' }).exists()).toBe(false)
+})
+
+it('closes missing capability snapshots and refuses superseded sources without creating a successor', async () => {
+  status = 'failed'
+  offersByRun.a = null
+  await open()
+  expect(view().controlReadOnly).toBe(true)
+  expect(view().canRerunSelectedRun).toBe(false)
+  delete offersByRun.a
+  details.a = { ...detail(), lineage: { supersededByRunId: 'b' } }
+  await view().loadWorkspace('a'); await settle()
+  const retry = vi.spyOn(agentosApi, 'retryWorkflowStepAsync')
+  const rerun = vi.spyOn(agentosApi, 'rerunWorkflowAsync')
+  await view().rerunSelectedRun()
+  expect(view().isHistorical).toBe(true)
+  expect(retry).not.toHaveBeenCalled(); expect(rerun).not.toHaveBeenCalled()
+})
+
+it.each(['revision', 'target'])('does not silently replace a stale retry %s with another version or a full rerun', async mismatch => {
+  status = 'failed'
+  details.a = { ...detail(), runtimeRevision: 4, steps: [{ stepId: 'node', status: 'failed' }] } as any
+  if (mismatch === 'target') offersByRun.a = { retryStepId: 'other-node' }
+  await open()
+  if (mismatch === 'revision') vi.mocked(agentosApi.getWorkflowRun).mockResolvedValueOnce({ ...detail(), runtimeRevision: 5 })
+  const retry = vi.spyOn(agentosApi, 'retryWorkflowStepAsync')
+  const rerun = vi.spyOn(agentosApi, 'rerunWorkflowAsync')
+  await view().rerunSelectedRun(); await settle()
+  expect(retry).not.toHaveBeenCalled(); expect(rerun).not.toHaveBeenCalled()
+  expect(view().selectedRunId).toBe('a')
+  expect(Array.from({ length: sessionStorage.length }, (_, index) => sessionStorage.key(index))
+    .some(key => key?.startsWith('workbench.recovery.v1:'))).toBe(false)
+})
 it.each(['failed', 'completed'])('real Registry and EditorGroup follow planning, execution, review and %s once', async terminal => {
   await open()
   expect(wrapper!.findComponent(EditorGroup).exists()).toBe(true)
@@ -120,11 +213,11 @@ it.each([['completed', 'failed'], ['failed', 'completed']])('keeps selected old 
   const router = await open()
   expect(router.currentRoute.value.query.runId).toBe('a')
   expect(view().selectedRunId).toBe('a'); expect(view().lifecycle.latestRunId).toBe('b')
-  expect(view().isHistorical).toBe(true); expect(view().controlReadOnly).toBe(true); expect(view().currentRunId).toBeNull()
+  expect(view().isHistorical).toBe(true); expect(view().controlReadOnly).toBe(true); expect(view()).not.toHaveProperty('currentRunId')
   const cancel = vi.spyOn(agentosApi, 'cancelWorkflowRun')
   await view().cancelActiveRun(); expect(cancel).not.toHaveBeenCalled()
   await view().selectRun('b'); await settle()
-  expect(view().lifecycle.isHistorical).toBe(false); expect(view().lifecycle.isCurrent).toBeNull()
+  expect(view().lifecycle.isHistorical).toBe(false); expect(view().lifecycle).not.toHaveProperty('isCurrent')
   expect(view().runtimeObservation.run.runId).toBe('b')
 })
 it('historical Copilot discusses evidence with read_only permission and cannot issue a control', async () => {
@@ -145,7 +238,7 @@ it('historical Copilot discusses evidence with read_only permission and cannot i
 })
 it.each(['retry', 'rerun'])('persists %s operation after a lost response, deduplicates submission, and creates only a successor', async kind => {
   status = kind === 'retry' ? 'failed' : 'completed'
-  details.a = { ...detail(), runtimeRevision: 4, lineage: { supersededByRunId: 'b' }, steps: [{ stepId: 'node', status: 'failed' }] } as any
+  details.a = { ...detail(), runtimeRevision: 4, lineage: { sourceRunId: 'predecessor' }, steps: [{ stepId: 'node', status: 'failed' }] } as any
   const original = JSON.stringify(details.a)
   const ledger = new Map<string, WorkflowRun>()
   const response = defer<WorkflowRun>()
@@ -206,7 +299,7 @@ it('external successors update the list while preserving selected Run and its or
   runList = [{ runId: 'b', status: 'failed', createdAt: '2026-11-02', isActive: false }, { runId: 'a', status: 'completed', createdAt: '2026-11-01', isActive: true }]
   await view().loadWorkspace(); await settle()
   expect(view().selectedRunId).toBe('a'); expect(router.currentRoute.value.query.runId).toBe('a')
-  expect(view().lifecycle.latestRunId).toBe('b'); expect(view().lifecycle.currentRunId).toBeNull()
+  expect(view().lifecycle.latestRunId).toBe('b'); expect(view().lifecycle).not.toHaveProperty('currentRunId')
   expect(JSON.stringify(view().projection.entries.find((entry: WorkspaceEntry) => entry.entryId === 'final'))).toBe(originalArtifact)
   expect(JSON.stringify(view().runtimeObservation.provenance)).toBe(originalProvenance)
 })

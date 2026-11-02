@@ -2,10 +2,12 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MissionRevisionNotice from './MissionRevisionNotice.vue'
 import { agentosApi } from '@/services/api/agentos'
+import { capabilitiesFixture } from '@/test/fixtures/runCapabilities'
 vi.mock('@/services/api/agentos', () => ({ agentosApi: { getRunRevision: vi.fn(), decideRunRevision: vi.fn(), applyRunRevision: vi.fn() } }))
 const observation = (extra = {}) => ({ missionId: 'm', runId: 'r', sourceRevision: 1, targetRevision: 2,
   status: 'REVISION_CHANGED' as const, runStatus: 'running', impact: 'NOT_ANALYZED' as const, decisions: [], ...extra })
-const props = { missionId: 'm', runId: 'r', revision: 2, runStatus: 'running' }
+const props = { missionId: 'm', runId: 'r', revision: 2, runStatus: 'running',
+  actionCapabilities: capabilitiesFixture('r', 'm', 'running', 1, { canDecideRevision: true }) }
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(agentosApi.getRunRevision).mockResolvedValue(observation())
@@ -42,7 +44,7 @@ describe('MissionRevisionNotice', () => {
     expect(wrapper.text()).toContain('请先通过 Run 的取消入口')
     expect(wrapper.findAll('button').some(b => b.text() === '按已选版本新建 Run')).toBe(false)
     vi.mocked(agentosApi.getRunRevision).mockResolvedValue(observation({ runStatus: 'cancelled', decisions: [receipt] }) as any)
-    await wrapper.setProps({ runStatus: 'cancelled' }); await flushPromises()
+    await wrapper.setProps({ runStatus: 'cancelled', actionCapabilities: capabilitiesFixture('r', 'm', 'cancelled', 2, { canApplyRevision: true }) }); await flushPromises()
     vi.mocked(agentosApi.applyRunRevision).mockResolvedValue({ status: 'SUCCESSOR_CREATED', runId: 'successor' })
     await wrapper.find('button').trigger('click'); await flushPromises()
     expect(agentosApi.applyRunRevision).toHaveBeenCalledWith('m', 'r', 'saved-op')

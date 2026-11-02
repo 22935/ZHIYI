@@ -258,7 +258,7 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     expect(state().runtimeStore === runtime).toBe(true)
     expect(state().runtimeStore.planning.outputBuffer).toBe('visible hidden output')
     expect(state().selectedRunId).toBe('run'); expect(state().lifecycle.latestRunId).toBe('external-new-run')
-    expect(state().currentRunId).toBeNull()
+    expect(state()).not.toHaveProperty('currentRunId')
     expect(activeStreams).toBe(1); expect(maximumStreams).toBe(1)
     await toChat(); await toWorkbench()
     expect(activeStreams).toBe(1); expect(maximumStreams).toBe(1)

@@ -1,6 +1,6 @@
 <template>
   <section v-if="visible" class="formal-control" :class="{ 'is-embedded': embedded }" aria-label="正式运行控制">
-    <FormalToolApprovals v-if="!historical && !readonly && runId" :run-id="runId" :active="run?.status === 'running'" />
+    <FormalToolApprovals v-if="!historical && !readonly && !executionReadonly && runId && capabilities?.canResolveToolApproval" :run-id="runId" :active="run?.status === 'running'" />
     <header><strong>{{ embedded ? '任务进展' : '运行控制' }}</strong><button type="button" :disabled="pending" @click="emit('refresh')">刷新</button></header>
     <dl v-if="!embedded" aria-live="polite">
       <div><dt>任务</dt><dd>{{ run?.status || '状态不可用' }}</dd></div>
@@ -14,13 +14,13 @@
       <button v-if="action" type="button" class="formal-control__primary" :disabled="disabled" @click="submit">
         {{ pending ? '正在提交…' : error && !blocked ? '重试原操作' : formalActionLabels[action] }}
       </button>
-      <button v-if="canCancel && !historical" type="button" :disabled="readonly || pending || cancelPending || !run" @click="emit('cancel')">
+      <button v-if="canCancel && !historical && capabilities?.canCancel" type="button" :disabled="readonly || pending || cancelPending || !run" @click="emit('cancel')">
         {{ cancelPending ? '正在取消…' : '取消任务' }}
       </button>
     </div>
     <p v-if="error" class="formal-control__error" role="alert">{{ error }}</p>
-    <small v-if="readonly && !historical && action">当前视图仅供查看，正式操作已禁用。</small>
-    <WorkflowReviewPanel v-if="showReview && run?.status === 'waiting_review' && !historical && !blocked && !readonly" :run-id="run.runId"
+    <small v-if="(readonly || executionReadonly) && !historical && action">当前视图仅供查看，正式操作已禁用。</small>
+    <WorkflowReviewPanel v-if="showReview && run?.status === 'waiting_review' && !historical && !blocked && !readonly && !executionReadonly && capabilities?.canReview" :run-id="run.runId"
       :run="reviewRun" :progress="null" compact @reviewed="emit('refresh')" @conflict="emit('refresh')" />
     <details v-if="control"><summary>{{ embedded ? '运行状态与授权引用' : '授权与关联引用' }}</summary><dl>
       <template v-if="embedded">
@@ -37,11 +37,15 @@
 <script setup lang="ts">
 import FormalToolApprovals from './FormalToolApprovals.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { agentosApi, type WorkflowRun } from '@/services/api/agentos'
+import { agentosApi, type WorkflowRun, type RunActionCapabilities } from '@/services/api/agentos'
+import { readRunCapabilities } from '@/workbench/runtime/runCapabilities'
 import WorkflowReviewPanel from '@/components/agentos/WorkflowReviewPanel.vue'
 import { formalActionLabels, formalSource, nextFormalAction, prepareFormalCommand } from '@/features/acg/formalControl'
 
-const props = withDefaults(defineProps<{ run: WorkflowRun | null; runId: string | null; missionId: string; historical: boolean; canCancel: boolean; cancelPending: boolean; embedded?: boolean; readonly?: boolean; showReview?: boolean }>(), { embedded: false, readonly: false, showReview: true })
+const props = withDefaults(defineProps<{ run: WorkflowRun | null; runId: string | null; missionId: string; historical: boolean; canCancel: boolean; cancelPending: boolean; embedded?: boolean; readonly?: boolean; executionReadonly?: boolean; showReview?: boolean; actionCapabilities?: RunActionCapabilities | null }>(), { embedded: false, readonly: false, executionReadonly: false, showReview: true })
+const capabilities = computed(() => !Number.isInteger(props.run?.runtimeRevision) ? null :
+  readRunCapabilities(props.actionCapabilities === undefined ? props.run?.actionCapabilities : props.actionCapabilities,
+    props.missionId, props.runId, props.run?.runtimeRevision, props.run?.status))
 const emit = defineEmits<{ refresh: []; cancel: [] }>()
 const pending = ref(false)
 const error = ref('')
@@ -53,16 +57,20 @@ onBeforeUnmount(() => { generation++ })
 watch(() => props.runId, () => { generation++; pending.value = false; error.value = ''; blocked.value = false; acknowledged.value = ''; seenFormal.value = false })
 watch(() => props.run?.formalControl, c => { if (c) seenFormal.value = true }, { immediate: true })
 const control = computed(() => props.run?.formalControl)
-const visible = computed(() => seenFormal.value || Boolean(control.value) || props.run?.executionState?.planningCommitRequired)
+const visible = computed(() => seenFormal.value || Boolean(control.value) || props.run?.executionState?.planningCommitRequired
+  || props.canCancel && capabilities.value?.canCancel === true)
 const action = computed(() => props.run?.runId === props.runId && props.run?.missionId === props.missionId ? nextFormalAction(props.run) : null)
 const source = computed(() => action.value && props.run ? formalSource(props.run, action.value) : '')
 watch(source, () => { error.value = ''; blocked.value = false })
-const disabled = computed(() => props.readonly || pending.value || blocked.value || props.historical || acknowledged.value === source.value)
+const disabled = computed(() => props.readonly || props.executionReadonly || pending.value || blocked.value || props.historical || acknowledged.value === source.value
+  || !capabilities.value?.canExecuteFormalAction || !action.value || !capabilities.value.formalActions.includes(action.value))
 const reviewRun = computed(() => props.run ? { ...props.run, review: props.run.review || props.run.executionState?.reviewPayload } : null)
 const references = computed(() => ({ Commit: control.value?.commitId, Graph: control.value?.graphId, Version: control.value?.graphVersion,
   Activation: control.value?.activationId, Handoff: control.value?.handoffId, Permit: control.value?.permitId, Dispatch: control.value?.dispatch?.dispatchId }))
 const explanation = computed(() => {
-  if (!props.run || !control.value) return '无法验证正式状态，控制操作已禁用。'
+  if (!props.run) return '无法验证正式状态，控制操作已禁用。'
+  if (!control.value) return capabilities.value?.canCancel
+    ? 'Runtime 已确认此 Run 可停止；未提供正式图控制证据。' : '无法验证正式状态，控制操作已禁用。'
   if (props.historical) return '历史 Run 只读。'
   if (props.run.status === 'completed') return props.embedded ? '任务已完成，可从左侧查看或下载交付文件。' : '运行已完成；已登记的 Artifact 可从左侧打开或下载，最终交付以正式引用为准。'
   if (['failed', 'cancelled'].includes(props.run.status)) return props.run.lifecycleMessage || '运行已停止。请查看下方故障与恢复证据。'

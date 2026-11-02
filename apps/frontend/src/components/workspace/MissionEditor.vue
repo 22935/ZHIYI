@@ -14,6 +14,7 @@
       :mission-id="projection.mission.missionId" :run-id="projection.activeRun.runId"
       :revision="projection.missionSemanticView.missionRevision" :run-status="projection.activeRun.status || ''"
       :readonly="readonly"
+      :action-capabilities="actionCapabilities"
       @changed="emit('semanticsSaved')" />
 
     <form v-if="editing" class="mission-editor__meta" @submit.prevent="saveSemantics">
@@ -56,12 +57,13 @@ import MissionRevisionNotice from './MissionRevisionNotice.vue'
 import { agentosApi, type MissionSemanticEditRequest } from '@/services/api/agentos'
 import { missionDocumentContent, missionDisplayLabel, runDisplayObjective } from './missionSemanticDisplay'
 import { renderMarkdown } from '@/utils/markdown'
-import type { MissionWorkspaceProjection, WorkspaceEntry } from '@/services/api/agentos'
+import type { MissionWorkspaceProjection, WorkspaceEntry, RunActionCapabilities } from '@/services/api/agentos'
 
 const props = defineProps<{
   projection: MissionWorkspaceProjection
   entry: WorkspaceEntry
   readonly?: boolean
+  actionCapabilities?: RunActionCapabilities | null
 }>()
 const emit = defineEmits<{ semanticsSaved: [] }>()
 const editing = ref(false)

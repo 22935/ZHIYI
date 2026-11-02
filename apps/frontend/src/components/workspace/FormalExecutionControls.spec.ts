@@ -4,6 +4,7 @@ import { webcrypto } from 'node:crypto'
 import { agentosApi, type WorkflowRun } from '@/services/api/agentos'
 import { nextFormalAction, prepareFormalCommand } from '@/features/acg/formalControl'
 import FormalExecutionControls from './FormalExecutionControls.vue'
+import { capabilitiesFixture } from '@/test/fixtures/runCapabilities'
 
 const permitted = (): WorkflowRun => ({
   runId: 'run', missionId: 'mission', workflowId: 'workflow', domain: 'test', status: 'pending', steps: [], runtimeRevision: 7,
@@ -11,10 +12,14 @@ const permitted = (): WorkflowRun => ({
     commitId: 'commit', commitmentRevision: 1, materializationId: 'mat', activationId: 'activation', graphId: 'graph', graphVersion: 1,
     handoffId: 'handoff', handoffStatus: 'STATE_PREPARED', permitId: 'permit', permitStatus: 'ISSUED', dispatch: null }
 })
-const render = (run: WorkflowRun | null = permitted(), extra = {}) => mount(FormalExecutionControls, {
+const render = (run: WorkflowRun | null = permitted(), extra = {}) => {
+  if (run && run.actionCapabilities === undefined) run.actionCapabilities = capabilitiesFixture(run.runId, run.missionId, run.status, run.runtimeRevision || 0,
+    { canReview: run.status === 'waiting_review', canExecuteFormalAction: Boolean(nextFormalAction(run)), formalActions: nextFormalAction(run) ? [nextFormalAction(run)!] : [] })
+  return mount(FormalExecutionControls, {
   props: { run, missionId: 'mission', runId: 'run', historical: false, canCancel: true, cancelPending: false, ...extra },
   global: { stubs: { WorkflowReviewPanel: { template: '<button @click="$emit(\'reviewed\')">通过审核</button>' } } }
-})
+  })
+}
 const execute = (wrapper: ReturnType<typeof render>) => wrapper.findAll('button').find(b => /执行任务|重试原操作/.test(b.text()))!
 beforeEach(() => { localStorage.clear(); vi.restoreAllMocks(); vi.stubGlobal('crypto', webcrypto) })
 
@@ -86,7 +91,10 @@ describe('formal Workbench controls', () => {
     await w.setProps({ run: null })
     expect(w.text()).toContain('无法验证正式状态')
     expect(execute(w)).toBeUndefined()
-    await w.setProps({ run: permitted(), historical: true })
+    const restored = permitted()
+    restored.actionCapabilities = capabilitiesFixture('run', 'mission', 'pending', 7,
+      { canExecuteFormalAction: true, formalActions: ['dispatch'] })
+    await w.setProps({ run: restored, historical: true })
     expect(execute(w).attributes('disabled')).toBeDefined()
     await w.setProps({ historical: false })
     prepareFormalCommand(permitted(), 'dispatch', localStorage)
@@ -112,11 +120,23 @@ describe('formal Workbench controls', () => {
   })
   it('leaves Legacy controls absent and unknown formal states read-only', () => {
     const run = permitted(); delete run.formalControl
+    run.actionCapabilities = null
     const legacy = render(run); expect(legacy.find('section').exists()).toBe(false); legacy.unmount()
     const unknown = permitted(); unknown.formalControl!.status = 'UNRECOGNIZED'
     expect(nextFormalAction(unknown)).toBeNull()
     unknown.formalControl!.status = 'ACTIVATED'; unknown.formalControl!.dispatchEnabled = false
     expect(nextFormalAction(unknown)).toBeNull()
+  })
+  it('shows an explicitly authorized Cancel without C2 evidence and keeps execution consent separate', async () => {
+    const run = permitted(); delete run.formalControl
+    const wrapper = render(run, { executionReadonly: true })
+    expect(wrapper.find('.formal-control__primary').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Runtime 已确认此 Run 可停止')
+    const cancel = wrapper.findAll('button').find(button => button.text() === '取消任务')!
+    expect(cancel.attributes('disabled')).toBeUndefined()
+    await cancel.trigger('click')
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+    wrapper.unmount()
   })
   it('offers one explicit action at each formally observed stage', () => {
     const run = permitted(); const c = run.formalControl!

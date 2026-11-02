@@ -1,5 +1,6 @@
-import type { MissionWorkspaceProjection, WorkflowRun, WorkspaceEntry } from '@/services/api/agentos'
+import type { MissionWorkspaceProjection, WorkflowRun, WorkspaceEntry, RunActionCapabilities } from '@/services/api/agentos'
 import { isRunDeliverableEntry } from './deliverableIdentity'
+import { readRunCapabilities, runCapabilities, runCapabilityActions } from './runCapabilities'
 
 export type LifecyclePhase = 'CREATED' | 'QUEUED' | 'PLANNING' | 'AWAITING_CONFIRMATION'
   | 'ACTIVATED_PAUSED' | 'READY_TO_DISPATCH' | 'DISPATCHED' | 'RUNNING' | 'WAITING_REVIEW'
@@ -11,11 +12,10 @@ export interface LifecycleProjection {
   phase: LifecyclePhase
   reason: string
   isHistorical: boolean
-  isCurrent: boolean | null
-  currentRunId: string | null
   latestRunId: string | null
   successorRunId: string | null
   isReadOnly: boolean
+  capabilities: RunActionCapabilities | null
   recommendedEditor: 'mission' | 'progress' | 'graph' | 'task' | 'artifact'
   recommendedEntryId: string | null
   recommendedInspector: 'mission' | 'runtime' | 'review' | 'failure' | 'delivery' | 'lineage' | 'formal'
@@ -35,10 +35,18 @@ export function projectLifecycle(input: {
   run?: WorkflowRun | null
 }): LifecycleProjection {
   const { workspace, selectedRunId } = input
-  const run = input.run?.runId === selectedRunId && input.run.missionId === workspace?.mission.missionId ? input.run : null
+  const detail = input.run?.runId === selectedRunId && input.run.missionId === workspace?.mission.missionId ? input.run : null
   const summary = workspace?.activeRun?.runId === selectedRunId ? workspace.activeRun
     : workspace?.runs.find(item => item.runId === selectedRunId) || null
-  const rawStatus = run?.status || summary?.status || null
+  const offers = [runCapabilities(detail), readRunCapabilities(summary?.actionCapabilities,
+    workspace?.mission.missionId || '', selectedRunId)].filter((value): value is RunActionCapabilities => Boolean(value))
+  offers.sort((a, b) => b.runtimeRevision - a.runtimeRevision)
+  const signature = (value: RunActionCapabilities) => JSON.stringify([value.status, value.isSuperseded,
+    value.lineage.supersededByRunId, value.formalActions, ...runCapabilityActions.map(action => value[action])])
+  const conflict = offers.some(value => value.runtimeRevision === offers[0].runtimeRevision && signature(value) !== signature(offers[0]))
+  const capabilities = conflict ? null : offers[0] || null
+  const run = !conflict && detail && (!capabilities || detail.runtimeRevision === capabilities.runtimeRevision) ? detail : null
+  const rawStatus = capabilities?.status || run?.status || summary?.status || null
   const status = rawStatus?.toLowerCase() || 'unknown'
   const control = run?.formalControl
   const evidence = [run ? `run:${selectedRunId}:status` : summary ? `workspace:${selectedRunId}:status` : 'status:NOT_OBSERVED']
@@ -70,11 +78,14 @@ export function projectLifecycle(input: {
   if (run?.lifecyclePhase) evidence.push(`run:${selectedRunId}:lifecyclePhase:${run.lifecyclePhase}`)
   if (run?.failureCode || run?.error?.code) evidence.push(`run:${selectedRunId}:failure:${run.failureCode || run.error?.code}`)
   if (run?.review) evidence.push(`run:${selectedRunId}:review:${run.review.subjectId || run.review.stepId || 'unknown'}`)
-  const successorRunId = run?.lineage?.supersededByRunId || null
-  const historical = status === 'superseded' || Boolean(successorRunId)
-  // No currentRunId authority exists in the present Workspace contract. Do not
-  // replace it with timestamps, selected flags, or absence of a successor edge.
-  const unavailableReasons = [historical ? 'Historical Run is immutable' : 'Current Run authority NOT_OBSERVED; in-place controls disabled']
+  if (conflict) {
+    phase = 'UNKNOWN'; reason = 'Run capability snapshots disagree at the same runtimeRevision; controls disabled'
+    evidence.push('actionCapabilities:SNAPSHOT_CONFLICT')
+  }
+  const successorRunId = capabilities?.lineage.supersededByRunId || detail?.lineage?.supersededByRunId || null
+  const historical = capabilities?.isSuperseded === true || status === 'superseded' || Boolean(successorRunId)
+  const unavailableReasons = historical ? ['Historical Run is immutable'] : !capabilities
+    ? ['Run Action Capabilities NOT_OBSERVED; controls disabled'] : capabilities.unavailableReasons.map(reason => `${reason.action}: ${reason.code}`)
   const dates = (workspace?.runs || []).map(item => ({ id: item.runId, time: Date.parse(item.createdAt) }))
   const maximum = Math.max(...dates.map(item => item.time))
   const latest = dates.filter(item => Number.isFinite(item.time) && item.time === maximum)
@@ -101,12 +112,14 @@ export function projectLifecycle(input: {
     : phase === 'WAITING_REVIEW' ? 'review' : ['ACTIVATED_PAUSED', 'READY_TO_DISPATCH', 'AWAITING_CONFIRMATION'].includes(phase) ? 'formal' : 'runtime'
   return {
     runId: selectedRunId, rawStatus, normalizedStatus: status === 'succeeded' ? 'completed' : status,
-    phase, reason, isHistorical: historical, isCurrent: historical ? false : null, currentRunId: null,
-    latestRunId: latest.length === 1 ? latest[0].id : null, successorRunId, isReadOnly: true,
+    phase, reason, isHistorical: historical,
+    latestRunId: latest.length === 1 ? latest[0].id : null, successorRunId, capabilities,
+    isReadOnly: historical || !capabilities || !['canCancel', 'canReview', 'canExecuteFormalAction', 'canAnswerPlanner',
+      'canCollaborate', 'canResolveToolApproval', 'canDecideRevision', 'canApplyRevision'].some(key => capabilities[key as keyof RunActionCapabilities] === true),
     recommendedEditor, recommendedEntryId, recommendedInspector: inspector,
-    availableActions: selectedRunId ? ['inspect', 'discuss', ...(['completed', 'succeeded', 'failed', 'cancelled', 'superseded'].includes(status) ? ['create_successor'] : [])] : ['inspect'],
+    availableActions: selectedRunId ? ['inspect', 'discuss', ...(capabilities?.canRetrySuccessor || capabilities?.canRerunSuccessor ? ['create_successor'] : [])] : ['inspect'],
     unavailableReasons, evidenceReferences: evidence,
-    notObserved: [...(!run && selectedRunId ? ['runDetail'] : []), 'currentRunAuthority', ...(!control ? ['formalControl'] : []), 'checkpointRecoveryAuthorization'],
+    notObserved: [...(!run && selectedRunId ? ['runDetail'] : []), ...(!capabilities ? ['actionCapabilities'] : []), ...(!control ? ['formalControl'] : []), 'checkpointRecoveryAuthorization'],
     deliverable, deliveryStatus: phase !== 'COMPLETED' ? 'NOT_COMPLETE' : deliverable ? 'READY' : 'MISSING',
     failure: phase === 'FAILED' ? { layer: failedStep ? 'Task' : run?.lifecyclePhase === 'planning' ? 'Planner' : 'Run (layer NOT_OBSERVED)',
       objectId: failedStep?.stepId || selectedRunId || 'unknown', reason, checkpoint: 'NOT_OBSERVED', sideEffects: 'NOT_OBSERVED' } : null

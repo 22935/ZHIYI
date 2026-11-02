@@ -6,6 +6,7 @@ import type {
   WorkspaceEntryKind,
   WorkspaceGraphNode
 } from '@/services/api/agentos'
+import type { RunActionCapabilities } from '@/services/api/agentos'
 import type { RuntimeObservation } from './runtime/observation'
 import type { RunDocumentSymbolType } from './runtime/runDocument'
 import type { LifecycleProjection } from './runtime/lifecycleProjection'
@@ -27,6 +28,7 @@ export interface WorkbenchContext {
   diagnostics: readonly WorkspaceDiagnostic[]
   runtimeObservation: RuntimeObservation | null
   lifecycle?: LifecycleProjection
+  actionCapabilities?: RunActionCapabilities | null
 }
 
 export interface WorkbenchInspectorContext extends WorkbenchContext {
