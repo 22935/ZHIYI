@@ -5,6 +5,7 @@ import com.kinlin.ai.dto.agentos.AgentOsApiResponse;
 import com.kinlin.ai.dto.agentos.AgentOsMissionRunCreateRequest;
 import com.kinlin.ai.dto.agentos.AgentOsOperationResponse;
 import com.kinlin.ai.dto.agentos.AgentOsRunResponse;
+import com.kinlin.ai.dto.agentos.AgentOsRunCancelRequest;
 import com.kinlin.ai.gateway.AgentOsPaths;
 import com.kinlin.ai.projection.common.dto.QueryResponse;
 import com.kinlin.ai.projection.run.mapper.RunProjectionMapper;
@@ -85,9 +86,10 @@ public class AgentOsRunController {
     }
 
     @PostMapping("/runs/{runId}/cancel")
-    public ResponseEntity<? extends AgentOsApiResponse> cancelRun(@PathVariable String runId) {
+    public ResponseEntity<? extends AgentOsApiResponse> cancelRun(@PathVariable String runId,
+            @Valid @RequestBody(required = false) AgentOsRunCancelRequest request) {
         return AgentOsControllerSupport.typedResponse(gateway.postTyped(
-                AgentOsPaths.run(runId) + "/cancel", Map.of(), AgentOsOperationResponse.class
+                AgentOsPaths.run(runId) + "/cancel", request == null ? Map.of() : request, AgentOsOperationResponse.class
         ));
     }
 

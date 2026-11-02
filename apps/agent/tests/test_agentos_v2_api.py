@@ -2129,16 +2129,15 @@ async def test_v2_single_step_retry_is_idempotent_and_enqueues_child_run(tmp_pat
 
     assert created.status_code == 202
     assert repeated.status_code == 202
-    assert current_run_retry.status_code == 202
+    assert current_run_retry.status_code == 409
     assert created.json()["runId"] == "run_single_step_retry"
     assert repeated.json()["runId"] == created.json()["runId"]
-    assert len(prepared) == 2
+    assert len(prepared) == 1
     assert prepared[0]["reuse_source_run"] is False
-    assert prepared[1]["reuse_source_run"] is True
     # This spy records submission attempts, not managed execution tasks. A replay
     # retries scheduling the same durable child; the real Coordinator deduplicates
     # active tasks (covered by the production-wired recovery audit).
-    assert submitted == ["run_single_step_retry", "run_single_step_retry", "run_single_step_retry"]
+    assert submitted == ["run_single_step_retry", "run_single_step_retry"]
 
 
 async def test_v2_deferred_planning_failure_is_classified_without_identity_backlog(tmp_path) -> None:
@@ -2302,8 +2301,8 @@ async def test_v2_failed_mission_can_be_deleted_and_stale_deleted_rows_are_hidde
         runtime.identity_lifecycle.lifecycle_service.close()
 
 
-async def test_v2_cancel_endpoint_stops_active_run_cleanly_and_is_idempotent(tmp_path) -> None:
-    """取消端点必须真正终止活跃运行：终态干净收敛，且重复取消保持幂等。"""
+async def test_v2_cancel_endpoint_stops_active_run_cleanly_and_preserves_terminal_history(tmp_path) -> None:
+    """取消活跃运行后，终态请求明确拒绝，不重复写入原始执行证据。"""
     gated = _GatedApiAgent(AgentProfile(agentName="api-agent", domain="general"))
     runtime = _runtime(tmp_path, agent=gated)
     task = runtime.create_mission("cancel endpoint probe", workflow_id="api-workflow")
@@ -2328,8 +2327,7 @@ async def test_v2_cancel_endpoint_stops_active_run_cleanly_and_is_idempotent(tmp
         assert result.status is WorkflowStatus.CANCELLED
 
         again = await client.post(f"/agentos/v2/runs/{prepared.run_id}/cancel")
-        assert again.status_code == 200
-        assert again.json()["status"] == "cancelled"
+        assert again.status_code == 409
 
         detail = await client.get(f"/agentos/v2/runs/{prepared.run_id}")
         assert detail.json()["status"] == "cancelled"

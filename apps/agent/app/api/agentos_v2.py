@@ -20,6 +20,7 @@ import sqlite3
 from components.mission_manager.semantic_resolver import MissionSemanticResolver
 
 from app.execution.coordinator import RunExecutionCoordinator
+from app.execution.run_capabilities import assert_mutable_run, project_run_capabilities
 from app.api.agentos_c2 import create_c2_router, project_initial_control
 from app.security.internal_auth import current_trusted_user, current_semantic_principal
 from contracts.workflow import MissionRecordState, ReviewDecision, ReviewDecisionType, RunRecordState, RuntimeRunRecord, StepStatus, WorkflowStatus
@@ -70,6 +71,11 @@ from app.api.agentos_contracts import (
 
 
 logger = logging.getLogger(__name__)
+
+
+class RunCancelRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', populate_by_name=True)
+    expected_runtime_revision: int | None = Field(default=None, alias='expectedRuntimeRevision', strict=True, ge=0)
 
 
 class WorkspaceFileSaveRequest(BaseModel):
@@ -743,15 +749,38 @@ def create_router(
         require_mission_owner_access(run.mission_id)
         return query, run
 
-    def load_run(run_id: str, *, readonly: bool = False) -> RuntimeRunRecord:
+    def require_run_write_scope(run):
+        # Reuse current Mission write authority, not the last UI offer.
+        mission = runtime.workflow_store.get_mission(run.mission_id)
+        if mission.record_state != MissionRecordState.ACTIVE:
+            raise HTTPException(409, 'Mission is not active')
+        semantic = getattr(runtime, 'mission_semantic_service', None)
+        if semantic:
+            principal = current_semantic_principal()
+            if principal is None:
+                raise HTTPException(403, 'trusted principal required')
+            try:
+                semantic.require_write_access(principal, run.mission_id)
+            except PermissionError as exc:
+                raise HTTPException(403, 'semantic access denied') from exc
+
+    def load_run(run_id: str, *, readonly: bool = False, mutable: bool = False, write: bool = False) -> RuntimeRunRecord:
         try:
-            read = getattr(runtime, "get_status_cached", runtime.get_status) if readonly else runtime.get_status
+            read = runtime.workflow_store.get_run if mutable else (
+                getattr(runtime, "get_status_cached", runtime.get_status) if readonly else runtime.get_status)
             run = read(run_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="run not found") from exc
         _require_access(run)
         if run.record_state is RunRecordState.DELETED:
             raise HTTPException(status_code=404, detail="run not found")
+        if mutable or write:
+            require_run_write_scope(run)
+        if mutable:
+            try:
+                assert_mutable_run(run)
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
         return run
 
     def require_current_mission_read(mission_id: str, *, required: bool = False):
@@ -1996,11 +2025,28 @@ def create_router(
                     basis_status=basis_status, legacy_input=semantic_record.input, legacy_title=semantic_record.title)
             except (KeyError, ValueError) as exc:
                 raise HTTPException(status_code=503, detail="mission semantic projection unavailable") from exc
-        return projection.model_dump(
+        payload = projection.model_dump(
             by_alias=True,
             mode="json",
             exclude_none=True,
         )
+        # Runtime facts can lead Identity through its durable outbox. Read each
+        # Run independently; selected/isActive and timestamps never grant action.
+        capabilities = {}
+        selected = payload.get('activeRun')
+        for summary in [*payload['runs'], *([selected] if selected else [])]:
+            selected_id = summary['runId']
+            if selected_id not in capabilities:
+                try:
+                    source = runtime.workflow_store.get_run(selected_id)
+                except (KeyError, AttributeError):
+                    capabilities[selected_id] = None
+                else:
+                    _require_access(source)
+                    capabilities[selected_id] = (project_run_capabilities(runtime, source)
+                        if source.mission_id == mission_id else None)
+            summary['actionCapabilities'] = capabilities[selected_id]
+        return payload
 
     async def workspace_file_read(mission_id: str, path: str, tool_name: str, arguments: dict, *, save_operation: str | None = None):
         """Use the existing owner check, startup Grant and read-only file tools."""
@@ -2315,6 +2361,7 @@ def create_router(
     @router.post("/missions/{mission_id}/runs/{run_id}/revision")
     async def decide_run_revision(mission_id: str, run_id: str, request: MissionRevisionDecision):
         service, principal, _ = revision_context(mission_id, run_id)
+        load_run(run_id, mutable=True)
         try:
             result = service.decide_run_revision(principal, mission_id, run_id, request)
             return result.model_dump(by_alias=True, mode="json")
@@ -2637,10 +2684,20 @@ def create_router(
 
     @router.get("/runs/{run_id}")
     async def get_run(run_id: str):
-        run = load_run(run_id, readonly=True)
+        # A capability snapshot and its displayed Run must share one authority
+        # revision; do not combine a cached status with fresh permission offers.
+        try:
+            run = runtime.workflow_store.get_run(run_id)
+        except KeyError as exc:
+            raise HTTPException(404, 'run not found') from exc
+        _require_access(run)
+        if run.record_state == RunRecordState.DELETED:
+            raise HTTPException(404, 'run not found')
+        require_current_mission_read(run.mission_id)
         result = project(run)
         if run.execution_state.get("planningCommitRequired"):
             result["formalControl"] = project_initial_control(runtime, run)
+        result['actionCapabilities'] = project_run_capabilities(runtime, run, formal_control=result.get('formalControl'))
         return result
 
     @router.get("/runs/{run_id}/tool-approvals")
@@ -2654,7 +2711,9 @@ def create_router(
 
     @router.post("/runs/{run_id}/tool-approvals/{approval_id}")
     async def resolve_formal_tool_approval(run_id: str, approval_id: str, decision: dict):
-        load_run(run_id, readonly=True)
+        source = load_run(run_id, mutable=True)
+        if source.status != WorkflowStatus.RUNNING or not source.execution_state.get('executionPermitId'):
+            raise HTTPException(409, 'Run is not awaiting a formal tool decision')
         from app.tools.permissions import get_chat_permission_service, ApprovalDecision, ApprovalResolutionError
         pending = getattr(runtime, "formal_tool_pending", {}).get(approval_id)
         if not pending or pending["sessionId"] != run_id:
@@ -2960,7 +3019,7 @@ def create_router(
         """Create a new Run under an existing Mission using the submitted configuration snapshot."""
 
         require_mission_access(mission_id)
-        source_run = load_run(request.source_run_id)
+        source_run = load_run(request.source_run_id, write=True)
         if source_run.mission_id != mission_id:
             raise HTTPException(status_code=409, detail="source run belongs to another mission")
         if source_run.status.value not in {"completed", "failed", "cancelled", "superseded"}:
@@ -2980,6 +3039,7 @@ def create_router(
                     raise HTTPException(status_code=503, detail="run submission interrupted; retry the same clientRequestId and body") from exc
                 return project_control_run(existing)
         try:
+            assert_mutable_run(source_run)
             run_input = prepare_execution_input(
                 request.input, request.material_refs, request.attachment_ids
             )
@@ -3018,7 +3078,11 @@ def create_router(
     async def retry_failed_step(run_id: str, step_id: str, request: SingleStepRetryRequest):
         """Reuse committed outputs and continue from the selected failed step."""
 
-        source_run = load_run(run_id)
+        source_run = load_run(run_id, write=True)
+        # Internal Planner recovery retains its existing authority. Public
+        # operators create successors and cannot rewrite a terminal source.
+        if request.mode == 'current_run':
+            raise HTTPException(409, 'public retry requires successor_run')
         key, fingerprint = _single_step_retry_idempotency(run_id, step_id, request)
         existing = (
             runtime.workflow_store.find_run_by_idempotency_key(key)
@@ -3037,6 +3101,7 @@ def create_router(
                 raise HTTPException(status_code=503, detail="run submission interrupted; retry the same clientRequestId and body") from exc
             return project_control_run(existing)
         try:
+            assert_mutable_run(source_run)
             retry_run = runtime.prepare_single_step_retry(
                 source_run_id=source_run.run_id,
                 step_id=step_id,
@@ -3308,7 +3373,9 @@ def create_router(
 
     @router.post("/runs/{run_id}/copilot/permission")
     async def copilot_permission(run_id: str, request: CopilotPermissionRequest):
-        load_run(run_id)
+        source = load_run(run_id, mutable=True)
+        if source.status.value not in {'pending', 'planning', 'running', 'retrying', 'waiting_review'}:
+            raise HTTPException(409, 'terminal Run permission is immutable')
         return interaction.set_permission(run_id, request)
 
     @router.post("/runs/{run_id}/copilot/messages")
@@ -3337,7 +3404,7 @@ def create_router(
 
     @router.post("/runs/{run_id}/copilot/answers", status_code=202)
     async def copilot_answer(run_id: str, request: PlannerAnswerRequest):
-        load_run(run_id)
+        load_run(run_id, mutable=True)
         try:
             run = await interaction.answer(run_id, request)
         except ReviewConflictError as exc:
@@ -3350,7 +3417,7 @@ def create_router(
 
     @router.post("/runs/{run_id}/copilot/actions/preview")
     async def copilot_action_preview(run_id: str, request: TaskOperationPreviewRequest):
-        load_run(run_id)
+        load_run(run_id, mutable=True)
         try:
             return await interaction.preview_operation(run_id, request)
         except (ValueError, KeyError, ReviewConflictError) as exc:
@@ -3358,7 +3425,7 @@ def create_router(
 
     @router.post("/runs/{run_id}/copilot/actions", status_code=202)
     async def copilot_action_apply(run_id: str, request: TaskOperationApplyRequest):
-        load_run(run_id)
+        load_run(run_id, mutable=True)
         try:
             receipt = await interaction.operations.apply(run_id, request)
         except (ValueError, KeyError, ReviewConflictError) as exc:
@@ -3375,7 +3442,7 @@ def create_router(
         response_model_by_alias=True,
     )
     async def apply_review(run_id: str, request: ReviewApplyRequest):
-        source_run = load_run(run_id)
+        source_run = load_run(run_id, mutable=True)
         try:
             run = await runtime.apply_review(
                 ReviewDecision(
@@ -3426,13 +3493,16 @@ def create_router(
         response_model=OperationResponse,
         response_model_by_alias=True,
     )
-    async def cancel_run(run_id: str):
+    async def cancel_run(run_id: str, request: RunCancelRequest | None = None):
         """协作式终止一个活跃运行；幂等，且对不可取消的终态返回固定冲突提示。"""
-        load_run(run_id)
+        source = load_run(run_id, mutable=True)
+        if source.status.value not in {'pending', 'planning', 'running', 'retrying', 'waiting_review'}:
+            raise HTTPException(409, 'run cannot be cancelled')
         try:
-            run = runtime.cancel(run_id)
+            run = (runtime.cancel(run_id, expected_runtime_revision=request.expected_runtime_revision)
+                if request is not None and request.expected_runtime_revision is not None else runtime.cancel(run_id))
             await coordinator.cancel(run_id)
-        except InvalidStateTransition as exc:
+        except (InvalidStateTransition, ValueError) as exc:
             raise HTTPException(status_code=409, detail="run cannot be cancelled") from exc
         return project_control_run(run, OperationResponse, operation="cancel")
 
@@ -3448,6 +3518,7 @@ def create_router(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="run not found") from exc
         _require_access(existing)
+        require_run_write_scope(existing)
         try:
             updated = runtime.workflow_store.set_run_record_state(run_id, RunRecordState.DELETED)
         except RuntimeRunRecordNotTerminalError as exc:

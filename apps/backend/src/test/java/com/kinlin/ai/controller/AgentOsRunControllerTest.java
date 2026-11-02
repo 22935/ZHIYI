@@ -155,6 +155,20 @@ class AgentOsRunControllerTest {
     }
 
     @Test
+    void cancellationPreservesTheOptionalComparisonRevision() throws Exception {
+        String path = "/ai/agentos/v2/runs/run_001/cancel";
+        gateway.postResponses.put(path, RecordingAgentOsGateway.response(200, Map.of("runId", "run_001", "status", "cancelled")));
+        mockMvc.perform(post("/api/agentos/v2/runs/run_001/cancel").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"expectedRuntimeRevision\":17}"))
+                .andExpect(status().isOk());
+        var request = assertInstanceOf(com.kinlin.ai.dto.agentos.AgentOsRunCancelRequest.class, gateway.lastPostBody);
+        assertEquals(17L, request.expectedRuntimeRevision());
+        mockMvc.perform(post("/api/agentos/v2/runs/run_001/cancel").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"expectedRuntimeRevision\":-1}"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
     void runDeleteForwardsEncodedIdentityAndKeepsConflictStatus() throws Exception {
         String deletedPath = "/ai/agentos/v2/runs/run%20001";
         gateway.deleteResponses.put(deletedPath, RecordingAgentOsGateway.response(200, Map.of(

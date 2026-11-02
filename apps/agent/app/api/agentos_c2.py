@@ -17,6 +17,7 @@ from contracts import stable_checksum
 from runtime.execution_permit import ExecutionPermitError
 from support.stores.execution_permit_store import SQLiteExecutionPermitStore
 from support.stores.graph_activation_store import SQLiteGraphActivationStore, validate_activation_run
+from app.execution.run_capabilities import assert_mutable_run
 
 
 class MaterializeInitialRequest(BaseModel):
@@ -91,6 +92,11 @@ def require_c2(runtime, mission_id, run_id, *, write):
         raise HTTPException(404, "C2 source not found")
     if run.mission_id != mission_id or not run.execution_state.get("planningCommitRequired"):
         raise HTTPException(409, "Run is not a C2 source of this Mission")
+    if write:
+        try:
+            assert_mutable_run(run)
+        except ValueError as exc:
+            raise HTTPException(409, 'superseded Run is immutable') from exc
     return run
 
 

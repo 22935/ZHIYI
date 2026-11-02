@@ -36,7 +36,8 @@ public final class RunProjectionMapper {
                 text(state, "planningDiversity"), integer(state, "planningSeed"), text(state, "plannerAlgorithmVersion"),
                 smallInt(state, "planningCandidateCount"), text(state, "selectedPlanningVariantId"),
                 s.get("formalControl") == null ? null : formalControl(object(s.get("formalControl"))),
-                text(optionalObject(s.get("error")), "code"));
+                text(optionalObject(s.get("error")), "code"),
+                RunActionCapabilitiesMapper.read(s.get("actionCapabilities"), requiredText(s, "runId"), text(s, "missionId")));
     }
     public static FormalControlQuery formalControl(Map<?, ?> c) {
         Map<?, ?> d = optionalObject(c.get("dispatch"));

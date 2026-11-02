@@ -2446,10 +2446,16 @@ class ExecutionRuntime(CollaboratorAccess):
             command=ExecutionResumeCommand(runId=run_id),
         )
 
-    def cancel(self, run_id: str) -> RuntimeRunRecord:
+    def cancel(self, run_id: str, *, expected_runtime_revision: int | None = None) -> RuntimeRunRecord:
         """在运行锁内取消可继续步骤并持久化终态；已终态的迁移规则由状态机校验。"""
         with self.run_lock_manager.lock_for(run_id):
             latest = self.workflow_store.get_run(run_id)
+            if expected_runtime_revision is not None and latest.runtime_revision != expected_runtime_revision:
+                raise ValueError('Run changed after cancellation was prepared')
+            if latest.status is WorkflowStatus.CANCELLED:
+                return latest  # Internal duplicate cancellation must not rewrite historical Trace.
+            if latest.status in _TERMINAL_RUN_STATUSES:
+                raise InvalidStateTransition('terminal Run cannot be cancelled')
             # 先写协作式取消信号，再落终态：执行中的图会在下一个调度边界停止
             # 推进，而不是继续跑完后继步骤后与已持久化的终态互踩。
             self._signal_run_cancellation(run_id)

@@ -20,6 +20,7 @@ import com.kinlin.ai.projection.workspace.dto.WorkspaceGraphNodeQuery;
 import com.kinlin.ai.projection.workspace.dto.WorkspaceGraphQuery;
 import com.kinlin.ai.projection.workspace.dto.WorkspaceMissionQuery;
 import com.kinlin.ai.projection.workspace.dto.WorkspaceRunSummaryQuery;
+import com.kinlin.ai.projection.run.mapper.RunActionCapabilitiesMapper;
 
 import static com.kinlin.ai.projection.common.mapper.QueryWire.bool;
 import static com.kinlin.ai.projection.common.mapper.QueryWire.invalid;
@@ -80,7 +81,7 @@ public final class WorkspaceProjectionMapper {
         }
         WorkspaceMissionQuery mission = mission(object(wire.get("mission")));
         WorkspaceRunSummaryQuery activeRun =
-                wire.get("activeRun") == null ? null : runSummary(object(wire.get("activeRun")));
+                wire.get("activeRun") == null ? null : runSummary(object(wire.get("activeRun")), mission.missionId());
         WorkspaceGraphQuery activeGraph =
                 wire.get("activeGraph") == null ? null : graph(object(wire.get("activeGraph")));
         List<WorkspaceAttachmentQuery> attachments =
@@ -93,7 +94,7 @@ public final class WorkspaceProjectionMapper {
                     .toList();
         }
         return new MissionWorkspaceQuery(mission, activeRun, activeGraph,
-                items(wire.get("runs"), WorkspaceProjectionMapper::runSummary), entries,
+                items(wire.get("runs"), row -> runSummary(row, mission.missionId())), entries,
                 items(wire.get("graphNodes"), WorkspaceProjectionMapper::graphNode), attachments,
                 items(wire.get("diagnostics"), WorkspaceProjectionMapper::diagnostic));
     }
@@ -104,12 +105,13 @@ public final class WorkspaceProjectionMapper {
                 time(raw, "createdAt", false), time(raw, "updatedAt", false));
     }
 
-    private static WorkspaceRunSummaryQuery runSummary(Map<?, ?> raw) {
+    private static WorkspaceRunSummaryQuery runSummary(Map<?, ?> raw, String missionId) {
         Boolean isActive = bool(raw, "isActive");
         if (isActive == null) { throw invalid(); }
         return new WorkspaceRunSummaryQuery(requiredText(raw, "runId"), requiredText(raw, "status"),
                 text(raw, "parentRunId"), text(raw, "sourceRunId"),
-                time(raw, "createdAt", false), time(raw, "completedAt", true), isActive);
+                time(raw, "createdAt", false), time(raw, "completedAt", true), isActive,
+                RunActionCapabilitiesMapper.read(raw.get("actionCapabilities"), requiredText(raw, "runId"), missionId));
     }
 
     /** Blueprint display graph; node/edge/display rules are the run graph mapper's own. */

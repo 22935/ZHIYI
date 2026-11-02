@@ -35,7 +35,8 @@ public record RunQuery(
         Integer planningCandidateCount,
         String selectedPlanningVariantId,
         FormalControlQuery formalControl,
-        String failureCode
+        String failureCode,
+        RunActionCapabilitiesQuery actionCapabilities
 ) implements QueryResponse {
     public RunQuery {
         completedStepIds = List.copyOf(completedStepIds);
