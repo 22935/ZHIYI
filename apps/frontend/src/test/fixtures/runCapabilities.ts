@@ -9,6 +9,6 @@ export function capabilitiesFixture(runId: string, missionId: string, status = '
     canCancel: active, canCollaborate: active, canReview: false, canAnswerPlanner: false,
     canExecuteFormalAction: false, formalActions: [], canResolveToolApproval: false,
     canRetrySuccessor: false, retryStepId: null, canRerunSuccessor: ['failed', 'completed', 'cancelled'].includes(status),
-    canDecideRevision: false, canApplyRevision: false, canDelete: ['failed', 'completed', 'cancelled'].includes(status),
+    canDecideRevision: false, canApplyRevision: false, canDelete: ['failed', 'completed', 'cancelled', 'superseded'].includes(status),
     unavailableReasons: [], ...extra }
 }

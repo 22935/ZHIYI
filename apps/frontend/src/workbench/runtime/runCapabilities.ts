@@ -22,14 +22,15 @@ export function readRunCapabilities(value: RunActionCapabilities | null | undefi
       ['materialize', 'activate', 'handoff', 'permit', 'dispatch'].includes(action))
     || !Array.isArray(value.unavailableReasons) || !value.unavailableReasons.every(reason => reason
       && typeof reason.action === 'string' && typeof reason.code === 'string')) return null
-  if (value.isSuperseded && runCapabilityActions.some(action => action !== 'canInspect' && action !== 'canDiscuss' && value[action])) return null
+  if (value.isSuperseded && runCapabilityActions.some(action => !['canInspect', 'canDiscuss', 'canDelete'].includes(action) && value[action])) return null
   if (value.canCancel && !value.isExecutionActive || value.canReview && value.status !== 'waiting_review'
     || value.canExecuteFormalAction && !['pending', 'planning'].includes(value.status)
     || value.canExecuteFormalAction !== (value.formalActions.length > 0)
     || value.canResolveToolApproval && value.status !== 'running'
     || value.canAnswerPlanner && value.status !== 'waiting_review'
     || value.canRetrySuccessor && (value.status !== 'failed' || !value.retryStepId)
-    || value.canDecideRevision && !value.isExecutionActive || value.canApplyRevision && value.status !== 'cancelled') return null
+    || value.canDecideRevision && !value.isExecutionActive || value.canApplyRevision && value.status !== 'cancelled'
+    || value.canDelete && !terminal.has(value.status)) return null
   return value
 }
 

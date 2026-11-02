@@ -45,3 +45,11 @@ it('does not resolve same-revision contradictory permissions with array order or
   expect(projectLifecycle({ workspace, selectedRunId: 'a', run })).toMatchObject({
     phase: 'UNKNOWN', capabilities: null, isReadOnly: true })
 })
+
+it('allows only the offered terminal soft delete on a superseded Run', () => {
+  const cap = capabilitiesFixture('a', 'm', 'superseded', 5, { lineage: { supersededByRunId: 'b' } })
+  expect(readRunCapabilities(cap, 'm', 'a', 5)?.canDelete).toBe(true)
+  expect(readRunCapabilities({ ...cap, canCancel: true }, 'm', 'a', 5)).toBeNull()
+  expect(readRunCapabilities({ ...cap, canRerunSuccessor: true }, 'm', 'a', 5)).toBeNull()
+  expect(readRunCapabilities(capabilitiesFixture('a', 'm', 'running', 5, { canDelete: true }), 'm', 'a', 5)).toBeNull()
+})

@@ -29,7 +29,7 @@ const detail = (id = 'a'): WorkflowRun => {
       canCollaborate: !superseded && ['pending', 'planning', 'running', 'waiting_review', 'retrying'].includes(run.status),
       canReview: !superseded && Boolean(run.review), canRetrySuccessor: !superseded && run.status === 'failed' && run.steps.some(step => step.status === 'failed'),
       retryStepId: run.steps.find(step => step.status === 'failed')?.stepId || null,
-      canRerunSuccessor: !superseded && ['completed', 'failed', 'cancelled'].includes(run.status), canDelete: !superseded && ['completed', 'failed', 'cancelled'].includes(run.status), ...offersByRun[id] }) }
+      canRerunSuccessor: !superseded && ['completed', 'failed', 'cancelled'].includes(run.status), canDelete: ['completed', 'failed', 'cancelled', 'superseded'].includes(run.status), ...offersByRun[id] }) }
 }
 const workspace = (id = 'a'): MissionWorkspaceProjection => ({
   mission: { missionId: 'm', userId: 'u', goal: 'Lifecycle', status: 'created', metadata: {}, createdAt: '1', updatedAt: '1', description: '' },
@@ -148,6 +148,26 @@ it('closes missing capability snapshots and refuses superseded sources without c
   await view().rerunSelectedRun()
   expect(view().isHistorical).toBe(true)
   expect(retry).not.toHaveBeenCalled(); expect(rerun).not.toHaveBeenCalled()
+})
+
+it('allows offered superseded soft deletion while keeping independent branch controls', async () => {
+  status = 'superseded'
+  details.a = { ...detail('a'), lineage: { supersededByRunId: 'b' } }
+  details.b = { ...detail('b'), status: 'running', lineage: { sourceRunId: 'a' } } as any
+  runList = [{ runId: 'a', status: 'superseded', createdAt: '2026-11-01', isActive: true },
+    { runId: 'b', status: 'running', createdAt: '2026-11-02', isActive: false }]
+  const removed = vi.spyOn(agentosApi, 'deleteWorkflowRun').mockResolvedValue({} as any)
+  vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+  await open('/agentos/missions/m/workspace?runId=b')
+  expect(view().runPickerItems.find((row: any) => row.runId === 'a').canDelete).toBe(true)
+  await view().deletePickerRun('a'); await settle()
+  expect(removed).toHaveBeenCalledWith('a')
+  expect(view().selectedRunId).toBe('b')
+  expect(view().canCancelActiveRun).toBe(true)
+  offersByRun.a = { canDelete: false }
+  await view().loadWorkspace('b'); await settle()
+  await view().deletePickerRun('a')
+  expect(removed).toHaveBeenCalledTimes(1)
 })
 
 it.each(['revision', 'target'])('does not silently replace a stale retry %s with another version or a full rerun', async mismatch => {
