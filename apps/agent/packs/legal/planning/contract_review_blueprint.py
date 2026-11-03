@@ -10,6 +10,7 @@ from support.acg.models import (
     ACGEdge,
     ConditionOperator,
     ConditionSpec,
+    ConsensusSpec,
     ControlNode,
     ControlType,
     EdgeType,
@@ -134,6 +135,7 @@ def build_contract_review_blueprint(
                 defaultEdgeId="route_to_auto_review",
             ),
             branchEdgeIds=["route_to_human_review", "route_to_auto_review"],
+            joinNodeId="review_join",
         ),
         _step(definitions["human_review"]),
         _step(
@@ -142,6 +144,9 @@ def build_contract_review_blueprint(
             name="Automatic low-risk review",
             reviewRequired=False,
         ),
+        ControlNode(nodeId="review_join", name="Review branch join", controlType=ControlType.CONSENSUS,
+            consensusSpec=ConsensusSpec(participantStepIds=["human_review", "auto_review"],
+                quorum=1, strategy="auditor")),
         _step(definitions["report_generate"], inputSpec=report_input),
     ]
 
@@ -154,8 +159,9 @@ def build_contract_review_blueprint(
         ("statute_retrieve", "legal_evidence_match"),
         ("legal_evidence_match", "suggestion_generate"),
         ("suggestion_generate", "route_high_risk_review"),
-        ("human_review", "report_generate"),
-        ("auto_review", "report_generate"),
+        ("human_review", "review_join"),
+        ("auto_review", "review_join"),
+        ("review_join", "report_generate"),
     ]
     edges = [
         ACGEdge(sourceId=source, targetId=target, edgeType=EdgeType.DEPENDENCY)

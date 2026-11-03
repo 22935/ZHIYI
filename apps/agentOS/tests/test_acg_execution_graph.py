@@ -8,7 +8,7 @@ import asyncio
 import pytest
 
 from components.executor.compiler import ACGGraphCompiler, UnsupportedCommunicationModeError
-from components.executor.graph import ACGExecutionGraph, ACGExecutionState, ACGSuperstepError
+from components.executor.graph import ACGConditionalRoute, ACGExecutionGraph, ACGExecutionState, ACGNodeSpec, ACGSuperstepError
 from components.executor.state_graph import ACGStateGraph
 from components.executor.node_runner import ACGNodeRunner
 from components.executor.value_store import InMemoryExecutionValueStore
@@ -1128,7 +1128,236 @@ def test_selected_branch_can_join_without_running_unselected_descendants():
     graph = ACGExecutionGraph(nodes=("selected", "unselected", "join", "dormant", "root"),
         edges=(("selected", "join"), ("unselected", "join"), ("unselected", "dormant")))
     state = ACGExecutionState(runId="branch-join", completedStepIds=["selected"], skippedStepIds=["unselected"])
-    assert graph.ready_steps(state) == ("join", "root")
+    # R1 incorrectly treated this ordinary AND node as an implicit Join.
+    # A skipped required predecessor must never authorize it.
+    assert graph.ready_steps(state) == ("root",)
     # An unfinished selected predecessor continues to block the join.
     state.completed_step_ids = []
     assert graph.ready_steps(state) == ("selected", "root")
+    async def execute(step_id, _state):
+        assert step_id != "join"
+        return {}
+    result = asyncio.run(graph.run(state, execute))
+    assert set(result.skipped_step_ids) == {"unselected", "join", "dormant"}
+
+
+def _compiled_branch_graph(*, shared=False):
+    pairs = [("root", "if"), ("if", "selected"), ("if", "skipped"),
+             ("selected", "join"), ("skipped", "dormant"), ("dormant", "join"), ("join", "after")]
+    if shared:
+        pairs.append(("root", "dormant"))
+    edges = [ACGEdge(edgeId=f"{a}:{b}", sourceId=a, targetId=b, edgeType=EdgeType.DEPENDENCY) for a,b in pairs]
+    steps = ("root", "selected", "skipped", "dormant", "after")
+    blueprint = ACGBlueprint(graphId="r2-branch", nodes=[
+        *(StepNode(nodeId=name) for name in steps),
+        ControlNode(nodeId="if", controlType=ControlType.IF,
+            branchEdgeIds=["if:selected", "if:skipped"], joinNodeId="join",
+            conditionSpec=ConditionSpec(sourceNodeId="root", jsonPointer="/choice",
+                operator=ConditionOperator.BOOLEAN, cases={"true": "if:selected", "false": "if:skipped"})),
+        ControlNode(nodeId="join", controlType=ControlType.CONSENSUS,
+            consensusSpec=ConsensusSpec(participantStepIds=["selected", "dormant"], quorum=1, strategy="auditor")),
+    ], edges=edges, resourcePlan=ACGResourcePlan(bindings=tuple(
+        AgentBindingSpec(stepId=name, plannedAgentId="agent") for name in steps)))
+    return ACGGraphCompiler().compile(blueprint)
+
+
+@pytest.mark.parametrize("shared", [False, True])
+def test_compiled_branch_skips_descendants_and_runs_declared_join(shared):
+    graph = _compiled_branch_graph(shared=shared)
+    calls = []
+    async def execute(step_id, state):
+        calls.append(step_id)
+        if step_id == "after":
+            assert "selected" in state.completed_step_ids
+            assert "join" in state.completed_step_ids
+        return {"routeValue": {"choice": True}}
+    state = asyncio.run(graph.run(ACGExecutionState(runId="r2"), execute))
+    assert calls == ["root", "selected", "after"]
+    assert set(state.skipped_step_ids) == {"skipped", "dormant"}
+    assert set(state.completed_step_ids) | set(state.skipped_step_ids) == set(graph.nodes)
+
+
+def _branch_graph(pairs, routes):
+    """Exercise the runtime DAG with explicit local IF/Join declarations."""
+    nodes = tuple(dict.fromkeys(n for pair in pairs for n in pair))
+    joins = {join for _, _, join in routes.values()}
+    specs = {n: ACGNodeSpec(node_id=n, kind="control" if n in joins else "step") for n in nodes}
+    for control, (source, cases, join) in routes.items():
+        specs[control] = ACGNodeSpec(node_id=control, kind="control", control_type="if",
+            condition=ACGConditionalRoute(source_step_id=source, json_pointer="/choice", operator="IN",
+                targets_by_case=cases, join_node_id=join))
+    return ACGExecutionGraph(nodes=nodes, edges=tuple(pairs), node_specs=specs)
+
+
+@pytest.mark.parametrize("outer,inner,expected", [
+    ("left", "a", ["root", "left", "a", "tail", "after"]),
+    ("left", "b", ["root", "left", "b", "tail", "after"]),
+    ("right", "a", ["root", "right", "after"]),
+])
+def test_nested_branch_regions_finish_without_executing_alternatives(outer, inner, expected):
+    # Nested runtime DAGs must be safe even though the Blueprint validator
+    # currently rejects nested IF/LOOP within a declared IF region.
+    graph = _branch_graph([
+        ("root", "outer"), ("outer", "left"), ("outer", "right"),
+        ("left", "inner"), ("inner", "a"), ("inner", "b"),
+        ("a", "inner_join"), ("b", "inner_join"), ("inner_join", "tail"),
+        ("tail", "outer_join"), ("right", "outer_join"), ("outer_join", "after"),
+    ], {"outer": ("root", {"left": "left", "right": "right"}, "outer_join"),
+        "inner": ("left", {"a": "a", "b": "b"}, "inner_join")})
+    calls = []
+    async def execute(step_id, _state):
+        calls.append(step_id)
+        return {"routeValue": {"choice": outer if step_id == "root" else inner}}
+    state = asyncio.run(graph.run(ACGExecutionState(runId="nested"), execute))
+    assert calls == expected
+    assert set(state.completed_step_ids) | set(state.skipped_step_ids) == set(graph.nodes)
+    assert not (set(state.completed_step_ids) & set(state.skipped_step_ids))
+
+
+@pytest.mark.parametrize("chosen", ["a", "b", "c"])
+def test_multiple_alternatives_join_only_after_selected_path(chosen):
+    pairs = [("root", "if"), ("join", "after")]
+    for branch in ("a", "b", "c"):
+        pairs.extend([("if", branch), (branch, branch + "_tail"), (branch + "_tail", "join")])
+    graph = _branch_graph(pairs, {"if": ("root", {n:n for n in ("a", "b", "c")}, "join")})
+    calls = []
+    async def execute(step_id, _state):
+        calls.append(step_id)
+        return {"routeValue": {"choice": chosen}}
+    state = asyncio.run(graph.run(ACGExecutionState(runId="three"), execute))
+    assert calls == ["root", chosen, chosen + "_tail", "after"]
+    assert set(state.skipped_step_ids) == {n for b in ("a", "b", "c") if b != chosen for n in (b, b+"_tail")}
+    assert len(state.completed_step_ids) + len(state.skipped_step_ids) == len(graph.nodes)
+
+
+def test_declared_join_waits_for_selected_branch_and_resumes_checkpoint():
+    graph = _compiled_branch_graph()
+    async def scenario():
+        entered, release = asyncio.Event(), asyncio.Event()
+        # A persisted branch choice is sufficient; route values need not survive.
+        state = ACGExecutionState(runId="resume", completedStepIds=["root", "if"], skippedStepIds=["skipped"])
+        calls = []
+        async def execute(step_id, _state):
+            calls.append(step_id)
+            if step_id == "selected":
+                entered.set()
+                await release.wait()
+            return {}
+        task = asyncio.create_task(graph.run(state, execute))
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            assert "join" not in state.completed_step_ids
+            assert calls == ["selected"]
+        finally:
+            release.set()
+            await task
+        assert calls == ["selected", "after"]
+        assert set(state.skipped_step_ids) == {"skipped", "dormant"}
+        assert set(state.completed_step_ids) | set(state.skipped_step_ids) == set(graph.nodes)
+    asyncio.run(scenario())
+
+
+def test_all_skipped_branches_skip_join_even_with_completed_shared_predecessor():
+    graph = _branch_graph([("root", "if"), ("if", "a"), ("if", "b"),
+        ("a", "join"), ("b", "join"), ("root", "join"), ("join", "after")],
+        {"if": ("root", {"a": "a", "b": "b"}, "join")})
+    async def execute(*_):
+        pytest.fail("an all-skipped region cannot execute its Join successor")
+    state = asyncio.run(graph.run(ACGExecutionState(runId="all-skipped",
+        completedStepIds=["root", "if"], skippedStepIds=["a", "b"]), execute))
+    assert set(state.skipped_step_ids) == {"a", "b", "join", "after"}
+    assert set(state.completed_step_ids) | set(state.skipped_step_ids) == set(graph.nodes)
+
+
+def test_unknown_cancelled_sibling_is_preserved_in_superstep_failure():
+    from adapters.resource_execution import ResourceExecutionError
+    graph = ACGExecutionGraph(nodes=("known", "unknown"))
+    async def scenario():
+        started = asyncio.Event()
+        async def execute(step_id, _state):
+            if step_id == "known":
+                await started.wait()
+                raise ResourceExecutionError("request rejected")
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                raise ResourceExecutionError("reply lost", outcome_unknown=True)
+        with pytest.raises(ACGSuperstepError) as caught:
+            await graph.run(ACGExecutionState(runId="parallel"), execute)
+        assert caught.value.cause.outcome_unknown is False
+        assert caught.value.outcome_unknown is True
+        assert len(caught.value.causes) == 2
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("choice", ["work", "direct"])
+def test_direct_join_alternative_never_skips_the_common_boundary(choice):
+    graph = _branch_graph([("root", "if"), ("if", "work"), ("if", "join"),
+        ("work", "join"), ("join", "after")],
+        {"if": ("root", {"work": "work", "direct": "join"}, "join")})
+    calls = []
+    async def execute(step_id, _state):
+        calls.append(step_id)
+        return {"routeValue": {"choice": choice}}
+    state = asyncio.run(graph.run(ACGExecutionState(runId="direct"), execute))
+    assert calls == (["root", "work", "after"] if choice == "work" else ["root", "after"])
+    assert "join" in state.completed_step_ids
+    assert state.skipped_step_ids == ([] if choice == "work" else ["work"])
+
+
+def test_shared_join_requires_a_completed_input_from_each_conditional_region():
+    graph = _branch_graph([("root", "if1"), ("root", "if2"),
+        ("if1", "a"), ("if1", "b"), ("if2", "c"), ("if2", "d"),
+        ("a", "join"), ("b", "join"), ("c", "join"), ("d", "join"), ("join", "after")],
+        {"if1": ("root", {"yes": "a", "no": "b"}, "join"),
+         "if2": ("root", {"yes": "c", "no": "d"}, "join")})
+    async def scenario():
+        calls = []
+        async def execute(step_id, state):
+            if step_id == "after":
+                assert {"a", "c", "join"} <= set(state.completed_step_ids)
+            calls.append(step_id)
+            return {"routeValue": {"choice": "yes"}}
+        state = await graph.run(ACGExecutionState(runId="shared-join"), execute)
+        assert calls == ["root", "a", "c", "after"]
+        assert set(state.skipped_step_ids) == {"b", "d"}
+        calls.clear()
+        restored = ACGExecutionState(runId="missing-region", completedStepIds=["root", "if1", "if2", "a"],
+            skippedStepIds=["b", "c", "d"])
+        await graph.run(restored, execute)
+        assert calls == []
+        assert {"join", "after"} <= set(restored.skipped_step_ids)
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("risk", ["high", "low"])
+def test_real_legal_blueprint_keeps_report_after_review_branch(risk, monkeypatch):
+    import json
+    from pathlib import Path
+    application = Path(__file__).resolve().parents[2] / "agent"
+    monkeypatch.syspath_prepend(str(application))
+    from packs.legal.planning import build_contract_review_blueprint
+    workflow = WorkflowDefinition.model_validate(json.loads(
+        (application / "packs/legal/workflows/contract_review.yaml").read_text(encoding="utf-8")))
+    graph = ACGGraphCompiler().compile(build_contract_review_blueprint(workflow))
+    calls = []
+    async def execute(step_id, _state):
+        calls.append(step_id)
+        return {"routeValue": {"risk_level": risk}}
+    async def scenario():
+        state = ACGExecutionState(runId="legal-branch")
+        if risk == "high":
+            with pytest.raises(ExecutionInterrupt):
+                await graph.run(state, execute)
+            # Resume a serialized checkpoint, keeping the review branch choice.
+            state = ACGExecutionState.model_validate(state.model_dump(by_alias=True))
+            await graph.resume(state, ExecutionResumeCommand(runId=state.run_id, payload={"decision": "approved"}), execute)
+        else:
+            await graph.run(state, execute)
+        assert calls[-1] == "report_generate"
+        assert calls.count("report_generate") == 1
+        assert calls.count("human_review") == (risk == "high")
+        assert calls.count("auto_review") == (risk == "low")
+        assert set(state.completed_step_ids) | set(state.skipped_step_ids) == set(graph.nodes)
+    asyncio.run(scenario())

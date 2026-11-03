@@ -48,9 +48,10 @@ SOURCE_TEST_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     # PR-UI-04.2: retain the original INT-1 manifest; cover the real managed
     # cancellation chain and previously unmapped adapter/store deltas.
     ("src/support/async_tasks.py", ("../agent/tests/test_execution_adapter_settlement.py", "../agent/tests/test_managed_execution_settlement.py")),
-    ("src/runtime/acg_execution.py", ("../agent/tests/test_managed_execution_settlement.py",)),
+    ("src/runtime/acg_execution.py", ("tests/runtime/test_resource_binding.py", "../agent/tests/test_managed_execution_settlement.py")),
     ("src/runtime/workflow_runtime.py", ("../agent/tests/test_managed_execution_settlement.py",)),
-    ("src/components/executor/graph.py", ("../agent/tests/test_execution_adapter_settlement.py",)),
+    ("src/components/executor/graph.py", ("tests/test_acg_execution_graph.py", "tests/components/executor/test_advanced_acg_capabilities.py", "../agent/tests/test_execution_adapter_settlement.py")),
+    ("src/components/executor/compiler.py", ("tests/test_acg_execution_graph.py", "tests/components/planner/test_acg_semantic_preservation.py")),
     ("src/components/scheduler/binder.py", ("../agent/tests/test_managed_execution_settlement.py",)),
     ("src/adapters/audited_tool_runtime.py", ("tests/adapters/test_audited_tool_runtime.py", "tests/adapters/test_hands_integration.py")),
     ("src/adapters/guarded_tool.py", ("tests/adapters/test_guarded_runtime.py", "tests/adapters/test_hands_integration.py")),

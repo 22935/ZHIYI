@@ -167,6 +167,10 @@ class ACGGraphCompiler:
                     operator=control.condition.operator,
                     targets_by_case=dict(control.condition.targets_by_case),
                     default_target=control.condition.default_target,
+                    # The package's blueprint hash above authenticates this
+                    # existing declaration. Keep it as local scheduling metadata;
+                    # no persisted package/schema migration is introduced.
+                    join_node_id=blueprint.get_node(node.node_id).join_node_id,
                 )
             node_specs[node.node_id] = ACGNodeSpec(
                 node_id=node.node_id,

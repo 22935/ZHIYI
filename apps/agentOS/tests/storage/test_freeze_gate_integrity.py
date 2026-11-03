@@ -85,6 +85,11 @@ def test_committed_external_changes_use_fixed_reference_not_head(tmp_path, monke
 
 
 @pytest.mark.parametrize("source,required", [
+    ("src/components/executor/graph.py", "tests/test_acg_execution_graph.py"),
+    ("src/components/executor/graph.py", "tests/components/executor/test_advanced_acg_capabilities.py"),
+    ("src/components/executor/compiler.py", "tests/test_acg_execution_graph.py"),
+    ("src/components/executor/compiler.py", "tests/components/planner/test_acg_semantic_preservation.py"),
+    ("src/runtime/acg_execution.py", "tests/runtime/test_resource_binding.py"),
     ("src/components/resource/__init__.py", "tests/components/resource/test_resource_auth.py"),
     ("src/components/resource/errors.py", "tests/components/resource/test_remote_observation.py"),
     ("src/components/resource/health_store.py", "tests/components/resource/test_health_store.py"),

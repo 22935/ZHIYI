@@ -92,10 +92,23 @@ class ACGSuperstepError(RuntimeError):
         failed_step_ids: tuple[str, ...],
         cancelled_step_ids: tuple[str, ...],
         cause: BaseException,
+        causes: tuple[BaseException, ...] = (),
     ) -> None:
         self.failed_step_ids = failed_step_ids
         self.cancelled_step_ids = cancelled_step_ids
         self.cause = cause
+        self.causes = causes or (cause,)
+        pending = list(self.causes)
+        visited: set[int] = set()
+        self.outcome_unknown = False
+        while pending:
+            failure = pending.pop()
+            if id(failure) in visited:
+                continue
+            visited.add(id(failure))
+            self.outcome_unknown |= bool(getattr(failure, "outcome_unknown", False))
+            pending.extend(item for item in (getattr(failure, "cause", None), failure.__cause__, failure.__context__)
+                           if isinstance(item, BaseException))
         super().__init__(
             "ACG superstep failed: "
             f"failed={','.join(failed_step_ids)}, cancelled={','.join(cancelled_step_ids)}"
@@ -175,6 +188,7 @@ class ACGConditionalRoute:
     operator: str
     targets_by_case: dict[str, str]
     default_target: str | None = None
+    join_node_id: str | None = None
 
     def select(self, source_value: dict[str, Any]) -> str | None:
         """按受限操作符求值并返回一个目标节点；无匹配时使用默认目标。"""
@@ -225,6 +239,46 @@ class ACGExecutionGraph:
         if set(self.node_specs) != known or any(source not in known or target not in known for source, target in self.edges):
             raise ValueError("graph nodes and edges must be declared consistently")
         self._validate_acyclic()
+        self._predecessors = {node: set() for node in self.nodes}
+        self._successors = {node: set() for node in self.nodes}
+        for source, target in self.edges:
+            self._predecessors[target].add(source)
+            self._successors[source].add(target)
+        self._join_groups: dict[str, list[set[str]]] = {}
+        for control_id, spec in self.node_specs.items():
+            route = spec.condition
+            if route is None or route.join_node_id is None:
+                continue
+            join = route.join_node_id
+            if join not in known:
+                raise ValueError(f"conditional join is undeclared: {join}")
+            join_spec = self.node_specs[join]
+            if join_spec.kind != "control" or join_spec.condition is not None or join_spec.control_type in {"if", "loop"}:
+                raise ValueError(f"conditional join must be an unconditional control: {join}")
+            region: set[str] = set()
+            frontier = list(self._successors[control_id])
+            while frontier:
+                node = frontier.pop()
+                if node == join or node in region:
+                    continue
+                region.add(node)
+                frontier.extend(self._successors[node])
+            # Only predecessors in this declared branch region may be waived.
+            # An unrelated required predecessor remains an ordinary AND dependency.
+            inputs = self._predecessors[join] & (region | {control_id})
+            if not inputs:
+                raise ValueError(f"conditional join has no branch inputs: {join}")
+            self._join_groups.setdefault(join, []).append(inputs)
+
+    def _dependency_status(self, node_id: str, completed: set[str], skipped: set[str]) -> str:
+        predecessors = self._predecessors[node_id]
+        groups = self._join_groups.get(node_id, ())
+        waived = set().union(*groups) if groups else set()
+        if (predecessors & skipped) - waived or any(group <= skipped for group in groups):
+            return "skip"
+        if not predecessors <= (completed | skipped):
+            return "wait"
+        return "ready"
 
     def ready_steps(self, state: ACGExecutionState) -> tuple[str, ...]:
         """返回当前超步可并发执行的 Step，排除控制节点和未选择的分支。"""
@@ -236,10 +290,7 @@ class ACGExecutionGraph:
             spec = self.node_specs[node_id]
             if node_id in completed or node_id in inactive or spec.kind != "step":
                 continue
-            predecessors = {source for source, target in self.edges if target == node_id}
-            # A join may consume a selected branch after the alternative was
-            # skipped. A node reachable only from skipped predecessors stays inactive.
-            if predecessors <= (completed | skipped) and (not predecessors or predecessors & completed):
+            if self._dependency_status(node_id, completed, skipped) == "ready":
                 ready.append(node_id)
         return tuple(ready)
 
@@ -266,11 +317,14 @@ class ACGExecutionGraph:
         while changed:
             changed = False
             for control_id, spec in self.node_specs.items():
-                if spec.kind != "control" or control_id in completed:
+                if control_id in completed or control_id in skipped:
                     continue
-                predecessors = {source for source, target in self.edges if target == control_id}
-                effective_predecessors = predecessors - skipped
-                if not effective_predecessors <= completed:
+                status = self._dependency_status(control_id, completed, skipped)
+                if status == "skip":
+                    skipped.add(control_id)
+                    changed = True
+                    continue
+                if spec.kind != "control" or status != "ready":
                     continue
                 if spec.condition is not None:
                     value = (route_values or {}).get(spec.condition.source_step_id, {})
@@ -278,7 +332,9 @@ class ACGExecutionGraph:
                     if target is None:
                         raise RuntimeError(f"CONTROL_NO_MATCH:{control_id}")
                     branch_targets = {target_id for source, target_id in self.edges if source == control_id}
-                    skipped.update(branch_targets - {target})
+                    # A direct-to-Join alternative shares the declared boundary
+                    # with the selected path; it is never an exclusive region.
+                    skipped.update(branch_targets - {target, spec.condition.join_node_id})
                 if spec.control_type == "consensus":
                     self._resolve_consensus(state, control_id, route_values or {})
                     if state.review_payload is not None:
@@ -504,6 +560,10 @@ class ACGExecutionGraph:
                         state.active_step_ids = []
                         cause = pending_tasks[failures[0]].exception()
                         assert cause is not None
+                        # A sibling may settle as UNKNOWN while being cancelled.
+                        # Preserve every settled failure, not just the first one.
+                        causes = tuple(task.exception() for task in tasks.values()
+                                       if not task.cancelled() and task.exception() is not None)
                         # 进程终止、测试模拟断电等 ``BaseException`` 不能被误标为业务节点
                         # 失败或触发 failed run 投影；让调用栈直接中断，下一进程从持久化边界
                         # 继续。普通 ``Exception`` 仍保留完整的超步失败语义。
@@ -533,6 +593,7 @@ class ACGExecutionGraph:
                             failed_step_ids=tuple(failures),
                             cancelled_step_ids=tuple(cancelled),
                             cause=cause,
+                            causes=causes,
                         ) from cause
 
                     completed_ids = sorted(
