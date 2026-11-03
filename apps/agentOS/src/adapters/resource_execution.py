@@ -158,7 +158,11 @@ class HttpResourceExecutionAdapter:
                         self._terminal_output(result)
                         settled = True
                     except ResourceExecutionError as exc:
-                        settled = not exc.outcome_unknown
+                        if exc.outcome_unknown:
+                            # Keep the shared terminal validator's original cause
+                            # instead of replacing it with the cancellation.
+                            raise
+                        settled = True
                 if not settled:
                     # A failed cancellation wait can still prove that nothing
                     # was sent (e.g. pool/connect failure).
@@ -199,10 +203,15 @@ class HttpResourceExecutionAdapter:
             body = response.json()
             if not isinstance(body, dict) or not isinstance(body.get("output"), dict):
                 raise TypeError("terminal AgentOutput must explicitly include output")
-            if "status" in body:
-                # No status envelope is defined by this synchronous protocol.
-                # Do not let AgentOutput(extra='ignore') hide progress/errors.
-                raise TypeError("status envelope is not a terminal AgentOutput")
+            # This transport accepts only the defined AgentOutput fields, with
+            # the same aliases/name compatibility as populate_by_name=True.
+            # Local AgentOutput remains permissive; remote protocol envelopes
+            # must never disappear through its global extra='ignore' behavior.
+            allowed_fields = set(AgentOutput.model_fields) | {
+                field.alias for field in AgentOutput.model_fields.values() if field.alias is not None
+            }
+            if body.keys() - allowed_fields:
+                raise TypeError("undefined top-level fields in terminal AgentOutput")
             return AgentOutput.model_validate(body)
         except Exception as exc:
             raise ResourceExecutionError("REMOTE_EXECUTION_FAILED: unconfirmed AgentOutput", outcome_unknown=True) from exc

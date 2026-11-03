@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 from types import SimpleNamespace
 
 import httpx
@@ -297,3 +298,106 @@ async def test_connect_retry_does_not_hide_later_sent_request_uncertainty():
             await adapter.run(_context())
         assert len(connects) == 2
         assert caught.value.outcome_unknown is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload", [
+    {"state": "RUNNING", "output": {}},
+    {"success": False, "output": {}},
+    {"status": "RUNNING", "output": {}},
+    {"state": "COMPLETED", "output": {}},
+    {"executionStatus": "COMPLETED", "output": {}},
+    {"progress": 1, "output": {}},
+    {"admission": "accepted", "output": {}},
+    {"metadata": {"serverVersion": "1"}, "output": {}},
+    {"status": "COMPLETED", "state": "RUNNING", "success": False, "output": {"result": "ok"}},
+    {}, [], None, "done",
+    {"summary": "done"}, {"output": None}, {"output": []},
+    {"output": {}, "summary": []},
+])
+async def test_terminal_response_rejects_undefined_envelopes_and_invalid_output(payload):
+    calls = []
+    async def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json=payload)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = HttpResourceExecutionAdapter(resource_id="edge-01", address="http://edge",
+            credential_provider=_Credentials(), client=client)
+        with pytest.raises(ResourceExecutionError) as caught:
+            await adapter.run(_context())
+        assert caught.value.outcome_unknown is True
+        assert caught.value.__cause__ is not None
+        assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("names", ["aliases", "python", "mixed"])
+async def test_terminal_response_preserves_all_defined_fields_and_names(names):
+    expected = AgentOutput(
+        output={"result": "ok", "state": "RUNNING", "success": False,
+                "status": "business-status", "progress": 0, "admission": "business-data"},
+        summary="execution completed", risk_level="normal", sources=[{"state": "source-state"}],
+        tool_executions=[{"tool": "search", "success": True}], evidence_refs=["evidence-1"],
+        model_invocations=[{"model": "test", "status": "completed"}],
+        runtime_events=[{"eventType": "output", "progress": 1}],
+    )
+    payload = expected.model_dump(by_alias=names != "python", mode="json")
+    if names == "mixed":
+        payload["risk_level"] = payload.pop("riskLevel")
+        payload["runtime_events"] = payload.pop("runtimeEvents")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda request: httpx.Response(200, json=payload)
+    )) as client:
+        adapter = HttpResourceExecutionAdapter(resource_id="edge-01", address="http://edge",
+            credential_provider=_Credentials(), client=client)
+        assert await adapter.run(_context()) == expected
+
+
+@pytest.mark.asyncio
+async def test_explicit_empty_output_is_a_valid_synchronous_terminal_response():
+    async with httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"output": {}})
+    )) as client:
+        adapter = HttpResourceExecutionAdapter(resource_id="edge-01", address="http://edge",
+            credential_provider=_Credentials(), client=client)
+        assert await adapter.run(_context()) == AgentOutput(output={})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload,unknown", [
+    ({"state": "RUNNING", "output": {}}, True),
+    ({"success": False, "output": {}}, True),
+    ({"status": "RUNNING", "output": {}}, True),
+    ({"state": "COMPLETED", "output": {}}, True),
+    ({"output": {}}, False),
+    ({"output": {"state": "RUNNING"}, "summary": "execution completed"}, False),
+])
+async def test_cancel_settlement_uses_the_same_terminal_response_contract(payload, unknown):
+    started, release = asyncio.Event(), asyncio.Event()
+    calls = []
+    async def handler(request):
+        calls.append(request)
+        started.set()
+        await release.wait()
+        return httpx.Response(200, json=payload)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = HttpResourceExecutionAdapter(resource_id="edge-01", address="http://edge",
+            credential_provider=_Credentials(), client=client)
+        task = asyncio.create_task(adapter.run(_context()))
+        try:
+            await asyncio.wait_for(started.wait(), 1)
+            task.cancel("operator_cancel")
+            assert not task.done()
+            release.set()
+            if unknown:
+                with pytest.raises(ResourceExecutionError) as caught:
+                    await task
+                assert caught.value.outcome_unknown is True
+                assert isinstance(caught.value.__cause__, TypeError)
+            else:
+                with pytest.raises(asyncio.CancelledError):
+                    await task
+            assert len(calls) == 1
+        finally:
+            release.set()
+            await asyncio.gather(task, return_exceptions=True)

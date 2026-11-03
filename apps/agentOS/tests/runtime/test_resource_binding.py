@@ -307,7 +307,7 @@ def test_remote_failure_marks_edge_unhealthy_and_rebinds_to_cloud() -> None:
     }
 
 
-@pytest.mark.parametrize("response_kind", ["accepted", "running", "read_timeout", "write_timeout", "server_error", "wrapped_unknown"])
+@pytest.mark.parametrize("response_kind", ["accepted", "running", "read_timeout", "write_timeout", "server_error", "wrapped_unknown", "state_running", "success_false"])
 def test_unknown_http_execution_retains_lease_without_second_execution(response_kind):
     calls = []
     class Credentials:
@@ -326,6 +326,10 @@ def test_unknown_http_execution_retains_lease_without_second_execution(response_
             raise httpx.WriteTimeout("partial request delivery", request=request)
         if response_kind == "server_error":
             return httpx.Response(503, json={"error": "result lost"})
+        if response_kind == "state_running":
+            return httpx.Response(200, json={"state": "RUNNING", "output": {}})
+        if response_kind == "success_false":
+            return httpx.Response(200, json={"success": False, "output": {}})
         return httpx.Response(202 if response_kind == "accepted" else 200, json={"status": "RUNNING"})
     plane = ResourcePlane()
     _register_remote(plane, "edge-01", latency_ms=10)
@@ -351,8 +355,10 @@ def test_unknown_http_execution_retains_lease_without_second_execution(response_
             assert saved.recovery_count == 0
             assert saved.execution_state["recoveryOutcome"]["action"] == "review"
             assert saved.execution_state["recoveryOutcome"]["status"] == "required"
+            assert saved.execution_state["recoveryOutcome"]["reasonCode"] == "REMOTE_EXECUTION_OUTCOME_UNKNOWN"
             assert not saved.execution_state.get("resourceFailoverHistory")
             assert saved.execution_state["resourceBindings"]["analyse"] == "edge-01"
+            assert saved.execution_state["executionBindings"]["analyse"]["resourceId"] == "edge-01"
             settlement, = saved.execution_state["taskSettlement"].values()
             assert settlement["outcome"] == "unknown"
             assert settlement["leaseState"] == "retained_unknown"
@@ -361,6 +367,8 @@ def test_unknown_http_execution_retains_lease_without_second_execution(response_
             assert runtime.resource_binder.coordinator.active_slots("edge-01") == 1
             assert runtime.resource_binder.coordinator.active_slots("cloud-01") == 0
             assert saved.completed_step_ids == []
+            assert not any(event.event_type.value == "step_succeeded" for event in saved.trace)
+            assert saved.output == {}
     asyncio.run(scenario())
 
 
