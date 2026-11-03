@@ -1122,3 +1122,13 @@ def test_node_runner_returns_incremental_safe_provenance_events() -> None:
     second_ids = {event["payload"]["eventId"] for event in second["provenanceEvents"]}
     assert first_ids == second_ids
     assert "accepted" not in str(first["provenanceEvents"])
+
+
+def test_selected_branch_can_join_without_running_unselected_descendants():
+    graph = ACGExecutionGraph(nodes=("selected", "unselected", "join", "dormant", "root"),
+        edges=(("selected", "join"), ("unselected", "join"), ("unselected", "dormant")))
+    state = ACGExecutionState(runId="branch-join", completedStepIds=["selected"], skippedStepIds=["unselected"])
+    assert graph.ready_steps(state) == ("join", "root")
+    # An unfinished selected predecessor continues to block the join.
+    state.completed_step_ids = []
+    assert graph.ready_steps(state) == ("selected", "root")

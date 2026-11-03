@@ -42,6 +42,9 @@ FAST_OR_CRITICAL = (
 # counterexamples in those modules carry @pytest.mark.freeze_gate. New rules
 # should be added alongside the implementation that introduces the module.
 SOURCE_TEST_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("apps/agent/packs/programmer/workflows/requirement_analysis.yaml", ("../agent/tests/test_execution_runtime_domain_packs.py",)),
+    ("apps/agent/packs/legal/workflows/contract_review.yaml", ("../agent/tests/test_legal_execution_runtime_vertical_slice.py",)),
+    ("apps/agent/packs/legal/planning/contract_review_blueprint.py", ("../agent/tests/test_legal_execution_runtime_vertical_slice.py",)),
     # PR-UI-04.2: retain the original INT-1 manifest; cover the real managed
     # cancellation chain and previously unmapped adapter/store deltas.
     ("src/support/async_tasks.py", ("../agent/tests/test_execution_adapter_settlement.py", "../agent/tests/test_managed_execution_settlement.py")),
@@ -164,6 +167,10 @@ SOURCE_TEST_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
 # Accepted INT-1 entry content, never HEAD. API uses that Windows checkout's
 # raw CRLF digest; the gate used LF. CLI did not exist at the accepted entry.
 EXTERNAL_BASELINE = {
+    # R1 domain compatibility fixes await independent reference acceptance.
+    "apps/agent/packs/programmer/workflows/requirement_analysis.yaml": None,
+    "apps/agent/packs/legal/planning/contract_review_blueprint.py": None,
+    "apps/agent/packs/legal/workflows/contract_review.yaml": None,
     # Application entry reviewed at INT-2A-1-FIX-REVIEW-REMEDIATION (lifespan
     # cleanup extracted to app.lifespan); drift forces the mapped tests.
     "apps/agent/app/main.py": "f086ec71a00d5cb305fc6d68c34494bca011bc991b7d658caf4a400d4c56757d",
@@ -192,6 +199,11 @@ EXTERNAL_BASELINE = {
 # actual bytes in the external fingerprint and always select them until an
 # independent review accepts a fixed reference; never reuse a partial profile.
 APP_TEST_INPUTS = (
+    "apps/agent/tests/test_execution_history_compatibility.py",
+    "apps/agent/tests/test_execution_runtime_domain_packs.py",
+    "apps/agent/tests/test_general_golden_recovery.py",
+    "apps/agent/tests/test_general_golden_evolution.py",
+    "apps/agent/tests/test_legal_execution_runtime_vertical_slice.py",
     "apps/agent/tests/test_execution_adapter_settlement.py",
     "apps/agent/tests/test_managed_execution_settlement.py",
     "apps/agent/tests/test_execution_coordinator.py",

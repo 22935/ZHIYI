@@ -119,7 +119,7 @@ async def test_02_programmer_pack_runs_tool_context_memory_and_output_contracts(
 
         assert run.status is WorkflowStatus.COMPLETED
         assert [step.step_id for step in run.steps] == [
-            "requirement_analysis", "codebase_semantic_search", "code_generation", "diagram_generation"
+            "task_understanding", "requirement_analysis", "codebase_semantic_search", "code_generation", "diagram_generation"
         ]
         assert _output(runtime, run, "codebase_semantic_search")["evidence_refs"] == ["src_pack_code"]
         assert _output(runtime, run, "code_generation")["context_refs"][0]["file_path"] == "apps/agent/app/execution/wiring.py"
