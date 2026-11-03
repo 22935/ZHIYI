@@ -229,14 +229,17 @@ class ACGExecutionGraph:
     def ready_steps(self, state: ACGExecutionState) -> tuple[str, ...]:
         """返回当前超步可并发执行的 Step，排除控制节点和未选择的分支。"""
         completed = set(state.completed_step_ids)
-        inactive = set(state.active_step_ids) | set(state.skipped_step_ids)
+        skipped = set(state.skipped_step_ids)
+        inactive = set(state.active_step_ids) | skipped
         ready: list[str] = []
         for node_id in self.nodes:
             spec = self.node_specs[node_id]
             if node_id in completed or node_id in inactive or spec.kind != "step":
                 continue
             predecessors = {source for source, target in self.edges if target == node_id}
-            if predecessors <= completed:
+            # A join may consume a selected branch after the alternative was
+            # skipped. A node reachable only from skipped predecessors stays inactive.
+            if predecessors <= (completed | skipped) and (not predecessors or predecessors & completed):
                 ready.append(node_id)
         return tuple(ready)
 

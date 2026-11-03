@@ -4,7 +4,7 @@
   "name": "合同审查标准流程",
   "domain": "legal",
   "intent": "contract_review",
-  "version": "v1",
+  "version": "v1.1",
   "runtimeEngine": "acg",
   "description": "Canonical AgentOS contract review workflow executed by the Core Native ACG ready-set scheduler with Trace, Review, Checkpoint, provenance, and self-healing.",
   "artifacts": {
@@ -13,21 +13,21 @@
     "report": "output.artifacts.report_generate.report_markdown"
   },
   "planningNodes": [
-    {"key": "contract-understanding", "title": "Contract Understanding", "objective": "Extract the contract structure, parties, obligations, and key terms", "capabilityRequirements": ["contract_parse"]},
-    {"key": "clause-classification", "title": "Clause Classification", "objective": "Classify material contract clauses for legal analysis", "capabilityRequirements": ["clause_classify"]},
-    {"key": "risk-analysis", "title": "Risk Analysis", "objective": "Identify and assess material contractual risks", "capabilityRequirements": ["risk_detect"]},
-    {"key": "legal-evidence", "title": "Legal Evidence", "objective": "Match identified risks with relevant legal evidence", "capabilityRequirements": ["legal_evidence_match"]},
-    {"key": "revision-advice", "title": "Revision Advice", "objective": "Produce actionable contract revision recommendations", "capabilityRequirements": ["revision_suggest"]},
-    {"key": "review-decision", "title": "Review Decision", "objective": "Review high-impact conclusions before final delivery", "capabilityRequirements": ["human_review_gate"]},
-    {"key": "review-report", "title": "Review Report", "objective": "Deliver a traceable contract review report", "capabilityRequirements": ["report_generate"]}
+    {"key": "step:parse_contract", "title": "Contract Understanding", "objective": "Extract the contract structure, parties, obligations, and key terms", "capabilityRequirements": ["contract_parse"]},
+    {"key": "step:classify_clauses", "title": "Clause Classification", "objective": "Classify material contract clauses for legal analysis", "capabilityRequirements": ["clause_classify"]},
+    {"key": "step:risk_detect", "title": "Risk Analysis", "objective": "Identify and assess material contractual risks", "capabilityRequirements": ["risk_detect"]},
+    {"key": "step:legal_evidence_match", "title": "Legal Evidence", "objective": "Match identified risks with relevant legal evidence", "capabilityRequirements": ["legal_evidence_match"]},
+    {"key": "step:suggestion_generate", "title": "Revision Advice", "objective": "Produce actionable contract revision recommendations", "capabilityRequirements": ["revision_suggest"]},
+    {"key": "step:human_review", "title": "Review Decision", "objective": "Review high-impact conclusions before final delivery", "capabilityRequirements": ["human_review_gate"]},
+    {"key": "step:report_generate", "title": "Review Report", "objective": "Deliver a traceable contract review report", "capabilityRequirements": ["report_generate"]}
   ],
   "planningRelations": [
-    {"sourceKey": "contract-understanding", "targetKey": "clause-classification", "relationType": "depends_on"},
-    {"sourceKey": "clause-classification", "targetKey": "risk-analysis", "relationType": "depends_on"},
-    {"sourceKey": "risk-analysis", "targetKey": "legal-evidence", "relationType": "depends_on"},
-    {"sourceKey": "legal-evidence", "targetKey": "revision-advice", "relationType": "depends_on"},
-    {"sourceKey": "revision-advice", "targetKey": "review-decision", "relationType": "depends_on"},
-    {"sourceKey": "review-decision", "targetKey": "review-report", "relationType": "depends_on"}
+    {"sourceKey": "step:parse_contract", "targetKey": "step:classify_clauses", "relationType": "depends_on"},
+    {"sourceKey": "step:classify_clauses", "targetKey": "step:risk_detect", "relationType": "depends_on"},
+    {"sourceKey": "step:risk_detect", "targetKey": "step:legal_evidence_match", "relationType": "depends_on"},
+    {"sourceKey": "step:legal_evidence_match", "targetKey": "step:suggestion_generate", "relationType": "depends_on"},
+    {"sourceKey": "step:suggestion_generate", "targetKey": "step:human_review", "relationType": "depends_on"},
+    {"sourceKey": "step:human_review", "targetKey": "step:report_generate", "relationType": "depends_on"}
   ],
   "steps": [
     {

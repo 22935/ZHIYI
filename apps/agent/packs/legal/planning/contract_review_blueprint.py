@@ -208,7 +208,8 @@ def build_contract_review_blueprint(
     memory_specs = []
     for node in step_nodes:
         definition = definitions.get(node.node_id) or definitions.get("human_review")
-        planned_agent_id = (definition.agent_name if definition is not None else None) or node.node_id
+        planned_agent_id = ("statute" if node.node_id == "statute_retrieve"
+                            else (definition.agent_name if definition is not None else None) or node.node_id)
         bindings.append(AgentBindingSpec(
             stepId=node.node_id,
             plannedAgentId=planned_agent_id,

@@ -3,21 +3,24 @@
   "name": "Programmer Requirement Analysis Workflow",
   "domain": "programmer",
   "intent": "requirement_analysis",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Programmer workflow for requirement analysis, code search, code generation, and Mermaid diagrams.",
   "runtimeEngine": "acg",
   "planningNodes": [
-    {"key": "requirement-analysis", "title": "Requirement Analysis", "objective": "Translate the request into an implementable technical specification", "capabilityRequirements": ["requirement_analysis"]},
-    {"key": "codebase-evidence", "title": "Codebase Evidence", "objective": "Locate relevant implementation evidence in the codebase", "capabilityRequirements": ["codebase_semantic_search"]},
-    {"key": "implementation", "title": "Implementation", "objective": "Produce code that satisfies the technical specification", "capabilityRequirements": ["code_generation"]},
-    {"key": "architecture-diagram", "title": "Architecture Diagram", "objective": "Document the resulting design and interaction sequence", "capabilityRequirements": ["diagram_generation"]}
+    {"key": "step:task_understanding", "title": "Task Understanding", "objective": "Identify the task goal and constraints before requirement analysis", "capabilityRequirements": ["task_understanding"]},
+    {"key": "step:requirement_analysis", "title": "Requirement Analysis", "objective": "Translate the request into an implementable technical specification", "capabilityRequirements": ["requirement_analysis"]},
+    {"key": "step:codebase_semantic_search", "title": "Codebase Evidence", "objective": "Locate relevant implementation evidence in the codebase", "capabilityRequirements": ["codebase_semantic_search"]},
+    {"key": "step:code_generation", "title": "Implementation", "objective": "Produce code that satisfies the technical specification", "capabilityRequirements": ["code_generation"]},
+    {"key": "step:diagram_generation", "title": "Architecture Diagram", "objective": "Document the resulting design and interaction sequence", "capabilityRequirements": ["diagram_generation"]}
   ],
   "planningRelations": [
-    {"sourceKey": "requirement-analysis", "targetKey": "codebase-evidence", "relationType": "depends_on"},
-    {"sourceKey": "codebase-evidence", "targetKey": "implementation", "relationType": "depends_on"},
-    {"sourceKey": "implementation", "targetKey": "architecture-diagram", "relationType": "depends_on"}
+    {"sourceKey": "step:task_understanding", "targetKey": "step:requirement_analysis", "relationType": "depends_on"},
+    {"sourceKey": "step:requirement_analysis", "targetKey": "step:codebase_semantic_search", "relationType": "depends_on"},
+    {"sourceKey": "step:codebase_semantic_search", "targetKey": "step:code_generation", "relationType": "depends_on"},
+    {"sourceKey": "step:code_generation", "targetKey": "step:diagram_generation", "relationType": "depends_on"}
   ],
   "steps": [
+    {"stepId": "task_understanding", "name": "Task Understanding", "agentName": "native_general_agent", "capability": "task_understanding", "outputSpec": {"type": "object", "required": ["task_summary"], "properties": {"task_summary": {"type": "object"}}}, "nextStepId": "requirement_analysis"},
     {
       "stepId": "requirement_analysis",
       "name": "Requirement Analysis",
