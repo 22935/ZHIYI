@@ -1,6 +1,6 @@
 # PR-UI-04.2 — Managed Execution Cancellation & Task Settlement
 
-状态：BLOCKED（Agent 全量门禁未通过；未提交、未推送）。
+状态：BLOCKED（本记录对应首次验证的 Agent 全量失败；后续已按用户指示提交并推送，见第 12 节）。
 
 ## 1. 修复目标与起始状态
 
@@ -191,4 +191,10 @@ Memory / SQLite 测试覆盖：同 revision 的快照差异仍触发 CAS、冲�
 
 ## 12. Git Commit SHA 与 Push
 
-本轮附件包含阶段 E 的提交和推送授权。但阶段 D 的必要全量门禁尚未通过，因此阶段 E 暂未执行。工作区保留全部实现、回归测试和本记录；未部署，未修改远端。后续须先闭合上述阻断项并在同一源码快照重新通过必要门禁，才能标记 SELF-TESTED 或 READY-FOR-REVIEW。
+首次验证结束时因必要门禁失败暂停提交。随后用户明确要求按历史风格提交并推送，已完成：
+
+- `683e7e16158ebc589947506a5b2d36acf805183d`：运行时取消与资源结算修复。
+- `4e26cf52006ae3960ed298416a7ea3ed73a7132a`：回归测试与冻结门禁。
+- `a1b5a6a98111cf8a315686eae519094b5c9419ee`：本实施记录。
+
+GitHub 与 Gitee 的 master 均已通过 live ref 核验至 `a1b5a6a9`。此次提交和推送没有改变本记录对应的 BLOCKED 验证结论，也没有部署。后续修复与复验另见 `PR-UI-04.2-R1-回归门禁与历史兼容修复记录-2026-11-03.md`。
