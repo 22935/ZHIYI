@@ -22,6 +22,10 @@ class ResourceExecutionError(RuntimeError):
 
     outcome_unknown = False
 
+    def __init__(self, message: str, *, outcome_unknown: bool = False) -> None:
+        super().__init__(message)
+        self.outcome_unknown = outcome_unknown
+
 
 class ResourceExecutionAdapter(Protocol):
     async def run(self, context: AgentRunContext) -> AgentOutput:
@@ -114,11 +118,31 @@ class HttpResourceExecutionAdapter:
                 body=body,
             ),
         }
+        pre_send_failed = False
+        send_started = False
+
+        async def trace(event: str, info: dict[str, Any]) -> None:
+            nonlocal pre_send_failed, send_started
+            if event in {"http11.send_request_headers.started", "http2.send_request_headers.started"}:
+                send_started = True
+            if not send_started and event in {
+                "connection.connect_tcp.failed", "connection.connect_unix_socket.failed", "connection.start_tls.failed",
+            }:
+                pre_send_failed = True
+
+        def unknown_transport_outcome(exc: BaseException) -> bool:
+            if send_started:
+                return True
+            return not (pre_send_failed or isinstance(exc, (
+                httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout, httpx.UnsupportedProtocol,
+            )))
+
         request_task = asyncio.create_task(self._client.post(
                 self.address,
                 content=body,
                 headers=headers,
                 timeout=self.timeout_seconds,
+                extensions={"trace": trace},
             ), name=f"resource-request:{context.run.run_id}:{context.step.step_id}")
         try:
             try:
@@ -129,33 +153,59 @@ class HttpResourceExecutionAdapter:
                 results = await await_settled(asyncio.gather(request_task, return_exceptions=True), propagate_cancel=False)
                 result = results[0]
                 settled = False
-                if not isinstance(result, BaseException) and not result.is_error and result.status_code != 202:
+                if not isinstance(result, BaseException):
                     try:
-                        AgentOutput.model_validate(result.json())
+                        self._terminal_output(result)
                         settled = True
-                    except (ValueError, TypeError):
-                        pass
+                    except ResourceExecutionError as exc:
+                        settled = not exc.outcome_unknown
                 if not settled:
-                    error = ResourceExecutionError("REMOTE_EXECUTION_OUTCOME_UNKNOWN: cancellation requires reconciliation")
-                    error.outcome_unknown = True
-                    raise error
+                    # A failed cancellation wait can still prove that nothing
+                    # was sent (e.g. pool/connect failure).
+                    if isinstance(result, httpx.HTTPError) and not unknown_transport_outcome(result):
+                        raise
+                    raise ResourceExecutionError("REMOTE_EXECUTION_OUTCOME_UNKNOWN: cancellation requires reconciliation",
+                                                 outcome_unknown=True)
                 raise
-        except httpx.TimeoutException as exc:
-            raise ResourceExecutionError("REMOTE_EXECUTION_FAILED: timeout") from exc
         except httpx.HTTPError as exc:
-            raise ResourceExecutionError(f"REMOTE_EXECUTION_FAILED: {exc}") from exc
-        if response.is_error:
+            # In particular WriteTimeout/WriteError may follow a partial write;
+            # httpx supplies no byte-delivery proof. Idempotency-Key is only a
+            # request hint, not a verified server deduplication contract.
+            unknown = unknown_transport_outcome(exc)
+            stage = "outcome unknown" if unknown else "request not sent"
+            raise ResourceExecutionError(f"REMOTE_EXECUTION_FAILED: transport {stage}: {exc}",
+                                         outcome_unknown=unknown) from exc
+        except ResourceExecutionError:
+            raise
+        except Exception as exc:
+            raise ResourceExecutionError("REMOTE_EXECUTION_FAILED: unclassified transport outcome",
+                                         outcome_unknown=True) from exc
+        return self._terminal_output(response)
+
+    @staticmethod
+    def _terminal_output(response: httpx.Response) -> AgentOutput:
+        # The existing /execute contract is synchronous HTTP 200 + AgentOutput.
+        # Admission, progress, empty and malformed replies cannot prove completion.
+        if response.status_code != 200:
             detail = response.text[:500]
             raise ResourceExecutionError(
-                f"REMOTE_EXECUTION_FAILED: HTTP {response.status_code}: {detail}"
+                f"REMOTE_EXECUTION_FAILED: HTTP {response.status_code}: {detail}",
+                # These statuses reject the request before execution admission.
+                # Conflict, server/proxy errors and all other replies provide no
+                # terminal receipt and must remain unknown.
+                outcome_unknown=response.status_code not in {400, 401, 403, 404, 405, 413, 415, 422},
             )
         try:
             body = response.json()
-            if not isinstance(body, dict):
-                raise TypeError("response JSON must be an object")
+            if not isinstance(body, dict) or not isinstance(body.get("output"), dict):
+                raise TypeError("terminal AgentOutput must explicitly include output")
+            if "status" in body:
+                # No status envelope is defined by this synchronous protocol.
+                # Do not let AgentOutput(extra='ignore') hide progress/errors.
+                raise TypeError("status envelope is not a terminal AgentOutput")
             return AgentOutput.model_validate(body)
         except Exception as exc:
-            raise ResourceExecutionError("REMOTE_EXECUTION_FAILED: invalid AgentOutput") from exc
+            raise ResourceExecutionError("REMOTE_EXECUTION_FAILED: unconfirmed AgentOutput", outcome_unknown=True) from exc
 
     async def aclose(self) -> None:
         if self._owns_client:

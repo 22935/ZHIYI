@@ -181,3 +181,119 @@ def test_build_resource_execution_adapter_uses_remote_profile_endpoint() -> None
     )
     assert isinstance(adapter, HttpResourceExecutionAdapter)
     assert adapter.address == "https://edge.example.test/execute"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status,payload", [
+    (202, {"output": {"accepted": True}}),
+    (200, {"status": "RUNNING"}),
+    (200, {"status": "RUNNING", "output": {}}),
+    (200, {}),
+    (204, None),
+    (503, {"error": "failed after side effect"}),
+    (409, {"status": "RUNNING"}),
+])
+async def test_unconfirmed_remote_response_is_unknown(status, payload):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda request: httpx.Response(status, json=payload)
+    )) as client:
+        adapter = HttpResourceExecutionAdapter(resource_id="edge-01", address="http://edge",
+            credential_provider=_Credentials(), client=client)
+        with pytest.raises(ResourceExecutionError) as caught:
+            await adapter.run(_context())
+        assert caught.value.outcome_unknown is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("exception,unknown", [
+    (httpx.ConnectError, False), (httpx.ConnectTimeout, False),
+    (httpx.PoolTimeout, False), (httpx.ReadTimeout, True),
+    (httpx.WriteTimeout, True), (httpx.WriteError, True),
+    (httpx.RemoteProtocolError, True),
+])
+async def test_transport_failure_preserves_execution_uncertainty(exception, unknown):
+    calls = []
+    async def handler(request):
+        calls.append(request)
+        raise exception("transport failed", request=request)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = HttpResourceExecutionAdapter(resource_id="edge-01", address="http://edge",
+            credential_provider=_Credentials(), client=client)
+        with pytest.raises(ResourceExecutionError) as caught:
+            await adapter.run(_context())
+        assert caught.value.outcome_unknown is unknown
+        assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 405, 413, 415, 422])
+async def test_explicit_request_rejection_is_not_unknown(status):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda request: httpx.Response(status, json={"error": "request rejected"})
+    )) as client:
+        adapter = HttpResourceExecutionAdapter(resource_id="edge-01", address="http://edge",
+            credential_provider=_Credentials(), client=client)
+        with pytest.raises(ResourceExecutionError) as caught:
+            await adapter.run(_context())
+        assert caught.value.outcome_unknown is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail_connect", [True, False])
+async def test_write_timeout_uses_actual_httpcore_transmission_stage(fail_connect):
+    import httpcore
+    writes = []
+    class Stream:
+        async def write(self, buffer, timeout=None):
+            writes.append(buffer)
+            raise httpcore.WriteTimeout("partial header write")
+        async def aclose(self):
+            pass
+        def get_extra_info(self, name):
+            return None
+    class Backend:
+        async def connect_tcp(self, *args, **kwargs):
+            if fail_connect:
+                raise httpcore.WriteTimeout("connect failed before HTTP bytes")
+            return Stream()
+    transport = httpx.AsyncHTTPTransport(retries=0)
+    transport._pool._network_backend = Backend()
+    async with httpx.AsyncClient(transport=transport) as client:
+        adapter = HttpResourceExecutionAdapter(resource_id="edge-01", address="http://edge",
+            credential_provider=_Credentials(), client=client)
+        with pytest.raises(ResourceExecutionError) as caught:
+            await adapter.run(_context())
+        assert caught.value.outcome_unknown is (not fail_connect)
+        assert bool(writes) is (not fail_connect)
+
+
+@pytest.mark.asyncio
+async def test_connect_retry_does_not_hide_later_sent_request_uncertainty():
+    import httpcore
+    connects = []
+    class Stream:
+        async def write(self, buffer, timeout=None):
+            pass
+        async def read(self, max_bytes, timeout=None):
+            raise httpcore.ReadTimeout("response lost after successful send")
+        async def aclose(self):
+            pass
+        def get_extra_info(self, name):
+            return None
+    class Backend:
+        async def connect_tcp(self, *args, **kwargs):
+            connects.append(True)
+            if len(connects) == 1:
+                raise httpcore.ConnectError("first connection unavailable")
+            return Stream()
+        async def sleep(self, seconds):
+            pass
+    transport = httpx.AsyncHTTPTransport(retries=1)
+    transport._pool._network_backend = Backend()
+    async with httpx.AsyncClient(transport=transport) as client:
+        adapter = HttpResourceExecutionAdapter(resource_id="edge-01", address="http://edge",
+            credential_provider=_Credentials(), client=client)
+        with pytest.raises(ResourceExecutionError) as caught:
+            await adapter.run(_context())
+        assert len(connects) == 2
+        assert caught.value.outcome_unknown is True

@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 
+import httpx
+
 import pytest
 
 from components.executor.graph import ACGSuperstepError
@@ -23,6 +25,7 @@ from components.scheduler.models import (
     SchedulerNoEligibleResource,
 )
 from adapters.resource_execution import ResourceExecutionError
+from adapters.resource_execution import HttpResourceExecutionAdapter
 from contracts.evolution import PolicyMutation, Trajectory
 from contracts.resource import (
     HealthStatus,
@@ -302,6 +305,63 @@ def test_remote_failure_marks_edge_unhealthy_and_rebinds_to_cloud() -> None:
     assert {item["binding"]["resourceId"] for item in completed.execution_state["schedulingDecisions"]} == {
         "edge-01", "cloud-01"
     }
+
+
+@pytest.mark.parametrize("response_kind", ["accepted", "running", "read_timeout", "write_timeout", "server_error", "wrapped_unknown"])
+def test_unknown_http_execution_retains_lease_without_second_execution(response_kind):
+    calls = []
+    class Credentials:
+        def current_signing_credential(self, resource_id):
+            return "credential", "secret"
+    async def handler(request):
+        calls.append(request.url.host)
+        if response_kind == "wrapped_unknown":
+            try:
+                raise ResourceExecutionError("outcome lost", outcome_unknown=True)
+            except ResourceExecutionError:
+                raise ResourceExecutionError("outer wrapper without explicit cause")
+        if response_kind == "read_timeout":
+            raise httpx.ReadTimeout("reply lost after execution", request=request)
+        if response_kind == "write_timeout":
+            raise httpx.WriteTimeout("partial request delivery", request=request)
+        if response_kind == "server_error":
+            return httpx.Response(503, json={"error": "result lost"})
+        return httpx.Response(202 if response_kind == "accepted" else 200, json={"status": "RUNNING"})
+    plane = ResourcePlane()
+    _register_remote(plane, "edge-01", latency_ms=10)
+    _register_remote(plane, "cloud-01", placement=Placement.CLOUD, latency_ms=100)
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            adapters = {rid: HttpResourceExecutionAdapter(resource_id=rid, address=f"http://{rid}/execute",
+                credential_provider=Credentials(), client=client) for rid in ("edge-01", "cloud-01")}
+            runtime, _ = _runtime([], resource_plane=plane, resource_execution_adapters=adapters)
+            task = runtime.create_mission("unknown", workflow_id="resource-run")
+            _, run = runtime.prepare_run(task.mission_id)
+            # The planning failure observer must not turn UNKNOWN into a replan.
+            run.execution_state["planningLoop"] = {}
+            runtime.workflow_store.save_run(run)
+            async def observe(*args):
+                pytest.fail("UNKNOWN must await reconciliation, not automatic planning")
+            runtime.acg_execution_service._observe_boundary = observe
+            with pytest.raises(ACGSuperstepError) as caught:
+                await runtime.execute_prepared_run(run.run_id)
+            assert caught.value.outcome_unknown is True
+            saved = runtime.workflow_store.get_run(run.run_id)
+            assert calls == ["edge-01"]
+            assert saved.recovery_count == 0
+            assert saved.execution_state["recoveryOutcome"]["action"] == "review"
+            assert saved.execution_state["recoveryOutcome"]["status"] == "required"
+            assert not saved.execution_state.get("resourceFailoverHistory")
+            assert saved.execution_state["resourceBindings"]["analyse"] == "edge-01"
+            settlement, = saved.execution_state["taskSettlement"].values()
+            assert settlement["outcome"] == "unknown"
+            assert settlement["leaseState"] == "retained_unknown"
+            assert plane.runtime("edge-01").enabled is False
+            assert plane.health_monitor.health("edge-01").healthy is False
+            assert runtime.resource_binder.coordinator.active_slots("edge-01") == 1
+            assert runtime.resource_binder.coordinator.active_slots("cloud-01") == 0
+            assert saved.completed_step_ids == []
+    asyncio.run(scenario())
 
 
 def test_remote_failover_stops_after_all_bound_remote_runtimes_fail() -> None:

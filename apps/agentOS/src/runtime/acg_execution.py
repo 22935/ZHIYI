@@ -330,7 +330,13 @@ class ACGExecutionService(CollaboratorAccess):
             # 失败投影与 recoveryOutcome 持久化归 RuntimeRecoveryCoordinator；
             # 本服务只负责检测失败并收敛安全终态（端口由 facade 接线）。
             self._record_execution_failure(run, execution_state, exc)
-            if self._observe_boundary is not None and isinstance(run.execution_state.get("planningLoop"), dict):
+            if getattr(exc, "outcome_unknown", False):
+                run.execution_state["recoveryOutcome"].update({
+                    "action": "review", "status": "required",
+                    "reasonCode": "REMOTE_EXECUTION_OUTCOME_UNKNOWN",
+                })
+                self.workflow_store.save_run(run)
+            if self._observe_boundary is not None and isinstance(run.execution_state.get("planningLoop"), dict) and not getattr(exc, "outcome_unknown", False):
                 execution_state.active_step_ids = []
                 self.state_persistence.persist(run, execution_state)
                 try:
@@ -368,19 +374,22 @@ class ACGExecutionService(CollaboratorAccess):
     @staticmethod
     def _unwrap_resource_execution_error(error: BaseException) -> ResourceExecutionError | None:
         """Find a remote execution error hidden behind an ACG superstep wrapper."""
-        current: BaseException | None = error
+        pending = [error]
         visited: set[int] = set()
-        while current is not None and id(current) not in visited:
+        first = None
+        while pending:
+            current = pending.pop()
+            if id(current) in visited:
+                continue
             visited.add(id(current))
             if isinstance(current, ResourceExecutionError):
-                return current
-            cause = getattr(current, "cause", None)
-            if isinstance(cause, BaseException):
-                current = cause
-                continue
-            chained = current.__cause__
-            current = chained if isinstance(chained, BaseException) else None
-        return None
+                first = first or current
+                if current.outcome_unknown:
+                    return current
+            pending.extend(item for item in (getattr(current, "cause", None), current.__cause__, current.__context__)
+                           if isinstance(item, BaseException))
+            pending.extend(item for item in getattr(current, "causes", ()) if isinstance(item, BaseException))
+        return first
 
     def _remote_runtime_adapter(self, runtime_id: str) -> ResourceExecutionAdapter | None:
         """Lazily construct the signed adapter for a bound remote Runtime."""
@@ -454,7 +463,7 @@ class ACGExecutionService(CollaboratorAccess):
         Each step/resource pair gets at most one automatic failover attempt.
         """
         resource_error = self._unwrap_resource_execution_error(error)
-        if resource_error is None:
+        if resource_error is None or error.outcome_unknown or resource_error.outcome_unknown:
             return False
 
         execution_bindings = run.execution_state.get("executionBindings")
@@ -848,11 +857,11 @@ class ACGExecutionService(CollaboratorAccess):
                     or getattr(exc, "cause_code", None)
                     or type(exc).__name__
                 )
-                outcome_unknown = bool(getattr(exc, "outcome_unknown", False))
+                resource_error = self._unwrap_resource_execution_error(exc)
+                outcome_unknown = bool(getattr(exc, "outcome_unknown", False)
+                                       or (resource_error is not None and resource_error.outcome_unknown))
                 if outcome_unknown:
                     execution_outcome = "unknown"
-                    self.resource_plane.set_runtime_health(selected_resource_id, healthy=False)
-                    self.resource_plane.set_runtime_enabled(selected_resource_id, enabled=False)
                 if self._cancellation_requested(run.run_id) and step_execution_id is not None:
                     self._save_attempt_events(run, [self._lifecycle_event(
                         f"step.cancelled:{step_execution_id}", "step.cancelled", step_execution_id,
@@ -883,6 +892,11 @@ class ACGExecutionService(CollaboratorAccess):
                     success=False,
                     latency_ms=(monotonic() - (execution_started or monotonic())) * 1000,
                 )
+                if outcome_unknown:
+                    # Performance observation updates heartbeat/health. Quarantine
+                    # last, so that observation cannot undo UNKNOWN isolation.
+                    self.resource_plane.set_runtime_health(selected_resource_id, healthy=False)
+                    self.resource_plane.set_runtime_enabled(selected_resource_id, enabled=False)
                 if step_execution_id is not None:
                     self._save_attempt_events(run, [self._lifecycle_event(
                         f"step.failed:{step_execution_id}", "step.failed", step_execution_id,
