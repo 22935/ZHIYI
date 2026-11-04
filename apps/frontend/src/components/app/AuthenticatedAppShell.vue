@@ -615,23 +615,30 @@ const handleChatNavToggle = async () => {
     const source = route.fullPath
     const index = chatStore.workflowBindings
     const contextIdBefore = chatStore.contextId
+    const missionId = String(route.params.missionId || '')
+    const selectedRunId = typeof route.query.runId === 'string' ? route.query.runId : ''
+    // Detect in-place binding mutations as well as replacement of the index object.
+    const runBindingSnapshot = () => Object.values(chatStore.workflowBindings).flat()
+      .filter(item => item.missionId === missionId && item.runId === selectedRunId)
+      .map(item => JSON.stringify(item) ?? '').sort().join('\n')
+    const runBindingsBefore = runBindingSnapshot()
     const associatedBefore = Object.values(index).flat().some(item => !item.invalidAt
-      && item.missionId === String(route.params.missionId || '') && item.runId === route.query.runId)
+      && item.missionId === missionId && item.runId === selectedRunId)
     const target = isMissionWorkspacePath(route.path) ? await workbenchConversationTarget({
-      index: chatStore.workflowBindings,
-      missionId: String(route.params.missionId || ''),
-      runId: typeof route.query.runId === 'string' ? route.query.runId : '',
+      index,
+      missionId,
+      runId: selectedRunId,
       draftId: localStorage.getItem('chat.workflow_draft_conversation_id'),
       currentContextId: chatStore.contextId,
       readRun: id => agentosApi.getWorkflowRun(id),
       readConversation: id => conversationApi.getConversation(id)
     }) : null
     if (generation !== navigationGeneration || source !== route.fullPath || index !== chatStore.workflowBindings
-      || contextIdBefore !== chatStore.contextId) return
+      || contextIdBefore !== chatStore.contextId || runBindingsBefore !== runBindingSnapshot()) return
     if (!target && isMissionWorkspacePath(route.path)) {
       ElMessage.warning('当前没有可恢复的关联对话')
       const associated = Object.values(chatStore.workflowBindings).flat().some(item => !item.invalidAt
-        && item.missionId === String(route.params.missionId || '') && item.runId === route.query.runId)
+        && item.missionId === missionId && item.runId === selectedRunId)
       if (associatedBefore || associated) return // a denied/mismatched association must never fall back to the same cached history
       const fallback = router.resolve(lastChatRoute.value)
       const { runId: _run, missionId: _mission, ...query } = fallback.query
@@ -639,7 +646,9 @@ const handleChatNavToggle = async () => {
       if (contextId) {
         try {
           const conversation = await conversationApi.getConversation(contextId)
-          if (generation !== navigationGeneration || source !== route.fullPath || conversation.contextId !== contextId) return
+          if (generation !== navigationGeneration || source !== route.fullPath || index !== chatStore.workflowBindings
+            || contextIdBefore !== chatStore.contextId || runBindingsBefore !== runBindingSnapshot()
+            || conversation.contextId !== contextId) return
           query.contextId = contextId
         } catch { return }
       }

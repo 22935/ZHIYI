@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { reactive } from 'vue'
 import { webcrypto } from 'node:crypto'
 import { agentosApi, type WorkflowRun } from '@/services/api/agentos'
 import { nextFormalAction, prepareFormalCommand } from '@/features/acg/formalControl'
@@ -184,6 +185,20 @@ describe('formal Workbench controls', () => {
     await w.setProps({ run: changed })
     finish({ operationId: post.mock.calls[0][3].operationId, status: 'ACCEPTED', dispatchId: 'late' })
     await flushPromises(); expect(w.emitted('succeeded')).toBeUndefined(); w.unmount()
+  })
+
+  it.each(['runId', 'missionId'] as const)('invalidates a late receipt when the same Run object changes %s', async field => {
+    let finish!: (value: any) => void
+    const post = vi.spyOn(agentosApi, 'submitFormalControl').mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const run = reactive(permitted())
+    const w = render(run); await execute(w).trigger('click')
+    if (field === 'runId') run.runId = 'replacement-run'
+    else run.missionId = 'replacement-mission'
+    await flushPromises()
+    finish({ operationId: post.mock.calls[0][3].operationId, status: 'ACCEPTED', dispatchId: 'late' })
+    await flushPromises()
+    expect(w.emitted('succeeded')).toBeUndefined()
+    w.unmount()
   })
 
 })

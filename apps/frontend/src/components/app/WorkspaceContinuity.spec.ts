@@ -408,6 +408,36 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     expect(chat.workflowBindings).toEqual({}); expect(clear).not.toHaveBeenCalled()
   })
 
+  it('05B: fallback aborts if a matching Run binding appears during Conversation lookup', async () => {
+    const { chat, router } = await mountShell('/agentos/missions/mission/workspace?runId=run')
+    chat.workflowBindings = {}
+    const pending = deferred<any>()
+    vi.mocked(conversationApi.getConversation).mockClear().mockReturnValue(pending.promise)
+    const navigation = wrapper!.get('.primary-sidebar .chat-nav-group:not(.acg-nav-group) .chat-nav-trigger').trigger('click')
+    await settle()
+    expect(conversationApi.getConversation).toHaveBeenCalledWith('ctx')
+    chat.addWorkflowBinding(binding('ctx'))
+    pending.resolve({ contextId: 'ctx', roleId: 'original-role', workspaceMode: 'chat' } as any)
+    await navigation; await settle()
+    expect(router.currentRoute.value.path).toBe('/agentos/missions/mission/workspace')
+    expect(router.currentRoute.value.query.runId).toBe('run')
+  })
+
+  it('05B: fallback aborts if the current Conversation changes during lookup', async () => {
+    const { chat, router } = await mountShell('/agentos/missions/mission/workspace?runId=run')
+    chat.workflowBindings = {}
+    const pending = deferred<any>()
+    vi.mocked(conversationApi.getConversation).mockClear().mockReturnValue(pending.promise)
+    const navigation = wrapper!.get('.primary-sidebar .chat-nav-group:not(.acg-nav-group) .chat-nav-trigger').trigger('click')
+    await settle()
+    expect(conversationApi.getConversation).toHaveBeenCalledWith('ctx')
+    chat.contextId = 'other-context'
+    pending.resolve({ contextId: 'ctx', roleId: 'original-role', workspaceMode: 'chat' } as any)
+    await navigation; await settle()
+    expect(router.currentRoute.value.path).toBe('/agentos/missions/mission/workspace')
+    expect(router.currentRoute.value.query.runId).toBe('run')
+  })
+
   it('F: browser back/forward retains the cached pair; a different Conversation uses its own slot and history', async () => {
     const { router, chat } = await mountShell()
     const original = wrapper!.findComponent(ChatView).vm.$.uid

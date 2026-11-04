@@ -63,8 +63,9 @@ const action = computed(() => props.run?.runId === props.runId && props.run?.mis
 const source = computed(() => action.value && props.run ? formalSource(props.run, action.value) : '')
 watch(source, () => { error.value = ''; blocked.value = false })
 // Observe authority changes synchronously, including mutations of the same Run object.
-const authority = computed(() => JSON.stringify([props.missionId, props.runId, props.run?.status,
-  props.run?.runtimeRevision, props.run?.formalControl, capabilities.value, props.historical,
+const authority = computed(() => JSON.stringify([props.missionId, props.runId,
+  props.run?.missionId, props.run?.runId, props.run?.status, props.run?.runtimeRevision,
+  props.run?.formalControl, capabilities.value, props.historical,
   props.readonly, props.executionReadonly]))
 watch(authority, () => { generation++; pending.value = false }, { flush: 'sync' })
 
