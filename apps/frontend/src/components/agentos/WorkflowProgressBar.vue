@@ -35,7 +35,7 @@
     <div class="workflow-progress__footer">
       <div class="workflow-progress__metrics">
         <span>{{ stepSummary }}</span>
-        <span>当前活动 {{ progress?.activeStepIds?.length ?? 0 }}</span>
+        <span>当前活动 {{ progress?.activeStepIds?.length ?? '—' }}</span>
       </div>
       <strong v-if="!isIndeterminate" class="workflow-progress__percent">
         {{ formattedPercent }}
@@ -50,13 +50,14 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch, type DeepReadonly } from 'vue'
-import type { LifecyclePhase } from '@/features/workspace/runLifecycle'
+import type { LifecyclePhase, ProgressObservationState } from '@/features/workspace/runLifecycle'
 import type { WorkflowProgress, WorkflowProgressPhase } from '@/services/api/workflow'
 
 const props = withDefaults(defineProps<{
   progress: DeepReadonly<WorkflowProgress> | null
   lifecycleLabel?: string
   lifecyclePhase?: LifecyclePhase
+  progressObservationState?: ProgressObservationState
   loading?: boolean
   syncError?: string | null
   elapsedSeconds?: number
@@ -107,6 +108,9 @@ const formattedPercent = computed(() => {
   return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2)}%`
 })
 const stepSummary = computed(() => {
+  if (props.progressObservationState === 'RECONCILING') return '进度观测待核对'
+  if (props.progressObservationState === 'STALE') return '进度观测已过期'
+  if (props.progressObservationState === 'IDENTITY_MISMATCH') return '进度观测身份不匹配'
   const value = props.progress
   if (!value || value.totalSteps <= 0) return '任务规模计算中'
   return `已完成 ${value.completedSteps} / ${value.totalSteps}`
@@ -125,6 +129,9 @@ const elapsed = computed(() => {
   return Math.max(0, Math.floor((end - started) / 1000))
 })
 const elapsedLabel = computed(() => {
+  const terminal = ['COMPLETED', 'FAILED', 'CANCELLED', 'SUPERSEDED'].includes(props.lifecyclePhase || '')
+  const quarantined = ['RECONCILING', 'STALE', 'IDENTITY_MISMATCH'].includes(props.progressObservationState || '')
+  if (quarantined || (terminal && elapsed.value === null)) return '—'
   if (elapsed.value === null) return '准备中'
   const minutes = Math.floor(elapsed.value / 60)
   const seconds = elapsed.value % 60

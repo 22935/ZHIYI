@@ -291,6 +291,7 @@
               :sync-error="workflowProgressState.syncError.value || (lifecycle.synchronizationState !== 'SYNCED' ? '运行状态正在核对' : null)"
               :lifecycle-label="lifecycle.phaseLabel"
               :lifecycle-phase="lifecycle.phase"
+              :progress-observation-state="lifecycle.progressObservationState"
               variant="compact"
             />
             <AgentOsRunSummaryCard
