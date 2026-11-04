@@ -1,5 +1,5 @@
 import { agentosRequest } from '../client'
-import type { GraphProjection, AcgDeliverable, AcgFinalArtifact, AcgStepState, AcgView, NodeExecutionPhase, ProvenanceConsumption, ProvenanceProduction, RunExecutionNode, RuntimeInteraction, StepStatus, WorkflowRun, WorkflowTraceExport } from '../types'
+import type { GraphProjection, AcgDeliverable, AcgFinalArtifact, AcgStepState, AcgView, NodeExecutionPhase, ProvenanceConsumption, ProvenanceProduction, RunExecutionNode, RunExecutionTree, RuntimeInteraction, StepStatus, WorkflowRun, WorkflowTraceExport } from '../types'
 import { runPath } from '../paths'
 import axios from 'axios'
 import { isRunDeliverableEntry } from '@/workbench/runtime/deliverableIdentity'
@@ -121,6 +121,31 @@ const projectIdentityStepState = (
   }
 }
 
+/**
+ * Run 持久步骤 → 图节点状态的唯一映射：getAcgView 与 workspace 图挂载点
+ * （GraphEditor/RunProgressEditor 经 runtimeObservation）共用，保证执行树
+ * 命中时的状态、Attempt 与生命周期增强口径一致。
+ */
+export const stepStatesFromRun = (
+  run: Pick<WorkflowRun, 'steps'>,
+  executionTree?: RunExecutionTree | null,
+  lifecycles?: import('../types/identity').NodeLifecycleQuery[]
+): AcgStepState[] => {
+  const identityNodesByAcgId = new Map<string, RunExecutionNode>(
+    (executionTree?.nodes || []).filter(item => item.acgNodeId).map(item => [item.acgNodeId as string, item] as const)
+  )
+  return run.steps.map(step => projectIdentityStepState({
+    stepId: step.stepId,
+    status: step.status,
+    name: step.name,
+    agentName: step.agentName,
+    attempt: step.attempt || 0,
+    retryCount: step.retryCount || 0,
+    resourceUse: null,
+    outputSummary: step.outputSummary
+  }, identityNodesByAcgId.get(step.stepId), lifecycles || executionTree?.lifecycles || []))
+}
+
 export const createAcgApi = (getApi: () => AcgApiDependencies) => ({
   async getAcgView(runId: string, options: { signal?: AbortSignal; run?: WorkflowRun | Promise<WorkflowRun> } = {}): Promise<AcgView> {
     const coreRequests = [
@@ -233,19 +258,7 @@ export const createAcgApi = (getApi: () => AcgApiDependencies) => ({
     })() : []
     const finalReport = finalArtifacts.length && finalOutput ? outputMarkdown(finalOutput.output) : null
     const executionTree = identityResult.executionTree
-    const identityNodesByAcgId = new Map<string, RunExecutionNode>(
-      (executionTree?.nodes || []).filter(item => item.acgNodeId).map(item => [item.acgNodeId as string, item] as const)
-    )
-    const stepStates = run.steps.map(step => projectIdentityStepState({
-      stepId: step.stepId,
-      status: step.status,
-      name: step.name,
-      agentName: step.agentName,
-      attempt: step.attempt || 0,
-      retryCount: step.retryCount || 0,
-      resourceUse: null,
-      outputSummary: step.outputSummary
-    }, identityNodesByAcgId.get(step.stepId), executionTree?.lifecycles || []))
+    const stepStates = stepStatesFromRun(run, executionTree)
     return {
       runId,
       status: run.status,

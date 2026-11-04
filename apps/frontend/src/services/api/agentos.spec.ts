@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { agentosApi, agentosRequest, WorkflowApiContractError } from './agentos'
-import { decodeOutputContent, type OutputContentValue } from './agentos/api/acg'
+import { decodeOutputContent, stepStatesFromRun, type OutputContentValue } from './agentos/api/acg'
 
 // The output endpoint returns ContentValueQuery, not the reconstructed product object.
 const outputValue = (value: unknown): OutputContentValue => {
@@ -519,5 +519,64 @@ describe('AgentOS v2 application API', () => {
     expect(get).toHaveBeenCalledWith('/runs/run%2F1/artifacts/manifest%2F1/download', {
       responseType: 'blob', signal
     })
+  })
+
+  it('projects persisted run steps into base graph node states', () => {
+    const states = stepStatesFromRun({ steps: [
+      { stepId: 'n1', name: '时间轴转写', agentName: 'editor.a', status: 'completed', attempt: 1, retryCount: 0, outputSummary: 'ok' },
+      { stepId: 'n2', name: '一致性检查', agentName: 'checker.b', status: 'waiting_review', attempt: 2, retryCount: 1 }
+    ] })
+    expect(states).toHaveLength(2)
+    expect(states[0]).toMatchObject({ stepId: 'n1', status: 'completed', name: '时间轴转写', agentName: 'editor.a', attempt: 1, outputSummary: 'ok' })
+    expect(states[1]).toMatchObject({ stepId: 'n2', status: 'waiting_review', retryCount: 1 })
+  })
+
+  it('enriches execution-tree matched nodes and falls back to base for unmatched ones', () => {
+    const identityNode = {
+      task: { taskId: 'task_2', missionId: 'mission_1', title: '一致性检查', objective: '核对素材', constraints: [], status: 'running', metadata: {} },
+      acgNodeId: 'n2',
+      attempts: [{
+        attempt: { attemptId: 'att_2', runId: 'run_1', taskId: 'task_2', status: 'running', attemptNumber: 2 },
+        resourceUse: { resourceId: 'res_1', agentId: 'checker.b', modelId: 'glm-4' },
+        executions: [{ stepExecutionId: 'se_1', runId: 'run_1', taskId: 'task_2', attemptId: 'att_2', status: 'running' }]
+      }]
+    }
+    const lifecycles = [
+      { stepId: 'n2', attemptId: 'att_2', phase: 'waiting_review', sequence: 3 },
+      { stepId: 'n2', attemptId: 'att_1', phase: 'executed', sequence: 1 }
+    ]
+    const [first, second] = stepStatesFromRun({ steps: [
+      { stepId: 'n1', name: '时间轴转写', agentName: 'editor.a', status: 'completed' },
+      { stepId: 'n2', name: '一致性检查', agentName: 'checker.b', status: 'waiting_review' }
+    ] }, executionTree([identityNode], lifecycles), lifecycles)
+
+    expect(first).toMatchObject({ stepId: 'n1', status: 'completed' })
+    expect(second).toMatchObject({
+      stepId: 'n2',
+      status: 'waiting_review',
+      attempt: 2,
+      retryCount: 0,
+      acgNodeId: 'n2',
+      task: { taskId: 'task_2' },
+      resourceUse: { resourceId: 'res_1' }
+    })
+    expect(second.nodeExecutions?.map(item => item.phase)).toEqual(['executed', 'waiting_review'])
+  })
+
+  it('maps in-flight identity phases to running so a refreshed workspace graph keeps 运行中', () => {
+    const identityNode = {
+      task: { taskId: 'task_1', missionId: 'mission_1', title: '转写', objective: '', constraints: [], status: 'running', metadata: {} },
+      acgNodeId: 'n1',
+      attempts: [{
+        attempt: { attemptId: 'att_1', runId: 'run_1', taskId: 'task_1', status: 'running', attemptNumber: 1 },
+        resourceUse: null,
+        executions: []
+      }]
+    }
+    const lifecycles = [{ stepId: 'n1', attemptId: 'att_1', phase: 'executed', sequence: 1 }]
+    const [state] = stepStatesFromRun({ steps: [
+      { stepId: 'n1', name: '时间轴转写', agentName: 'editor.a', status: 'running' }
+    ] }, executionTree([identityNode], lifecycles), lifecycles)
+    expect(state).toMatchObject({ stepId: 'n1', status: 'running' })
   })
 })
