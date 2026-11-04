@@ -410,6 +410,16 @@ class WorkflowStore(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_planning_recovery_candidates(self, *, limit: int = 200) -> tuple[RuntimeRunRecord, ...]:
+        """Return recoverable Planner-loop Runs without loading the whole table.
+
+        Only ``failed``/``waiting_review`` Runs whose ``execution_state`` carries a
+        ``planningLoop`` mapping participate in restart recovery; implementations
+        must filter before deserializing Run payloads.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def save_run_with_events(self, run: RuntimeRunRecord, events: Sequence[dict], *, expected_snapshot: RuntimeRunRecord | None = None) -> None:
         """Atomically save the execution Run snapshot and append lifecycle Outbox events."""
         raise NotImplementedError

@@ -927,12 +927,17 @@ class SQLiteWorkflowStore(WorkflowStore, MissionSemanticStore):
         )
 
     def list_non_terminal_runs(self, *, limit: int = 200) -> tuple[RuntimeRunRecord, ...]:
-        """通过 SQLite JSON 条件返回最新优先的未终态运行；数量下限为 1。"""
+        """返回最新优先的未终态运行；数量下限为 1。
+
+        过滤走 ``status`` 摘要列：payload 在行的中段，``json_extract`` 会让恢复
+        扫描解析全表大对象（历史库近百 MB 级单行）；摘要列由 schema 打开时的
+        回填与 ``save_run`` 同步维护，语义等价且不触碰 payload 溢出页。
+        """
         safe_limit = max(1, limit)
         rows = self._fetch_all(
             """
             SELECT payload FROM runs
-            WHERE json_extract(payload, '$.status') NOT IN (?, ?, ?, ?)
+            WHERE status NOT IN (?, ?, ?, ?)
             ORDER BY updated_at DESC
             LIMIT ?
             """,
@@ -964,6 +969,33 @@ class SQLiteWorkflowStore(WorkflowStore, MissionSemanticStore):
             (max(1, limit), max(0, offset)),
         )
         return tuple(RuntimeRunRecord.model_validate(json.loads(row["payload"])) for row in rows)
+
+    def list_planning_recovery_candidates(self, *, limit: int = 200) -> tuple[RuntimeRunRecord, ...]:
+        """只反序列化参与 Planner 恢复的行，避免启动扫描解析全表 payload。
+
+        恢复仅处理 ``failed``/``waiting_review`` 且 ``execution_state.planningLoop``
+        存在的运行；``status`` 先经摘要列过滤，``json_extract`` 只对已过滤子集
+        求值（payload 序列化用别名，路径为 ``$.executionState.planningLoop``）。
+        排序与 ``list_all_runs`` 一致；相比"先取最新 N 行再过滤"，被近期历史
+        挤出窗口的恢复候选不再被饿死。
+        """
+        rows = self._fetch_all(
+            """
+            SELECT payload FROM runs
+            WHERE status IN (?, ?)
+              AND json_extract(payload, '$.executionState.planningLoop') IS NOT NULL
+            ORDER BY updated_at, run_id
+            LIMIT ?
+            """,
+            (
+                WorkflowStatus.FAILED.value,
+                WorkflowStatus.WAITING_REVIEW.value,
+                max(1, limit),
+            ),
+        )
+        return tuple(
+            RuntimeRunRecord.model_validate(json.loads(row["payload"])) for row in rows
+        )
 
     def find_run_by_idempotency_key(self, idempotency_key: str) -> RuntimeRunRecord | None:
         """按幂等键返回更新时间最新的运行；无匹配时返回 ``None``。"""

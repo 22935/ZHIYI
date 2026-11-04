@@ -509,6 +509,111 @@ def test_sqlite_summary_columns_backfill_survives_legacy_rows(tmp_path: Path) ->
     "store_factory",
     [lambda _: MemoryWorkflowStore(), lambda path: SQLiteWorkflowStore(path / "workflow.db")],
 )
+def test_list_planning_recovery_candidates_returns_only_replayable_runs(
+    store_factory, tmp_path: Path
+) -> None:
+    store = store_factory(tmp_path)
+    mission = RuntimeMissionRecord(missionId="mission_planning_recovery", title="Mission")
+    store.save_mission(mission)
+    base = dict(
+        missionId=mission.mission_id,
+        workflowId="workflow-1",
+        domain="general",
+        runtimeEngine="acg",
+        executionState={"planningLoop": {"kind": "legacy"}},
+    )
+    failed = RuntimeRunRecord(runId="run_recovery_failed", status=WorkflowStatus.FAILED, **base)
+    # 合法的 Planner 评审屏障：checkpointId + reviewPayload(planner) + graphId 对齐。
+    waiting = RuntimeRunRecord(
+        runId="run_recovery_waiting",
+        status=WorkflowStatus.WAITING_REVIEW,
+        currentStepId="acg-graph-1",
+        acgBlueprint={"graphId": "acg-graph-1", "nodes": []},
+        executionState={
+            "planningLoop": {"kind": "legacy"},
+            "checkpointId": "cp-1",
+            "reviewPayload": {"subjectType": "planner", "subjectId": "acg-graph-1"},
+        },
+        missionId=mission.mission_id,
+        workflowId="workflow-1",
+        domain="general",
+        runtimeEngine="acg",
+    )
+    completed = RuntimeRunRecord(runId="run_recovery_completed", status=WorkflowStatus.COMPLETED, **base)
+    running = RuntimeRunRecord(runId="run_recovery_running", status=WorkflowStatus.RUNNING, **base)
+    failed_without_loop = RuntimeRunRecord(
+        runId="run_recovery_failed_bare", status=WorkflowStatus.FAILED,
+        missionId=mission.mission_id, workflowId="workflow-1",
+        domain="general", runtimeEngine="acg",
+    )
+    for run in (completed, failed, running, failed_without_loop, waiting):
+        store.save_run(run)
+
+    candidates = store.list_planning_recovery_candidates()
+    assert [run.run_id for run in candidates] == ["run_recovery_failed", "run_recovery_waiting"]
+    # 返回的是可变深复制：调用方改动不得污染存储内对象。
+    candidates[0].execution_state["planningLoop"] = {"kind": "mutated"}
+    assert store.get_run(failed.run_id).execution_state["planningLoop"] == {"kind": "legacy"}
+
+
+def _corrupt_run_payload(db_path: Path, run_id: str) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("UPDATE runs SET payload = 'not-json-readable' WHERE run_id = ?", (run_id,))
+        conn.commit()
+
+
+def test_sqlite_planning_recovery_never_reads_excluded_payloads(tmp_path: Path) -> None:
+    db_path = tmp_path / "workflow.db"
+    store = SQLiteWorkflowStore(db_path)
+    mission = RuntimeMissionRecord(missionId="mission_recovery_scan", title="Mission")
+    store.save_mission(mission)
+    base = dict(
+        missionId=mission.mission_id,
+        workflowId="workflow-1",
+        domain="general",
+        runtimeEngine="acg",
+        executionState={"planningLoop": {"kind": "legacy"}},
+    )
+    # completed/running 行即使携带 planningLoop 也不是恢复候选：status 摘要列
+    # 必须先短路，json_extract 不得触碰这些行的大 payload（损坏 JSON 不炸即证明）。
+    completed = RuntimeRunRecord(runId="run_scan_completed", status=WorkflowStatus.COMPLETED, **base)
+    running = RuntimeRunRecord(runId="run_scan_running", status=WorkflowStatus.RUNNING, **base)
+    failed = RuntimeRunRecord(runId="run_scan_failed", status=WorkflowStatus.FAILED, **base)
+    for run in (completed, running, failed):
+        store.save_run(run)
+    _corrupt_run_payload(db_path, completed.run_id)
+    _corrupt_run_payload(db_path, running.run_id)
+
+    candidates = SQLiteWorkflowStore(db_path).list_planning_recovery_candidates()
+    assert [run.run_id for run in candidates] == [failed.run_id]
+
+
+def test_sqlite_non_terminal_scan_reads_status_column_not_payload(tmp_path: Path) -> None:
+    db_path = tmp_path / "workflow.db"
+    store = SQLiteWorkflowStore(db_path)
+    mission = RuntimeMissionRecord(missionId="mission_non_terminal_scan", title="Mission")
+    store.save_mission(mission)
+    completed = RuntimeRunRecord(
+        runId="run_scan_terminal", missionId=mission.mission_id, workflowId="workflow-1",
+        domain="general", runtimeEngine="acg", status=WorkflowStatus.COMPLETED,
+    )
+    running = RuntimeRunRecord(
+        runId="run_scan_active", missionId=mission.mission_id, workflowId="workflow-1",
+        domain="general", runtimeEngine="acg", status=WorkflowStatus.RUNNING,
+    )
+    store.save_run(completed)
+    store.save_run(running)
+    # 终态行的 payload 从不被解析（损坏 JSON 不炸），过滤只依赖摘要列。
+    _corrupt_run_payload(db_path, completed.run_id)
+
+    reopened = SQLiteWorkflowStore(db_path)
+    assert [run.run_id for run in reopened.list_non_terminal_runs()] == [running.run_id]
+
+
+@pytest.mark.parametrize(
+    "store_factory",
+    [lambda _: MemoryWorkflowStore(), lambda path: SQLiteWorkflowStore(path / "workflow.db")],
+)
 def test_store_accepts_only_recoverable_acg_control_review_barriers(store_factory, tmp_path: Path) -> None:
     store = store_factory(tmp_path)
     mission = RuntimeMissionRecord(missionId="mission_control_review", title="Mission")

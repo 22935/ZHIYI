@@ -724,6 +724,17 @@ class MemoryWorkflowStore(WorkflowStore, MissionSemanticStore):
         start = max(0, offset)
         return tuple(runs[start:start + max(1, limit)])
 
+    def list_planning_recovery_candidates(self, *, limit: int = 200) -> tuple[RuntimeRunRecord, ...]:
+        """与 SQLite 实现同集：仅 failed/waiting_review 且带 planningLoop 的运行。"""
+        candidates = [
+            run.model_copy(deep=True)
+            for run in self._runs.values()
+            if run.status in (WorkflowStatus.FAILED, WorkflowStatus.WAITING_REVIEW)
+            and isinstance(run.execution_state.get("planningLoop"), dict)
+        ]
+        candidates.sort(key=lambda run: (run.updated_at, run.run_id))
+        return tuple(candidates[: max(1, limit)])
+
     def find_run_by_idempotency_key(self, idempotency_key: str) -> RuntimeRunRecord | None:
         """按幂等键返回创建时间最新的运行深复制；无匹配时返回 ``None``。"""
         matches = [

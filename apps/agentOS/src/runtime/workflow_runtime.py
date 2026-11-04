@@ -2149,7 +2149,10 @@ class ExecutionRuntime(CollaboratorAccess):
     async def _recover_pending_planning_transitions(self, *, limit: int) -> None:
         """Replay durable decisions interrupted between authority applications."""
         from contracts.runtime_planning import RuntimePlanningState
-        for run in self.workflow_store.list_all_runs(limit=limit):
+        # Only failed/waiting_review Runs with a planningLoop can be replayed; the
+        # store filters before deserializing so startup never parses the whole
+        # Run table payload (heavy historical rows reach multiple MB each).
+        for run in self.workflow_store.list_planning_recovery_candidates(limit=limit):
             raw = run.execution_state.get("planningLoop")
             if not isinstance(raw, dict):
                 continue
