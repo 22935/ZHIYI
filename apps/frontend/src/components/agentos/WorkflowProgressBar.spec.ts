@@ -54,4 +54,19 @@ describe('WorkflowProgressBar', () => {
     wrapper.unmount()
   })
 
+  it('quarantines progress metrics while Run and Progress are reconciling', () => {
+    const wrapper = mount(WorkflowProgressBar, { props: {
+      progress: null, lifecycleLabel: '已完成', lifecyclePhase: 'COMPLETED',
+      progressObservationState: 'RECONCILING', syncError: '运行状态正在核对'
+    } })
+    expect(wrapper.get('.workflow-progress__phase').text()).toBe('已完成')
+    expect(wrapper.get('.workflow-progress__elapsed').text()).toBe('已运行 —')
+    expect(wrapper.get('.workflow-progress__metrics').text()).toContain('进度观测待核对')
+    expect(wrapper.get('.workflow-progress__metrics').text()).toContain('当前活动 —')
+    expect(wrapper.get('.workflow-progress__track').classes()).toContain('is-indeterminate')
+    expect(wrapper.get('.workflow-progress__track').attributes('aria-valuenow')).toBeUndefined()
+    expect(wrapper.find('.workflow-progress__percent').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
 })

@@ -5,6 +5,7 @@
       <span class="status" :class="statusClass">{{ statusLabel }}</span>
     </header>
     <p v-if="lifecycle.synchronizationState !== 'SYNCED'" role="status">运行状态同步：{{ lifecycle.synchronizationState }}</p>
+    <p v-if="progressObservationLabel" role="status">{{ progressObservationLabel }}</p>
     <p class="activity-note" :class="{ active: hasRuntimeActivity }">{{ activityLabel }}</p>
     <div class="summary-grid">
       <div class="summary-primary"><small>图版本</small><b>{{ metric(summary.graphVersion) }}</b></div>
@@ -58,6 +59,13 @@ const displayedView = computed(() => props.view?.runId === lifecycle.value.runId
 const status = computed(() => lifecycle.value.normalizedStatus)
 const statusClass = computed(() => status.value)
 const statusLabel = computed(() => lifecycle.value.statusLabel)
+const progressObservationLabel = computed(() => {
+  const state = lifecycle.value.progressObservationState
+  if (state === 'RECONCILING') return 'Progress 观测与 Run 状态冲突，已隔离待核对。'
+  if (state === 'STALE') return 'Progress 观测版本落后于 Run，已隔离。'
+  if (state === 'IDENTITY_MISMATCH') return 'Progress 观测身份不匹配，未纳入运行指标。'
+  return ''
+})
 
 const uniqueEventCount = computed(() => {
   const ids = new Set<string>()
@@ -75,15 +83,16 @@ const summary = computed(() => {
   const runSteps = displayedRun.value?.steps || []
   const viewSteps = displayedView.value?.stepStates || []
   const steps = runSteps.length ? runSteps : viewSteps
+  const hasStepEvidence = steps.length > 0
   const count = (stepStatus: string) => steps.filter(step => step.status === stepStatus).length
   const patchRefs = new Set<string>()
   return {
     graphVersion: displayedView.value?.graphVersion ?? displayedRun.value?.graphVersion ?? null,
-    totalSteps: lifecycle.value.progress?.totalSteps ?? steps.length,
-    completedSteps: lifecycle.value.progress?.completedSteps ?? count('completed'),
-    activeSteps: lifecycle.value.progress?.activeStepIds?.length ?? displayedRun.value?.activeStepIds?.length ?? count('running'),
-    skippedSteps: displayedRun.value?.skippedStepIds?.length ?? count('skipped_by_condition'),
-    recoveryCount: displayedView.value?.lowEntropyMetrics?.recoveryCount ?? count('retrying'),
+    totalSteps: lifecycle.value.progress?.totalSteps ?? (hasStepEvidence ? steps.length : null),
+    completedSteps: lifecycle.value.progress?.completedSteps ?? (hasStepEvidence ? count('completed') : null),
+    activeSteps: lifecycle.value.progress?.activeStepIds?.length ?? displayedRun.value?.activeStepIds?.length ?? (hasStepEvidence ? count('running') : null),
+    skippedSteps: displayedRun.value?.skippedStepIds?.length ?? (hasStepEvidence ? count('skipped_by_condition') : null),
+    recoveryCount: displayedView.value?.lowEntropyMetrics?.recoveryCount ?? (hasStepEvidence ? count('retrying') : null),
     patchRefCount: patchRefs.size,
     auditEventCount: uniqueEventCount.value,
     provenanceCount: displayedView.value?.interactions?.length ?? 0

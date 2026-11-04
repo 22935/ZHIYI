@@ -55,4 +55,18 @@ describe('AgentOsRunSummaryCard', () => {
     wrapper.unmount()
   })
 
+  it('does not substitute conflicting Progress counters for missing Run evidence', () => {
+    const detail = { ...run, missionId:'mission', status:'completed', runtimeRevision:4,
+      steps:[], activeStepIds:undefined, skippedStepIds:undefined } as any
+    const observation = { ...progress, missionId:'mission', status:'running', runtimeRevision:4,
+      totalSteps:7, completedSteps:3, activeStepIds:['stale-step'] } as any
+    const lifecycle = projectRunLifecycle({ missionId:'mission', runId:'run_1', run:detail, progress:observation })
+    const wrapper = mount(AgentOsRunSummaryCard, { props:{ run:detail, progress:observation, lifecycle } as any })
+    expect(wrapper.get('.status').text()).toBe('已完成')
+    expect(wrapper.text()).toContain('Progress 观测与 Run 状态冲突，已隔离待核对。')
+    const values = wrapper.findAll('.summary-grid > div').map(item => item.get('b').text())
+    expect(values.slice(1,6)).toEqual(['—','—','—','—','—'])
+    wrapper.unmount()
+  })
+
 })

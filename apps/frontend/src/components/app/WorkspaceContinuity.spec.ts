@@ -255,13 +255,29 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     expect(instance.activeEditorId).toBe('graph')
   })
 
-  it('05C-R1: real Chat progress and summary share one completed lifecycle despite running Progress', async () => {
-    vi.mocked(workflowApi.getWorkflowProgress).mockImplementation(async runId => ({missionId:'mission',runId,status:'running',phase:'executing',message:'old running',percent:50} as any))
+  it('05C-R2: real Chat components quarantine conflicting Progress counters under a completed Run', async () => {
+    vi.mocked(agentosApi.getWorkflowRun).mockImplementation(async runId => ({
+      runId, missionId:'mission', workflowId:'workflow', status:'completed', runtimeRevision:4,
+      steps:[], input:{}, output:{}, trace:[], checkpoints:[]
+    } as any))
+    vi.mocked(workflowApi.getWorkflowProgress).mockImplementation(async runId => ({
+      missionId:'mission', runId, status:'running', phase:'executing', message:'old running',
+      runtimeRevision:4, percent:50, totalSteps:7, completedSteps:3, activeStepIds:['stale-step']
+    } as any))
     const {chat}=await mountShell(undefined,'ctx',true)
     expect(wrapper!.get('.workflow-progress__phase').text()).toBe('已完成')
     expect(wrapper!.get('.agentos-run-summary .status').text()).toBe('已完成')
     expect(wrapper!.get('.workflow-progress').classes()).toContain('phase-completed')
-    expect(wrapper!.get('.workflow-progress__message').text()).not.toBe('old running')
+    expect(wrapper!.get('.workflow-progress__message').text()).toBe('已完成')
+    expect(wrapper!.get('.workflow-progress__metrics').text()).toContain('进度观测待核对')
+    expect(wrapper!.get('.workflow-progress__metrics').text()).toContain('当前活动 —')
+    expect(wrapper!.get('.workflow-progress__track').classes()).toContain('is-indeterminate')
+    expect(wrapper!.get('.workflow-progress__track').attributes('aria-valuenow')).toBeUndefined()
+    expect(wrapper!.find('.workflow-progress__percent').exists()).toBe(false)
+    expect(wrapper!.get('.agentos-run-summary').text()).toContain('Progress 观测与 Run 状态冲突，已隔离待核对。')
+    const summaryValues = wrapper!.findAll('.agentos-run-summary .summary-grid > div').map(item => item.get('b').text())
+    expect(summaryValues.slice(1,6)).toEqual(['—','—','—','—','—'])
+    expect(wrapper!.text()).not.toContain('old running')
     expect(chat.messages[0].content).toBe('original')
   })
 
