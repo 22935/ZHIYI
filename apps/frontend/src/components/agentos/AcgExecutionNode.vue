@@ -74,6 +74,8 @@ onBeforeUnmount(() => { observer?.disconnect(); spring.stop() })
 .execution-node.running { border-color: var(--sem-running, #6ea8fe); }
 .execution-node.completed { border-color: var(--sem-success, #8bcb78); }
 .execution-node.failed { border-color: var(--sem-failed, #e06c75); }
+.execution-node.waiting_review { border-color: var(--sem-waiting, #d9b86c); }
+.execution-node.retrying { border-color: var(--sem-retry, #e69a62); }
 .execution-node__capsule { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 320px; height: 44px; padding: 0 16px; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
 .execution-node__capsule strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .execution-node__capsule span { flex-shrink: 0; color: var(--wb-text-secondary, #66736f); font-size: 11px; }
