@@ -309,6 +309,12 @@ def up(home, use_desktop):
         desktop.wait_until(lambda: client.ping(), redis, 60)
         client.close()
         authconfig.unlink()
+        # Java needs only PostgreSQL/Redis (both ready above). Spawning it before
+        # the SQLite inspection chain lets Spring Boot boot overlap the schema→ai
+        # work instead of extending the serial critical path; readiness is still
+        # awaited in order below and a failed boot fails startup exactly as before.
+        java = start('java', [shutil.which('java'), '-jar', str(backend_jar)],
+                     java_environment(home, info, creds))
         schema(home, env, not (home/'data').exists())
         prepare_workspace_grants(home, info, env)
         terminal_service.start(home, info, creds, state)
@@ -320,8 +326,6 @@ def up(home, use_desktop):
         ai = start('ai', [sys.executable, '-m', 'uvicorn', 'app.main:app', '--host','127.0.0.1',
                            '--port',str(ports(info)['ai']),'--workers','1'])
         desktop.wait_until(lambda: native.health(ports(info)['ai'],'/health/ready').get('status') == 'UP', ai, 180)
-        java = start('java', [shutil.which('java'), '-jar', str(backend_jar)],
-                     java_environment(home, info, creds))
         desktop.wait_until(lambda: native.health(ports(info)['java'],'/actuator/health/readiness').get('status') == 'UP', java, 150)
         front_env = {key:value for key,value in env.items() if key in {
             'SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','PROGRAMDATA',
