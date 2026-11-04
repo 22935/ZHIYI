@@ -640,7 +640,7 @@ const activateRun = async (runId: string, syncRoute: boolean) => {
   if (syncRoute && route.query.runId !== runId) {
     await router.replace({ query: { ...route.query, runId } })
   }
-  void progressTracker.start(runId, { fresh: false })
+  void progressTracker.start(runId, { fresh: false, expectedMissionId: summary?.missionId })
   if (isWorkflowReviewPending(summary)) void loadSelectedDetail({ review: true })
   if (TERMINAL.has(summary?.status || '') && !cachedTerminal) void loadSelectedDetail({ acg: true })
 }

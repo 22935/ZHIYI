@@ -83,7 +83,7 @@ function createChatStoreMock() {
 }
 
 const progress = (overrides: Partial<WorkflowProgress> = {}): WorkflowProgress => ({
-  taskId: 'task_run_1', runId: 'run_1', workflowId: 'legal_case_analysis_v1', status: 'running',
+  missionId: `mission_${overrides.runId || 'run_1'}`, taskId: 'task_run_1', runId: 'run_1', workflowId: 'legal_case_analysis_v1', status: 'running',
   phase: 'planning', message: '正在规划', percent: null,
   totalSteps: 0, pendingSteps: 0, runningSteps: 0, waitingReviewSteps: 0,
   retryingSteps: 0, failedSteps: 0, completedSteps: 0, cancelledSteps: 0,
@@ -177,6 +177,7 @@ describe('ChatView ACG progress integration', () => {
       value: vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
     })
     HTMLElement.prototype.scrollTo = vi.fn()
+    vi.spyOn(agentosApi, 'getMissionWorkspace').mockRejectedValue(new Error('Workspace not supplied by fixture'))
     vi.mocked(workflowApi.getWorkflowProgress).mockResolvedValue(progress())
     vi.spyOn(agentosApi, 'getWorkflowRun').mockImplementation(async id => run(id))
     vi.spyOn(agentosApi, 'getAcgView').mockResolvedValue(acg())

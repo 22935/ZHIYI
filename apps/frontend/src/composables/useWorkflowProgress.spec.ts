@@ -188,4 +188,13 @@ describe('useWorkflowProgress', () => {
     expect(tracker.isRunning.value).toBe(false)
     scope.stop()
   })
+  it.each(['runId','missionId'])('rejects a foreign %s before every callback', async key => {
+    const changed = vi.fn(), terminal = vi.fn()
+    const scope = effectScope()
+    const tracker = scope.run(() => useWorkflowProgress({ request: vi.fn().mockResolvedValue(progress({ missionId:'m', status:'completed', [key]:'foreign' })), onProgressChanged:changed, onTerminal:terminal }))!
+    await tracker.start('run_1',{ expectedMissionId:'m' })
+    expect(tracker.progress.value).toBeNull(); expect(changed).not.toHaveBeenCalled(); expect(terminal).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
 })

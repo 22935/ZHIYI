@@ -1,4 +1,5 @@
-import { computed, type ComputedRef, type Ref } from 'vue'
+import { projectRunLifecycle } from '@/features/workspace/runLifecycle'
+import { computed, type DeepReadonly, type ComputedRef, type Ref } from 'vue'
 import type { AcgDeliverable, AcgFinalArtifact, AcgView, WorkflowRun } from '@/services/api/agentos'
 import type { WorkflowProgress } from '@/services/api/workflow'
 import type { Message } from '@/stores/chat'
@@ -10,8 +11,9 @@ interface UseChatWorkflowPresentationOptions {
   activeWorkflowRun: Ref<WorkflowRun | null>
   activeAcgView: Ref<AcgView | null>
   activeWorkflowRunId: Ref<string>
-  progress: { readonly value: Readonly<Pick<WorkflowProgress, 'status'>> | null }
+  progress: { readonly value: DeepReadonly<WorkflowProgress> | null }
   messages: ComputedRef<Message[]>
+  expectedMissionId?: Ref<string>
 }
 
 export function useChatWorkflowPresentation({
@@ -19,7 +21,7 @@ export function useChatWorkflowPresentation({
   activeAcgView,
   activeWorkflowRunId,
   progress,
-  messages
+  messages, expectedMissionId
 }: UseChatWorkflowPresentationOptions) {
   const displayAcgBlueprint = computed(() => activeAcgView.value?.acgBlueprint || null)
   const displayCompletedStepIds = computed(() => activeAcgView.value?.completedStepIds || [])
@@ -68,25 +70,10 @@ export function useChatWorkflowPresentation({
     if (historyText(activeAcgView.value?.finalReport)) return activeAcgView.value?.finalReport || null
     return null
   })
-  const activeWorkflowStatus = computed(() => (
-    progress.value?.status
-    || activeWorkflowRun.value?.status
-    || activeAcgView.value?.status
-    || [...messages.value].reverse().find(message => message.workflowRunId === activeWorkflowRunId.value)?.workflowStatus
-    || 'pending'
-  ))
-  const activeWorkflowStatusLabel = computed(() => ({
-    pending: '等待规划',
-    planning: '规划中',
-    running: '运行中',
-    waiting_review: '等待人工审核',
-    retrying: '正在重试',
-    failed: '运行失败',
-    completed: '运行完成',
-    succeeded: '运行完成',
-    superseded: '已被后续运行替代',
-    cancelled: '已取消'
-  }[activeWorkflowStatus.value] || activeWorkflowStatus.value))
+  const lifecycle = computed(() => projectRunLifecycle({ missionId: expectedMissionId?.value || activeWorkflowRun.value?.missionId || '',
+    runId: activeWorkflowRunId.value, run: activeWorkflowRun.value, progress: progress.value }))
+  const activeWorkflowStatus = computed(() => lifecycle.value.normalizedStatus)
+  const activeWorkflowStatusLabel = computed(() => lifecycle.value.statusLabel)
   const contextTabs = computed(() => [
     { key: 'lineage' as const, label: '数据血缘', count: contextEdges.value.length },
     { key: 'nodes' as const, label: '节点', count: contextNodes.value.length },
@@ -127,6 +114,7 @@ export function useChatWorkflowPresentation({
     workflowHistoryStepOutputs,
     workflowHistoryFinalArtifacts,
     workflowHistoryFinalReport,
+    lifecycle,
     activeWorkflowStatus,
     activeWorkflowStatusLabel,
     contextTabs,

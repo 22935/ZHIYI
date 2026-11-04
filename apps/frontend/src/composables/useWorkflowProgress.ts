@@ -12,6 +12,7 @@ type PollingState =
 
 interface StartOptions {
   fresh?: boolean
+  expectedMissionId?: string
 }
 
 export interface UseWorkflowProgressOptions {
@@ -48,6 +49,7 @@ export function useWorkflowProgress(options: UseWorkflowProgressOptions = {}) {
   const consecutiveErrors = ref(0)
   const runId = ref<string | null>(null)
 
+  let expectedMissionId: string | undefined
   let timer: ReturnType<typeof setTimeout> | null = null
   let controller: AbortController | null = null
   let requestInFlight = false
@@ -101,6 +103,7 @@ export function useWorkflowProgress(options: UseWorkflowProgressOptions = {}) {
       const response = await request(requestedRunId, { signal: controller.signal })
       if (requestGeneration !== generation || requestedRunId !== runId.value) return
 
+      if (response.runId !== requestedRunId || (expectedMissionId && response.missionId !== expectedMissionId)) throw new Error('Progress identity mismatch')
       const previous = progress.value
       progress.value = response
       try {
@@ -158,6 +161,7 @@ export function useWorkflowProgress(options: UseWorkflowProgressOptions = {}) {
     progress.value = null
     syncError.value = null
     consecutiveErrors.value = 0
+    expectedMissionId = startOptions.expectedMissionId
     runId.value = nextRunId
     state.value = 'starting'
     remainingFreshNotFoundRetries = startOptions.fresh ? 2 : 0

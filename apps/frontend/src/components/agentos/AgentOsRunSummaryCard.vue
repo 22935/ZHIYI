@@ -4,6 +4,7 @@
       <div><span class="eyebrow">Execution Runtime</span><strong>运行态摘要</strong></div>
       <span class="status" :class="statusClass">{{ statusLabel }}</span>
     </header>
+    <p v-if="lifecycle.synchronizationState !== 'SYNCED'" role="status">运行状态同步：{{ lifecycle.synchronizationState }}</p>
     <p class="activity-note" :class="{ active: hasRuntimeActivity }">{{ activityLabel }}</p>
     <div class="summary-grid">
       <div class="summary-primary"><small>图版本</small><b>{{ metric(summary.graphVersion) }}</b></div>
@@ -25,6 +26,7 @@
 </template>
 
 <script setup lang="ts">
+import { projectRunLifecycle } from '@/features/workspace/runLifecycle'
 import { computed, type DeepReadonly } from 'vue'
 import type {
   AcgView,
@@ -49,19 +51,10 @@ const props = withDefaults(defineProps<{
   reviewCount: 0
 })
 
-const status = computed(() => props.progress?.status || props.run?.status || props.view?.status || 'pending')
-const statusClass = computed(() => String(status.value).replace(/[^a-z0-9_-]/gi, ''))
-const statusLabels: Record<string, string> = {
-  pending: '等待中',
-  planning: '规划中',
-  running: '运行中',
-  waiting_review: '待审核',
-  retrying: '恢复中',
-  failed: '失败',
-  completed: '已完成',
-  cancelled: '已取消'
-}
-const statusLabel = computed(() => statusLabels[status.value] || status.value)
+const lifecycle = computed(() => projectRunLifecycle({ missionId: props.run?.missionId || '', runId: props.run?.runId || '', run: props.run, progress: props.progress }))
+const status = computed(() => lifecycle.value.normalizedStatus)
+const statusClass = computed(() => status.value)
+const statusLabel = computed(() => lifecycle.value.statusLabel)
 
 const uniqueEventCount = computed(() => {
   const ids = new Set<string>()
@@ -83,9 +76,9 @@ const summary = computed(() => {
   const patchRefs = new Set<string>()
   return {
     graphVersion: props.view?.graphVersion ?? props.run?.graphVersion ?? null,
-    totalSteps: props.progress?.totalSteps ?? steps.length,
-    completedSteps: props.progress?.completedSteps ?? count('completed'),
-    activeSteps: props.progress?.activeStepIds?.length ?? props.run?.activeStepIds?.length ?? count('running'),
+    totalSteps: lifecycle.value.progress?.totalSteps ?? steps.length,
+    completedSteps: lifecycle.value.progress?.completedSteps ?? count('completed'),
+    activeSteps: lifecycle.value.progress?.activeStepIds?.length ?? props.run?.activeStepIds?.length ?? count('running'),
     skippedSteps: props.run?.skippedStepIds?.length ?? count('skipped_by_condition'),
     recoveryCount: props.view?.lowEntropyMetrics?.recoveryCount ?? count('retrying'),
     patchRefCount: patchRefs.size,

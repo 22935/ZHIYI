@@ -54,6 +54,7 @@ import type { WorkflowProgress, WorkflowProgressPhase } from '@/services/api/wor
 
 const props = withDefaults(defineProps<{
   progress: DeepReadonly<WorkflowProgress> | null
+  lifecycleLabel?: string
   loading?: boolean
   syncError?: string | null
   elapsedSeconds?: number
@@ -88,7 +89,7 @@ watch(() => props.progress?.startedAt, () => {
 
 onBeforeUnmount(() => window.clearInterval(timer))
 
-const phaseLabel = computed(() =>
+const phaseLabel = computed(() => props.lifecycleLabel ||
   props.progress ? PHASE_LABELS[props.progress.phase] : '准备任务'
 )
 const phaseClass = computed(() => `phase-${props.progress?.phase ?? 'preparing'}`)

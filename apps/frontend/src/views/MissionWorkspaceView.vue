@@ -36,7 +36,7 @@
       <template #main="mainState">
         <section class="workspace-document-surface">
         <div v-if="projection" class="workspace-lifecycle" role="status" aria-live="polite">
-          <strong>{{ lifecycle.phase }}</strong>
+          <strong>{{ lifecycleLabels[lifecycle.phase] }}</strong>
           <span>{{ lifecycle.deliveryStatus === 'MISSING' ? 'Completed · Final deliverable missing' : lifecycle.reason }}</span>
           <small>Selected: {{ selectedRunId || '未选择' }} · Latest created: {{ lifecycle.latestRunId || '未观测' }} · Active Runs: {{ activeRunIds.join(', ') || '未观测' }}</small>
           <button type="button" :aria-pressed="editorIntent.mode === 'follow'" @click="enableLifecycleFollow">{{ editorIntent.mode === 'follow' ? 'Following lifecycle' : 'Follow lifecycle' }}</button>
@@ -228,6 +228,7 @@ import type { ArtifactDocumentModel } from '@/workbench/runtime/artifactProjecti
 import { beginRunRecovery, pendingRunRecovery, completeRunRecovery } from '@/workbench/runtime/recoveryIdentity'
 import { readRunCapabilities } from '@/workbench/runtime/runCapabilities'
 import { conversationBindingKey } from '@/features/workspace/navigation'
+import { lifecycleLabels } from '@/features/workspace/runLifecycle'
 import { projectLifecycle } from '@/workbench/runtime/lifecycleProjection'
 import { initialEditorIntent, selectLifecycleEditor } from '@/workbench/runtime/editorSelection'
 

@@ -286,9 +286,10 @@
         <div ref="composerRef" class="composer" :style="{ bottom: composerDockOffset }">
           <div v-if="isSubmittingWorkflow || activeWorkflowRunId" class="chat-workflow-progress">
             <WorkflowProgressBar
-              :progress="workflowProgressState.progress.value"
+              :progress="lifecycle.progress"
               :loading="isSubmittingWorkflow || workflowProgressState.isLoading.value"
-              :sync-error="workflowProgressState.syncError.value"
+              :sync-error="workflowProgressState.syncError.value || (lifecycle.synchronizationState !== 'SYNCED' ? '运行状态正在核对' : null)"
+              :lifecycle-label="lifecycle.phaseLabel"
               variant="compact"
             />
             <AgentOsRunSummaryCard
@@ -297,6 +298,10 @@
               :view="activeAcgView"
               :events="activeAcgAuditEvents"
             />
+            <p v-if="deliveryStatus !== 'NOT_COMPLETE'" role="status">{{ deliveryStatus === 'READY'
+              ? '任务已完成，交付物已登记。' : deliveryStatus === 'MISSING'
+              ? '任务已完成，但没有发现可验证的最终交付物。' : '任务已完成，交付物登记状态暂不可验证。' }}</p>
+            <button v-if="deliveryStatus === 'READY'" type="button" :disabled="handoffPending" @click="enterSelectedWorkbench">查看交付物</button>
             <label v-if="navigationBindings.length > 1">选择 Run
               <select aria-label="选择任务 Run" :value="activeWorkflowRunId || ''" @change="selectNavigationRun">
                 <option v-for="binding in navigationBindings" :key="binding.runId" :value="binding.runId">{{ binding.runId }}</option>
@@ -739,6 +744,7 @@ import type { WorkflowProgress } from '@/services/api/workflow'
 import { workflowApi } from '@/services/api/workflow'
 import { conversationApi, type Conversation } from '@/services/api/conversation'
 import { useChatStore, type ChatWorkflowBinding, type Message } from '@/stores/chat'
+import { useRunDelivery } from '@/composables/useRunDelivery'
 import { useChatWorkflowPresentation } from '@/composables/useChatWorkflowPresentation'
 import { useWorkflowProgress } from '@/composables/useWorkflowProgress'
 import { setConversationWorkspace } from '@/utils/conversationWorkspace'
@@ -896,6 +902,8 @@ const verifiedNavigationRun = computed(() => {
     !binding.invalidAt && binding.runId === run.runId).map(binding => `${binding.conversationId}\u0000${binding.missionId}`))
   return owners.size === 1 && matches.length === 1 && matches[0].missionId === run.missionId ? run : null
 })
+const deliveryStatus = useRunDelivery(computed(() => ({ conversationId: currentConversationId.value,
+  run: verifiedNavigationRun.value, visible: route.path === '/chat' && isConversationVisible() })))
 const chatFormalRun = computed(() => verifiedNavigationRun.value?.formalControl ? verifiedNavigationRun.value : null)
 const chatFormalHistorical = computed(() => Boolean(chatFormalRun.value?.lineage?.supersededByRunId)
   || ['completed', 'succeeded', 'failed', 'cancelled', 'superseded'].includes(chatFormalRun.value?.status || ''))
@@ -1025,6 +1033,7 @@ const {
   workflowHistoryStepOutputs,
   workflowHistoryFinalArtifacts,
   workflowHistoryFinalReport,
+  lifecycle,
   activeWorkflowStatus,
   activeWorkflowStatusLabel,
   contextTabs,
@@ -1036,6 +1045,7 @@ const {
   activeAcgView,
   activeWorkflowRunId,
   progress: workflowProgressState.progress,
+  expectedMissionId: computed(() => activeWorkflowBinding.value?.missionId || activeWorkflowRun.value?.missionId || ''),
   messages: computed(() => chatStore.messages)
 })
 const clampAgentPanelWidth = (width: number) => {
@@ -1470,11 +1480,15 @@ const retryWorkflowHistoryDetail = () => {
 function handleWorkflowProgressChanged(current: WorkflowProgress, previous: WorkflowProgress | null) {
   if (current.runId !== activeWorkflowRunId.value) return
   const conversationId = currentConversationId.value
-  chatStore.updateWorkflowBindingStatus(conversationId, current.runId, current.status)
+  const detail = activeWorkflowRun.value
+  if (detail && (current.missionId !== detail.missionId || current.runtimeRevision !== undefined
+    && detail.runtimeRevision !== undefined && current.runtimeRevision < detail.runtimeRevision)) return
+  if (detail && current.runtimeRevision !== undefined && current.runtimeRevision > (detail.runtimeRevision ?? -1)) void loadActiveAcgView(current.runId)
+  chatStore.updateWorkflowBindingStatus(conversationId, current.runId, detail?.status || current.status)
   if (activeWorkflowBinding.value?.runId === current.runId) {
-    activeWorkflowBinding.value = { ...activeWorkflowBinding.value, status: current.status }
+    activeWorkflowBinding.value = { ...activeWorkflowBinding.value, status: detail?.status || current.status }
   }
-  syncWorkflowMessageStatus(current.runId, current.status)
+  syncWorkflowMessageStatus(current.runId, detail?.status || current.status)
 
   const phaseChanged = previous?.phase !== current.phase
   if (current.phase === 'review' && phaseChanged) {
@@ -1665,10 +1679,7 @@ const hasAgentActivity = computed(() => {
 
 const showScrollToBottom = computed(() => !isNearBottom.value && chatStore.messages.length > 0)
 const isSendDisabled = computed(() => loading.value || (!inputText.value.trim() && !isRecording.value))
-const isWorkflowTerminal = computed(() => {
-  const status = workflowProgressState.progress.value?.status || activeWorkflowBinding.value?.status
-  return isTerminalRunStatus(status)
-})
+const isWorkflowTerminal = computed(() => lifecycle.value.isTerminal)
 const isWorkflowUnavailable = computed(() =>
   workflowProgressState.syncError.value === '该运行记录不存在或当前账户无权访问'
 )
@@ -1866,7 +1877,7 @@ const activateWorkflowRun = async (
   activeAcgView.value = null
   workflowStartError.value = null
   if (isConversationVisible(conversationId)) {
-    void workflowProgressState.start(runId, { fresh })
+    void workflowProgressState.start(runId, { fresh, expectedMissionId: binding?.missionId })
     await router.replace({ path: '/chat', query: { ...route.query, runId } })
   }
 }
@@ -2356,7 +2367,7 @@ const restoreWorkflowForConversation = async (resume = false) => {
     activeAcgView.value = cachedResult.view || null
     workflowResultState.value = cachedResult.run && cachedResult.view ? 'ready' : 'partial'
   }
-  await workflowProgressState.start(runId, { fresh: false })
+  await workflowProgressState.start(runId, { fresh: false, expectedMissionId: resolved?.missionId || binding?.missionId })
   if (restoreGeneration !== conversationGeneration || runId !== activeWorkflowRunId.value) return
   if ((!activeWorkflowRun.value || !activeAcgView.value) && !isLoadingWorkflowResult.value) {
     await loadActiveAcgView(runId)

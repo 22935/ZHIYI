@@ -182,6 +182,23 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     expect(router.currentRoute.value.query.runId).toBe('run')
     expect(wrapper!.findComponent(MissionWorkspaceView).exists()).toBe(true)
   })
+
+  it.each(['READY','MISSING','UNAVAILABLE'])('05C: real Chat restores canonical delivery %s without a second launch', async delivery => {
+    vi.mocked(agentosApi.getMissionWorkspace).mockImplementation(async () => {
+      if (delivery === 'UNAVAILABLE') throw new Error('Workspace offline')
+      return { ...projection(), entries: delivery === 'READY' ? [{ ...artifactEntry, runId:'run', identityQuality:'canonical', artifactKey:'final', artifactType:'run_deliverable' }] : [] }
+    })
+    const { router, chat } = await mountShell()
+    const vm = wrapper!.findComponent(ChatView).vm as any
+    expect(vm.deliveryStatus).toBe(delivery)
+    expect(vm.activeWorkflowStatus).toBe('completed')
+    expect(chat.messages[0].content).toBe('original')
+    const calls = vi.mocked(agentosApi.getMissionWorkspace).mock.calls.length
+    await router.push('/history'); await settle()
+    await router.push('/chat?contextId=ctx&workspace=chat&missionId=mission&runId=run'); await settle()
+    if (delivery !== 'UNAVAILABLE') expect(agentosApi.getMissionWorkspace).toHaveBeenCalledTimes(calls)
+    expect((wrapper!.findComponent(ChatView).vm as any).deliveryStatus).toBe(delivery)
+  })
   beforeEach(() => {
     localStorage.clear(); sessionStorage.clear(); observations.instances = []; resetOpenFile(); workspaceDocuments.reset()
     localStorage.setItem('layout.workspace_mode', 'chat'); localStorage.setItem('layout.chat_nav_open', '1')
@@ -192,9 +209,9 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     HTMLElement.prototype.scrollTo = vi.fn()
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1600, height: 900, left: 0, top: 0, bottom: 900, right: 1600, x: 0, y: 0, toJSON() {} })
     vi.spyOn(agentosApi, 'getMissionWorkspace').mockImplementation(async (missionId, options) => projection(missionId, options?.runId || newestRun, newestRun))
-    vi.spyOn(agentosApi, 'getWorkflowRun').mockImplementation(async runId => ({ runId, missionId: 'mission', workflowId: 'workflow', status: 'running', steps: [], input: {}, output: {}, trace: [], checkpoints: [] } as any))
+    vi.spyOn(agentosApi, 'getWorkflowRun').mockImplementation(async runId => ({ runId, missionId: 'mission', workflowId: 'workflow', status: 'completed', steps: [], input: {}, output: {}, trace: [], checkpoints: [] } as any))
     vi.spyOn(agentosApi, 'getAcgView').mockImplementation(async runId => ({ runId, status: 'running', engine: 'acg', completedStepIds: [], activeStepIds: [], stepStates: [], provenance: {}, interactions: [], contractViolations: [], recoveryTrace: [], scheduleTrace: [], deliverables: [], lowEntropyMetrics: {} } as any))
-    vi.spyOn(workflowApi, 'getWorkflowProgress').mockImplementation(async runId => ({ runId, taskId: runId, status: 'completed', phase: 'completed', completedSteps: 0 } as any))
+    vi.spyOn(workflowApi, 'getWorkflowProgress').mockImplementation(async runId => ({ missionId: 'mission', runId, taskId: runId, status: 'completed', phase: 'completed', completedSteps: 0 } as any))
     vi.spyOn(agentosApi, 'listMissions').mockResolvedValue({ items: [], total: 0 } as any)
     vi.spyOn(agentosRequest, 'post').mockRejectedValue(new Error('Navigation must not issue a Mission command'))
     vi.spyOn(conversationApi, 'getUserConversations').mockResolvedValue([])

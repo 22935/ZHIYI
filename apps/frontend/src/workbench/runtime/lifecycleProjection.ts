@@ -2,9 +2,8 @@ import type { MissionWorkspaceProjection, WorkflowRun, WorkspaceEntry, RunAction
 import { isRunDeliverableEntry } from './deliverableIdentity'
 import { readRunCapabilities, runCapabilities, runCapabilityActions } from './runCapabilities'
 
-export type LifecyclePhase = 'CREATED' | 'QUEUED' | 'PLANNING' | 'AWAITING_CONFIRMATION'
-  | 'ACTIVATED_PAUSED' | 'READY_TO_DISPATCH' | 'DISPATCHED' | 'RUNNING' | 'WAITING_REVIEW'
-  | 'RECOVERING' | 'FAILED' | 'COMPLETED' | 'CANCELLED' | 'SUPERSEDED' | 'UNKNOWN'
+export type { LifecyclePhase } from '@/features/workspace/runLifecycle'
+import { mapRunPhase, type LifecyclePhase } from '@/features/workspace/runLifecycle'
 export interface LifecycleProjection {
   runId: string | null
   rawStatus: string | null
@@ -50,30 +49,7 @@ export function projectLifecycle(input: {
   const status = rawStatus?.toLowerCase() || 'unknown'
   const control = run?.formalControl
   const evidence = [run ? `run:${selectedRunId}:status` : summary ? `workspace:${selectedRunId}:status` : 'status:NOT_OBSERVED']
-  let phase: LifecyclePhase = 'UNKNOWN'
-  let reason = rawStatus ? `Unrecognized status: ${rawStatus}` : 'Run status NOT_OBSERVED'
-  if (['completed', 'succeeded'].includes(status)) { phase = 'COMPLETED'; reason = 'Run reached a successful terminal state' }
-  else if (status === 'superseded') { phase = 'SUPERSEDED'; reason = 'Run was superseded; original evidence is read-only' }
-  else if (status === 'cancelled') { phase = 'CANCELLED'; reason = 'Run was cancelled' }
-  else if (status === 'failed' || run?.failureCode || run?.error?.code) { phase = 'FAILED'; reason = run?.lifecycleMessage || run?.failureCode || run?.error?.code || 'Run failed' }
-  else if (status === 'waiting_review') { phase = 'WAITING_REVIEW'; reason = run?.review?.reasonCode || 'An explicit review decision is required' }
-  else if (status === 'retrying' || (status === 'running' && run?.lifecyclePhase === 'recovery')) { phase = 'RECOVERING'; reason = 'Runtime reports recovery in progress' }
-  else if (status === 'running') { phase = 'RUNNING'; reason = 'Runtime reports execution in progress' }
-  else if (['pending', 'planning'].includes(status) && control?.dispatch?.runId === selectedRunId) {
-    phase = 'DISPATCHED'; reason = `Dispatch ${control.dispatch.status}; acceptance is not completion`
-  } else if (['pending', 'planning'].includes(status) && control?.status === 'ACTIVATED'
-    && control.permitStatus === 'ISSUED' && control.dispatchEnabled && control.dispatchEligible) {
-    phase = 'READY_TO_DISPATCH'; reason = 'Formal permit issued; dispatch remains an explicit user action'
-  } else if (['pending', 'planning'].includes(status) && control?.status === 'ACTIVATED_PAUSED') {
-    phase = 'ACTIVATED_PAUSED'; reason = 'Graph activated; execution remains paused'
-  } else if (['pending', 'planning'].includes(status) && control
-    && ['PLANNING_ACCEPTED', 'MATERIALIZED_INACTIVE', 'ACTIVATION_PREPARED', 'ACTIVATED'].includes(control.status)) {
-    phase = 'AWAITING_CONFIRMATION'; reason = `Formal control: ${control.status}`
-  } else if (['pending', 'planning'].includes(status) && control && !['AWAITING_PLANNING'].includes(control.status)) {
-    phase = 'UNKNOWN'; reason = `Unrecognized formal state: ${control.status}`
-  } else if (status === 'planning' || (status === 'pending' && ['understanding', 'planning', 'graph_building'].includes(run?.lifecyclePhase || ''))) { phase = 'PLANNING'; reason = run?.lifecycleMessage || 'Runtime reports planning' }
-  else if (status === 'pending' || status === 'queued') { phase = 'QUEUED'; reason = 'Run queued; execution has not been observed' }
-  else if (!selectedRunId && workspace) { phase = 'CREATED'; reason = 'Mission exists; no Run selected' }
+  let { phase, reason } = mapRunPhase(rawStatus, run, selectedRunId, Boolean(workspace))
   if (control) evidence.push(`run:${selectedRunId}:formalControl:${control.status}`)
   if (run?.lifecyclePhase) evidence.push(`run:${selectedRunId}:lifecyclePhase:${run.lifecyclePhase}`)
   if (run?.failureCode || run?.error?.code) evidence.push(`run:${selectedRunId}:failure:${run.failureCode || run.error?.code}`)

@@ -1613,7 +1613,7 @@ const startRun = async (rerunReason?: WorkflowRerunRequest['rerunReason']) => {
     })
     window.dispatchEvent(new Event('acg-runs-refresh'))
     terminalNotificationRunId = res.runId
-    void progressTracker.start(res.runId, { fresh: true })
+    void progressTracker.start(res.runId, { fresh: true, expectedMissionId: res.missionId })
     // 提交成功立即拉取一次图与资源详情，运行中再由进度 watcher 按 8s 节奏续刷。
     void refreshAcgForRun(res.runId, true)
     await router.replace({ query: { ...route.query, runId: res.runId } })
@@ -1678,7 +1678,7 @@ const resumeFailedRun = async (mode: FailedRunRetryMode) => {
     })
     window.dispatchEvent(new Event('acg-runs-refresh'))
     terminalNotificationRunId = resumed.runId
-    void progressTracker.start(resumed.runId, { fresh: true })
+    void progressTracker.start(resumed.runId, { fresh: true, expectedMissionId: resumed.missionId })
     void refreshAcgForRun(resumed.runId, true)
     await router.replace({ query: { ...route.query, runId: resumed.runId } })
   } catch (error: unknown) {
