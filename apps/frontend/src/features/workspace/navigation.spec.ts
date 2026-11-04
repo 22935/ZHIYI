@@ -71,4 +71,18 @@ describe('Verified Conversation / Workbench navigation', () => {
     expect(await workbenchConversationTarget({ ...options, draftId: 'draft:other' })).toBeNull()
     expect(await workbenchConversationTarget({ ...options, currentContextId: 'unrelated' })).toBeNull()
   })
+  it.each(['run-query', 'conversation-query', 'replacement', 'owner', 'alias'])('rejects reverse navigation changed during %s', async stage => {
+    const item = binding(); const index = { ctx: [item] }
+    const mutate = () => {
+      if (stage === 'replacement') index.ctx = [binding({ source: 'agent' })]
+      else if (stage === 'owner') index.ctx.push(binding({ conversationId: 'other', missionId: 'other' }))
+      else if (stage === 'alias') index.ctx.push(binding({ conversationId: 'other', runId: 'other' }))
+      else item.invalidAt = 'revoked'
+    }
+    const run = vi.fn(async () => { if (stage === 'run-query') mutate(); return { runId: 'run', missionId: 'mission', status: 'running' } })
+    const conversation = vi.fn(async () => { if (stage !== 'run-query') mutate(); return { contextId: 'ctx', workspaceMode: 'chat' } as any })
+    expect(await workbenchConversationTarget({ index, missionId: 'mission', runId: 'run', draftId: null,
+      currentContextId: 'ctx', readRun: run, readConversation: conversation })).toBeNull()
+  })
+
 })

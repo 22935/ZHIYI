@@ -613,6 +613,10 @@ const handleChatNavToggle = async () => {
   if (!route.path.startsWith('/chat')) {
     const generation = ++navigationGeneration
     const source = route.fullPath
+    const index = chatStore.workflowBindings
+    const contextIdBefore = chatStore.contextId
+    const associatedBefore = Object.values(index).flat().some(item => !item.invalidAt
+      && item.missionId === String(route.params.missionId || '') && item.runId === route.query.runId)
     const target = isMissionWorkspacePath(route.path) ? await workbenchConversationTarget({
       index: chatStore.workflowBindings,
       missionId: String(route.params.missionId || ''),
@@ -622,12 +626,13 @@ const handleChatNavToggle = async () => {
       readRun: id => agentosApi.getWorkflowRun(id),
       readConversation: id => conversationApi.getConversation(id)
     }) : null
-    if (generation !== navigationGeneration || source !== route.fullPath) return
+    if (generation !== navigationGeneration || source !== route.fullPath || index !== chatStore.workflowBindings
+      || contextIdBefore !== chatStore.contextId) return
     if (!target && isMissionWorkspacePath(route.path)) {
       ElMessage.warning('当前没有可恢复的关联对话')
       const associated = Object.values(chatStore.workflowBindings).flat().some(item => !item.invalidAt
         && item.missionId === String(route.params.missionId || '') && item.runId === route.query.runId)
-      if (associated) return // a denied/mismatched association must never fall back to the same cached history
+      if (associatedBefore || associated) return // a denied/mismatched association must never fall back to the same cached history
       const fallback = router.resolve(lastChatRoute.value)
       const { runId: _run, missionId: _mission, ...query } = fallback.query
       const contextId = typeof query.contextId === 'string' ? query.contextId : chatStore.contextId
@@ -666,10 +671,13 @@ const handleAcgNavToggle = async () => {
     const source = route.fullPath
     const conversationId = typeof route.query.contextId === 'string' ? route.query.contextId
       : chatStore.contextId || localStorage.getItem('chat.workflow_draft_conversation_id') || ''
-    const target = isChatRoute.value ? await conversationWorkbenchTarget(chatStore.workflowBindings, conversationId,
+    const index = chatStore.workflowBindings
+    const contextIdBefore = chatStore.contextId
+    const target = isChatRoute.value ? await conversationWorkbenchTarget(index, conversationId,
       typeof route.query.runId === 'string' ? route.query.runId : undefined,
       id => agentosApi.getWorkflowRun(id)) : null
-    if (generation !== navigationGeneration || source !== route.fullPath) return
+    if (generation !== navigationGeneration || source !== route.fullPath || index !== chatStore.workflowBindings
+      || contextIdBefore !== chatStore.contextId) return
     if (!target && isChatRoute.value) {
       ElMessage.warning('当前对话没有可验证的关联任务')
       if (conversationBindings(chatStore.workflowBindings, conversationId).some(item => !item.invalidAt)) return

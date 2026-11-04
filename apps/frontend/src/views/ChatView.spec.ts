@@ -848,8 +848,11 @@ describe('ChatView ACG progress integration', () => {
     await wrapper.findAll('button').find(b => b.text() === '稍后')!.trigger('click')
     expect(router.currentRoute.value.path).toBe('/chat')
     expect(wrapper.text()).not.toContain('是否切换到 Workbench')
+    expect(wrapper.text()).toContain('打开所选 Run 的 Workbench')
     wrapper.unmount()
-    const reopened = await dispatchPage(); await clickDispatch(reopened.wrapper)
+    const reopened = await dispatchPage(); expect(reopened.wrapper.text()).toContain('打开所选 Run 的 Workbench')
+    expect(post).toHaveBeenCalledTimes(1)
+    await clickDispatch(reopened.wrapper)
     expect(reopened.wrapper.text()).not.toContain('是否切换到 Workbench')
     expect(post).toHaveBeenCalledTimes(2) // Explicit replay click, never refresh/remount dispatch.
     expect(post.mock.calls[0][3]).toEqual(post.mock.calls[1][3]); reopened.wrapper.unmount()

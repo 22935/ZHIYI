@@ -17,11 +17,19 @@ export async function conversationWorkbenchTarget(index: Index, conversationId: 
   const owners = () => new Set(Object.values(index).flat().filter(item => !item.invalidAt
     && item.runId === binding.runId)
     .map(item => `${item.conversationId}\u0000${item.missionId}`))
-  if (owners().size !== 1) return null
+  const original = JSON.stringify(binding)
+  const valid = () => {
+    const aliases = new Set([binding.conversationId, ...(binding.conversationAliases || [])])
+    return owners().size === 1 && JSON.stringify(binding) === original
+      && Object.values(index).flat().includes(binding) && !binding.invalidAt
+      && !Object.values(index).flat().some(item => !item.invalidAt && item.conversationId !== binding.conversationId
+        && [item.conversationId, ...(item.conversationAliases || [])].some(id => aliases.has(id)))
+  }
+  if (!valid()) return null
   try {
     const run = await readRun(binding.runId)
     if (!runMatchesSelection(run, binding.runId, binding.missionId)) return null
-    if (owners().size !== 1 || !conversationBindings(index, conversationId).some(item =>
+    if (!valid() || !conversationBindings(index, conversationId).some(item =>
       !item.invalidAt && item.runId === binding.runId && item.missionId === binding.missionId)) return null
     return { path: `/agentos/missions/${encodeURIComponent(run.missionId)}/workspace`, query: { runId: run.runId } }
   } catch { return null }
@@ -39,15 +47,26 @@ export async function workbenchConversationTarget(options: {
   const ids = new Set(bindings.map(item => item.conversationId))
   if (ids.size !== 1) return null
   const binding = bindings[0]
+  const original = JSON.stringify(binding)
+  const valid = () => {
+    const all = Object.values(options.index).flat().filter(item => !item.invalidAt)
+    const sameRun = all.filter(item => item.runId === runId)
+    const aliases = new Set([binding.conversationId, ...(binding.conversationAliases || [])])
+    return sameRun.length > 0 && sameRun.every(item => item.missionId === missionId
+      && item.conversationId === binding.conversationId && JSON.stringify(item) === original)
+      && !all.some(item => item.conversationId !== binding.conversationId
+        && [item.conversationId, ...(item.conversationAliases || [])].some(id => aliases.has(id)))
+  }
+  if (!valid()) return null
   try {
     const run = await options.readRun(runId)
-    if (!runMatchesSelection(run, runId, missionId)) return null
+    if (!runMatchesSelection(run, runId, missionId) || !valid()) return null
     if (binding.conversationId.startsWith('draft:')) {
       if (binding.conversationId !== options.draftId || options.currentContextId) return null
       return { path: '/chat', query: { workspace: binding.source, missionId, runId } }
     }
     const conversation = await options.readConversation(binding.conversationId)
-    if (conversation.contextId !== binding.conversationId) return null
+    if (conversation.contextId !== binding.conversationId || !valid()) return null
     return { path: '/chat', query: {
       contextId: conversation.contextId, missionId, runId,
       workspace: conversation.workspaceMode || binding.source

@@ -137,6 +137,51 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     expect(clear).not.toHaveBeenCalled(); expect(dispatch).toHaveBeenCalledTimes(1)
     expect(maximumStreams).toBeLessThanOrEqual(1)
   })
+
+  it.each(['running', 'waiting_review', 'completed'])('05B: persistent entry restores %s and preserves state through repeated round trips', async status => {
+    vi.mocked(agentosApi.getWorkflowRun).mockImplementation(async runId => ({ runId, missionId: 'mission', status, steps: [] } as any))
+    const { router, chat, clear } = await mountShell()
+    const uid = wrapper!.findComponent(ChatView).vm.$.uid
+    const post = vi.spyOn(agentosApi, 'submitFormalControl')
+    for (let cycle = 0; cycle < 3; cycle++) {
+      await wrapper!.findAll('button').find(b => b.text() === '打开所选 Run 的 Workbench')!.trigger('click'); await settle()
+      expect(router.currentRoute.value.query.runId).toBe('run')
+      expect(wrapper!.findComponent(MissionWorkspaceView).exists()).toBe(true)
+      await toChat()
+      expect(wrapper!.findComponent(ChatView).vm.$.uid).toBe(uid)
+      expect(chat.contextId).toBe('ctx'); expect(chat.messages[0].content).toBe('original')
+    }
+    expect(post).not.toHaveBeenCalled(); expect(clear).not.toHaveBeenCalled()
+    expect(maximumStreams).toBeLessThanOrEqual(1)
+  })
+  it.each([403, 404, 409, 'network'])('05B: persistent navigation fails closed on %s', async failure => {
+    const { router } = await mountShell()
+    vi.mocked(agentosApi.getWorkflowRun).mockRejectedValue(new Error(String(failure)))
+    await wrapper!.findAll('button').find(b => b.text() === '打开所选 Run 的 Workbench')!.trigger('click'); await settle()
+    expect(router.currentRoute.value.path).toBe('/chat'); expect(wrapper!.text()).toContain('无法验证')
+  })
+  it('05B: pending navigation cannot follow a changed Conversation', async () => {
+    const { router } = await mountShell()
+    const pending = deferred<any>()
+    vi.mocked(agentosApi.getWorkflowRun).mockReturnValue(pending.promise)
+    await wrapper!.findAll('button').find(b => b.text() === '打开所选 Run 的 Workbench')!.trigger('click')
+    await router.push('/chat?contextId=other&workspace=chat'); await settle()
+    pending.resolve({ runId: 'run', missionId: 'mission', status: 'running' }); await settle()
+    expect(router.currentRoute.value.path).toBe('/chat'); expect(router.currentRoute.value.query.contextId).toBe('other')
+  })
+
+  it('05B: explicit historical selection is never replaced by a newer active Run', async () => {
+    const { router, chat } = await mountShell()
+    chat.addWorkflowBinding({ ...binding(), runId: 'new', acgTaskId: 'new', createdAt: '2' })
+    await settle()
+    expect(wrapper!.get('select[aria-label="选择任务 Run"]').findAll('option')).toHaveLength(2)
+    await wrapper!.get('select[aria-label="选择任务 Run"]').setValue('new'); await settle()
+    expect(router.currentRoute.value.query.runId).toBe('new')
+    await wrapper!.get('select[aria-label="选择任务 Run"]').setValue('run'); await settle()
+    await wrapper!.findAll('button').find(b => b.text() === '打开所选 Run 的 Workbench')!.trigger('click'); await settle()
+    expect(router.currentRoute.value.query.runId).toBe('run')
+    expect(wrapper!.findComponent(MissionWorkspaceView).exists()).toBe(true)
+  })
   beforeEach(() => {
     localStorage.clear(); sessionStorage.clear(); observations.instances = []; resetOpenFile(); workspaceDocuments.reset()
     localStorage.setItem('layout.workspace_mode', 'chat'); localStorage.setItem('layout.chat_nav_open', '1')

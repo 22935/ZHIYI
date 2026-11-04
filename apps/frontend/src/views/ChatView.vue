@@ -297,6 +297,13 @@
               :view="activeAcgView"
               :events="activeAcgAuditEvents"
             />
+            <label v-if="navigationBindings.length > 1">选择 Run
+              <select aria-label="选择任务 Run" :value="activeWorkflowRunId || ''" @change="selectNavigationRun">
+                <option v-for="binding in navigationBindings" :key="binding.runId" :value="binding.runId">{{ binding.runId }}</option>
+              </select>
+            </label>
+            <button v-if="verifiedNavigationRun" type="button" :disabled="handoffPending" @click="enterSelectedWorkbench">打开所选 Run 的 Workbench</button>
+            <p v-if="handoffError" role="alert">{{ handoffError }}</p>
           </div>
 
           <p v-if="workflowStartError" class="chat-workflow-error" role="alert">
@@ -314,7 +321,6 @@
             <p>任务已正式派发，服务端已接受执行命令。是否切换到 Workbench 查看运行过程？</p>
             <button type="button" :disabled="handoffPending" @click="enterDispatchedWorkbench">进入 Workbench</button>
             <button type="button" @click="dispatchPrompt = null">稍后</button>
-            <p v-if="handoffError" role="alert">{{ handoffError }}</p>
           </div>
           <WorkflowReviewPanel
             v-if="!chatFormalRun && activeWorkflowRunId && activeWorkflowStatus === 'waiting_review'"
@@ -875,15 +881,22 @@ const currentConversationId = computed(() => {
   const routeContextId = typeof route.query.contextId === 'string' ? route.query.contextId.trim() : ''
   return routeContextId || chatStore.contextId || draftConversationId.value
 })
-const chatFormalRun = computed(() => {
+const navigationBindings = computed(() => conversationBindings(chatStore.workflowBindings, currentConversationId.value)
+  .filter(binding => !binding.invalidAt))
+const selectNavigationRun = (event: Event) => {
+  const binding = navigationBindings.value.find(item => item.runId === (event.target as HTMLSelectElement).value)
+  if (binding) void router.push({ path: '/chat', query: { ...route.query, missionId: binding.missionId, runId: binding.runId } })
+}
+const verifiedNavigationRun = computed(() => {
   const run = activeWorkflowRun.value
-  if (!run?.formalControl || run.runId !== activeWorkflowRunId.value || !isConversationVisible()) return null
+  if (!run || run.runId !== activeWorkflowRunId.value || !isConversationVisible()) return null
   const matches = conversationBindings(chatStore.workflowBindings, currentConversationId.value)
     .filter(binding => !binding.invalidAt && binding.runId === run.runId)
   const owners = new Set(Object.values(chatStore.workflowBindings).flat().filter(binding =>
     !binding.invalidAt && binding.runId === run.runId).map(binding => `${binding.conversationId}\u0000${binding.missionId}`))
   return owners.size === 1 && matches.length === 1 && matches[0].missionId === run.missionId ? run : null
 })
+const chatFormalRun = computed(() => verifiedNavigationRun.value?.formalControl ? verifiedNavigationRun.value : null)
 const chatFormalHistorical = computed(() => Boolean(chatFormalRun.value?.lineage?.supersededByRunId)
   || ['completed', 'succeeded', 'failed', 'cancelled', 'superseded'].includes(chatFormalRun.value?.status || ''))
 const dispatchPrompt = ref<(FormalOperationSuccess & { conversationId: string }) | null>(null)
@@ -891,6 +904,7 @@ const handoffPending = ref(false)
 const handoffError = ref('')
 const promptedDispatches = new Set<string>()
 watch([currentConversationId, activeWorkflowRunId], () => {
+  handoffGeneration++
   dispatchPrompt.value = null
   handoffPending.value = false
   handoffError.value = ''
@@ -907,26 +921,31 @@ const handleFormalSucceeded = (event: FormalOperationSuccess) => {
   handoffError.value = ''
   dispatchPrompt.value = { ...event, conversationId: currentConversationId.value }
 }
-const enterDispatchedWorkbench = async () => {
-  const prompt = dispatchPrompt.value
-  if (!prompt || handoffPending.value) return
+let handoffGeneration = 0
+const enterDispatchedWorkbench = () => enterSelectedWorkbench()
+const enterSelectedWorkbench = async () => {
+  const run = verifiedNavigationRun.value
+  if (!run || handoffPending.value) return
+  const prompt = { conversationId: currentConversationId.value, runId: run.runId, missionId: run.missionId }
+  const generation = ++handoffGeneration
+  const sourceRoute = route.fullPath
   handoffPending.value = true
   handoffError.value = ''
   try {
     const index = chatStore.workflowBindings
     const target = await conversationWorkbenchTarget(index, currentConversationId.value,
       activeWorkflowRunId.value, agentosApi.getWorkflowRun)
-    if (dispatchPrompt.value !== prompt || !isConversationVisible(prompt.conversationId)
+    if (generation !== handoffGeneration || sourceRoute !== route.fullPath || !isConversationVisible(prompt.conversationId)
       || currentConversationId.value !== prompt.conversationId || activeWorkflowRunId.value !== prompt.runId) return
     if (index !== chatStore.workflowBindings || !target || target.query.runId !== prompt.runId
-      || !chatFormalRun.value || chatFormalRun.value.missionId !== prompt.missionId) {
+      || !verifiedNavigationRun.value || verifiedNavigationRun.value.missionId !== prompt.missionId) {
       handoffError.value = '无法验证当前对话与任务归属，请刷新后重试。'
       return
     }
     await router.push(target)
   } catch {
-    if (dispatchPrompt.value === prompt) handoffError.value = '无法进入 Workbench，请核对任务归属后重试。'
-  } finally { if (dispatchPrompt.value === prompt) handoffPending.value = false }
+    if (generation === handoffGeneration) handoffError.value = '无法进入 Workbench，请核对任务归属后重试。'
+  } finally { if (generation === handoffGeneration) handoffPending.value = false }
 }
 const isStreamingChat = computed(() => chatStore.isStreaming)
 const cancelMessageStream = () => {

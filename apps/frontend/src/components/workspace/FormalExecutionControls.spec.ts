@@ -172,4 +172,18 @@ describe('formal Workbench controls', () => {
     finish({ operationId: post.mock.calls[0][3].operationId, status: 'ACCEPTED', dispatchId: 'late' })
     await flushPromises(); expect(w.emitted('succeeded')).toBeUndefined(); w.unmount()
   })
+  it.each(['graphId', 'graphVersion', 'permitId', 'runtimeRevision', 'status', 'capability'])('rejects a stale same-Run receipt after %s changes', async field => {
+    let finish!: (value: any) => void
+    const post = vi.spyOn(agentosApi, 'submitFormalControl').mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const w = render(); await execute(w).trigger('click')
+    const changed = permitted()
+    if (field === 'runtimeRevision') changed.runtimeRevision = 8
+    else if (field === 'status') changed.status = 'running'
+    else if (field === 'capability') changed.actionCapabilities = null
+    else (changed.formalControl as any)[field] = field === 'graphVersion' ? 2 : 'changed'
+    await w.setProps({ run: changed })
+    finish({ operationId: post.mock.calls[0][3].operationId, status: 'ACCEPTED', dispatchId: 'late' })
+    await flushPromises(); expect(w.emitted('succeeded')).toBeUndefined(); w.unmount()
+  })
+
 })
