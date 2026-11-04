@@ -89,6 +89,8 @@
                   :blueprint="projection.activeGraph || null"
                   :focus-node-id="graphFocusNodeId"
                   :runtime-phases="graphRuntimePhases"
+                  :step-states="graphStepStates"
+                  :completed-step-ids="graphCompletedStepIds"
                   :run-id="resolvedRunId"
                   workbench
                   @node-selected="selectGraphNode"
@@ -185,6 +187,7 @@
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from 'vue'
 import { runDisplayObjective, missionDocumentContent } from './missionSemanticDisplay'
 import type { MissionWorkspaceProjection, WorkspaceEntry, WorkspaceGraphNode } from '@/services/api/agentos'
+import { stepStatesFromRun } from '@/services/api/agentos/api/acg'
 import type { RuntimeObservation } from '@/workbench/runtime/observation'
 import type { RuntimeEventStore } from '@/workbench/runtime/runtimeEvents'
 import AcgTopologyGraph from '@/components/agentos/AcgTopologyGraph.vue'
@@ -507,6 +510,15 @@ const handleDetailResizeKeydown = (event: KeyboardEvent) => {
 const graphRuntimePhases = computed(() => Object.fromEntries(
   Object.entries(props.runtimeStore?.nodes || {}).map(([nodeId, state]) => [nodeId, state.phase])
 ))
+// SSE 只覆盖本次连接之后的事件（无历史回放），刷新后 runtimeStore 为空。
+// 图节点状态必须回落到 runtimeObservation 轮询的 run.steps 持久投影（StepStatus）。
+const graphObservedRun = computed(() => (
+  props.runtimeObservation?.runId === resolvedRunId.value ? props.runtimeObservation.run : null
+))
+const graphStepStates = computed(() => graphObservedRun.value
+  ? stepStatesFromRun(graphObservedRun.value, props.runtimeObservation?.executionTree, props.runtimeObservation?.lifecycles)
+  : [])
+const graphCompletedStepIds = computed(() => graphObservedRun.value?.completedStepIds || [])
 const graphFocusNodeId = computed(() => (
   props.graphNodes.find(node => node.semanticTaskKey === props.selectedSemanticTaskKey)?.acgNodeId || null
 ))

@@ -87,6 +87,7 @@ const projection = (overrides: Partial<MissionWorkspaceProjection> = {}): Missio
 } as MissionWorkspaceProjection)
 
 const topologyStub = {
+  props: ['blueprint', 'focusNodeId', 'runtimePhases', 'stepStates', 'completedStepIds', 'runId'],
   template: '<div data-testid="acg-preview" />'
 }
 
@@ -483,6 +484,24 @@ describe('RunProgressEditor', () => {
 
     await wrapper.find('.run-progress-artifact__open').trigger('click')
     expect(wrapper.emitted('openArtifact')!.at(-1)![0]).toMatchObject({ kind: 'artifact', artifactId: 'art_1' })
+  })
+
+  it('passes persisted step states of the observed run to the topology graph', async () => {
+    const value = observation([], 'running')
+    value.run = { runId: 'run_1', missionId: 'mission_1', workflowId: 'workflow', domain: 'test', status: 'running',
+      steps: [
+        { stepId: 'node_a', name: '需求分析', agentName: 'agent.a', status: 'completed' },
+        { stepId: 'node_b', name: '架构设计', agentName: 'agent.b', status: 'waiting_review' }
+      ],
+      completedStepIds: ['node_a'], activeStepIds: ['node_b'] }
+    const wrapper = mountEditor({ runtimeObservation: value })
+
+    const acg = wrapper.get('[data-symbol-type="acg"]')
+    await acg.find('.run-symbol__main').trigger('click')
+    const stub = wrapper.findComponent(topologyStub)
+    expect(stub.props('stepStates').map((state: { stepId: string; status: string }) => [state.stepId, state.status]))
+      .toEqual([['node_a', 'completed'], ['node_b', 'waiting_review']])
+    expect(stub.props('completedStepIds')).toEqual(['node_a'])
   })
 
   it('renders legacy planningProgress events with engineering wording', () => {
