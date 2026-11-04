@@ -74,7 +74,7 @@ const deferred = <T,>() => {
   return { promise, resolve, reject }
 }
 const state = () => wrapper!.findComponent(MissionWorkspaceView).vm as any
-const mountShell = async (url = '/chat?workspace=chat&contextId=ctx&missionId=mission&runId=run', initialContext: string | null = 'ctx') => {
+const mountShell = async (url = '/chat?workspace=chat&contextId=ctx&missionId=mission&runId=run', initialContext: string | null = 'ctx', realPresentation = false) => {
   const pinia = createPinia(); setActivePinia(pinia)
   vi.spyOn(useWorkflowRunsStore(), 'bootstrap').mockResolvedValue(undefined)
   const chat = useChatStore()
@@ -97,8 +97,8 @@ const mountShell = async (url = '/chat?workspace=chat&contextId=ctx&missionId=mi
       'el-button': button, 'el-input': input, 'el-icon': passthrough, 'el-dialog': true,
       'el-select': true, 'el-option': true, 'el-tag': true, 'el-collapse': true, 'el-collapse-item': true,
       PermissionSelector: true, AcgRunInspector: true, GenericArtifactPanel: true,
-      WorkflowProgressBar: true, ModelRuntimeControls: true, NativeWorkspacePicker: true,
-      AgentOsRunSummaryCard: true, RuntimeAuditTimeline: true, FileManager: true, WorkflowReviewPanel: true,
+      WorkflowProgressBar: !realPresentation, ModelRuntimeControls: true, NativeWorkspacePicker: true,
+      AgentOsRunSummaryCard: !realPresentation, RuntimeAuditTimeline: true, FileManager: true, WorkflowReviewPanel: true,
       MessageBubble: { props: ['message'], template: '<p class="test-message" :data-file="message.fileUrl">{{ message.content }}</p>' },
       GraphEditor: graph, TaskEditor: { template: '<div>Task</div>' },
       ArtifactEditor: { template: '<div>Artifact</div>' }, RunProgressEditor: { template: '<div>Progress</div>' },
@@ -196,8 +196,86 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     const calls = vi.mocked(agentosApi.getMissionWorkspace).mock.calls.length
     await router.push('/history'); await settle()
     await router.push('/chat?contextId=ctx&workspace=chat&missionId=mission&runId=run'); await settle()
-    if (delivery !== 'UNAVAILABLE') expect(agentosApi.getMissionWorkspace).toHaveBeenCalledTimes(calls)
+    if (delivery === 'READY') expect(agentosApi.getMissionWorkspace).toHaveBeenCalledTimes(calls)
+    if (delivery === 'MISSING') expect(agentosApi.getMissionWorkspace).toHaveBeenCalledTimes(calls + 1)
     expect((wrapper!.findComponent(ChatView).vm as any).deliveryStatus).toBe(delivery)
+  })
+
+
+  const deliveryProjection = (missionId = 'mission', runId = 'run') => ({
+    ...projection(missionId,runId), activeRun:{ runId,status:'completed',isActive:false },
+    entries:[graphEntry,{...artifactEntry,runId,artifactKey:'final',artifactType:'run_deliverable'}]
+  } as any)
+  const configureDelivery = () => vi.mocked(agentosApi.getMissionWorkspace).mockImplementation(async (missionId,options) => deliveryProjection(missionId,options?.runId || 'run'))
+  it.each(['follow','user','other-artifact'])('05C-R1: explicit delivery overrides cached %s intent once and preserves Workbench identity', async mode => {
+    configureDelivery()
+    const { router }=await mountShell()
+    await toWorkbench()
+    if(mode==='user') state().openEntry(graphEntry)
+    if(mode==='other-artifact') state().openEntry({...artifactEntry,entryId:'other-artifact',runId:'run'})
+    await settle()
+    const uid=wrapper!.findComponent(MissionWorkspaceView).vm.$.uid
+    await toChat()
+    const click=wrapper!.findAll('button').find(b=>b.text()==='查看交付物')!
+    await click.trigger('click'); await click.trigger('click'); await settle()
+    expect(router.currentRoute.value.query).toEqual({runId:'run'})
+    expect(state().activeEditorId).toBe('artifact')
+    expect(wrapper!.findComponent(MissionWorkspaceView).vm.$.uid).toBe(uid)
+    state().openEntry(graphEntry); await settle(); await toChat()
+    await wrapper!.findAll('button').find(b=>b.text()==='打开所选 Run 的 Workbench')!.trigger('click'); await settle()
+    expect(state().activeEditorId).toBe('graph')
+    await toChat(); await wrapper!.findAll('button').find(b=>b.text()==='查看交付物')!.trigger('click'); await settle()
+    expect(state().activeEditorId).toBe('artifact'); expect(maximumStreams).toBeLessThanOrEqual(1)
+  })
+  it.each(['missing','foreign','legacy'])('05C-R1: freshly revoked or invalid %s delivery cannot open a stale cached Artifact', async kind => {
+    configureDelivery(); const {router}=await mountShell(); await toWorkbench(); state().openEntry(graphEntry); await settle(); await toChat()
+    vi.mocked(agentosApi.getMissionWorkspace).mockImplementation(async()=>({ ...deliveryProjection(),entries:kind==='missing'?[graphEntry]:[graphEntry,{
+      ...artifactEntry,runId:kind==='foreign'?'other':'run',identityQuality:kind==='legacy'?'legacy':'canonical',artifactKey:'final',artifactType:'run_deliverable'
+    }]}))
+    await wrapper!.findAll('button').find(b=>b.text()==='查看交付物')!.trigger('click'); await settle()
+    expect(state().activeEditorId).toBe('graph'); expect(wrapper!.text()).toContain('无法验证所选 Run 的最终交付物')
+    expect(router.currentRoute.value.query.entryIntent).toBeUndefined()
+  })
+  it('05C-R1: a fresh URL delivery intent restores an explicitly selected historical Run', async () => {
+    configureDelivery(); newestRun='new'
+    const id='12345678-1234-1234-1234-123456789abc'
+    const {router}=await mountShell(`/agentos/missions/mission/workspace?runId=run&entryIntent=run-deliverable&entryIntentId=${id}&entryIntentMissionId=mission&entryIntentRunId=run`)
+    expect(state().activeEditorId).toBe('artifact'); expect(state().selectedRunId).toBe('run')
+    expect(router.currentRoute.value.query).toEqual({runId:'run'})
+    state().openEntry(graphEntry); await settle()
+    await router.replace({query:{...router.currentRoute.value.query,entryIntent:'run-deliverable',entryIntentId:id,entryIntentMissionId:'mission',entryIntentRunId:'run'}}); await settle()
+    expect(state().activeEditorId).toBe('graph')
+  })
+  it.each(['mission','run'])('05C-R1: a delivery intent cannot be rebound to another %s', async field => {
+    configureDelivery()
+    await mountShell(`/agentos/missions/mission/workspace?runId=run&entryIntent=run-deliverable&entryIntentId=12345678-1234-1234-1234-123456789abc&entryIntentMissionId=${field==='mission'?'other':'mission'}&entryIntentRunId=${field==='run'?'other':'run'}`)
+    // Begin in user mode before a new explicit invalid intent arrives.
+    state().openEntry(graphEntry); await settle()
+    const instance=state(); expect(instance.deliveryIntentError).toContain('无法验证')
+    expect(instance.activeEditorId).toBe('graph')
+  })
+
+  it('05C-R1: real Chat progress and summary share one completed lifecycle despite running Progress', async () => {
+    vi.mocked(workflowApi.getWorkflowProgress).mockImplementation(async runId => ({missionId:'mission',runId,status:'running',phase:'executing',message:'old running',percent:50} as any))
+    const {chat}=await mountShell(undefined,'ctx',true)
+    expect(wrapper!.get('.workflow-progress__phase').text()).toBe('已完成')
+    expect(wrapper!.get('.agentos-run-summary .status').text()).toBe('已完成')
+    expect(wrapper!.get('.workflow-progress').classes()).toContain('phase-completed')
+    expect(wrapper!.get('.workflow-progress__message').text()).not.toBe('old running')
+    expect(chat.messages[0].content).toBe('original')
+  })
+
+  it.each(['run','mission'])('05C-R1: late delivery verification cannot open an Artifact after switching %s', async field => {
+    configureDelivery(); const {router}=await mountShell(); await toWorkbench(); state().openEntry(graphEntry); await settle(); await toChat()
+    const old=deferred<any>()
+    vi.mocked(agentosApi.getMissionWorkspace).mockImplementationOnce(()=>old.promise).mockImplementation(async(missionId,options)=>({
+      ...deliveryProjection(missionId,options?.runId || 'new'),entries:[graphEntry]
+    }))
+    await wrapper!.findAll('button').find(b=>b.text()==='查看交付物')!.trigger('click'); await settle()
+    await router.push({path:`/agentos/missions/${field==='mission'?'other':'mission'}/workspace`,query:{runId:'new'}}); await settle()
+    old.resolve(deliveryProjection()); await settle()
+    expect(router.currentRoute.value.query.runId).toBe('new')
+    expect(state().activeEditorId).not.toBe('artifact')
   })
   beforeEach(() => {
     localStorage.clear(); sessionStorage.clear(); observations.instances = []; resetOpenFile(); workspaceDocuments.reset()

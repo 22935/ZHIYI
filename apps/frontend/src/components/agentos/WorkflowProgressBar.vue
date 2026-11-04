@@ -50,11 +50,13 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch, type DeepReadonly } from 'vue'
+import type { LifecyclePhase } from '@/features/workspace/runLifecycle'
 import type { WorkflowProgress, WorkflowProgressPhase } from '@/services/api/workflow'
 
 const props = withDefaults(defineProps<{
   progress: DeepReadonly<WorkflowProgress> | null
   lifecycleLabel?: string
+  lifecyclePhase?: LifecyclePhase
   loading?: boolean
   syncError?: string | null
   elapsedSeconds?: number
@@ -89,11 +91,10 @@ watch(() => props.progress?.startedAt, () => {
 
 onBeforeUnmount(() => window.clearInterval(timer))
 
-const phaseLabel = computed(() => props.lifecycleLabel ||
-  props.progress ? PHASE_LABELS[props.progress.phase] : '准备任务'
-)
-const phaseClass = computed(() => `phase-${props.progress?.phase ?? 'preparing'}`)
+const phaseLabel = computed(() => props.lifecycleLabel ?? (props.progress ? PHASE_LABELS[props.progress.phase] : '准备任务'))
+const phaseClass = computed(() => `phase-${props.lifecyclePhase ? ({ RUNNING: 'executing', WAITING_REVIEW: 'review', RECOVERING: 'recovery' }[props.lifecyclePhase] || props.lifecyclePhase.toLowerCase()) : props.lifecycleLabel != null ? 'preparing' : props.progress?.phase ?? 'preparing'}`)
 const displayMessage = computed(() => {
+  if (props.lifecycleLabel != null) return props.lifecycleLabel
   if (props.progress?.message?.trim()) return props.progress.message
   if (props.loading) return '任务正在创建，等待运行标识'
   return '正在准备 ACG 运行'

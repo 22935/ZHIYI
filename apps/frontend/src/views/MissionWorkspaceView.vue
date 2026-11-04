@@ -35,6 +35,7 @@
 
       <template #main="mainState">
         <section class="workspace-document-surface">
+        <p v-if="deliveryIntentError" role="alert">{{ deliveryIntentError }}</p>
         <div v-if="projection" class="workspace-lifecycle" role="status" aria-live="polite">
           <strong>{{ lifecycleLabels[lifecycle.phase] }}</strong>
           <span>{{ lifecycle.deliveryStatus === 'MISSING' ? 'Completed · Final deliverable missing' : lifecycle.reason }}</span>
@@ -227,7 +228,7 @@ import type { RunDocumentSymbol } from '@/workbench/runtime/runDocument'
 import type { ArtifactDocumentModel } from '@/workbench/runtime/artifactProjection'
 import { beginRunRecovery, pendingRunRecovery, completeRunRecovery } from '@/workbench/runtime/recoveryIdentity'
 import { readRunCapabilities } from '@/workbench/runtime/runCapabilities'
-import { conversationBindingKey } from '@/features/workspace/navigation'
+import { conversationBindingKey, readRunDeliverableIntent } from '@/features/workspace/navigation'
 import { lifecycleLabels } from '@/features/workspace/runLifecycle'
 import { projectLifecycle } from '@/workbench/runtime/lifecycleProjection'
 import { initialEditorIntent, selectLifecycleEditor } from '@/workbench/runtime/editorSelection'
@@ -662,6 +663,24 @@ const scheduleProjectionRefresh = () => {
   }, PROJECTION_REFRESH_MS)
 }
 
+const deliveryIntentError = ref('')
+const consumedDeliveryIntents = new Set<string>()
+const consumeDeliveryIntent = (workspace: MissionWorkspaceProjection, runId: string | null) => {
+  if (!isWorkspaceVisible() || !route.query.entryIntent) return
+  const intent = readRunDeliverableIntent(route.query, missionId.value)
+  if (intent && (intent.runId !== runId || workspace.mission.missionId !== intent.missionId
+    || workspace.activeRun?.runId !== intent.runId)) return
+  deliveryIntentError.value = ''
+  if (!intent || !consumedDeliveryIntents.has(intent.id)) {
+    if (intent) consumedDeliveryIntents.add(intent.id)
+    const verified = intent ? projectLifecycle({ workspace, selectedRunId: intent.runId }) : null
+    if (verified?.deliverable) openEntry(verified.deliverable)
+    else deliveryIntentError.value = '无法验证所选 Run 的最终交付物，已保留当前编辑器。'
+  }
+  const { entryIntent: _intent, entryIntentId: _id, entryIntentMissionId: _mission, entryIntentRunId: _run, ...query } = route.query
+  void router.replace({ path: route.path, query }).catch(() => { deliveryIntentError.value = '交付物导航意图无法清除，请重新检查当前工作区。' })
+}
+
 const loadWorkspace = async (runId = selectedRunId.value, options: { focusProgress?: boolean } = {}) => {
   if (!isWorkspaceVisible()) return
   if (!missionId.value) {
@@ -707,6 +726,7 @@ const loadWorkspace = async (runId = selectedRunId.value, options: { focusProgre
     nextProjection.entries.forEach(entry => { entryCache.value[entry.entryId] = entry })
     syncProgressEditorIdentity(nextProjection, runId)
     followLifecycle()
+    consumeDeliveryIntent(nextProjection, runId)
     if (options.focusProgress) { focusProgressEditor(nextProjection, runId); editorIntent.value.mode = 'user' }
     const nextRunId = nextProjection.activeRun?.runId || runId || null
     const streamRunId = projectionActive(nextProjection) ? nextRunId : null
@@ -1080,6 +1100,9 @@ const locateGraph = (entry: WorkspaceEntry) => {
 
 void loadWorkspace()
 watch(lifecycle, followLifecycle)
+watch(() => JSON.stringify([route.query.entryIntent, route.query.entryIntentId, route.query.entryIntentMissionId, route.query.entryIntentRunId]), () => {
+  if (isWorkspaceVisible() && route.query.entryIntent) void loadWorkspace(typeof route.query.runId === 'string' ? route.query.runId : null)
+})
 watch(() => route.query.runId, value => {
   const runId = typeof value === 'string' ? value : null
   if (!viewActive || runId === selectedRunId.value) return

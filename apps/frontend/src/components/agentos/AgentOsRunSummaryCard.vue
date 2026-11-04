@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { projectRunLifecycle } from '@/features/workspace/runLifecycle'
+import { projectRunLifecycle, type RunLifecycleProjection } from '@/features/workspace/runLifecycle'
 import { computed, type DeepReadonly } from 'vue'
 import type {
   AcgView,
@@ -36,6 +36,7 @@ import type {
 } from '@/services/api/workflow'
 
 const props = withDefaults(defineProps<{
+  lifecycle?: RunLifecycleProjection
   progress?: DeepReadonly<WorkflowProgress> | null
   run?: WorkflowRun | null
   view?: AcgView | null
@@ -51,7 +52,9 @@ const props = withDefaults(defineProps<{
   reviewCount: 0
 })
 
-const lifecycle = computed(() => projectRunLifecycle({ missionId: props.run?.missionId || '', runId: props.run?.runId || '', run: props.run, progress: props.progress }))
+const lifecycle = computed(() => props.lifecycle ?? projectRunLifecycle({ missionId: props.run?.missionId || '', runId: props.run?.runId || '', run: props.run, progress: props.run ? props.progress : null }))
+const displayedRun = computed(() => props.run?.runId === lifecycle.value.runId && props.run?.missionId === lifecycle.value.missionId ? props.run : null)
+const displayedView = computed(() => props.view?.runId === lifecycle.value.runId ? props.view : null)
 const status = computed(() => lifecycle.value.normalizedStatus)
 const statusClass = computed(() => status.value)
 const statusLabel = computed(() => lifecycle.value.statusLabel)
@@ -59,31 +62,31 @@ const statusLabel = computed(() => lifecycle.value.statusLabel)
 const uniqueEventCount = computed(() => {
   const ids = new Set<string>()
   const sources = [
-    ...props.events,
-    ...(props.view?.recoveryTrace || []),
-    ...(props.view?.scheduleTrace || []),
-    ...(props.view?.contractViolations || [])
+    ...props.events.filter(event => event.runId === lifecycle.value.runId),
+    ...(displayedView.value?.recoveryTrace || []),
+    ...(displayedView.value?.scheduleTrace || []),
+    ...(displayedView.value?.contractViolations || [])
   ]
   sources.forEach((event, index) => ids.add(event.eventId || `${event.eventType}:${event.createdAt || index}`))
   return ids.size
 })
 
 const summary = computed(() => {
-  const runSteps = props.run?.steps || []
-  const viewSteps = props.view?.stepStates || []
+  const runSteps = displayedRun.value?.steps || []
+  const viewSteps = displayedView.value?.stepStates || []
   const steps = runSteps.length ? runSteps : viewSteps
   const count = (stepStatus: string) => steps.filter(step => step.status === stepStatus).length
   const patchRefs = new Set<string>()
   return {
-    graphVersion: props.view?.graphVersion ?? props.run?.graphVersion ?? null,
+    graphVersion: displayedView.value?.graphVersion ?? displayedRun.value?.graphVersion ?? null,
     totalSteps: lifecycle.value.progress?.totalSteps ?? steps.length,
     completedSteps: lifecycle.value.progress?.completedSteps ?? count('completed'),
-    activeSteps: lifecycle.value.progress?.activeStepIds?.length ?? props.run?.activeStepIds?.length ?? count('running'),
-    skippedSteps: props.run?.skippedStepIds?.length ?? count('skipped_by_condition'),
-    recoveryCount: props.view?.lowEntropyMetrics?.recoveryCount ?? count('retrying'),
+    activeSteps: lifecycle.value.progress?.activeStepIds?.length ?? displayedRun.value?.activeStepIds?.length ?? count('running'),
+    skippedSteps: displayedRun.value?.skippedStepIds?.length ?? count('skipped_by_condition'),
+    recoveryCount: displayedView.value?.lowEntropyMetrics?.recoveryCount ?? count('retrying'),
     patchRefCount: patchRefs.size,
     auditEventCount: uniqueEventCount.value,
-    provenanceCount: props.view?.interactions?.length ?? 0
+    provenanceCount: displayedView.value?.interactions?.length ?? 0
   }
 })
 

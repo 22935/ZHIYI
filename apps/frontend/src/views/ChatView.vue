@@ -290,9 +290,11 @@
               :loading="isSubmittingWorkflow || workflowProgressState.isLoading.value"
               :sync-error="workflowProgressState.syncError.value || (lifecycle.synchronizationState !== 'SYNCED' ? '运行状态正在核对' : null)"
               :lifecycle-label="lifecycle.phaseLabel"
+              :lifecycle-phase="lifecycle.phase"
               variant="compact"
             />
             <AgentOsRunSummaryCard
+              :lifecycle="lifecycle"
               :progress="workflowProgressState.progress.value"
               :run="activeWorkflowRun"
               :view="activeAcgView"
@@ -301,13 +303,13 @@
             <p v-if="deliveryStatus !== 'NOT_COMPLETE'" role="status">{{ deliveryStatus === 'READY'
               ? '任务已完成，交付物已登记。' : deliveryStatus === 'MISSING'
               ? '任务已完成，但没有发现可验证的最终交付物。' : '任务已完成，交付物登记状态暂不可验证。' }}</p>
-            <button v-if="deliveryStatus === 'READY'" type="button" :disabled="handoffPending" @click="enterSelectedWorkbench">查看交付物</button>
+            <button v-if="deliveryStatus === 'READY'" type="button" :disabled="handoffPending" @click="enterSelectedWorkbench(true)">查看交付物</button>
             <label v-if="navigationBindings.length > 1">选择 Run
               <select aria-label="选择任务 Run" :value="activeWorkflowRunId || ''" @change="selectNavigationRun">
                 <option v-for="binding in navigationBindings" :key="binding.runId" :value="binding.runId">{{ binding.runId }}</option>
               </select>
             </label>
-            <button v-if="verifiedNavigationRun" type="button" :disabled="handoffPending" @click="enterSelectedWorkbench">打开所选 Run 的 Workbench</button>
+            <button v-if="verifiedNavigationRun" type="button" :disabled="handoffPending" @click="enterSelectedWorkbench()">打开所选 Run 的 Workbench</button>
             <p v-if="handoffError" role="alert">{{ handoffError }}</p>
           </div>
 
@@ -726,7 +728,7 @@ import NativeWorkspacePicker from '@/components/platform/NativeWorkspacePicker.v
 import PermissionSelector from '@/components/PermissionSelector.vue'
 import FormalExecutionControls from '@/components/workspace/FormalExecutionControls.vue'
 import type { FormalOperationSuccess } from '@/features/acg/formalControl'
-import { conversationWorkbenchTarget } from '@/features/workspace/navigation'
+import { conversationWorkbenchTarget, withRunDeliverableIntent } from '@/features/workspace/navigation'
 const FileManager = defineAsyncComponent(() => import('@/components/FileManager.vue').then(module => module.default))
 const AcgTopologyGraph = defineAsyncComponent(() => import('@/components/agentos/AcgTopologyGraph.vue'))
 import WorkflowProgressBar from '@/components/agentos/WorkflowProgressBar.vue'
@@ -931,7 +933,7 @@ const handleFormalSucceeded = (event: FormalOperationSuccess) => {
 }
 let handoffGeneration = 0
 const enterDispatchedWorkbench = () => enterSelectedWorkbench()
-const enterSelectedWorkbench = async () => {
+const enterSelectedWorkbench = async (deliverable = false) => {
   const run = verifiedNavigationRun.value
   if (!run || handoffPending.value) return
   const prompt = { conversationId: currentConversationId.value, runId: run.runId, missionId: run.missionId }
@@ -950,7 +952,7 @@ const enterSelectedWorkbench = async () => {
       handoffError.value = '无法验证当前对话与任务归属，请刷新后重试。'
       return
     }
-    await router.push(target)
+    await router.push(deliverable ? withRunDeliverableIntent(target, prompt.missionId) : target)
   } catch {
     if (generation === handoffGeneration) handoffError.value = '无法进入 Workbench，请核对任务归属后重试。'
   } finally { if (generation === handoffGeneration) handoffPending.value = false }

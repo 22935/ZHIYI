@@ -44,4 +44,14 @@ describe('WorkflowProgressBar', () => {
     expect(wrapper.get('.workflow-progress__message').text()).toBe(message)
     expect(wrapper.find('.workflow-progress__message script').exists()).toBe(false)
   })
+  it.each([
+    ['已完成', null], ['执行中', progress({ phase:'failed', status:'failed', message:'old failure' })],
+    [undefined, progress()], [undefined, null], ['状态待确认', null], ['已完成', progress({ phase:'executing' })]
+  ])('prefers lifecycle label %s with nullable Progress', (label, snapshot) => {
+    const wrapper = mount(WorkflowProgressBar, { props:{ progress:snapshot, lifecycleLabel:label } })
+    expect(wrapper.get('.workflow-progress__phase').text()).toBe(label ?? (snapshot ? '执行节点':'准备任务'))
+    if(label) expect(wrapper.get('.workflow-progress__message').text()).toBe(label)
+    wrapper.unmount()
+  })
+
 })

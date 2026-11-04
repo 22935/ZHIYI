@@ -47,4 +47,17 @@ describe('canonical terminal delivery', () => {
     resolve(workspace()); await flushPromises(); expect(status.value).toBe('READY'); scope.stop()
   })
 
+  it('rechecks MISSING after reactivation and discovers a delayed canonical artifact', async () => {
+    const read=vi.spyOn(agentosApi,'getMissionWorkspace').mockResolvedValueOnce(workspace(null) as any).mockResolvedValue(workspace() as any)
+    const { owner,scope,status }=mount(); await flushPromises(); expect(status.value).toBe('MISSING')
+    owner.value.visible=false; await nextTick(); owner.value.visible=true; await flushPromises()
+    expect(status.value).toBe('READY'); expect(read).toHaveBeenCalledTimes(2); scope.stop()
+  })
+  it('retries UNAVAILABLE on reactivation and never reads for nonterminal Runs', async () => {
+    const read=vi.spyOn(agentosApi,'getMissionWorkspace').mockRejectedValueOnce(new Error('offline')).mockResolvedValue(workspace() as any)
+    const { owner,scope,status }=mount(); await flushPromises(); expect(status.value).toBe('UNAVAILABLE')
+    owner.value.visible=false; await nextTick(); owner.value.visible=true; await flushPromises(); expect(status.value).toBe('READY')
+    owner.value.run={...owner.value.run,runId:'pending',status:'running'}; await flushPromises(); expect(read).toHaveBeenCalledTimes(2); scope.stop()
+  })
+
 })

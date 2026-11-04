@@ -26,7 +26,7 @@ export function useRunDelivery(owner: Ref<{ conversationId: string; run: Workflo
         && entry.identityQuality === 'canonical' && isRunDeliverableEntry(entry)
         && Boolean(entry.artifactId?.trim() && entry.contentRef?.trim()))
       status.value = ready ? 'READY' : 'MISSING'
-      cache.set(key, status.value)
+      if (ready) cache.set(key, status.value)
     } catch { /* Unverified is distinct from an observed missing deliverable. */ }
   }, { immediate: true, flush: 'sync' })
   onScopeDispose(() => { generation++; controller?.abort() })

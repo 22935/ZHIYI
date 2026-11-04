@@ -63,3 +63,5 @@ export function projectRunLifecycle(input: { missionId: string; runId: string; r
     isTerminal: ['COMPLETED', 'FAILED', 'CANCELLED', 'SUPERSEDED'].includes(mapped.phase),
     requiresAttention: ['WAITING_REVIEW', 'FAILED', 'AWAITING_CONFIRMATION', 'READY_TO_DISPATCH'].includes(mapped.phase), progress }
 }
+
+export type RunLifecycleProjection = ReturnType<typeof projectRunLifecycle>

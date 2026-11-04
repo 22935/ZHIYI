@@ -77,3 +77,15 @@ export async function workbenchConversationTarget(options: {
 export const isConversationForWorkbench = (index: Index, conversationId: string, missionId: string, runId: string | null) =>
   Boolean(runId && conversationBindings(index, conversationId).some(item =>
     !item.invalidAt && item.missionId === missionId && item.runId === runId))
+
+/** Explicit user intent, scoped by the Mission path and selected Run; never carries an Artifact ID. */
+export const withRunDeliverableIntent = (target: NonNullable<Awaited<ReturnType<typeof conversationWorkbenchTarget>>>, missionId: string) => ({
+  ...target, query: { ...target.query, entryIntent: 'run-deliverable', entryIntentId: crypto.randomUUID(),
+    entryIntentMissionId: missionId, entryIntentRunId: target.query.runId }
+})
+export function readRunDeliverableIntent(query: Record<string, unknown>, missionId: string) {
+  if (query.entryIntent !== 'run-deliverable' || !missionId || typeof query.runId !== 'string' || !query.runId
+    || query.entryIntentMissionId !== missionId || query.entryIntentRunId !== query.runId
+    || typeof query.entryIntentId !== 'string' || !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(query.entryIntentId)) return null
+  return { missionId, runId: query.runId, id: query.entryIntentId }
+}
