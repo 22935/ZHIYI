@@ -10,6 +10,15 @@ const readRun = () => vi.fn(async (runId: string) => ({ runId, missionId: 'missi
 const readConversation = () => vi.fn(async (contextId: string) => ({ contextId, workspaceMode: 'chat' } as any))
 
 describe('Verified Conversation / Workbench navigation', () => {
+  it('rejects competing canonical owners even without shared aliases', async () => {
+    expect(await conversationWorkbenchTarget({ ctx: [binding()], other: [binding({ conversationId: 'other', conversationAliases: [] })] },
+      'ctx', 'run', readRun())).toBeNull()
+  })
+  it('rejects a binding invalidated during backend verification', async () => {
+    const item = binding()
+    const read = vi.fn(async () => { item.invalidAt = 'now'; return { runId: 'run', missionId: 'mission', status: 'running' } })
+    expect(await conversationWorkbenchTarget({ ctx: [item] }, 'ctx', 'run', read)).toBeNull()
+  })
   it('resolves aliases to the original Mission/Run without changing the index', async () => {
     const index = { ctx: [binding()] }; const original = JSON.stringify(index)
     for (const id of ['ctx', 'draft:old', 'legacy']) {

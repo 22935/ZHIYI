@@ -1,4 +1,4 @@
-import { belongsToConversation, conversationBindings, isActiveRunStatus, runMatchesSelection } from './session'
+import { conversationBindings, isActiveRunStatus, runMatchesSelection } from './session'
 import type { ChatWorkflowBinding } from '@/stores/chat'
 import type { Conversation } from '@/services/api/conversation'
 import type { VerifiedSessionRun } from './session'
@@ -14,13 +14,15 @@ export async function conversationWorkbenchTarget(index: Index, conversationId: 
   const binding = selectedRunId ? bindings.find(item => item.runId === selectedRunId)
     : [...bindings].reverse().find(item => isActiveRunStatus(item.status)) || bindings[bindings.length - 1]
   if (!binding) return null
-  const owners = new Set(Object.values(index).flat().filter(item => !item.invalidAt
-    && item.runId === binding.runId && belongsToConversation(item, conversationId))
+  const owners = () => new Set(Object.values(index).flat().filter(item => !item.invalidAt
+    && item.runId === binding.runId)
     .map(item => `${item.conversationId}\u0000${item.missionId}`))
-  if (owners.size !== 1) return null
+  if (owners().size !== 1) return null
   try {
     const run = await readRun(binding.runId)
     if (!runMatchesSelection(run, binding.runId, binding.missionId)) return null
+    if (owners().size !== 1 || !conversationBindings(index, conversationId).some(item =>
+      !item.invalidAt && item.runId === binding.runId && item.missionId === binding.missionId)) return null
     return { path: `/agentos/missions/${encodeURIComponent(run.missionId)}/workspace`, query: { runId: run.runId } }
   } catch { return null }
 }

@@ -16,6 +16,7 @@ import { workflowApi } from '@/services/api/workflow'
 import { agentosRequest } from '@/services/api/agentos/client'
 import { TextDocument, workspaceDocuments } from '@/workbench/core/documents'
 import { requestOpenFile, resetOpenFile } from '@/workbench/core/openFileRequest'
+import { capabilitiesFixture } from '@/test/fixtures/runCapabilities'
 
 const observations = vi.hoisted(() => ({ instances: [] as any[] }))
 vi.mock('@/workbench/runtime/observation', async original => ({
@@ -113,6 +114,29 @@ const toWorkbench = async () => { await wrapper!.get('.primary-sidebar .acg-nav-
 const toChat = async () => { await wrapper!.get('.primary-sidebar .chat-nav-group:not(.acg-nav-group) .chat-nav-trigger').trigger('click'); await settle() }
 
 describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
+  it('05A: dispatch handoff keeps the same Conversation and Run through the actual Shell', async () => {
+    vi.mocked(agentosApi.getWorkflowRun).mockResolvedValue({ runId: 'run', missionId: 'mission', workflowId: 'workflow',
+      status: 'pending', runtimeRevision: 7, steps: [],
+      actionCapabilities: capabilitiesFixture('run', 'mission', 'pending', 7, { canExecuteFormalAction: true, formalActions: ['dispatch'] }),
+      formalControl: { status: 'ACTIVATED', permitStatus: 'ISSUED', permitId: 'permit', graphId: 'graph', graphVersion: 1,
+        dispatchEnabled: true, dispatchEligible: true } } as any)
+    const dispatch = vi.spyOn(agentosApi, 'submitFormalControl').mockImplementation(async (_m, _r, _a, command) =>
+      ({ operationId: command.operationId, status: 'ACCEPTED', dispatchId: 'dispatch-shell' }))
+    const { router, chat, clear } = await mountShell()
+    const chatInstance = wrapper!.findComponent(ChatView).vm.$.uid
+    await wrapper!.get('.formal-control__primary').trigger('click'); await settle()
+    expect(router.currentRoute.value.path).toBe('/chat')
+    expect(wrapper!.text()).toContain('是否切换到 Workbench')
+    await wrapper!.findAll('button').find(b => b.text() === '进入 Workbench')!.trigger('click'); await settle()
+    expect(router.currentRoute.value.path).toBe('/agentos/missions/mission/workspace')
+    expect(router.currentRoute.value.query.runId).toBe('run')
+    expect(wrapper!.findComponent(MissionWorkspaceView).exists()).toBe(true)
+    await toChat()
+    expect(wrapper!.findComponent(ChatView).vm.$.uid).toBe(chatInstance)
+    expect(chat.messages[0].content).toBe('original'); expect(chat.contextId).toBe('ctx')
+    expect(clear).not.toHaveBeenCalled(); expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(maximumStreams).toBeLessThanOrEqual(1)
+  })
   beforeEach(() => {
     localStorage.clear(); sessionStorage.clear(); observations.instances = []; resetOpenFile(); workspaceDocuments.reset()
     localStorage.setItem('layout.workspace_mode', 'chat'); localStorage.setItem('layout.chat_nav_open', '1')

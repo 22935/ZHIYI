@@ -40,13 +40,13 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { agentosApi, type WorkflowRun, type RunActionCapabilities } from '@/services/api/agentos'
 import { readRunCapabilities } from '@/workbench/runtime/runCapabilities'
 import WorkflowReviewPanel from '@/components/agentos/WorkflowReviewPanel.vue'
-import { formalActionLabels, formalSource, nextFormalAction, prepareFormalCommand } from '@/features/acg/formalControl'
+import { formalActionLabels, formalSource, nextFormalAction, prepareFormalCommand, validFormalReceipt, type FormalOperationSuccess } from '@/features/acg/formalControl'
 
 const props = withDefaults(defineProps<{ run: WorkflowRun | null; runId: string | null; missionId: string; historical: boolean; canCancel: boolean; cancelPending: boolean; embedded?: boolean; readonly?: boolean; executionReadonly?: boolean; showReview?: boolean; actionCapabilities?: RunActionCapabilities | null }>(), { embedded: false, readonly: false, executionReadonly: false, showReview: true })
 const capabilities = computed(() => !Number.isInteger(props.run?.runtimeRevision) ? null :
   readRunCapabilities(props.actionCapabilities === undefined ? props.run?.actionCapabilities : props.actionCapabilities,
     props.missionId, props.runId, props.run?.runtimeRevision, props.run?.status))
-const emit = defineEmits<{ refresh: []; cancel: [] }>()
+const emit = defineEmits<{ refresh: []; cancel: []; succeeded: [event: FormalOperationSuccess] }>()
 const pending = ref(false)
 const error = ref('')
 const blocked = ref(false)
@@ -54,7 +54,7 @@ const acknowledged = ref('')
 const seenFormal = ref(false)
 let generation = 0
 onBeforeUnmount(() => { generation++ })
-watch(() => props.runId, () => { generation++; pending.value = false; error.value = ''; blocked.value = false; acknowledged.value = ''; seenFormal.value = false })
+watch(() => [props.missionId, props.runId], () => { generation++; pending.value = false; error.value = ''; blocked.value = false; acknowledged.value = ''; seenFormal.value = false })
 watch(() => props.run?.formalControl, c => { if (c) seenFormal.value = true }, { immediate: true })
 const control = computed(() => props.run?.formalControl)
 const visible = computed(() => seenFormal.value || Boolean(control.value) || props.run?.executionState?.planningCommitRequired
@@ -98,9 +98,12 @@ const submit = async () => {
   try {
     const command = prepareFormalCommand(run, requestedAction, localStorage)
     prepared = true
-    await agentosApi.submitFormalControl(props.missionId, run.runId, requestedAction, command)
+    const receipt = await agentosApi.submitFormalControl(run.missionId, run.runId, requestedAction, command)
     if (current !== generation) return
+    if (!validFormalReceipt(requestedAction, command.operationId, receipt)) throw new Error('Unconfirmed formal receipt')
     acknowledged.value = requestedSource
+    emit('succeeded', { action: requestedAction, operationId: command.operationId, status: receipt.status,
+      dispatchId: receipt.dispatchId, missionId: run.missionId, runId: run.runId })
     emit('refresh') // No optimistic Run/Permit state and no follow-on command.
   } catch (failure: unknown) {
     if (current !== generation) return

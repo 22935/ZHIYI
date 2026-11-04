@@ -303,8 +303,21 @@
             {{ workflowStartError }}
           </p>
 
+          <FormalExecutionControls
+            v-if="chatFormalRun"
+            :key="`${currentConversationId}:${chatFormalRun.runId}`"
+            :run="chatFormalRun" :run-id="chatFormalRun.runId" :mission-id="chatFormalRun.missionId"
+            :historical="chatFormalHistorical" :can-cancel="false" :cancel-pending="false" embedded
+            @refresh="handleChatReviewConflict" @succeeded="handleFormalSucceeded"
+          />
+          <div v-if="dispatchPrompt" role="status" class="chat-workflow-progress">
+            <p>任务已正式派发，服务端已接受执行命令。是否切换到 Workbench 查看运行过程？</p>
+            <button type="button" :disabled="handoffPending" @click="enterDispatchedWorkbench">进入 Workbench</button>
+            <button type="button" @click="dispatchPrompt = null">稍后</button>
+            <p v-if="handoffError" role="alert">{{ handoffError }}</p>
+          </div>
           <WorkflowReviewPanel
-            v-if="activeWorkflowRunId && activeWorkflowStatus === 'waiting_review'"
+            v-if="!chatFormalRun && activeWorkflowRunId && activeWorkflowStatus === 'waiting_review'"
             class="chat-workflow-review"
             :run-id="activeWorkflowRunId"
             :progress="workflowProgressState.progress.value"
@@ -700,6 +713,9 @@ import MessageBubble from '@/components/MessageBubble.vue'
 import ModelRuntimeControls from '@/components/ModelRuntimeControls.vue'
 import NativeWorkspacePicker from '@/components/platform/NativeWorkspacePicker.vue'
 import PermissionSelector from '@/components/PermissionSelector.vue'
+import FormalExecutionControls from '@/components/workspace/FormalExecutionControls.vue'
+import type { FormalOperationSuccess } from '@/features/acg/formalControl'
+import { conversationWorkbenchTarget } from '@/features/workspace/navigation'
 const FileManager = defineAsyncComponent(() => import('@/components/FileManager.vue').then(module => module.default))
 const AcgTopologyGraph = defineAsyncComponent(() => import('@/components/agentos/AcgTopologyGraph.vue'))
 import WorkflowProgressBar from '@/components/agentos/WorkflowProgressBar.vue'
@@ -859,6 +875,59 @@ const currentConversationId = computed(() => {
   const routeContextId = typeof route.query.contextId === 'string' ? route.query.contextId.trim() : ''
   return routeContextId || chatStore.contextId || draftConversationId.value
 })
+const chatFormalRun = computed(() => {
+  const run = activeWorkflowRun.value
+  if (!run?.formalControl || run.runId !== activeWorkflowRunId.value || !isConversationVisible()) return null
+  const matches = conversationBindings(chatStore.workflowBindings, currentConversationId.value)
+    .filter(binding => !binding.invalidAt && binding.runId === run.runId)
+  const owners = new Set(Object.values(chatStore.workflowBindings).flat().filter(binding =>
+    !binding.invalidAt && binding.runId === run.runId).map(binding => `${binding.conversationId}\u0000${binding.missionId}`))
+  return owners.size === 1 && matches.length === 1 && matches[0].missionId === run.missionId ? run : null
+})
+const chatFormalHistorical = computed(() => Boolean(chatFormalRun.value?.lineage?.supersededByRunId)
+  || ['completed', 'succeeded', 'failed', 'cancelled', 'superseded'].includes(chatFormalRun.value?.status || ''))
+const dispatchPrompt = ref<(FormalOperationSuccess & { conversationId: string }) | null>(null)
+const handoffPending = ref(false)
+const handoffError = ref('')
+const promptedDispatches = new Set<string>()
+watch([currentConversationId, activeWorkflowRunId], () => {
+  dispatchPrompt.value = null
+  handoffPending.value = false
+  handoffError.value = ''
+}, { flush: 'sync' })
+const handleFormalSucceeded = (event: FormalOperationSuccess) => {
+  const run = chatFormalRun.value
+  if (!run || chatFormalHistorical.value || event.action !== 'dispatch' || !event.dispatchId
+    || !['ACCEPTED', 'IDEMPOTENT_REPLAY'].includes(event.status)
+    || run.runId !== event.runId || run.missionId !== event.missionId) return
+  const key = `agentos.chat.dispatch-prompt.v1:${event.runId}:${event.dispatchId}`
+  if (promptedDispatches.has(key)) return
+  try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1') } catch { /* local dedup remains available */ }
+  promptedDispatches.add(key)
+  handoffError.value = ''
+  dispatchPrompt.value = { ...event, conversationId: currentConversationId.value }
+}
+const enterDispatchedWorkbench = async () => {
+  const prompt = dispatchPrompt.value
+  if (!prompt || handoffPending.value) return
+  handoffPending.value = true
+  handoffError.value = ''
+  try {
+    const index = chatStore.workflowBindings
+    const target = await conversationWorkbenchTarget(index, currentConversationId.value,
+      activeWorkflowRunId.value, agentosApi.getWorkflowRun)
+    if (dispatchPrompt.value !== prompt || !isConversationVisible(prompt.conversationId)
+      || currentConversationId.value !== prompt.conversationId || activeWorkflowRunId.value !== prompt.runId) return
+    if (index !== chatStore.workflowBindings || !target || target.query.runId !== prompt.runId
+      || !chatFormalRun.value || chatFormalRun.value.missionId !== prompt.missionId) {
+      handoffError.value = '无法验证当前对话与任务归属，请刷新后重试。'
+      return
+    }
+    await router.push(target)
+  } catch {
+    if (dispatchPrompt.value === prompt) handoffError.value = '无法进入 Workbench，请核对任务归属后重试。'
+  } finally { if (dispatchPrompt.value === prompt) handoffPending.value = false }
+}
 const isStreamingChat = computed(() => chatStore.isStreaming)
 const cancelMessageStream = () => {
   const cancel = (chatStore as typeof chatStore & { cancelMessageStream?: () => unknown }).cancelMessageStream

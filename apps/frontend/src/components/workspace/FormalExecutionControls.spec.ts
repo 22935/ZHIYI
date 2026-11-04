@@ -52,8 +52,9 @@ describe('formal Workbench controls', () => {
     const button = w.get('.formal-control__primary')
     await button.trigger('click'); await button.trigger('click')
     expect(post).toHaveBeenCalledTimes(1)
-    finish({ operationId: 'op', status: 'ACCEPTED' }); await flushPromises()
+    finish({ operationId: post.mock.calls[0][3].operationId, status: 'ACCEPTED', dispatchId: 'dispatch' } as any); await flushPromises()
     expect(w.text()).toContain('pending')
+    expect(w.emitted('succeeded')?.[0]?.[0]).toMatchObject({ action: 'dispatch', status: 'ACCEPTED', dispatchId: 'dispatch' })
     expect(execute(w).attributes('disabled')).toBeDefined()
     expect(Object.keys(post.mock.calls[0][3]).sort()).toEqual(['operationId', 'expectedPermitId', 'expectedGraphId', 'expectedGraphVersion', 'expectedRuntimeRevision'].sort())
     w.unmount()
@@ -67,6 +68,7 @@ describe('formal Workbench controls', () => {
     const reopened = render(run); await execute(reopened).trigger('click'); await flushPromises()
     expect(post.mock.calls[1][3]).toEqual(original)
     expect(post.mock.calls[1][3]).toHaveProperty('expectedRuntimeRevision', 7)
+    expect(reopened.emitted('succeeded')).toBeUndefined()
     reopened.unmount()
   })
   it('reopens an accepted Dispatch from the Run query without another POST', () => {
@@ -84,6 +86,7 @@ describe('formal Workbench controls', () => {
     const w = render(); await execute(w).trigger('click'); await flushPromises()
     expect(execute(w).attributes('disabled')).toBeDefined()
     expect(w.text()).toContain('控制已禁用')
+    expect(w.emitted('succeeded')).toBeUndefined()
     w.unmount()
   })
   it('fails closed on unavailable Run, historical state and corrupt operation cache', async () => {
@@ -146,5 +149,27 @@ describe('formal Workbench controls', () => {
     c.handoffId = 'handoff'; c.permitIssued = false; expect(nextFormalAction(run)).toBe('permit')
     c.status = 'ACTIVATED'; c.permitIssued = true; expect(nextFormalAction(run)).toBe('dispatch')
     c.graphVersion = 0; expect(nextFormalAction(run)).toBeNull()
+  })
+  it('confirms replay with the same operation and never advances another command', async () => {
+    const post = vi.spyOn(agentosApi, 'submitFormalControl').mockImplementation(async (_m, _r, _a, command) =>
+      ({ operationId: command.operationId, status: 'IDEMPOTENT_REPLAY', dispatchId: 'original' }))
+    const w = render(); await execute(w).trigger('click'); await flushPromises()
+    expect(w.emitted('succeeded')?.[0]?.[0]).toMatchObject({ status: 'IDEMPOTENT_REPLAY', dispatchId: 'original' })
+    await execute(w).trigger('click'); expect(post).toHaveBeenCalledTimes(1); w.unmount()
+  })
+  it.each(['wrong-operation', 'missing-dispatch', 'unconfirmed'])('rejects malformed receipt %s', async kind => {
+    vi.spyOn(agentosApi, 'submitFormalControl').mockImplementation(async (_m, _r, _a, command) => ({
+      operationId: kind === 'wrong-operation' ? 'other' : command.operationId,
+      status: kind === 'unconfirmed' ? 'RUNNING' : 'ACCEPTED', dispatchId: kind === 'missing-dispatch' ? undefined : 'dispatch' }))
+    const w = render(); await execute(w).trigger('click'); await flushPromises()
+    expect(w.emitted('succeeded')).toBeUndefined(); w.unmount()
+  })
+  it('ignores the previous Run response after selection changes', async () => {
+    let finish!: (value: any) => void
+    const post = vi.spyOn(agentosApi, 'submitFormalControl').mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const w = render(); await execute(w).trigger('click')
+    await w.setProps({ runId: 'other', run: { ...permitted(), runId: 'other' } })
+    finish({ operationId: post.mock.calls[0][3].operationId, status: 'ACCEPTED', dispatchId: 'late' })
+    await flushPromises(); expect(w.emitted('succeeded')).toBeUndefined(); w.unmount()
   })
 })

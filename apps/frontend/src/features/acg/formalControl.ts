@@ -4,6 +4,22 @@ import type { FormalAction, FormalCommand } from '@/services/api/agentos/api/c2'
 export const formalActionLabels: Record<FormalAction, string> = {
   materialize: '准备任务图', activate: '激活并保持暂停', handoff: '准备执行交接', permit: '申请执行许可', dispatch: '执行任务'
 }
+
+export interface FormalOperationSuccess {
+  action: FormalAction
+  operationId: string
+  status: string
+  dispatchId?: string
+  missionId: string
+  runId: string
+}
+export const validFormalReceipt = (action: FormalAction, operationId: string,
+  receipt: { operationId: string; status: string; dispatchId?: string }) => {
+  const statuses = { materialize: 'MATERIALIZED_INACTIVE', activate: 'ACTIVATED_PAUSED',
+    handoff: 'STATE_PREPARED', permit: 'ISSUED', dispatch: 'ACCEPTED' }
+  return receipt?.operationId === operationId && [statuses[action], 'IDEMPOTENT_REPLAY'].includes(receipt.status)
+    && (action !== 'dispatch' || typeof receipt.dispatchId === 'string' && receipt.dispatchId.trim().length > 0)
+}
 const positive = (value: unknown): value is number => Number.isInteger(value) && Number(value) > 0
 const reference = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const graphReady = (run: WorkflowRun) => reference(run.formalControl?.graphId) && positive(run.formalControl?.graphVersion)

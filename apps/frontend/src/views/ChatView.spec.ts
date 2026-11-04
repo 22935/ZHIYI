@@ -10,6 +10,7 @@ import AcgRunInspector from '@/components/agentos/AcgRunInspector.vue'
 import GenericArtifactPanel from '@/features/acg/GenericArtifactPanel.vue'
 import ChatView from './ChatView.vue'
 import NativeWorkspacePicker from '@/components/platform/NativeWorkspacePicker.vue'
+import { capabilitiesFixture } from '@/test/fixtures/runCapabilities'
 
 let chatStoreMock: ReturnType<typeof createChatStoreMock>
 
@@ -130,6 +131,7 @@ const mountPage = async (query = '?workspace=agent&contextId=conversation_1'): P
       plugins: [router],
       mocks: { $t: (key: string) => key },
       stubs: {
+        FormalExecutionControls: false,
         PermissionSelector: false,
         AcgRunInspector: { ...AcgRunInspector, name: 'AcgRunInspector', template: '<div />' },
         GenericArtifactPanel: { ...GenericArtifactPanel, name: 'GenericArtifactPanel', template: '<div />' },
@@ -814,5 +816,66 @@ describe('ChatView ACG progress integration', () => {
     expect(agentosApi.getAcgView).toHaveBeenCalledTimes(1)
     wrapper.unmount()
     expect(agentosApi.getWorkflowRun).toHaveBeenCalledTimes(1)
+  })
+
+  const dispatchRun = (): WorkflowRun => ({ ...run(), status: 'pending', runtimeRevision: 7,
+    actionCapabilities: capabilitiesFixture('run_1', 'mission_run_1', 'pending', 7,
+      { canExecuteFormalAction: true, formalActions: ['dispatch'] }),
+    formalControl: { status: 'ACTIVATED', permitStatus: 'ISSUED', permitId: 'permit',
+      dispatchEnabled: true, dispatchEligible: true, graphId: 'graph', graphVersion: 1 } })
+  const dispatchPage = async () => {
+    chatStoreMock.workflowBindings.conversation_1 = [binding('conversation_1', 'run_1')]
+    vi.mocked(agentosApi.getWorkflowRun).mockResolvedValue(dispatchRun())
+    return mountPage('?workspace=chat&contextId=conversation_1&runId=run_1&missionId=mission_run_1')
+  }
+  const clickDispatch = async (wrapper: VueWrapper) => {
+    await wrapper.get('.formal-control__primary').trigger('click'); await flushPromises()
+  }
+  it.each(['pending', 'running'] as const)('does not infer a handoff from Permit/eligibility or status %s', async status => {
+    const page = await dispatchPage()
+    vi.mocked(agentosApi.getWorkflowRun).mockResolvedValue({ ...dispatchRun(), status })
+    await page.wrapper.get('.formal-control header button').trigger('click'); await flushPromises()
+    expect(page.wrapper.text()).not.toContain('是否切换到 Workbench')
+    expect(page.router.currentRoute.value.path).toBe('/chat'); page.wrapper.unmount()
+  })
+  it.each(['ACCEPTED', 'IDEMPOTENT_REPLAY'])('offers an optional verified handoff after %s, once per Dispatch', async status => {
+    const post = vi.spyOn(agentosApi, 'submitFormalControl').mockImplementation(async (_m, _r, _a, command) =>
+      ({ operationId: command.operationId, status, dispatchId: 'dispatch-1' }))
+    const { wrapper, router } = await dispatchPage()
+    await clickDispatch(wrapper)
+    expect(wrapper.text()).toContain('是否切换到 Workbench')
+    expect(router.currentRoute.value.path).toBe('/chat')
+    await wrapper.findAll('button').find(b => b.text() === '稍后')!.trigger('click')
+    expect(router.currentRoute.value.path).toBe('/chat')
+    expect(wrapper.text()).not.toContain('是否切换到 Workbench')
+    wrapper.unmount()
+    const reopened = await dispatchPage(); await clickDispatch(reopened.wrapper)
+    expect(reopened.wrapper.text()).not.toContain('是否切换到 Workbench')
+    expect(post).toHaveBeenCalledTimes(2) // Explicit replay click, never refresh/remount dispatch.
+    expect(post.mock.calls[0][3]).toEqual(post.mock.calls[1][3]); reopened.wrapper.unmount()
+  })
+  it.each([false, true])('validates backend ownership before entering Workbench (wrong owner=%s)', async wrong => {
+    vi.spyOn(agentosApi, 'submitFormalControl').mockImplementation(async (_m, _r, _a, command) =>
+      ({ operationId: command.operationId, status: 'ACCEPTED', dispatchId: 'dispatch-2' }))
+    const { wrapper, router } = await dispatchPage()
+    router.addRoute({ path: '/agentos/missions/:missionId/workspace', component: { template: '<div />' } })
+    chatStoreMock.messages.push({ id: 'kept', role: 'user', content: 'original conversation' })
+    await clickDispatch(wrapper)
+    vi.mocked(agentosApi.getWorkflowRun).mockResolvedValue({ ...dispatchRun(), missionId: wrong ? 'foreign' : 'mission_run_1' })
+    await wrapper.findAll('button').find(b => b.text() === '进入 Workbench')!.trigger('click'); await flushPromises()
+    expect(router.currentRoute.value.path).toBe(wrong ? '/chat' : '/agentos/missions/mission_run_1/workspace')
+    if (wrong) expect(wrapper.text()).toContain('无法验证')
+    else expect(router.currentRoute.value.query.runId).toBe('run_1')
+    expect(chatStoreMock.messages[0].content).toBe('original conversation'); wrapper.unmount()
+  })
+  it('never shows an obsolete Conversation Dispatch receipt in a newly selected Conversation', async () => {
+    let finish!: (value: any) => void
+    const post = vi.spyOn(agentosApi, 'submitFormalControl').mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const { wrapper, router } = await dispatchPage()
+    await wrapper.get('.formal-control__primary').trigger('click')
+    await router.push('/chat?workspace=chat&contextId=conversation_B'); await flushPromises()
+    finish({ operationId: post.mock.calls[0][3].operationId, status: 'ACCEPTED', dispatchId: 'late' }); await flushPromises()
+    expect(wrapper.text()).not.toContain('是否切换到 Workbench')
+    expect(router.currentRoute.value.query.contextId).toBe('conversation_B'); wrapper.unmount()
   })
 })
