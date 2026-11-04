@@ -83,9 +83,15 @@ def main(argv=None):
             upgrade_databases(**paths, initialize_empty=args.initialize_empty)
             receipt["stage"] = "dispatch_upgrade"
             SQLiteExecutionDispatchStore.upgrade_schema(paths["workflow"])
-        receipt["stage"] = "verification"
-        receipt["databases"] = inspect_databases(**paths)
-        receipt["dispatch"] = inspect_dispatch(paths["workflow"])
+            receipt["stage"] = "verification"
+            # Re-verify only after the maintenance writes above: the inspect-only
+            # path has not touched the databases, so its first pass is already
+            # the final verdict and quick_check must not scan every page of the
+            # (multi-GB) databases twice per startup.
+            receipt["databases"] = inspect_databases(**paths)
+            receipt["dispatch"] = inspect_dispatch(paths["workflow"])
+        else:
+            receipt["stage"] = "verification"
         ready = all(item["status"] == "READY" for item in receipt["databases"].values())
         ready = ready and receipt["dispatch"]["status"] == "READY"
         if ready:
