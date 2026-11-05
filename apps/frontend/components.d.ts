@@ -33,6 +33,8 @@ declare module 'vue' {
     BrandLoader: typeof import('./src/components/common/BrandLoader.vue')['default']
     CallResultPanel: typeof import('./src/components/agentos/CallResultPanel.vue')['default']
     CheckpointPanel: typeof import('./src/components/agentos/CheckpointPanel.vue')['default']
+    CompanionDialogue: typeof import('./src/components/companion/CompanionDialogue.vue')['default']
+    CompanionHost: typeof import('./src/components/companion/CompanionHost.vue')['default']
     ConversationExport: typeof import('./src/components/ConversationExport.vue')['default']
     ConversationList: typeof import('./src/components/ConversationList.vue')['default']
     CreateRoleDialog: typeof import('./src/components/CreateRoleDialog.vue')['default']

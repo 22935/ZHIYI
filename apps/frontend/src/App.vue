@@ -10,6 +10,7 @@
       <PublicRouteLayout v-if="isPublicRoute" />
       <AuthenticatedAppShell v-else />
       <ZoomIndicator />
+      <CompanionHost v-if="!isPublicRoute" />
     </div>
   </ErrorBoundary>
 </template>
@@ -24,6 +25,10 @@ import { initUiZoom } from '@ui-zoom'
 
 const AuthenticatedAppShell = defineAsyncComponent(
   () => import('@/components/app/AuthenticatedAppShell.vue')
+)
+// 虚拟伙伴是接入层可拔插能力：只在认证态挂载，公开路由不加载任何会话依赖。
+const CompanionHost = defineAsyncComponent(
+  () => import('@/components/companion/CompanionHost.vue')
 )
 
 const route = useRoute()
