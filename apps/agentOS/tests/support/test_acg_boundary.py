@@ -33,12 +33,11 @@ def test_task_understanding_preserves_detailed_acceptance_criteria() -> None:
 def test_legacy_models_module_is_an_import_only_compatibility_facade() -> None:
     import support.acg.models as facade
     from support.acg.capabilities import CapabilityCatalog
-    from support.acg.legacy.workflow_adapter import promote_workflow_to_acg
     from support.acg.schema import StepNode
 
     assert facade.StepNode is StepNode
     assert facade.CapabilityCatalog is CapabilityCatalog
-    assert facade.promote_workflow_to_acg is promote_workflow_to_acg
+    assert not hasattr(facade, "promote_workflow_to_acg")
 
     tree = ast.parse(Path(facade.__file__).read_text(encoding="utf-8"))
     implementation_nodes = (

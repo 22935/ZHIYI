@@ -73,6 +73,44 @@ class _ToolAgent(BaseAgent):
         return AgentOutput(output=result)
 
 
+def _freeze_single_step_graph(runtime: ExecutionRuntime) -> None:
+    """轻量 workflow 提升通道已删除:夹具显式冻结等价的单节点蓝图。
+
+    任务侧仍提供完整合同(mission 与单节点 TaskPlan),图内容与原提升路径一致。
+    """
+    from components.planner.acg_lowerer import ACGLowerer, ACGLoweringInput, ACGLoweringStep
+    from contracts.planning import PlannedTask, TaskImplementationBinding, TaskPlan
+    from support.acg.planning import ACGResourcePlan, AgentBindingSpec
+    from support.acg.schema import ComplexityLevel
+
+    def build(task, run, workflow):
+        definition = workflow.steps[0]
+        node_id = definition.step_id
+        key = f"step:{node_id}"
+        plan = TaskPlan(
+            missionId=task.mission_id, planVersion=1,
+            nodes=(PlannedTask(key=key, title=definition.name, objective=definition.name),),
+        )
+        lowering = ACGLoweringInput(
+            mission_id=task.mission_id,
+            objective=workflow.name,
+            complexity_level=ComplexityLevel.SIMPLE,
+            task_plan=plan,
+            steps=(ACGLoweringStep(
+                task_key=key, node_id=node_id, name=definition.name,
+                goal=definition.name, metadata={"taskPlanKey": key},
+            ),),
+            implementation_bindings=(TaskImplementationBinding(planNodeKey=key, acgNodeId=node_id),),
+            resource_plan=ACGResourcePlan(bindings=(AgentBindingSpec(
+                stepId=node_id,
+                plannedAgentId=definition.agent_name or node_id,
+            ),)),
+        )
+        return ACGLowerer().lower(lowering), None, ()
+
+    runtime._build_acg_blueprint = build
+
+
 def _runtime(*, agent: BaseAgent, tool_runtime=None) -> ExecutionRuntime:
     """创建一个只包含单个受控 Agent 的最小 ACG 运行时。"""
     agents = AgentRegistry()
@@ -90,12 +128,14 @@ def _runtime(*, agent: BaseAgent, tool_runtime=None) -> ExecutionRuntime:
             outputSpec={"type": "object", "properties": {"answer": {"type": "string"}}},
         )],
     ))
-    return ExecutionRuntime(
+    runtime = ExecutionRuntime(
         agent_registry=agents,
         workflow_registry=workflows,
         workflow_store=MemoryWorkflowStore(),
         tool_runtime=tool_runtime,
     )
+    _freeze_single_step_graph(runtime)
+    return runtime
 
 
 def test_runtime_retries_model_with_the_same_commit_id() -> None:
