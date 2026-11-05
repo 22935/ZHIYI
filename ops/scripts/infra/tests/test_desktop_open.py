@@ -49,7 +49,7 @@ def test_partial_environment_is_never_automatically_restarted(monkeypatch, tmp_p
     snapshot['services']['java']['alive'] = False
     start = Mock()
     monkeypatch.setattr(runtime, 'up', start)
-    with pytest.raises(RuntimeError, match='partially running'):
+    with pytest.raises(RuntimeError, match='partially running; unavailable: java'):
         runtime.open_desktop(tmp_path)
     start.assert_not_called()
 
@@ -59,7 +59,8 @@ def test_closed_shell_reopens_with_same_home_and_without_secrets(monkeypatch, tm
     saved_services = dict(state['processes'])
     monkeypatch.setenv('AI_INTERNAL_TOKEN', 'private-test-value')
     monkeypatch.setenv('ELECTRON_RUN_AS_NODE', '1')
-    monkeypatch.setattr(runtime.native, 'port_free', Mock())
+    release = Mock()
+    monkeypatch.setattr(runtime.native, 'release_port', release)
     monkeypatch.setattr(runtime.desktop_shell, 'desktop_command', Mock(return_value=(['electron'], tmp_path)))
     spawn = Mock(return_value={'pid': 88})
     monkeypatch.setattr(runtime.desktop, 'spawn_app', spawn)
@@ -67,6 +68,7 @@ def test_closed_shell_reopens_with_same_home_and_without_secrets(monkeypatch, tm
     monkeypatch.setattr(runtime.desktop, 'show_desktop', Mock(return_value=[{'visible': True}]))
     monkeypatch.setattr(runtime, 'save', Mock())
     runtime.open_desktop(tmp_path)
+    release.assert_called_once_with(19222)
     args = spawn.call_args.args
     assert args[2] == ['electron', f'--user-data-dir={tmp_path / "electron"}']
     assert 'AI_INTERNAL_TOKEN' not in args[3]

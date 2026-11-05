@@ -72,6 +72,17 @@ Java 18080、Vite 15200；`-Desktop` 使用 Chromium CDP 19222 开发取证端�
 成功 up/status/down 返回 0；DOWN 或初始化/恢复失败返回非零。
 同一 home 的生命周期由 OS 文件锁串行化；已运行时再次 up 会拒绝，不会重复执行或换库。
 
+桌面快捷入口为 `ops/scripts/start-local-desktop.ps1`，会实时输出启动阶段和耗时；
+每次完整启动还会生成 `<home>/logs/<session>/startup-timings.json`。
+PostgreSQL/Redis 同时拉起；Vite 与 Java 在数据库就绪后提前启动。
+AI 同进程预加载经副作用检查的模块，Schema 检查与 PostgreSQL 权威表可用后的授权准备并行；
+两者成功后才通过当前启动专属的 release 文件进入原有 `app.main` 装配和恢复。
+预加载不打开数据库、不创建目录、不取得 Runtime 实例锁、不调用模型或启动后台任务；
+启动器退出、PID 被复用、release 身份不符或超时均拒绝放行。
+Electron 仍须等待 AI、Java、前端代理全部就绪后才打开。
+`open` 遇到部分存活的服务会指出失效服务并退出，使用 `-Recover` 才会重启当前服务栈。
+失败窗口的“按 Enter 关闭”表示启动已失败；自动化调用可加 `-NoPause` 返回实际退出码。
+
 ## 数据和身份
 
 工作区可在 Electron 中随时选择并信任，无需用 `-Workspace` 重建环境或重启服务。

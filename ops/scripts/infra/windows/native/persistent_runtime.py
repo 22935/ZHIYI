@@ -5,6 +5,8 @@ workflow database are installed. init creates identities once; up never rotates 
 """
 import argparse
 import base64
+from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -14,6 +16,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import traceback
 
@@ -25,6 +28,49 @@ import terminal_service
 ROOT = native.ROOT
 PORTS = [15432, 16379, 18761, 18765, 18080, 15200, 18766, 19222]
 FORMAT = 'zhiyi-windows-persistent-v1'
+
+
+class StartupProgress:
+    """Keep CLI stdout machine-readable; report startup stages immediately on stderr."""
+    def __init__(self, path=None):
+        self.path = path
+        self.started = time.monotonic()
+        self.stages = []
+        self._lock = threading.Lock()
+
+    @contextmanager
+    def stage(self, name):
+        started = time.monotonic()
+        record = {'stage': name, 'status': 'RUNNING',
+                  'startedAfterSeconds': round(started - self.started, 3)}
+        with self._lock:
+            self.stages.append(record)
+            self._save()
+        print(f'[startup +{started - self.started:.1f}s] {name}...', file=sys.stderr, flush=True)
+        try:
+            yield
+        except BaseException:
+            with self._lock:
+                record['status'] = 'FAILED'
+            raise
+        else:
+            with self._lock:
+                record['status'] = 'DONE'
+        finally:
+            with self._lock:
+                record['durationSeconds'] = round(time.monotonic() - started, 3)
+                self._save()
+            print(f'[startup] {name}: {record["status"]} ({record["durationSeconds"]:.1f}s)',
+                  file=sys.stderr, flush=True)
+
+    def _save(self):
+        if self.path is not None:
+            try:
+                native.write_json(self.path, {'elapsedSeconds': round(time.monotonic() - self.started, 3),
+                                             'stages': self.stages})
+            except OSError:
+                # Diagnostics must not mask the original startup/cleanup failure.
+                pass
 
 def ports(info):
     return dict(zip(['postgres','redis','ai','host','java','frontend','terminal','debug'], [port+int(info.get('portOffset',0)) for port in PORTS]))
@@ -66,7 +112,13 @@ def manifest(home):
 
 def state_for(home):
     path = home / 'runtime-state.json'
-    return native.read_json(path) if path.exists() else {
+    if path.exists():
+        # backend 权威在 environment.json（manifest）；旧状态文件早于 hands 分支，
+        # 读取时补注，snapshot 才能按后端选对进程/健康端点。
+        state = native.read_json(path)
+        state.setdefault('backend', manifest(home).get('backend','python'))
+        return state
+    return {
         'format': FORMAT, 'runDirectory': str(home), 'aiPort': ports(manifest(home))['ai'] if (home/'environment.json').exists() else 18761,
         'hostPort': ports(manifest(home))['host'] if (home/'environment.json').exists() else 18765, 'processes': {}, 'desktop': False, 'backend': manifest(home).get('backend','python') if (home/'environment.json').exists() else 'python',
     }
@@ -122,13 +174,14 @@ def pg_env(creds):
                 PGPASSWORD=creds['pgadmin'], PGDATABASE='postgres', PGCLIENTENCODING='UTF8')
 
 
-def sql(info, creds, text):
+def sql(info, creds, text, *, timeout=None):
     # psql 的连接类报错跟随 Windows UI 语言输出 GBK（如「psql: 错误: …」）；
     # postgres 就绪轮询会反复捕获这些字节，utf-8 严格解码会让读取线程崩溃。
     # stderr 在失败分支本就不外露，replace 只保证捕获过程自身不炸。
     result = subprocess.run([str(Path(info['postgresBin'])/'psql.exe'), '-X', '-q', '-t', '-A',
                              '-v', 'ON_ERROR_STOP=1'], input=text, text=True, encoding='utf-8', errors='replace',
-                            capture_output=True, env=dict(pg_env(creds),PGPORT=str(ports(info)['postgres'])))
+                            capture_output=True, timeout=timeout,
+                            env=dict(pg_env(creds),PGPORT=str(ports(info)['postgres']),PGCONNECT_TIMEOUT='3'))
     if result.returncode:
         # DDL errors can echo a password literal; never expose that stderr.
         raise RuntimeError('Native PostgreSQL administrative command failed')
@@ -190,7 +243,7 @@ def schema(home, env, first):
             subprocess.run(command, cwd=home, env=env, stdout=log, stderr=log, check=True)
 
 
-def prepare_workspace_grants(home, info, env):
+def prepare_workspace_grants(home, info, env, java=None):
     grants = home/'hands-grants.json'
     dynamic = [g for g in native.read_json(grants).get('grants', []) if g['grantId'].startswith('wgrant_')] if grants.exists() else []
     native.write_json(grants, {'grants':dynamic+[{'grantId':'n01a-grant','workspaceId':'n01a-workspace',
@@ -199,8 +252,15 @@ def prepare_workspace_grants(home, info, env):
     # PostgreSQL is authoritative after crashes too. Missing table is possible
     # only on a first boot, before Java/Flyway; no dynamic grant may survive it.
     import psycopg
-    with psycopg.connect(env['AGENTOS_WORKSPACE_DATABASE_URL']) as connection:
-        exists = connection.execute("SELECT to_regclass('public.local_workspace_authorizations')").fetchone()[0]
+    def authority_table_ready():
+        with psycopg.connect(env['AGENTOS_WORKSPACE_DATABASE_URL'], connect_timeout=5) as connection:
+            return connection.execute("SELECT to_regclass('public.local_workspace_authorizations')").fetchone()[0]
+    if java is not None:
+        # Wait for the actual authority table, not all Spring beans. Flyway
+        # commits its migration before the table is visible. Projection below
+        # still fails closed if the resulting schema/data is incompatible.
+        desktop.wait_until(authority_table_ready, java, 150)
+    exists = authority_table_ready()
     if exists:
         command = [sys.executable, '-c',
             'import os; from app.execution.workspace_authority import WorkspaceAuthority; '
@@ -263,6 +323,7 @@ def up(home, use_desktop):
     session = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')+'-'+secrets.token_hex(2)
     logdir = home/'logs'/session
     logdir.mkdir()
+    progress = StartupProgress(logdir/'startup-timings.json')
     shell = desktop_shell.current_shell()
     state.update(processes={}, desktop=use_desktop, shell=shell, session=session)
     save(home, state)
@@ -270,6 +331,8 @@ def up(home, use_desktop):
     pgdata = home/'postgres'
     passwordfile = home/'temp/pg-init-password'
     authconfig = home/'temp/redis-auth.conf'
+    release_file = home/'temp'/f'ai-start-{session}.ready'
+    release_next = release_file.with_suffix('.next')
     def start(name, command, child_env=env):
         record = native.spawn(home, 'logs/'+session+'/'+name, command, child_env)
         state['processes'][name] = record
@@ -288,14 +351,8 @@ def up(home, use_desktop):
                 file.write(f"\nlisten_addresses='127.0.0.1'\nport={ports(info)['postgres']}\npassword_encryption='scram-sha-256'\n")
         pg = start('postgres', [str(Path(info['postgresBin'])/'postgres.exe'), '-D', str(pgdata)])
         def postgres_ready():
-            try: return sql(info, creds, 'SELECT 1;') == '1'
-            except RuntimeError: return False
-        desktop.wait_until(postgres_ready, pg, 60)
-        if not info['initialized']:
-            if not sql(info, creds, "SELECT 1 FROM pg_roles WHERE rolname='zhiyi_app';"):
-                sql(info, creds, f"CREATE ROLE zhiyi_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '{creds['db']}';")
-            if not sql(info, creds, "SELECT 1 FROM pg_database WHERE datname='zhiyi';"):
-                sql(info, creds, 'CREATE DATABASE zhiyi OWNER zhiyi_app;')
+            try: return sql(info, creds, 'SELECT 1;', timeout=5) == '1'
+            except (RuntimeError, subprocess.TimeoutExpired): return False
         # Configuration carries a DPAPI-decrypted password only during launch.
         # The stable non-secret settings are also recorded for support/backup.
         config = (f"bind 127.0.0.1\nprotected-mode yes\nport {ports(info)['redis']}\n"
@@ -305,36 +362,78 @@ def up(home, use_desktop):
         (home/'redis/settings.conf').write_text(config, encoding='utf-8')
         authconfig.write_text(config+'requirepass '+creds['redis']+'\n', encoding='utf-8')
         redis = start('redis', [info['memurai'], str(authconfig)])
+        # Both database processes are now starting; readiness remains mandatory.
+        with progress.stage('PostgreSQL readiness'):
+            desktop.wait_until(postgres_ready, pg, 60)
+        if not info['initialized']:
+            if not sql(info, creds, "SELECT 1 FROM pg_roles WHERE rolname='zhiyi_app';"):
+                sql(info, creds, f"CREATE ROLE zhiyi_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '{creds['db']}';")
+            if not sql(info, creds, "SELECT 1 FROM pg_database WHERE datname='zhiyi';"):
+                sql(info, creds, 'CREATE DATABASE zhiyi OWNER zhiyi_app;')
         client = redis_client(creds,port=ports(info)['redis'])
-        desktop.wait_until(lambda: client.ping(), redis, 60)
-        client.close()
+        with progress.stage('Redis readiness'):
+            try:
+                desktop.wait_until(lambda: client.ping(), redis, 60)
+            finally:
+                client.close()
         authconfig.unlink()
         # Java needs only PostgreSQL/Redis (both ready above). Spawning it before
         # the SQLite inspection chain lets Spring Boot boot overlap the schema→ai
         # work instead of extending the serial critical path; readiness is still
         # awaited in order below and a failed boot fails startup exactly as before.
-        java = start('java', [shutil.which('java'), '-jar', str(backend_jar)],
-                     java_environment(home, info, creds))
-        schema(home, env, not (home/'data').exists())
-        prepare_workspace_grants(home, info, env)
-        terminal_service.start(home, info, creds, state)
+        front_env = {key:value for key,value in env.items() if key in {
+            'SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','PROGRAMDATA',
+            'TEMP','TMP','NO_PROXY'}}
+        front_env.update(DEV_BACKEND_PROXY_TARGET=f"http://127.0.0.1:{ports(info)['java']}", VITE_API_BASE_URL='')
+        # Vite can prepare its module graph while schema/AI/Java become ready.
+        # Its proxy readiness gate stays below all backend gates; Electron never
+        # opens early. A startup failure still cleans up every recorded child.
+        with progress.stage('Launch Java and frontend'):
+            java = start('java', [shutil.which('java'), '-jar', str(backend_jar)],
+                         java_environment(home, info, creds))
+            vite = start('frontend', [shutil.which('node'), str(ROOT/'apps/frontend/node_modules/vite/bin/vite.js'),
+                                      str(ROOT/'apps/frontend'), '--mode','electron','--host','127.0.0.1','--port',str(ports(info)['frontend'])], front_env)
+        # Preload only audited definitions. app.main (and therefore store/lock
+        # construction and recovery) remains behind the per-launch release file.
+        import psutil
+        owner = native.identity(psutil.Process(os.getpid()))
+        nonce = secrets.token_hex(16)
+        with progress.stage('Launch gated AI preload'):
+            ai = start('ai', [sys.executable, '-m', 'app.native_startup',
+                              '--release-file', str(release_file), '--nonce', nonce,
+                              '--owner-pid', str(owner['pid']), '--owner-created', str(owner['created']),
+                              '--port', str(ports(info)['ai'])])
+
+        def inspect_schema():
+            with progress.stage('Inspect persistent schemas'):
+                schema(home, env, not (home/'data').exists())
+
+        def prepare_grants():
+            with progress.stage('Prepare workspace grants'):
+                prepare_workspace_grants(home, info, env, java)
+
+        # SQLite preparation and PostgreSQL/JSON grant projection use separate
+        # stores. Join both workers before release or cleanup; no worker writes
+        # runtime-state.json and none can outlive the preparation boundary.
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix='native-prepare') as preparation:
+            futures = [preparation.submit(inspect_schema), preparation.submit(prepare_grants)]
+            for future in as_completed(futures):
+                future.result()
+        with progress.stage('Terminal service readiness'):
+            terminal_service.start(home, info, creds, state)
         local_env = dict(env, PYTHONPATH=os.pathsep.join([str(ROOT/'apps/local-runtime'), str(ROOT/'apps/agentOS/src')]))
         if info.get('backend') == 'hands':
             start_hands(home,info,creds,state,env,start)
         else:
             start('host', [sys.executable, '-m', 'runtime.main'], local_env)
-        ai = start('ai', [sys.executable, '-m', 'uvicorn', 'app.main:app', '--host','127.0.0.1',
-                           '--port',str(ports(info)['ai']),'--workers','1'])
-        desktop.wait_until(lambda: native.health(ports(info)['ai'],'/health/ready').get('status') == 'UP', ai, 180)
-        desktop.wait_until(lambda: native.health(ports(info)['java'],'/actuator/health/readiness').get('status') == 'UP', java, 150)
-        front_env = {key:value for key,value in env.items() if key in {
-            'SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','PROGRAMDATA',
-            'TEMP','TMP','NO_PROXY'}}
-        front_env.update(DEV_BACKEND_PROXY_TARGET=f"http://127.0.0.1:{ports(info)['java']}", VITE_API_BASE_URL='')
-        frontend_mode = 'electron'
-        vite = start('frontend', [shutil.which('node'), str(ROOT/'apps/frontend/node_modules/vite/bin/vite.js'),
-                                  str(ROOT/'apps/frontend'), '--mode',frontend_mode,'--host','127.0.0.1','--port',str(ports(info)['frontend'])], front_env)
-        desktop.wait_until(lambda: native.health(ports(info)['frontend'],'/api/health/ready').get('status') == 'UP', vite, 60)
+        with progress.stage('AI service readiness'):
+            release_next.write_text(nonce, encoding='utf-8')
+            release_next.replace(release_file)
+            desktop.wait_until(lambda: native.health(ports(info)['ai'],'/health/ready').get('status') == 'UP', ai, 180)
+        with progress.stage('Java service readiness'):
+            desktop.wait_until(lambda: native.health(ports(info)['java'],'/actuator/health/readiness').get('status') == 'UP', java, 150)
+        with progress.stage('Frontend proxy readiness'):
+            desktop.wait_until(lambda: native.health(ports(info)['frontend'],'/api/health/ready').get('status') == 'UP', vite, 60)
         if use_desktop:
             appenv = desktop_shell.desktop_env(shell, front_env)
             appenv.update(terminal_service.desktop_environment(home, info, creds))
@@ -346,8 +445,9 @@ def up(home, use_desktop):
             record = desktop.spawn_app(home, 'logs/'+session+'/desktop', command, appenv, cwd)
             state['processes']['desktop'] = record
             save(home, state)
-            desktop.wait_until(desktop_shell.ready_check(ports(info)['debug']), record, 240)
-            state['desktopWindows'] = desktop.show_desktop(record, desktop_shell.window_classes(shell))
+            with progress.stage('Electron window readiness'):
+                desktop.wait_until(desktop_shell.ready_check(ports(info)['debug']), record, 240)
+                state['desktopWindows'] = desktop.show_desktop(record, desktop_shell.window_classes(shell))
             save(home, state)
         if not info['initialized']:
             info['initialized'] = True
@@ -379,6 +479,8 @@ def up(home, use_desktop):
                 pass
         raise
     finally:
+        release_file.unlink(missing_ok=True)
+        release_next.unlink(missing_ok=True)
         passwordfile.unlink(missing_ok=True)
         authconfig.unlink(missing_ok=True)
 
@@ -388,12 +490,21 @@ def open_desktop(home):
     info, state = manifest(home), state_for(home)
     if not any(alive(record) for record in state['processes'].values()):
         return up(home, True)
-    current = status(home)
+    with StartupProgress().stage('Check existing services'):
+        current = status(home)
     required = ('postgres', 'redis', 'host', 'ai', 'java', 'frontend')
     if not (all(current['services'].get(name, {}).get('alive') for name in required)
             and current['runtime']['coreReady']
             and all(current.get(name) for name in ('postgresReady', 'redisReady', 'javaReady'))):
-        raise RuntimeError('Local services are only partially running; inspect status/logs before recovery')
+        unavailable = [name for name in required if not current['services'].get(name, {}).get('alive')]
+        unavailable += [name for name, key in [('postgres', 'postgresReady'), ('redis', 'redisReady'), ('java', 'javaReady')]
+                        if not current.get(key) and name not in unavailable]
+        if not current['runtime']['coreReady']:
+            unavailable += [name for name in ('host', 'ai')
+                            if current['runtime'].get('services', {}).get(name, {}).get('status') != 'PASS'
+                            and name not in unavailable]
+        raise RuntimeError('Local services are only partially running; unavailable: '
+                           + ', '.join(unavailable) + '; inspect status/logs before recovery')
     shell = desktop_shell.current_shell()
     terminal = state['processes'].get('terminal')
     if not terminal or not alive(terminal):
@@ -432,13 +543,25 @@ def status(home):
         result['services'][name] = {'alive':alive(record) is not None, 'process':record}
     try:
         creds = native.credentials(home)
-        result['postgresReady'] = sql(info, creds, 'SELECT 1;') == '1'
-        client = redis_client(creds,port=ports(info)['redis'])
-        result['redisReady'] = client.ping()
-        client.close()
-        result['javaReady'] = native.health(ports(info)['java'],'/actuator/health/readiness')['status'] == 'UP'
     except Exception:
         result.update(postgresReady=False, redisReady=False, javaReady=False)
+    else:
+        def redis_ready():
+            client = redis_client(creds, port=ports(info)['redis'])
+            try:
+                return client.ping()
+            finally:
+                client.close()
+        # One dead backend must not falsely mark healthy PostgreSQL/Redis DOWN.
+        for name, key, check in [
+            ('postgres', 'postgresReady', lambda: sql(info, creds, 'SELECT 1;', timeout=5) == '1'),
+            ('redis', 'redisReady', redis_ready),
+            ('java', 'javaReady', lambda: native.health(ports(info)['java'], '/actuator/health/readiness')['status'] == 'UP'),
+        ]:
+            try:
+                result[key] = bool(result['services'].get(name, {}).get('alive') and check())
+            except Exception:
+                result[key] = False
     result['status'] = 'UP' if result['services'] and all(x['alive'] for x in result['services'].values()) and result['runtime']['coreReady'] and all(result.get(x) for x in ['postgresReady','redisReady','javaReady']) else 'DOWN'
     return result
 
@@ -449,21 +572,29 @@ def down(home):
     # Exact stale identities are never signalled; occupied ports still fail below.
     records = {name:record for name,record in state['processes'].items() if alive(record)}
     stop_modes = {}
-    for name,record in reversed(list(records.items())):
-        if name == 'desktop':
-            desktop.close_desktop(record, desktop_shell.window_classes(state.get('shell','electron')))
-            stop_modes[name] = native.stop(record) or 'window-closed'
-        elif name == 'postgres':
-            subprocess.run([str(Path(info['postgresBin'])/'pg_ctl.exe'), '-D', str(home/'postgres'),
-                            'stop','-m','fast','-w','-t','45'], check=True, capture_output=True)
-            stop_modes[name] = 'pg_ctl'
-        elif name == 'redis':
-            with redis_client(creds,port=ports(info)['redis']) as client: client.shutdown(save=True)
-            parent = alive(record)
-            if parent: parent.wait(20)
-            stop_modes[name] = 'shutdown'
-        else:
-            stop_modes[name] = native.stop(record) or 'already-exited'
+    # Startup is now parallel: insertion order no longer describes dependencies.
+    # Runtime cleanup may still use Host/terminal, so stop AI before its providers.
+    stop_order = ('desktop', 'frontend', 'ai', 'host', 'terminal', 'java', 'redis', 'postgres')
+    ordered = [name for name in reversed(records) if name not in stop_order]
+    ordered += [name for name in stop_order if name in records]
+    progress = StartupProgress()
+    for name in ordered:
+        record = records[name]
+        with progress.stage('Stop ' + name):
+            if name == 'desktop':
+                desktop.close_desktop(record, desktop_shell.window_classes(state.get('shell','electron')))
+                stop_modes[name] = native.stop(record) or 'window-closed'
+            elif name == 'postgres':
+                subprocess.run([str(Path(info['postgresBin'])/'pg_ctl.exe'), '-D', str(home/'postgres'),
+                                'stop','-m','fast','-w','-t','45'], check=True, capture_output=True)
+                stop_modes[name] = 'pg_ctl'
+            elif name == 'redis':
+                with redis_client(creds,port=ports(info)['redis']) as client: client.shutdown(save=True)
+                parent = alive(record)
+                if parent: parent.wait(20)
+                stop_modes[name] = 'shutdown'
+            else:
+                stop_modes[name] = native.stop(record) or 'already-exited'
     for port in list(ports(info).values()) if state.get('desktop') else list(ports(info).values())[:-1]: native.port_free(port)
     cleaned = dict(state, processes=records)
     # This keeps the existing Windows workflow lock and exclusive-handle checks.
@@ -565,6 +696,7 @@ def main():
     validate_home(home)
     if not home.exists() and args.action in {'init','restore'}: home.mkdir(parents=True)
     if not home.is_dir(): raise RuntimeError('Initialize this persistent home first')
+    print(f'[startup] {args.action}: checking environment and lifecycle lock', file=sys.stderr, flush=True)
     control = home.with_name('.'+home.name+'-control')
     control.mkdir(exist_ok=True)
     with native.control_lock(control):
@@ -574,7 +706,8 @@ def main():
         elif args.action == 'down': result = down(home)
         elif args.action == 'status': result = status(home)
         elif args.action == 'recover':
-            down(home)
+            with StartupProgress().stage('Stop recorded services for recovery'):
+                down(home)
             result = up(home,args.desktop)
         elif args.action == 'backup': result = backup(home,args.snapshot)
         else: result = restore(home,args.snapshot)
