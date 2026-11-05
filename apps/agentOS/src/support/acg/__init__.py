@@ -2,7 +2,6 @@
 
 from .capabilities import CapabilityCatalog, CapabilityPromptProfile, PlanningCapabilityDescriptor
 from .graph import ready_steps
-from .legacy.workflow_adapter import promote_workflow_to_acg
 from .native_capabilities import build_default_capability_catalog
 from .planning import (
     ACGResourcePlan, AgentBindingSpec, CommunicationSpec, EvidenceSpec,
@@ -60,7 +59,6 @@ __all__ = [
     "TaskSemanticProfile",
     "build_default_capability_catalog",
     "parse_node",
-    "promote_workflow_to_acg",
     "ready_steps",
     "validate_blueprint",
 ]
