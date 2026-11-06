@@ -32,6 +32,36 @@ class ChatStreamPersistenceServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void modelHistoryExcludesOnlyTheSavedCurrentMessageAndKeepsRepeatedPriorText() {
+        UUID userId = UUID.randomUUID(), conversationId = UUID.randomUUID();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(userId, null, List.of()));
+        var conversations = mock(ConversationRepository.class);
+        var messages = mock(MessageRepository.class);
+        var conversation = new Conversation();
+        conversation.setId(conversationId); conversation.setContextId("ctx-compact");
+        conversation.setUserId(userId); conversation.setWorkspaceMode("chat");
+        when(conversations.findByContextId("ctx-compact")).thenReturn(Optional.of(conversation));
+        Message earlier = new Message(); earlier.setId(UUID.randomUUID());
+        earlier.setRole(Message.MessageRole.USER); earlier.setContent("continue");
+        Message answer = new Message(); answer.setId(UUID.randomUUID());
+        answer.setRole(Message.MessageRole.ASSISTANT); answer.setContent("previous answer");
+        java.util.ArrayList<Message> database = new java.util.ArrayList<>(List.of(earlier, answer));
+        when(messages.save(any(Message.class))).thenAnswer(invocation -> {
+            Message saved = invocation.getArgument(0); saved.setId(UUID.randomUUID()); database.add(saved); return saved;
+        });
+        when(messages.findByConversationIdOrderByCreatedAtAsc(conversationId)).thenAnswer(invocation -> database);
+        var prepared = new ChatStreamPersistenceService(conversations, messages, new ObjectMapper())
+                .prepare(Map.of("text", "continue", "context_id", "ctx-compact"));
+        var context = (List<Map<String, String>>) prepared.body().get("context");
+        assertEquals(List.of(Map.of("role", "user", "content", "continue"),
+                             Map.of("role", "assistant", "content", "previous answer")), context);
+        assertEquals(3, database.size()); // Original persistence still stores this request once.
+        assertEquals("continue", prepared.body().get("text")); // Python alone appends this turn.
+    }
+
+    @Test
     void doesNotReuseAStreamConversationFromAnotherWorkspace() {
         UUID userId = UUID.randomUUID();
         SecurityContextHolder.getContext().setAuthentication(

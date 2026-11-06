@@ -53,7 +53,7 @@ public class ChatStreamPersistenceService {
 
         body.put("context_id", conversation.getContextId());
         if (!(body.get("context") instanceof List<?>)) {
-            body.put("context", buildContext(conversation.getId()));
+            body.put("context", buildContext(conversation.getId(), userMessage));
         }
         return new PreparedStream(conversation.getId(), conversation.getContextId(), body);
     }
@@ -106,8 +106,12 @@ public class ChatStreamPersistenceService {
         return "agent".equalsIgnoreCase(stringValue(value)) ? "agent" : "chat";
     }
 
-    private List<Map<String, String>> buildContext(UUID conversationId) {
+    private List<Map<String, String>> buildContext(UUID conversationId, Message currentMessage) {
         return messageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId).stream()
+                // The current turn is persisted above; Python appends text exactly once.
+                // Compare identity/ID, never content: repeated user text is legitimate history.
+                .filter(message -> message != currentMessage
+                        && (currentMessage.getId() == null || !currentMessage.getId().equals(message.getId())))
                 .filter(message -> !isUnfinishedReply(message))
                 .filter(message -> message.getContent() != null && !message.getContent().isBlank())
                 .map(message -> Map.of(
