@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     PROVIDER_STATE_REDIS_URL: str = "redis://127.0.0.1:16379/2"
     PROVIDER_STATE_TTL_SECONDS: int = 3600
     REDIS_PASSWORD: str = ""
+    # OScode only. ACG never opts into this model-input projection.
+    OSCODE_CONTEXT_COMPACTION_ENABLED: bool = False
+    # Exact keys: "https://provider.example/v1::model-id"; no global guessed window.
+    OSCODE_CONTEXT_COMPACTION_MODELS: dict = {}
+    OSCODE_CONTEXT_COMPACTION_NODE: str = ""
     TOOL_RUNTIME_ENABLED: bool = True
     TAVILY_API_KEY: str = ""
     TOOL_MAX_TURNS: int = 6

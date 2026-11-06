@@ -643,6 +643,16 @@ class AgentsToolRuntime:
         messages.append({"role": "user", "content": text})
         return messages
 
+    @staticmethod
+    def _compaction_options(*, enabled, agent, context, model, base_url, api_key) -> dict:
+        if not enabled:
+            return {}
+        from app.context_compaction.runtime import build_input_filter
+        return {"call_model_input_filter": build_input_filter(
+            agent=agent, context_id=context.session_id, model=model,
+            base_url=base_url, api_key=api_key,
+            model_policies=settings.OSCODE_CONTEXT_COMPACTION_MODELS)}
+
     async def run(
         self,
         text: str,
@@ -657,6 +667,7 @@ class AgentsToolRuntime:
         parameters: dict[str, Any] | None = None,
         session_id: str | None = None,
         approval_mode: ChatApprovalMode = "ask",
+        oscode_context_compaction: bool = False,
     ) -> ToolRunResult:
         if not model and not base_url and not api_key:
             model, base_url, api_key = resolve_system_runtime_config()
@@ -675,7 +686,11 @@ class AgentsToolRuntime:
             thinking_mode=thinking_mode,
             parameters=parameters,
         )
+        compaction_options = {}
         try:
+            compaction_options = self._compaction_options(
+                enabled=oscode_context_compaction, agent=agent, context=context,
+                model=str(metadata.get("effectiveModel") or model), base_url=base_url, api_key=api_key)
             result = await Runner.run(
                 agent,
                 self._input(text, history),
@@ -685,6 +700,7 @@ class AgentsToolRuntime:
                     tracing_disabled=True,
                     trace_include_sensitive_data=False,
                     workflow_name="Kinlin read-only tools",
+                    **compaction_options,
                 ),
             )
             usage = _usage_dict(result.context_wrapper.usage)
@@ -697,6 +713,9 @@ class AgentsToolRuntime:
                 toolExecutions=context.records,
             )
         finally:
+            projection = compaction_options.get("call_model_input_filter")
+            if projection is not None:
+                await projection.close()
             await client.close()
 
     async def stream(
@@ -713,6 +732,7 @@ class AgentsToolRuntime:
         parameters: dict[str, Any] | None = None,
         session_id: str | None = None,
         approval_mode: ChatApprovalMode = "ask",
+        oscode_context_compaction: bool = False,
     ) -> AsyncIterator[ChatStreamEvent]:
         if not model and not base_url and not api_key:
             model, base_url, api_key = resolve_system_runtime_config()
@@ -740,6 +760,14 @@ class AgentsToolRuntime:
         )
         sequence = 0
         emitted_content = False
+        compaction_options = {}
+        try:
+            compaction_options = self._compaction_options(
+                enabled=oscode_context_compaction, agent=agent, context=context,
+                model=str(metadata.get("effectiveModel") or model), base_url=base_url, api_key=api_key)
+        except Exception:
+            await client.close()
+            raise
         result = Runner.run_streamed(
             agent,
             self._input(text, history),
@@ -749,6 +777,7 @@ class AgentsToolRuntime:
                 tracing_disabled=True,
                 trace_include_sensitive_data=False,
                 workflow_name="Kinlin read-only tools stream",
+                **compaction_options,
             ),
         )
         stream_iterator = result.stream_events().__aiter__()

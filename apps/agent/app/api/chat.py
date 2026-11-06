@@ -161,6 +161,7 @@ async def chat_text(request: ChatRequest):
         parameters=request.provider_parameters(),
         session_id=session_id,
         approval_mode=request.approval_mode,
+        **({"oscode_context_compaction": True} if settings.OSCODE_CONTEXT_COMPACTION_ENABLED else {}),
     )
     usage = response.usage
     tool_executions = [item.public_dict() for item in response.tool_executions]
@@ -316,6 +317,7 @@ async def chat_text_stream(chat_request: ChatRequest, http_request: Request):
             request_id=request_id,
             session_id=session_id,
             approval_mode=chat_request.approval_mode,
+            **({"oscode_context_compaction": True} if settings.OSCODE_CONTEXT_COMPACTION_ENABLED else {}),
         )
         async for event in _stream_sse_events(
                 chunks,
