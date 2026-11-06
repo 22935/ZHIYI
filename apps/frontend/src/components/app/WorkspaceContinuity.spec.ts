@@ -255,13 +255,29 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     expect(instance.activeEditorId).toBe('graph')
   })
 
-  it('05C-R1: real Chat progress and summary share one completed lifecycle despite running Progress', async () => {
-    vi.mocked(workflowApi.getWorkflowProgress).mockImplementation(async runId => ({missionId:'mission',runId,status:'running',phase:'executing',message:'old running',percent:50} as any))
+  it('05C-R2: real Chat components quarantine conflicting Progress counters under a completed Run', async () => {
+    vi.mocked(agentosApi.getWorkflowRun).mockImplementation(async runId => ({
+      runId, missionId:'mission', workflowId:'workflow', status:'completed', runtimeRevision:4,
+      steps:[], input:{}, output:{}, trace:[], checkpoints:[]
+    } as any))
+    vi.mocked(workflowApi.getWorkflowProgress).mockImplementation(async runId => ({
+      missionId:'mission', runId, status:'running', phase:'executing', message:'old running',
+      runtimeRevision:4, percent:50, totalSteps:7, completedSteps:3, activeStepIds:['stale-step']
+    } as any))
     const {chat}=await mountShell(undefined,'ctx',true)
     expect(wrapper!.get('.workflow-progress__phase').text()).toBe('已完成')
     expect(wrapper!.get('.agentos-run-summary .status').text()).toBe('已完成')
     expect(wrapper!.get('.workflow-progress').classes()).toContain('phase-completed')
-    expect(wrapper!.get('.workflow-progress__message').text()).not.toBe('old running')
+    expect(wrapper!.get('.workflow-progress__message').text()).toBe('已完成')
+    expect(wrapper!.get('.workflow-progress__metrics').text()).toContain('进度观测待核对')
+    expect(wrapper!.get('.workflow-progress__metrics').text()).toContain('当前活动 —')
+    expect(wrapper!.get('.workflow-progress__track').classes()).toContain('is-indeterminate')
+    expect(wrapper!.get('.workflow-progress__track').attributes('aria-valuenow')).toBeUndefined()
+    expect(wrapper!.find('.workflow-progress__percent').exists()).toBe(false)
+    expect(wrapper!.get('.agentos-run-summary').text()).toContain('Progress 观测与 Run 状态冲突，已隔离待核对。')
+    const summaryValues = wrapper!.findAll('.agentos-run-summary .summary-grid > div').map(item => item.get('b').text())
+    expect(summaryValues.slice(1,6)).toEqual(['—','—','—','—','—'])
+    expect(wrapper!.text()).not.toContain('old running')
     expect(chat.messages[0].content).toBe('original')
   })
 
@@ -342,8 +358,7 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     const cursor = workbench.activeEditorStatus.cursor
     workbench.openEntry(graphEntry); await settle()
     await wrapper!.get('.zoom').trigger('click'); await wrapper!.get('.pick-task').trigger('click')
-    const auxiliary = wrapper!.findAll('.editor-auxiliary-trigger').find(item => item.attributes('title').includes('文件'))!
-    await auxiliary.trigger('click')
+    await wrapper!.get('[aria-label="文件"]').trigger('click')
     if (workbench.panelTabs.length > 1) workbench.panelActiveTab = workbench.panelTabs[1].id
     layout.handleResizeKeydown('left', new KeyboardEvent('keydown', { key: 'ArrowRight' }))
     layout.handleResizeKeydown('right', new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
@@ -564,7 +579,7 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     expect((wrapper!.get('.composer-card textarea').element as HTMLTextAreaElement).value).toBe('')
   })
 
-  it.each([false, true])('R1: a late Agent launch stays with A when B was preloaded=%s', async preloaded => {
+  it.each([false, true])('R1: a late explicit Workflow launch stays with A when B was preloaded=%s', async preloaded => {
     vi.mocked(agentosApi.getWorkflowRun).mockImplementation(async runId => ({
       runId, missionId: 'mission', status: 'completed', steps: [], input: {}, output: {}, trace: [], checkpoints: []
     } as any))
@@ -574,9 +589,10 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     chat.addWorkflowBinding({ ...binding('B'), conversationAliases: [], runId: 'run-B', acgTaskId: 'run-B' })
     const original = wrapper!.findComponent(ChatView).vm.$.uid
     await wrapper!.get('.composer-card textarea').setValue('A submitted objective')
-    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    // Legacy in-flight Workflow recovery is explicit; OScode Send always streams Chat.
+    void (wrapper!.findComponent(ChatView).vm as any).upgradeChatToWorkflow(); await settle()
     expect(create).toHaveBeenCalledTimes(1)
-    expect(create.mock.calls[0][0].input).toMatchObject({ conversationId: 'A', source: 'agent' })
+    expect(create.mock.calls[0][0].input).toMatchObject({ conversationId: 'A', source: 'chat' })
     expect(chat.getLatestWorkflowBinding('A')?.runId).toBe('run')
     if (preloaded) await chat.loadHistory('B')
     await router.push('/chat?workspace=agent&contextId=B&runId=run-B'); await settle()
@@ -613,7 +629,8 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     const create = vi.spyOn(workflowApi, 'startWorkflowAsync').mockReturnValue(launch.promise)
     const { chat, router } = await mountShell('/chat?workspace=agent&contextId=A', 'A')
     await wrapper!.get('.composer-card textarea').setValue('A failed objective')
-    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    // Legacy in-flight Workflow recovery is explicit; OScode Send always streams Chat.
+    void (wrapper!.findComponent(ChatView).vm as any).upgradeChatToWorkflow(); await settle()
     expect(create).toHaveBeenCalledTimes(1)
     if (preloaded) await chat.loadHistory('B')
     await router.push('/chat?workspace=agent&contextId=B'); await settle()
@@ -637,19 +654,21 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
       request.input?.conversationId === 'A' ? a.promise : b.promise)
     const { chat, router } = await mountShell('/chat?workspace=agent&contextId=A', 'A')
     await wrapper!.get('.composer-card textarea').setValue('A objective')
-    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    // Legacy in-flight Workflow recovery is explicit; OScode Send always streams Chat.
+    void (wrapper!.findComponent(ChatView).vm as any).upgradeChatToWorkflow(); await settle()
     await chat.loadHistory('B')
     await router.push('/chat?workspace=agent&contextId=B'); await settle()
     const visible = wrapper!.findComponent(ChatView).vm as any
     await wrapper!.get('.composer-card textarea').setValue('B objective')
-    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    // Legacy in-flight Workflow recovery is explicit; OScode Send always streams Chat.
+    void (wrapper!.findComponent(ChatView).vm as any).upgradeChatToWorkflow(); await settle()
     try {
       expect(create).toHaveBeenCalledTimes(2)
-      expect(visible.loading).toBe(true); expect(visible.isSubmittingWorkflow).toBe(true)
+      expect(visible.loading).toBe(false); expect(visible.isSubmittingWorkflow).toBe(true)
       if (outcome === 'success') a.resolve({ runId: 'late-A', missionId: 'mission', status: 'running' })
       else a.reject(new Error('A failed'))
       await settle()
-      expect(visible.loading).toBe(true); expect(visible.isSubmittingWorkflow).toBe(true)
+      expect(visible.loading).toBe(false); expect(visible.isSubmittingWorkflow).toBe(true)
       expect(visible.workflowStartError).toBeNull(); expect(visible.inputText).toBe('')
       expect(router.currentRoute.value.query).toEqual({ workspace: 'agent', contextId: 'B' })
       expect(chat.pendingMissionLaunch('B')?.commandSnapshot.semantics?.objective).toBe('B objective')
@@ -671,7 +690,8 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     const { chat, router } = await mountShell('/chat?workspace=agent&contextId=A', 'A')
     chat.addWorkflowBinding({ ...binding('B'), conversationAliases: [], runId: 'run-B', acgTaskId: 'run-B' })
     await wrapper!.get('.composer-card textarea').setValue('A uncertain objective')
-    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    // Legacy in-flight Workflow recovery is explicit; OScode Send always streams Chat.
+    void (wrapper!.findComponent(ChatView).vm as any).upgradeChatToWorkflow(); await settle()
     const operationId = chat.pendingMissionLaunch('A')!.operationId
     const original = wrapper!.findComponent(ChatView).vm.$.uid
     await wrapper!.findAll('button').find(button => button.text() === '核对并恢复原提交')!.trigger('click')
@@ -711,7 +731,8 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     const uid = wrapper!.findComponent(ChatView).vm.$.uid
     expect(chat.getLatestWorkflowBinding('draft:original')?.conversationId).toBe('ctx')
     await wrapper!.get('.composer-card textarea').setValue('canonical Conversation objective')
-    await wrapper!.get('.composer-send').trigger('click'); await settle()
+    // Legacy in-flight Workflow recovery is explicit; OScode Send always streams Chat.
+    void (wrapper!.findComponent(ChatView).vm as any).upgradeChatToWorkflow(); await settle()
     await toWorkbench()
     launch.resolve({ runId: 'hidden-created', missionId: 'mission', status: 'running' }); await settle()
     expect(router.currentRoute.value.query.runId).toBe('run')

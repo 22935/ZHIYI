@@ -16,7 +16,6 @@ from time import monotonic
 from typing import Any, Callable, Mapping, Optional
 
 from service.agents import AgentRegistry
-from support.acg.legacy.workflow_adapter import promote_workflow_to_acg
 from support.acg.schema import RuntimeBlueprintSpec
 from support.async_tasks import run_blocking
 from components.auditor.governance.evaluation import WorkflowEvaluator
@@ -1608,9 +1607,10 @@ class ExecutionRuntime(CollaboratorAccess):
         """Resolve one complete ACG production package.
 
         Identity-enabled production accepts either an explicit Blueprint plus
-        TaskPlan/bindings, or Planner output. The final workflow promotion branch
-        is reserved for the identity-free Execution Runtime execution-kernel harness and does
-        not manufacture semantic identities from WorkflowStep definitions.
+        TaskPlan/bindings, or Planner output. The legacy workflow promotion
+        branch (mechanical WorkflowStep-to-ACG translation without identities)
+        has been removed: identity-free harnesses must supply an explicit
+        package or run through the planner.
         """
         provided = run.input.get("acgBlueprint") or (run.acg_blueprint if run.acg_blueprint else None)
         if isinstance(provided, dict) and provided.get("nodes"):
@@ -1782,8 +1782,11 @@ class ExecutionRuntime(CollaboratorAccess):
                 blueprint.metadata["reviewCapability"] = workflow.review_capability
             return blueprint, plan.task_plan, plan.task_bindings
 
-        blueprint = promote_workflow_to_acg(workflow, mission_id=task.mission_id)
-        return blueprint, None, ()
+        raise ValueError(
+            "workflow step promotion was removed: identity-free runs must provide "
+            "an explicit acgBlueprint with taskPlan and taskBindings, or run "
+            "through the planner"
+        )
 
     def _existing_semantic_task_catalog(self, mission_id: str) -> tuple[dict[str, str], ...]:
         """Read the latest V2 planning snapshot as a stable-key catalog.

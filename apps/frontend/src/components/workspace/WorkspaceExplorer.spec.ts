@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import WorkspaceExplorer from './WorkspaceExplorer.vue'
-import type { MissionWorkspaceProjection } from '@/services/api/agentos'
+import type { MissionWorkspaceProjection, WorkspaceEntry } from '@/services/api/agentos'
 
 const projection = (): MissionWorkspaceProjection => ({
   mission: { missionId: 'mission_1', userId: 'user_1', goal: '设备人员规划', description: '', metadata: {}, createdAt: '2026-08-28T00:00:00Z', updatedAt: '2026-08-28T00:00:00Z', status: 'created' },
@@ -76,5 +76,70 @@ describe('WorkspaceExplorer', () => {
     const wrapper = mountExplorer({ diagnostics: [{ code: 'PLAN_SNAPSHOT_UNRESOLVED', message: '历史结构不可确定', severity: 'warning' }] })
     expect(wrapper.find('.workspace-explorer__diagnostics').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('PLAN_SNAPSHOT_UNRESOLVED')
+  })
+})
+
+describe('WorkspaceExplorer drag ordering', () => {
+  const ORDER_KEY = 'zhiyi.mission.workspace.explorer.order.v1'
+  const readOrderStore = () => JSON.parse(localStorage.getItem(ORDER_KEY) || '{}')
+  const stepRows = (wrapper: ReturnType<typeof mountExplorer>) => (
+    wrapper.findAll('.workspace-tree__section').find(section => section.text().includes('TASKS'))!
+      .findAll('.workspace-tree__entry')
+  )
+  const dragTaskRow = (id: string, displayOrder: number): WorkspaceEntry => ({
+    entryId: id, kind: 'task', name: id.replace('task:', ''), group: 'steps', displayOrder,
+    semanticTaskKey: id.replace('task:', ''), status: 'completed', identityQuality: 'canonical'
+  })
+  const mountDragExplorer = (extraTasks: WorkspaceEntry[] = []) => mountExplorer({
+    entries: [
+      ...projection().entries.filter(entry => entry.group !== 'steps'),
+      dragTaskRow('task:a', 0),
+      dragTaskRow('task:b', 1),
+      dragTaskRow('task:c', 2),
+      ...extraTasks
+    ]
+  })
+
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('reorders task rows by dragging and persists the visual snapshot for the mission+run', async () => {
+    const wrapper = mountDragExplorer()
+    const rows = () => stepRows(wrapper)
+    expect(rows().map(row => row.attributes('title'))).toEqual(['a', 'b', 'c'])
+    expect(rows().map(row => row.find('.workspace-tree__order').text())).toEqual(['01', '02', '03'])
+
+    await rows()[0].trigger('dragstart')
+    // jsdom 矩形为 0×0 且合成事件不带坐标：显式传 clientY=0，落点=中点 → 判「插到目标行之后」。
+    await rows()[2].trigger('dragover', { clientY: 0 })
+    await rows()[2].trigger('drop')
+    expect(rows().map(row => row.attributes('title'))).toEqual(['b', 'c', 'a'])
+    // 徽标跟随视觉顺序重编号，而不是后端 displayOrder。
+    expect(rows().map(row => row.find('.workspace-tree__order').text())).toEqual(['01', '02', '03'])
+    expect(readOrderStore().stepsOrders['mission_1|run_2']).toEqual(['task:b', 'task:c', 'task:a'])
+  })
+
+  it('restores the persisted order on remount and appends unseen tasks by displayOrder', async () => {
+    localStorage.setItem(ORDER_KEY, JSON.stringify({ stepsOrders: { 'mission_1|run_2': ['task:c', 'task:a'] } }))
+    const wrapper = mountDragExplorer([dragTaskRow('task:d', 3)])
+    expect(stepRows(wrapper).map(row => row.attributes('title'))).toEqual(['c', 'a', 'b', 'd'])
+    expect(stepRows(wrapper).map(row => row.find('.workspace-tree__order').text())).toEqual(['01', '02', '03', '04'])
+  })
+
+  it('reorders sections by dragging their headers and persists the global order', async () => {
+    const wrapper = mountExplorer()
+    const headerTexts = () => wrapper.findAll('.workspace-tree__section-toggle').map(header => header.text())
+    expect(headerTexts()[0]).toContain('EXPLORER')
+
+    const headers = wrapper.findAll('.workspace-tree__section-toggle')
+    await headers[0].trigger('dragstart')
+    await headers[3].trigger('dragover', { clientY: 0 })
+    await headers[3].trigger('drop')
+
+    expect(headerTexts()[0]).toContain('RUNS')
+    expect(headerTexts()[1]).toContain('TASKS')
+    expect(headerTexts()[2]).toContain('ARTIFACTS')
+    expect(headerTexts()[3]).toContain('EXPLORER')
+    expect(readOrderStore().sectionOrder).toEqual(['runs', 'steps', 'output', 'overview'])
   })
 })

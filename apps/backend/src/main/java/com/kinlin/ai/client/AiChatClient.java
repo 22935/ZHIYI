@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * What the Java platform needs from the Python conversational AI capability.
  *
- * <p>Covers text chat and voice-initiated chat (the {@code /ai/chat/**} family).
+ * <p>Covers text chat (the {@code /ai/chat/**} family).
  * Implementations own endpoint paths, serialization, timeouts and transport error
  * classification; callers only see {@link com.kinlin.ai.dto.ChatResponse} or a
  * {@link PlatformAiClientException}.</p>
@@ -16,9 +16,6 @@ import java.util.Map;
 public interface AiChatClient {
 
     ChatResponse sendText(AiChatCommand command);
-
-    /** One-shot voice recognition + reply generation; Python answers with the full chat response. */
-    ChatResponse sendVoiceMessage(byte[] audioData, String roleId);
 
     /**
      * Text chat invocation with optional runtime model overrides. Null/blank optional

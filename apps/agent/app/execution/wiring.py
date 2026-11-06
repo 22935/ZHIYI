@@ -13,7 +13,6 @@ from typing import Any, Mapping
 
 from adapters.model.native import register_native_runtime
 from adapters.local_runtime import LocalRuntimeClient
-from adapters.local_runtime_http import HttpLocalRuntimeTransport
 from components.auditor.decision_store import SQLiteDecisionStore
 from components.communicator.provenance_store import SQLiteProvenanceStore
 from components.executor.value_store import SQLiteExecutionValueStore
@@ -573,11 +572,9 @@ def _assemble_default_runtime(
         registered_local_runtime = ensure_local_runtime_resource(
             resource_plane, local_runtime_config
         )
-        transport_class = HttpLocalRuntimeTransport
-        if env.get('AGENTOS_EXECUTION_BACKEND') == 'hands':
-            from adapters.hands_http import HandsHttpTransport
-            transport_class = HandsHttpTransport
-        local_runtime_transport = transport_class(
+        # hands 是唯一执行后端（DSH 基座）；Local Runtime 仅作为协议/合同层保留。
+        from adapters.hands_http import HandsHttpTransport
+        local_runtime_transport = HandsHttpTransport(
             resource_id=registered_local_runtime.profile.runtime_id,
             address=registered_local_runtime.profile.endpoint.address,
             credential_provider=resource_plane,
@@ -603,9 +600,9 @@ def _assemble_default_runtime(
     if env.get('AGENTOS_WORKSPACE_DATABASE_URL'):
         from app.execution.workspace_authority import WorkspaceAuthority
         runtime.workspace_authority = WorkspaceAuthority(env, runtime.local_runtime_resource.profile.runtime_id)
-    if env.get('AGENTOS_EXECUTION_BACKEND') == 'hands':
-        from app.tools.formal_workspace import FormalWorkspaceTools
-        runtime.tool_runtime = FormalWorkspaceTools(runtime, runtime.tool_runtime)
+    # hands 唯一后端：mission 链工具恒走正式五步（收据闭环）。
+    from app.tools.formal_workspace import FormalWorkspaceTools
+    runtime.tool_runtime = FormalWorkspaceTools(runtime, runtime.tool_runtime)
     register_native_runtime(agent_registry=runtime.agent_registry, workflow_registry=runtime.workflow_registry)
     runtime.plugin_manifests = register_installed_packs(
         agent_registry=runtime.agent_registry,

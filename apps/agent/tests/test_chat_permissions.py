@@ -370,3 +370,72 @@ def test_runtime_stream_emits_approval_events_while_original_tool_waits(monkeypa
         assert executor.calls == [("write_file", {"path": "stream.txt", "content": "A"}, "call-stream")]
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("mode,tool,expects_approval", [
+    ("ask", "write_file", True), ("auto", "write_file", False),
+    ("auto", "run_command", True), ("full", "write_file", False),
+    ("full", "run_command", False),
+])
+def test_request_approval_modes_reach_policy_without_changing_shared_service(mode, tool, expects_approval):
+    async def scenario():
+        service = ChatPermissionService()
+        events = []
+        async def emit(event, payload):
+            events.append(event)
+            if event == "approval_required":
+                await service.resolve(payload["approval"]["approvalId"], decision=ApprovalDecision.DENY,
+                                      session_id="selected-session")
+        kwargs = dict(tool_name=tool, arguments={"path": "hello.txt", "cwd": ".", "command": "pwd"},
+                      call_id="call-mode", session_id="selected-session", workspace_id="workspace", emit=emit)
+        if expects_approval:
+            with pytest.raises(PermissionDeniedError):
+                await service.authorize(**kwargs, approval_mode=mode)
+        else:
+            await service.authorize(**kwargs, approval_mode=mode)
+        assert ("approval_required" in events) is expects_approval
+        assert service.session_store.grants("selected-session") == ()
+        # A parallel request keeps the default ask behavior even after a full request.
+        events.clear()
+        with pytest.raises(PermissionDeniedError):
+            await service.authorize(**kwargs)
+        assert "approval_required" in events
+    asyncio.run(scenario())
+
+
+def test_full_approval_mode_keeps_path_validation():
+    async def scenario():
+        service = ChatPermissionService()
+        with pytest.raises(PermissionDeniedError, match="Chat permission denied") as error:
+            await service.authorize(tool_name="write_file", arguments={"path": "../outside.txt"},
+                                    call_id="invalid", session_id="s", workspace_id="w", approval_mode="full")
+        assert error.value.code == "PERMISSION_SCOPE_INVALID"
+    asyncio.run(scenario())
+
+
+def test_runtime_carries_selected_mode_to_file_approval_and_keeps_default_ask():
+    async def scenario():
+        service = ChatPermissionService()
+        executor = _Executor()
+        runtime = AgentsToolRuntime(_catalog(service, executor), {"write_file"})
+        full = runtime._context(session_id="full-session", approval_mode="full")
+        await full.invoke("write_file", {"path": "ok.txt", "content": "A"}, call_id="full-call")
+        assert len(executor.calls) == 1
+        queue = asyncio.Queue()
+        normal = runtime._context(session_id="ask-session", permission_event_queue=queue)
+        waiting = asyncio.create_task(normal.invoke("write_file", {"path": "ok.txt", "content": "B"}, call_id="ask-call"))
+        event, payload = await asyncio.wait_for(queue.get(), timeout=1)
+        assert event == "approval_required"
+        assert len(executor.calls) == 1
+        await service.resolve(payload["approval"]["approvalId"], decision=ApprovalDecision.DENY, session_id="ask-session")
+        await waiting
+        assert len(executor.calls) == 1
+    asyncio.run(scenario())
+
+
+def test_chat_request_validates_approval_mode():
+    from pydantic import ValidationError
+    assert chat.ChatRequest(text="hello").approval_mode == "ask"
+    assert chat.ChatRequest(text="hello", approval_mode="full").approval_mode == "full"
+    with pytest.raises(ValidationError):
+        chat.ChatRequest(text="hello", approval_mode="unknown")

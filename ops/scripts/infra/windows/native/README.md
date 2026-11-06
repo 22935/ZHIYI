@@ -1,6 +1,12 @@
 # N01A Windows Native development harness
 
-Requires Windows 11 x64 and CPython 3.14. Uses the existing `runtime.main`,
+> **已退役（2026-11-05）**：python Local Runtime 执行器删除后，本 harness 的 `up`
+> 动作（原 spawn `runtime.main` host）一并移除，本文流程不再是可用入口。当前唯一
+> 本地运行形态是持久化原生栈：`persistent.ps1` / `start-local-desktop.ps1`
+> （见 README-N03.md），执行后端恒为 zhiyi-hands（DSH 基座）。`smoke`/`down`/
+> `status` 动作仍随持久化栈可用。以下原文仅作历史参考。
+
+Requires Windows 11 x64 and CPython 3.14. Uses the existing
 `app.main`, composition root, HTTP transport and grant authority. No Docker
 commands or production database migrations are performed by these scripts.
 

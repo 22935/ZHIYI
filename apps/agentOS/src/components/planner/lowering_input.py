@@ -11,7 +11,6 @@ from contracts.planning import (
     TaskPlan,
 )
 from support.acg.capabilities import CapabilityCatalog, PlanningCapabilityDescriptor
-from support.acg.legacy.workflow_adapter import promote_workflow_to_acg
 from support.acg.planning import (
     ACGResourcePlan,
     AgentBindingSpec,
@@ -19,7 +18,7 @@ from support.acg.planning import (
     EvidenceSpec,
     MemoryAccessSpec,
 )
-from support.acg.schema import ACGBlueprint, ACGEdge, EdgeType, StepNode
+from support.acg.schema import ACGBlueprint, ACGEdge, ComplexityLevel, EdgeType, StepNode
 from support.acg.semantic_profile import TaskSemanticProfile
 from .acg_lowerer import ACGLoweringInput, ACGLoweringStep
 from .cognitive_router import CollaborationNetwork
@@ -206,12 +205,15 @@ def build_acg_lowering_input(
 
 
 def build_template_lowering_input(*, workflow, task_plan: TaskPlan) -> ACGLoweringInput:
-    """Keep workflow-only inference in the legacy adapter before lowering."""
+    """Freeze a declarative (planningNodes) workflow into lowering input.
 
-    blueprint = promote_workflow_to_acg(
+    语义顺序由 TaskPlan 声明拥有:steps 只提供节点骨架、通信合同与逻辑绑定,
+    任何 nextStepId/input.from 边都必须能对齐到 TaskPlan 的语义依赖,否则拒绝。
+    """
+
+    blueprint = _template_blueprint_from_workflow(
         workflow,
         mission_id=task_plan.mission_id,
-        infer_dependencies=False,
     )
     plan_keys = {node.key for node in task_plan.nodes}
     steps = blueprint.step_nodes()
@@ -321,6 +323,173 @@ def lowering_input_from_blueprint(
         ),
         control_edges=tuple(edge.model_copy(deep=True) for edge in blueprint.edges),
     )
+
+
+def _template_blueprint_from_workflow(workflow, *, mission_id: str) -> ACGBlueprint:
+    """机械翻译声明式 workflow 的 steps 为蓝图骨架。
+
+    原 legacy 提升适配器(promote_workflow_to_acg)退役后的最小内核:只服务
+    声明式(planningNodes)工作流的材料化路径。不推断 nextStepId 依赖、不构造
+    语义身份;拓扑语义完全由 TaskPlan 声明拥有。
+    """
+    steps = list(workflow.steps)
+    blueprint = ACGBlueprint(
+        missionId=mission_id,
+        objective=workflow.description or workflow.name,
+        complexityLevel=_complexity_from_step_count(len(steps)),
+        metadata={
+            "sourceWorkflowId": workflow.workflow_id,
+            "sourceWorkflowVersion": workflow.version,
+            "promotedFromLinear": True,
+            "runtimeEngine": workflow.effective_runtime_engine,
+        },
+    )
+
+    for definition in steps:
+        blueprint.nodes.append(StepNode(
+            nodeId=definition.step_id,
+            name=definition.name,
+            stepType="agent",
+            goal=definition.name,
+            capability=definition.capability,
+            logicalRole=definition.logical_role,
+            inputSpec=dict(definition.input),
+            outputSpec=dict(definition.output_spec),
+            reviewRequired=definition.review_required,
+            retryLimit=definition.max_retries,
+            timeout=definition.timeout,
+            priority=definition.priority,
+        ))
+
+    step_ids = {definition.step_id for definition in steps}
+    # input.from 是通信合同;依赖边只在 TaskPlan 声明中产生。
+    for definition in steps:
+        from_map = definition.input.get("from") if isinstance(definition.input, dict) else None
+        if not isinstance(from_map, dict):
+            continue
+        for source_id, fields in from_map.items():
+            if source_id not in step_ids or source_id == definition.step_id:
+                continue
+            data_fields = [str(field) for field in fields] if isinstance(fields, list) else []
+            blueprint.resource_plan.communication += (CommunicationSpec(
+                producerStepId=source_id,
+                consumerStepId=definition.step_id,
+                allowedFields=tuple(data_fields),
+                channel=f"{source_id}:{definition.step_id}",
+            ),)
+
+    for definition in steps:
+        agent_name = definition.agent_name or definition.step_id
+        capability = definition.capability or ""
+        blueprint.resource_plan.bindings += (AgentBindingSpec(
+            stepId=definition.step_id,
+            plannedAgentId=agent_name,
+            role=capability or agent_name,
+            requiredCapabilities=((capability,) if capability else ()),
+        ),)
+
+    _inject_template_context_specs(blueprint, steps)
+    blueprint.touch()
+    return blueprint
+
+
+def _complexity_from_step_count(count: int) -> ComplexityLevel:
+    if count <= 3:
+        return ComplexityLevel.SIMPLE
+    if count <= 7:
+        return ComplexityLevel.MEDIUM
+    if count <= 15:
+        return ComplexityLevel.COMPLEX
+    return ComplexityLevel.EXTREME
+
+
+_MEMORY_KEYWORDS = (
+    "risk", "风险", "suggest", "revision", "建议", "report",
+    "报告", "analysis", "分析", "summary", "结论",
+)
+_EVIDENCE_KEYWORDS = (
+    "evidence", "证据", "依据", "statute", "法条", "citation",
+)
+
+
+def _matches(text: str, keywords: tuple[str, ...]) -> bool:
+    low = (text or "").lower()
+    return any(keyword in low for keyword in keywords)
+
+
+def _inject_template_context_specs(blueprint: ACGBlueprint, steps) -> None:
+    """把可选的记忆/证据声明落成 typed spec,保持模板材料化旧行为等价。"""
+    memory_ids: dict[str, str] = {}
+    evidence_ids: dict[str, str] = {}
+
+    for definition in steps:
+        step_id = definition.step_id
+        signature = f"{definition.capability or ''} {step_id}"
+        output_properties = (
+            definition.output_spec.get("properties", {})
+            if isinstance(definition.output_spec, dict)
+            else {}
+        )
+        declares_evidence_output = any(
+            field in output_properties for field in ("evidence_refs", "evidenceRefs")
+        )
+        if declares_evidence_output or _matches(signature, _EVIDENCE_KEYWORDS):
+            evidence_id = f"evidence::{step_id}"
+            blueprint.resource_plan.evidence += (EvidenceSpec(
+                evidenceId=evidence_id,
+                evidenceType="retrieved",
+                producerStepId=step_id,
+                source="workflow",
+            ),)
+            evidence_ids[step_id] = evidence_id
+
+        memory_policy = (
+            definition.input.get("memoryPolicy", {})
+            if isinstance(definition.input, dict)
+            else {}
+        )
+        declares_memory_write = (
+            isinstance(memory_policy, dict) and memory_policy.get("write") is True
+        )
+        if declares_memory_write or _matches(signature, _MEMORY_KEYWORDS):
+            memory_type = (
+                str(memory_policy.get("writeType") or "episodic")
+                if declares_memory_write
+                else "episodic"
+            )
+            memory_id = f"memory::{step_id}"
+            blueprint.resource_plan.memory += (MemoryAccessSpec(
+                stepId=step_id,
+                memoryId=memory_id,
+                access="write",
+                memoryType=memory_type,
+            ),)
+            memory_ids[step_id] = memory_id
+
+    for definition in steps:
+        from_map = definition.input.get("from") if isinstance(definition.input, dict) else None
+        if not isinstance(from_map, dict):
+            continue
+        for source_id in from_map:
+            if source_id in memory_ids:
+                blueprint.resource_plan.memory += (MemoryAccessSpec(
+                    stepId=definition.step_id,
+                    memoryId=memory_ids[source_id],
+                    access="read",
+                ),)
+            if source_id in evidence_ids:
+                for index, spec in enumerate(blueprint.resource_plan.evidence):
+                    if spec.evidence_id == evidence_ids[source_id]:
+                        blueprint.resource_plan.evidence = (
+                            *blueprint.resource_plan.evidence[:index],
+                            spec.model_copy(update={
+                                "consumer_step_ids": tuple(dict.fromkeys(
+                                    (*spec.consumer_step_ids, definition.step_id)
+                                ))
+                            }),
+                            *blueprint.resource_plan.evidence[index + 1:],
+                        )
+                        break
 
 
 def lowering_step_from_task(

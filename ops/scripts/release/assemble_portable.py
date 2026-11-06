@@ -281,7 +281,6 @@ def copy_application_code(target: Path) -> None:
     # hands 用 npm 扁平安装（不复制 pnpm 的 junction 树）；terminal-host 本身就是 npm 布局。
     copy_app("agent")
     copy_app("agentOS")
-    copy_app("local-runtime")
     copy_app("hands")
     copy_app("terminal-host", keep_node_modules=True)
 

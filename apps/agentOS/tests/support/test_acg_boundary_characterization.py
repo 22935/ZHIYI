@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 
 import pytest
 
-from contracts.workflow import WorkflowDefinition, WorkflowStepDefinition
 from support.acg.validation import ACGValidationError
 from support.acg.models import (
     ACGBlueprint,
@@ -14,7 +13,6 @@ from support.acg.models import (
     TaskSemanticProfile,
     build_default_capability_catalog,
     detect_cycle,
-    promote_workflow_to_acg,
     ready_steps,
     topological_order,
     validate_blueprint,
@@ -70,56 +68,23 @@ def test_blueprint_serialization_contract_snapshot() -> None:
     assert payload["metadata"] == {"source": "characterization"}
 
 
-def test_workflow_promotion_legacy_and_canonical_modes_snapshot() -> None:
-    workflow = WorkflowDefinition(
-        workflowId="workflow-1", name="Workflow", description="Objective", domain="general",
-        runtimeEngine="acg",
-        steps=[
-            WorkflowStepDefinition(
-                stepId="a", name="Analysis", agentName="analyst",
-                capability="analysis", outputSpec={"properties": {"result": {}}},
-            ),
-            WorkflowStepDefinition(
-                stepId="b", name="Report", agentName="writer",
-                capability="report", input={"from": {"a": ["result"]}},
-            ),
-        ],
-    )
+def test_workflow_promotion_was_removed() -> None:
+    """轻量 workflow 提升通道已退役:公共 API 不再存在。"""
+    import support.acg as acg_public
+    import components.planner.lowering_input as lowering
 
-    legacy = promote_workflow_to_acg(workflow, mission_id="mission-1")
-    canonical = promote_workflow_to_acg(
-        workflow, mission_id="mission-1", infer_dependencies=False,
-    )
+    assert not hasattr(acg_public, "promote_workflow_to_acg")
+    assert not hasattr(acg_public.models, "promote_workflow_to_acg")
+    assert not hasattr(lowering, "promote_workflow_to_acg")
+    import importlib.util
 
-    assert [node.node_id for node in legacy.step_nodes()] == ["a", "b"]
-    assert [(edge.source_id, edge.target_id) for edge in legacy.edges_of_type(
-        EdgeType.DEPENDENCY
-    )] == [("a", "b")]
-    assert canonical.edges_of_type(EdgeType.DEPENDENCY) == []
-    assert [(spec.producer_step_id, spec.consumer_step_id)
-            for spec in canonical.resource_plan.communication] == [("a", "b")]
-    for blueprint in (legacy, canonical):
-        assert len(blueprint.resource_plan.bindings) == len(blueprint.step_nodes())
-        assert blueprint.metadata == {
-            "sourceWorkflowId": "workflow-1", "sourceWorkflowVersion": "1.0.0",
-            "promotedFromLinear": True, "enriched": True, "runtimeEngine": "acg",
-            "nodeCount": len(blueprint.nodes), "edgeCount": len(blueprint.edges),
-        }
-
-
-def test_workflow_promotion_keeps_agent_bindings_when_cognitive_enrichment_is_disabled() -> None:
-    workflow = WorkflowDefinition(
-        workflowId="workflow-plain", name="Workflow", domain="general", runtimeEngine="acg",
-        steps=[WorkflowStepDefinition(
-            stepId="a", name="Analysis", agentName="analyst", capability="analysis",
-        )],
-    )
-
-    blueprint = promote_workflow_to_acg(workflow, enrich=False)
-
-    assert len(blueprint.resource_plan.bindings) == 1
-    assert blueprint.resource_plan.bindings[0].planned_agent_id == "analyst"
-    assert len(blueprint.nodes) == 1
+    try:
+        legacy_found = (
+            importlib.util.find_spec("support.acg.legacy.workflow_adapter") is not None
+        )
+    except ModuleNotFoundError:
+        legacy_found = False
+    assert not legacy_found
 
 
 def test_capability_catalog_and_semantic_profile_snapshot() -> None:

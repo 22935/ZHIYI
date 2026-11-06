@@ -14,7 +14,18 @@
             <el-icon><Expand /></el-icon>
           </span>
         </button>
-        <div v-for="opened in openEntries" :key="opened.entry.entryId" class="editor-tab" :class="{ 'is-active': opened.entry.entryId === activeEditorId }">
+        <div
+          v-for="(opened, tabIndex) in openEntries"
+          :key="opened.entry.entryId"
+          class="editor-tab"
+          :class="{
+            'is-active': opened.entry.entryId === activeEditorId,
+            'is-dragging': draggingTab === tabIndex,
+            'is-drop-above': tabDropIndex === tabIndex,
+            'is-drop-below': tabDropIndex === tabIndex + 1
+          }"
+          v-bind="tabDrag.itemProps(tabIndex)"
+        >
           <button class="editor-tab__main" type="button" role="tab" :title="editorTitle(opened.entry)" :aria-selected="opened.entry.entryId === activeEditorId" @click="emit('activate', opened.entry.entryId)">
             <span v-if="tabStatusMark(opened.entry)" class="editor-tab__status" :class="'is-' + tabStatus(opened.entry)" aria-hidden="true">{{ tabStatusMark(opened.entry) }}</span>
             <span class="editor-tab__kind" aria-hidden="true">
@@ -111,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import WorkspaceFileEditor, { type WorkspaceFileEditorStatus } from '@/components/workbench/WorkspaceFileEditor.vue'
 import type { WorkspaceFileOpenRequest } from '@/services/api/agentos'
 import { Expand, View } from '@element-plus/icons-vue'
@@ -122,6 +133,7 @@ import type { RuntimeEventStore } from '@/workbench/runtime/runtimeEvents'
 import type { RunDocumentSymbol } from '@/workbench/runtime/runDocument'
 import type { ArtifactDocumentModel } from '@/workbench/runtime/artifactProjection'
 import { workspaceEntryIcon } from './workspaceEntryIcon'
+import { useDragReorder } from '@/composables/useDragReorder'
 
 export interface OpenWorkspaceEntry {
   entry: WorkspaceEntry
@@ -150,6 +162,7 @@ const emit = defineEmits<{
   activate: [entryId: string]
   contentReady: [runId: string | null]
   close: [entryId: string]
+  reorder: [from: number, to: number]
   editorStatus: [status: WorkspaceFileEditorStatus | null]
   selectSemanticTask: [semanticTaskKey: string | null]
   selectSymbol: [symbol: RunDocumentSymbol]
@@ -166,6 +179,14 @@ const emit = defineEmits<{
 }>()
 
 const localFiles = computed(() => props.openEntries.filter(item => item.entry.kind === 'local_file'))
+// 标签条拖拽排序：只重排打开顺序，不改变活动标签；顺序本身是会话态，不持久化。
+const tabDrag = useDragReorder({
+  orientation: 'horizontal',
+  group: 'editor-tabs',
+  onReorder: (from, to) => emit('reorder', from, to)
+})
+const { draggingIndex: draggingTab, dropIndex: tabDropIndex } = tabDrag
+onBeforeUnmount(() => tabDrag.resetDrag())
 const fileRequest = (entry: WorkspaceEntry) => entry.metadata!.fileRequest as WorkspaceFileOpenRequest
 const setDirty = (entry: WorkspaceEntry, dirty: boolean) => { entry.metadata!.dirty = dirty }
 // 各文件编辑器把元信息上报到这里，只有活动编辑器的那份会转发给窗口状态栏。
@@ -343,5 +364,10 @@ const tabStatusMark = (entry: WorkspaceEntry) => {
   mix-blend-mode: screen;
   pointer-events: none;
 }
+/* —— 标签拖拽排序：拖起半透明，落点左/右缘画指示线 —— */
+.editor-tab { cursor: grab; }
+.editor-tab.is-dragging { opacity: .45; }
+.editor-tab.is-drop-above { box-shadow: inset 2px 0 0 var(--wb-accent); }
+.editor-tab.is-drop-below { box-shadow: inset -2px 0 0 var(--wb-accent); }
 
 </style>

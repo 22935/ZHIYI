@@ -21,7 +21,6 @@ class LocalApiPathFilterTest {
             "/api/health/ready,/health/ready",
             "/api/files/upload,/files/upload",
             "/api/agentos/v2/missions,/api/agentos/v2/missions",
-            "/api/digital-human/list,/api/digital-human/list",
             "/api/auth-other/login,/api/auth-other/login",
             "/api/unknown,/api/unknown",
             "/api/api/auth/login,/api/api/auth/login",

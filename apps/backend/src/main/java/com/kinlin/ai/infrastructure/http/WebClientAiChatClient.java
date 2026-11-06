@@ -2,14 +2,12 @@ package com.kinlin.ai.infrastructure.http;
 
 import com.kinlin.ai.client.AiChatClient;
 import com.kinlin.ai.dto.ChatResponse;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/** WebClient implementation of the chat capability ({@code /ai/chat/text}, {@code /ai/chat/voice}). */
+/** WebClient implementation of the chat capability ({@code /ai/chat/text}). */
 @Component
 public class WebClientAiChatClient implements AiChatClient {
 
@@ -48,32 +46,5 @@ public class WebClientAiChatClient implements AiChatClient {
             requestBody.put("tool_mode", command.toolMode());
         }
         return transport.postJson("/ai/chat/text", requestBody, ChatResponse.class);
-    }
-
-    @Override
-    public ChatResponse sendVoiceMessage(byte[] audioData, String roleId) {
-        MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        builder.part("audio", audioData)
-                .filename("audio.wav")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM);
-        if (roleId != null) {
-            builder.part("role_id", roleId);
-        }
-
-        Map<String, Object> responseMap = transport.postMultipart(
-                "/ai/chat/voice", builder.build(), TransportTypes.MAP);
-
-        ChatResponse response = new ChatResponse();
-        if (responseMap != null) {
-            response.setText((String) responseMap.get("text"));
-            Object confidenceObj = responseMap.get("confidence");
-            if (confidenceObj instanceof Number confidenceNumber) {
-                response.setConfidence(confidenceNumber.doubleValue());
-            } else {
-                response.setConfidence(0.85);
-            }
-            response.setRecognizedText((String) responseMap.get("recognized_text"));
-        }
-        return response;
     }
 }

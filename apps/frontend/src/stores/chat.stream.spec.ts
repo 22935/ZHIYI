@@ -22,6 +22,16 @@ describe('Chat stream termination', () => {
   beforeEach(() => { localStorage.clear(); setActivePinia(createPinia()) })
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
+  it.each(['ask', 'auto', 'full'] as const)('sends the selected %s approval mode with the tool request', async mode => {
+    respond(['data:[DONE]'])
+    const store = useChatStore()
+    expect(store.approvalMode).toBe('ask')
+    store.approvalMode = mode
+    await store.sendMessageStream('检查文件', 'default', settings)
+    const init = vi.mocked(fetch).mock.calls[0][1]!
+    expect(JSON.parse(init.body as string)).toMatchObject({ tool_mode: 'auto', approval_mode: mode })
+  })
+
   it('recognizes a split gateway auth event and clears running status', async () => {
     respond([frame('reasoning_start', {}), 'event:auth.inval', 'idated\r\ndata:{"code":"AUTH_SESSION_INVALIDATED"}\r\n\r\n'])
     const store = useChatStore()

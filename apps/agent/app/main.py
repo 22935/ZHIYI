@@ -118,9 +118,7 @@ if _is_main_process:
 
 # 创新功能路由
 try:
-    from app.api import digitalhuman, emotion, rolefusion, knowledgegraph, adaptivelearning, multimodal, aigc, modelselector, performance, realtimeasr, rolestylelearning, collaborativechat, emotiondriven, federateddigitalhuman, digitalhumanmodelselector, kylinos, ragenhanced, communicationoptimizer, performanceoptimizer, federatedmodelmanagement, federatedglobal, federatedrag, voice
-    app.include_router(digitalhuman.router, prefix="/ai", tags=["DigitalHuman"])
-    app.include_router(emotion.router, prefix="/ai", tags=["Emotion"])
+    from app.api import rolefusion, knowledgegraph, adaptivelearning, multimodal, aigc, modelselector, performance, realtimeasr, rolestylelearning, collaborativechat, federateddigitalhuman, kylinos, ragenhanced, communicationoptimizer, performanceoptimizer, federatedmodelmanagement, federatedglobal, federatedrag
     app.include_router(rolefusion.router, prefix="/ai", tags=["RoleFusion"])
     app.include_router(knowledgegraph.router, prefix="/api", tags=["KnowledgeGraph"])
     app.include_router(adaptivelearning.router, prefix="/ai", tags=["AdaptiveLearning"])
@@ -131,9 +129,7 @@ try:
     app.include_router(realtimeasr.router, prefix="/ai", tags=["RealtimeASR"])
     app.include_router(rolestylelearning.router, prefix="/ai", tags=["RoleStyleLearning"])
     app.include_router(collaborativechat.router, prefix="/ai", tags=["CollaborativeChat"])
-    app.include_router(emotiondriven.router, prefix="/ai", tags=["EmotionDriven"])
     app.include_router(federateddigitalhuman.router, prefix="/ai", tags=["FederatedDigitalHuman"])
-    app.include_router(digitalhumanmodelselector.router, prefix="/ai", tags=["DigitalHumanModelSelector"])
     app.include_router(kylinos.router, prefix="/ai", tags=["KylinOS"])
     app.include_router(ragenhanced.router, prefix="/ai", tags=["RAGEnhanced"])
     app.include_router(communicationoptimizer.router, prefix="/ai", tags=["CommunicationOptimizer"])
@@ -141,7 +137,6 @@ try:
     app.include_router(federatedmodelmanagement.router, prefix="/ai", tags=["FederatedModelManagement"])
     app.include_router(federatedglobal.router, prefix="/ai", tags=["FederatedGlobal"])
     app.include_router(federatedrag.router, prefix="/ai", tags=["FederatedRAG"])
-    app.include_router(voice.router, prefix="/ai", tags=["Voice"])
     
     # 只在主进程中输出日志（避免重载时重复输出）
     if _is_main_process:

@@ -57,6 +57,41 @@ class _CrashAgent(BaseAgent):
         raise RuntimeError("boom")
 
 
+def _freeze_single_step_graph(runtime: ExecutionRuntime) -> None:
+    """轻量 workflow 提升通道已删除:夹具显式冻结等价的单节点蓝图。"""
+    from components.planner.acg_lowerer import ACGLowerer, ACGLoweringInput, ACGLoweringStep
+    from contracts.planning import PlannedTask, TaskImplementationBinding, TaskPlan
+    from support.acg.planning import ACGResourcePlan, AgentBindingSpec
+    from support.acg.schema import ComplexityLevel
+
+    def build(task, run, workflow):
+        definition = workflow.steps[0]
+        node_id = definition.step_id
+        key = f"step:{node_id}"
+        plan = TaskPlan(
+            missionId=task.mission_id, planVersion=1,
+            nodes=(PlannedTask(key=key, title=definition.name, objective=definition.name),),
+        )
+        lowering = ACGLoweringInput(
+            mission_id=task.mission_id,
+            objective=workflow.name,
+            complexity_level=ComplexityLevel.SIMPLE,
+            task_plan=plan,
+            steps=(ACGLoweringStep(
+                task_key=key, node_id=node_id, name=definition.name,
+                goal=definition.name, metadata={"taskPlanKey": key},
+            ),),
+            implementation_bindings=(TaskImplementationBinding(planNodeKey=key, acgNodeId=node_id),),
+            resource_plan=ACGResourcePlan(bindings=(AgentBindingSpec(
+                stepId=node_id,
+                plannedAgentId=definition.agent_name or node_id,
+            ),)),
+        )
+        return ACGLowerer().lower(lowering), None, ()
+
+    runtime._build_acg_blueprint = build
+
+
 def _review_runtime(tmp_path: Path) -> ExecutionRuntime:
     agents = AgentRegistry()
     agents.register(_ReviewAgent(AgentProfile(agentName="reviewer", domain="general")))
@@ -66,7 +101,7 @@ def _review_runtime(tmp_path: Path) -> ExecutionRuntime:
         runtimeEngine="acg",
         steps=[WorkflowStepDefinition(stepId="review", name="review", agentName="reviewer")],
     ))
-    return ExecutionRuntime(
+    runtime = ExecutionRuntime(
         agent_registry=agents,
         workflow_registry=workflows,
         workflow_store=MemoryWorkflowStore(),
@@ -75,6 +110,8 @@ def _review_runtime(tmp_path: Path) -> ExecutionRuntime:
         memory_store=SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3"),
         decision_store=SQLiteDecisionStore(db_path=tmp_path / "decisions.sqlite3"),
     )
+    _freeze_single_step_graph(runtime)
+    return runtime
 
 
 def _paused_review_run(runtime: ExecutionRuntime):
@@ -343,6 +380,7 @@ def test_execution_failure_projects_recovery_outcome(tmp_path) -> None:
         memory_store=SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3"),
         decision_store=SQLiteDecisionStore(db_path=tmp_path / "decisions.sqlite3"),
     )
+    _freeze_single_step_graph(runtime)
     task = runtime.create_mission("crash", workflow_id="crash-extraction")
     _, run = runtime.prepare_run(task.mission_id)
 

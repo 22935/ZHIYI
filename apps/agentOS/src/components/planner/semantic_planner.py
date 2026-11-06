@@ -125,6 +125,11 @@ class SemanticPlanner:
         strategy: str,
         plan_version: int = 1,
     ) -> TaskPlan:
+        """把工作流的 Planner 语义声明(planningNodes)落成可执行 TaskPlan。
+
+        声明式(HTN/模板声明)工作流的确定性规划入口:节点与关系全部来自
+        服务端持有的声明,不经 LLM,也不从 workflow.steps 推断任何语义。
+        """
         declared_nodes = tuple(getattr(workflow, "planning_nodes", ()) or ())
         if not declared_nodes:
             raise SemanticPlanningError(

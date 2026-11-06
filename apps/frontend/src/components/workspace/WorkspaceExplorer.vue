@@ -20,13 +20,24 @@
     </header>
 
     <nav class="workspace-tree" aria-label="Project files">
-      <section v-for="section in sections" :key="section.group" class="workspace-tree__section">
-        <button class="workspace-tree__section-toggle" type="button" :aria-expanded="isExpanded(section.group)" @click="toggleSection(section.group)">
+      <section v-for="(section, sectionIndex) in sections" :key="section.group" class="workspace-tree__section">
+        <button
+          class="workspace-tree__section-toggle"
+          :class="{
+            'is-dragging': draggingSection === sectionIndex,
+            'is-drop-above': sectionDropIndex === sectionIndex,
+            'is-drop-below': sectionDropIndex === sectionIndex + 1
+          }"
+          type="button"
+          :aria-expanded="isExpanded(section.group)"
+          v-bind="sectionDrag.itemProps(sectionIndex)"
+          @click="toggleSection(section.group)"
+        >
           <span>{{ section.label }}</span>
           <small v-if="section.items.length">{{ section.items.length }}</small>
         </button>
         <div v-if="isExpanded(section.group)" class="workspace-tree__items">
-          <template v-for="entry in section.items" :key="entry.entryId">
+          <template v-for="(entry, entryIndex) in section.items" :key="entry.entryId">
             <button
               type="button"
               class="workspace-tree__entry"
@@ -34,12 +45,17 @@
                 'is-active': entry.entryId === activeEditorId,
                 'is-selected-symbol': entry.kind === 'task' && entry.semanticTaskKey === selectedSemanticTaskKey,
                 'is-legacy': entry.identityQuality === 'legacy',
-                'is-task': entry.kind === 'task'
+                'is-task': entry.kind === 'task',
+                'is-draggable': canDragTask(section, entry),
+                'is-dragging': draggingTask === entryIndex,
+                'is-drop-above': taskDropIndex === entryIndex,
+                'is-drop-below': taskDropIndex === entryIndex + 1
               }"
               :title="entry.name"
+              v-bind="canDragTask(section, entry) ? taskDrag.itemProps(entryIndex) : {}"
               @click="handleEntryClick(entry)"
             >
-              <span v-if="entry.kind === 'task'" class="workspace-tree__order">{{ formatOrder(entry.displayOrder) }}</span>
+              <span v-if="entry.kind === 'task'" class="workspace-tree__order">{{ taskBadge(entry, section) }}</span>
               <el-icon class="workspace-tree__entry-icon"><component :is="entryIcon(entry)" /></el-icon>
               <span class="workspace-tree__entry-name">{{ entry.name }}</span>
               <span
@@ -85,11 +101,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { missionDisplayObjective, missionDisplayLabel } from './missionSemanticDisplay'
 import { ArrowLeft, FolderOpened } from '@element-plus/icons-vue'
 import type { MissionWorkspaceProjection, WorkspaceEntry } from '@/services/api/agentos'
 import { workspaceEntryIcon } from './workspaceEntryIcon'
+import { useDragReorder } from '@/composables/useDragReorder'
+import {
+  applySectionOrder,
+  applyStepsOrder,
+  readExplorerOrderPersistence,
+  reorderStepsItems,
+  stepsOrderKey,
+  writeExplorerOrderPersistence
+} from './workspaceExplorerOrder'
 
 const props = withDefaults(defineProps<{
   projection: MissionWorkspaceProjection
@@ -119,17 +144,70 @@ const groupLabels: Record<string, { label: string; empty: string }> = {
   output: { label: 'ARTIFACTS', empty: '当前 Run 尚无 Artifact' }
 }
 
-const sections = computed(() => Object.entries(groupLabels).map(([group, meta]) => ({
-  group,
-  ...meta,
-  items: props.projection.entries
-    .filter(entry => entry.group === group && (
-      group !== 'steps'
-      || entry.kind === 'task'
-      || (entry.kind === 'artifact' && (!entry.parentEntryId || !props.projection.entries.some(parent => parent.entryId === entry.parentEntryId && parent.kind === 'task')))
-    ) && entry.kind !== 'folder')
-    .sort((left, right) => left.displayOrder - right.displayOrder || left.entryId.localeCompare(right.entryId))
-})))
+// —— 拖拽排序：分区顺序全局记忆；steps 条目顺序按 mission|run 记忆，仅显示偏好 ——
+const persistedOrder = readExplorerOrderPersistence()
+const sectionOrder = ref(applySectionOrder(persistedOrder.sectionOrder))
+const stepsSnapshots = ref<Record<string, string[]>>(persistedOrder.stepsOrders || {})
+const stepsKey = () => stepsOrderKey(props.projection.mission.missionId, props.selectedRunId)
+
+const itemsForGroup = (group: string): WorkspaceEntry[] => props.projection.entries
+  .filter(entry => entry.group === group && (
+    group !== 'steps'
+    || entry.kind === 'task'
+    || (entry.kind === 'artifact' && (!entry.parentEntryId || !props.projection.entries.some(parent => parent.entryId === entry.parentEntryId && parent.kind === 'task')))
+  ) && entry.kind !== 'folder')
+  .sort((left, right) => left.displayOrder - right.displayOrder || left.entryId.localeCompare(right.entryId))
+
+const stepsItems = computed(() => itemsForGroup('steps'))
+
+const reorderSections = (from: number, to: number) => {
+  const next = [...sectionOrder.value]
+  const [moved] = next.splice(from, 1)
+  if (!moved) return
+  next.splice(to, 0, moved)
+  sectionOrder.value = next
+  writeExplorerOrderPersistence({ sectionOrder: next })
+}
+
+const reorderTasks = (from: number, to: number) => {
+  if (!stepsItems.value.length) return
+  const { snapshot } = reorderStepsItems(stepsItems.value, from, to)
+  stepsSnapshots.value = { ...stepsSnapshots.value, [stepsKey()]: snapshot }
+  writeExplorerOrderPersistence({ stepsOrders: { [stepsKey()]: snapshot } })
+}
+
+const sectionDrag = useDragReorder({ group: 'explorer-sections', onReorder: reorderSections })
+const taskDrag = useDragReorder({ group: 'explorer-steps', onReorder: reorderTasks })
+const { draggingIndex: draggingSection, dropIndex: sectionDropIndex } = sectionDrag
+const { draggingIndex: draggingTask, dropIndex: taskDropIndex } = taskDrag
+
+const sections = computed(() => sectionOrder.value.map(group => {
+  const meta = groupLabels[group]
+  const items = group === 'steps'
+    ? applyStepsOrder(stepsItems.value, stepsSnapshots.value[stepsKey()])
+    : itemsForGroup(group)
+  return { group, ...meta, items }
+}))
+
+const canDragTask = (section: { group: string }, entry: WorkspaceEntry) => (
+  section.group === 'steps' && entry.kind === 'task'
+)
+
+// 序号徽标跟随视觉顺序重编号：拖拽只是显示偏好，后端 displayOrder 不变。
+const taskBadge = (entry: WorkspaceEntry, section: { items: WorkspaceEntry[] }): string => {
+  let taskIndex = 0
+  for (const item of section.items) {
+    if (item.kind !== 'task') continue
+    if (item.entryId === entry.entryId) return String(taskIndex + 1).padStart(2, '0')
+    taskIndex += 1
+  }
+  return formatOrder(entry.displayOrder)
+}
+
+onBeforeUnmount(() => {
+  sectionDrag.resetDrag()
+  taskDrag.resetDrag()
+})
 
 const toggleSection = (group: string) => {
   expandedSections.value[group] = !expandedSections.value[group]
@@ -359,6 +437,17 @@ const formatOrder = (order: number) => String(order + 1).padStart(2, '0')
 .workspace-tree__entry:focus-visible,
 .workspace-tree__section-toggle:focus-visible,
 .workspace-explorer__back:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: -2px; }
+
+/* —— 拖拽排序：可拖条目抓手光标，拖起半透明，落点上/下缘画指示线 —— */
+.workspace-tree__section-toggle { cursor: grab; }
+.workspace-tree__section-toggle:active { cursor: grabbing; }
+.workspace-tree__entry.is-draggable { cursor: grab; }
+.workspace-tree__section-toggle.is-dragging,
+.workspace-tree__entry.is-dragging { opacity: .45; }
+.workspace-tree__section-toggle.is-drop-above,
+.workspace-tree__entry.is-drop-above { box-shadow: inset 0 2px 0 var(--wb-accent); }
+.workspace-tree__section-toggle.is-drop-below,
+.workspace-tree__entry.is-drop-below { box-shadow: inset 0 -2px 0 var(--wb-accent); }
 
 @media (prefers-reduced-motion: reduce) {
   .workspace-tree__entry { transition-duration: 1ms; }

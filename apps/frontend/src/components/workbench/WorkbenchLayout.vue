@@ -187,6 +187,7 @@ watch(rightPaneVisible, visible => {
 const leftVisible = computed(() => props.showLeft && leftPaneVisible.value)
 
 const LEFT_MIN_WIDTH = 240
+defineExpose({ restoreLeftPane })
 </script>
 
 <style scoped>

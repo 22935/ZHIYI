@@ -33,7 +33,7 @@ from app.tools.contracts import (
     ToolRunResult,
 )
 from app.tools.local_runtime import LocalRuntimeToolExecutor
-from app.tools.permissions import get_chat_permission_service
+from app.tools.permissions import ChatApprovalMode, get_chat_permission_service
 
 
 SYSTEM_INSTRUCTIONS = """You are a careful Coding Agent with access only to the tools listed below.
@@ -45,7 +45,7 @@ tools are unavailable or fail, say that explicitly instead of answering from mem
 When run_command is available, it executes through the managed Windows Local Runtime as
 HOST_APPROVED: the current Windows user's permissions, Job Object process-tree cleanup,
 CommandPolicy, filtered environment, timeout and cancellation. It is not a filesystem sandbox;
-the command may access files outside the workspace and requires one-time user approval.
+the command may access files outside the workspace; the selected Chat approval mode determines whether to ask first.
 Use workspace-relative cwd values. Prefer read/list and file patch tools for changes, inspect test
 failures before rerunning, avoid unrelated destructive commands, and never request securityProfile,
 grantId, resourceId, endpoint, credential, host root, or approval fields from the user-facing tool.
@@ -91,6 +91,7 @@ class ToolInvocationContext:
     allowed_tools: frozenset[str]
     role_id: str | None = None
     provider: str | None = None
+    approval_mode: ChatApprovalMode = "ask"
     session_id: str = "anonymous"
     request_id: str = ""
     permission_event_queue: asyncio.Queue[tuple[str, dict[str, Any]]] | None = None
@@ -156,6 +157,7 @@ class ToolInvocationContext:
                 catalog_kwargs["request_id"] = self.request_id or self.session_id
             if getattr(self.catalog, "supports_permission_events", False):
                 catalog_kwargs["session_id"] = self.session_id
+                catalog_kwargs["approval_mode"] = self.approval_mode
                 if self.permission_event_queue is not None:
                     catalog_kwargs["permission_event_sink"] = self._permission_event_sink
             payload = await asyncio.wait_for(
@@ -482,6 +484,7 @@ class AgentsToolRuntime:
         provider: str | None = None,
         session_id: str | None = None,
         request_id: str | None = None,
+        approval_mode: ChatApprovalMode = "ask",
         permission_event_queue: asyncio.Queue[tuple[str, dict[str, Any]]] | None = None,
     ) -> ToolInvocationContext:
         # Keep optional-provider tools registered while the runtime itself is enabled. Some
@@ -492,6 +495,7 @@ class AgentsToolRuntime:
         allowed = self.allowed_tools if settings.TOOL_RUNTIME_ENABLED else frozenset()
         return ToolInvocationContext(
             catalog=self.catalog,
+            approval_mode=approval_mode,
             allowed_tools=frozenset(allowed),
             role_id=role_id,
             provider=provider,
@@ -652,12 +656,14 @@ class AgentsToolRuntime:
         thinking_mode: str = "disabled",
         parameters: dict[str, Any] | None = None,
         session_id: str | None = None,
+        approval_mode: ChatApprovalMode = "ask",
     ) -> ToolRunResult:
         if not model and not base_url and not api_key:
             model, base_url, api_key = resolve_system_runtime_config()
         context = self._context(
             role_id,
             provider=_provider_for_model(model, base_url),
+            approval_mode=approval_mode,
             session_id=session_id,
         )
         agent, client, metadata = self._build_agent(
@@ -706,6 +712,7 @@ class AgentsToolRuntime:
         thinking_mode: str = "disabled",
         parameters: dict[str, Any] | None = None,
         session_id: str | None = None,
+        approval_mode: ChatApprovalMode = "ask",
     ) -> AsyncIterator[ChatStreamEvent]:
         if not model and not base_url and not api_key:
             model, base_url, api_key = resolve_system_runtime_config()
@@ -717,6 +724,7 @@ class AgentsToolRuntime:
         context = self._context(
             role_id,
             provider=_provider_for_model(model, base_url),
+            approval_mode=approval_mode,
             session_id=session_id or request_id,
             request_id=request_id,
             permission_event_queue=permission_queue,

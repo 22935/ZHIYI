@@ -8,7 +8,6 @@ from .graph import (
     ConditionEvaluationError, detect_cycle, find_dangling_dependencies, ready_steps,
     topological_order,
 )
-from .legacy.workflow_adapter import promote_workflow_to_acg
 from .native_capabilities import (
     NATIVE_CAPABILITY_IDS, build_default_capability_catalog,
     native_capability_descriptors, register_native_capabilities,
@@ -36,6 +35,6 @@ __all__ = [
     "PlanningRiskLevel", "SkillRequirementSpec", "StepNode", "TaskSemanticProfile",
     "build_default_capability_catalog", "detect_cycle", "find_dangling_dependencies",
     "highest_planning_risk_level", "native_capability_descriptors", "parse_node",
-    "promote_workflow_to_acg", "ready_steps", "register_native_capabilities",
+    "ready_steps", "register_native_capabilities",
     "topological_order", "validate_blueprint",
 ]

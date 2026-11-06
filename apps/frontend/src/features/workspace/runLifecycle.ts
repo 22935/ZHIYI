@@ -1,6 +1,7 @@
 import type { DeepReadonly } from 'vue'
 import type { WorkflowRun, WorkflowProgress } from '@/services/api/agentos'
 import { runCapabilities } from '@/workbench/runtime/runCapabilities'
+export type ProgressObservationState = 'TRUSTED' | 'RECONCILING' | 'STALE' | 'IDENTITY_MISMATCH' | 'UNAVAILABLE'
 export type LifecyclePhase = 'CREATED' | 'QUEUED' | 'PLANNING' | 'AWAITING_CONFIRMATION'
   | 'ACTIVATED_PAUSED' | 'READY_TO_DISPATCH' | 'DISPATCHED' | 'RUNNING' | 'WAITING_REVIEW'
   | 'RECOVERING' | 'FAILED' | 'COMPLETED' | 'CANCELLED' | 'SUPERSEDED' | 'UNKNOWN'
@@ -48,20 +49,26 @@ export function projectRunLifecycle(input: { missionId: string; runId: string; r
   const progressMatches = candidate?.runId === runId && candidate?.missionId === missionId
   const revision = (candidate as { runtimeRevision?: number } | null)?.runtimeRevision
   const stale = Boolean(run && revision !== undefined && run.runtimeRevision !== undefined && revision < run.runtimeRevision)
-  const progress = progressMatches && !stale && !mismatch ? candidate : null
+  // Keep same-identity observations for diagnostics, but expose only reconciled data to presentation.
+  const progressObservation = progressMatches && !mismatch ? candidate ?? null : null
+  const identityMismatch = mismatch || Boolean(candidate && !progressMatches)
+  const capabilitiesInvalid = Boolean(run?.actionCapabilities && !runCapabilities(run))
+  const conflict = Boolean(run && progressObservation && !stale && (progressObservation.status !== run.status
+    || revision !== undefined && revision > (run.runtimeRevision ?? -1)))
+  const progressObservationState: ProgressObservationState = identityMismatch ? 'IDENTITY_MISMATCH'
+    : stale ? 'STALE' : conflict ? 'RECONCILING' : progressObservation ? 'TRUSTED' : 'UNAVAILABLE'
+  const progress = progressObservationState === 'TRUSTED' ? progressObservation : null
   const rawStatus = run?.status || progress?.status || null
   const mapped = mapRunPhase(rawStatus, run, runId, Boolean(missionId))
-  const capabilitiesInvalid = Boolean(run?.actionCapabilities && !runCapabilities(run))
-  const conflict = Boolean(run && progress && (progress.status !== run.status
-    || revision !== undefined && revision > (run.runtimeRevision ?? -1)))
-  const synchronizationState = mismatch || candidate && !progressMatches ? 'IDENTITY_MISMATCH'
+  const synchronizationState = identityMismatch ? 'IDENTITY_MISMATCH'
     : capabilitiesInvalid || conflict ? 'RECONCILING' : !run && !progress ? 'UNAVAILABLE'
     : !run || !runCapabilities(run) || stale ? 'PARTIAL' : 'SYNCED'
   return { missionId, runId, rawStatus, normalizedStatus: rawStatus === 'succeeded' ? 'completed' : rawStatus || 'unknown',
     ...mapped, phaseLabel: lifecycleLabels[mapped.phase], statusLabel: lifecycleLabels[mapped.phase],
     statusSource: run ? 'RUN' : progress ? 'PROGRESS_TEMPORARY' : 'UNAVAILABLE', synchronizationState,
     isTerminal: ['COMPLETED', 'FAILED', 'CANCELLED', 'SUPERSEDED'].includes(mapped.phase),
-    requiresAttention: ['WAITING_REVIEW', 'FAILED', 'AWAITING_CONFIRMATION', 'READY_TO_DISPATCH'].includes(mapped.phase), progress }
+    requiresAttention: ['WAITING_REVIEW', 'FAILED', 'AWAITING_CONFIRMATION', 'READY_TO_DISPATCH'].includes(mapped.phase),
+    progress, progressObservation, progressObservationState }
 }
 
 export type RunLifecycleProjection = ReturnType<typeof projectRunLifecycle>

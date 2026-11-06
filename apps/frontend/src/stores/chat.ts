@@ -1,3 +1,4 @@
+import type { ChatApprovalMode } from '@/config/chatApproval'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { chatStreamErrorMessage, parseChatStreamFrame, type ChatStreamEvent } from '@/utils/sse'
@@ -128,6 +129,7 @@ export interface ChatWorkflowStartResult {
 }
 
 export const useChatStore = defineStore('chat', () => {
+  const approvalMode = ref<ChatApprovalMode>('ask')
   const WORKFLOW_BINDINGS_KEY = 'chat.workflow_bindings.v1'
   const loadWorkflowBindings = (): Record<string, ChatWorkflowBinding[]> => {
     try {
@@ -650,6 +652,7 @@ export const useChatStore = defineStore('chat', () => {
           thinking_mode: runtimeSettings.thinkingMode,
           reasoning_effort: modelRequestSettings.reasoningEffort,
           tool_mode: 'auto',
+          approval_mode: approvalMode.value,
           context_id: contextId.value || undefined,
           workspace_mode: contextId.value ? conversationWorkspaceMode.value || workspaceMode : workspaceMode
         })
@@ -970,6 +973,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   return {
+    approvalMode,
     messages,
     loading,
     isStreaming,
