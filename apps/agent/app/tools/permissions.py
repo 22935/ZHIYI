@@ -18,6 +18,9 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
 
+ChatApprovalMode = Literal["ask", "auto", "full"]
+
+
 class PermissionDecision(str, Enum):
     ALLOW = "allow"
     ASK = "ask"
@@ -231,6 +234,7 @@ class ChatPermissionService:
         session_id: str,
         workspace_id: str,
         emit: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
+        approval_mode: ChatApprovalMode = "ask",
     ) -> None:
         capability_id = CAPABILITY_BY_TOOL.get(tool_name)
         relative_path = normalize_relative_path(
@@ -252,6 +256,14 @@ class ChatPermissionService:
             session_id=session_id,
             session_grants=self.session_store,
         )
+        # Request-scoped selection never changes capability availability or path checks.
+        if approval_mode not in {"ask", "auto", "full"}:
+            raise PermissionDeniedError("PERMISSION_MODE_INVALID", activity=activity)
+        if decision is PermissionDecision.ASK and (
+            approval_mode == "full"
+            or (approval_mode == "auto" and capability_id in {"fs.write", "fs.patch"})
+        ):
+            decision = PermissionDecision.ALLOW
         if decision is PermissionDecision.ALLOW:
             return
         if decision is PermissionDecision.DENY:

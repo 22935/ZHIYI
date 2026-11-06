@@ -50,6 +50,7 @@ const binding = (conversationId: string, runId: string, status = 'pending') => (
 function createChatStoreMock() {
   const bindings: Record<string, ReturnType<typeof binding>[]> = {}
   return reactive({
+    approvalMode: 'ask' as 'ask' | 'auto' | 'full',
     messages: [] as Array<Record<string, unknown>>,
     loading: false,
     isStreaming: false,
@@ -183,6 +184,16 @@ describe('ChatView ACG progress integration', () => {
       },
       binding: binding('conversation_1', 'run_1')
     })
+  })
+
+  it('migrates approval selection beside input tools and removes the microphone', async () => {
+    const { wrapper } = await mountPage()
+    expect(wrapper.find('.left-actions .permission-selector').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="语音输入"]').exists()).toBe(false)
+    await wrapper.get('[aria-label="访问权限"]').trigger('click')
+    await wrapper.findAll('[role="menuitemradio"]')[1].trigger('click')
+    expect(chatStoreMock.approvalMode).toBe('auto')
+    expect(wrapper.get('[aria-label="访问权限"]').text()).toContain('帮我批准')
   })
 
   it('writes the first chat context into the URL, preserving queries, without reloading its messages', async () => {

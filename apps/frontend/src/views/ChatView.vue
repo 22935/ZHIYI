@@ -296,6 +296,7 @@
                     </div>
                   </Transition>
                 </div>
+                <PermissionSelector v-model="chatStore.approvalMode" />
                 <el-tooltip v-if="contextUsage.visible" placement="top" :show-after="200">
                   <template #content>
                     <div class="context-usage-tip">
@@ -319,16 +320,6 @@
                 <span v-if="inputText.length" class="word-count" :class="{ warning: inputText.length > 500 }">
                   {{ inputText.length }} 字
                 </span>
-                <button
-                  class="composer-icon-action"
-                  type="button"
-                  :class="{ active: isRecording }"
-                  :aria-label="isRecording ? '停止录音' : '语音输入'"
-                  :title="isRecording ? '停止录音' : '语音输入'"
-                  @click="isRecording ? stopVoiceInput() : startVoiceInput()"
-                >
-                  <el-icon><Microphone /></el-icon>
-                </button>
                 <el-button v-if="inputText.length > 500" text @click="autoSegment">自动分段</el-button>
                 <el-button
                   v-if="isStreamingChat"
@@ -471,7 +462,6 @@ import {
   DArrowRight,
   Link,
   Loading,
-  Microphone,
   Plus,
   Share,
   UploadFilled
@@ -479,6 +469,7 @@ import {
 import { ElMessage } from 'element-plus'
 import MessageBubble from '@/components/MessageBubble.vue'
 import ModelRuntimeControls from '@/components/ModelRuntimeControls.vue'
+import PermissionSelector from '@/components/PermissionSelector.vue'
 import NativeWorkspacePicker from '@/components/platform/NativeWorkspacePicker.vue'
 import FormalExecutionControls from '@/components/workspace/FormalExecutionControls.vue'
 import type { FormalOperationSuccess } from '@/features/acg/formalControl'

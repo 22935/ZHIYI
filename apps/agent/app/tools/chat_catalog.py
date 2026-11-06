@@ -8,7 +8,7 @@ from app.config import settings
 from app.tools.catalog import ReadOnlyToolCatalog
 from app.tools.contracts import ToolPayload, ToolUnavailableError
 from app.tools.local_runtime import LocalRuntimeToolError, LocalRuntimeToolExecutor
-from app.tools.permissions import ChatPermissionService
+from app.tools.permissions import ChatApprovalMode, ChatPermissionService
 from app.tools.terminal import WorkspaceTerminalExecutor
 
 
@@ -131,6 +131,7 @@ class ChatToolCatalog(ReadOnlyToolCatalog):
         call_id: str | None = None,
         session_id: str | None = None,
         request_id: str | None = None,
+        approval_mode: ChatApprovalMode = "ask",
         permission_event_sink: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
     ) -> ToolPayload:
         if name in (*self.FILE_TOOL_NAMES, *self.COMMAND_TOOL_NAMES):
@@ -150,6 +151,7 @@ class ChatToolCatalog(ReadOnlyToolCatalog):
                     session_id=str(session_id or ""),
                     workspace_id=workspace_id,
                     emit=permission_event_sink,
+                    approval_mode=approval_mode,
                 )
             del role_id, provider
             executor_kwargs: dict[str, Any] = {"call_id": str(call_id or "")}

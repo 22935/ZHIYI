@@ -22,6 +22,7 @@ from app.llm.chat_stream import ChatStreamEvent, ChatStreamEventType
 from app.tools import get_chat_tool_runtime
 from app.tools.permissions import (
     ApprovalDecision,
+    ChatApprovalMode,
     ApprovalResolutionError,
     get_chat_permission_service,
 )
@@ -43,6 +44,7 @@ class ChatRequest(BaseModel):
     thinking_mode: Optional[str] = None
     reasoning_effort: Optional[str] = None
     tool_mode: Literal["auto", "disabled"] = "auto"
+    approval_mode: ChatApprovalMode = "ask"
 
     def resolved_thinking_mode(self) -> str:
         if self.thinking_mode:
@@ -158,6 +160,7 @@ async def chat_text(request: ChatRequest):
         thinking_mode=requested_thinking_mode,
         parameters=request.provider_parameters(),
         session_id=session_id,
+        approval_mode=request.approval_mode,
     )
     usage = response.usage
     tool_executions = [item.public_dict() for item in response.tool_executions]
@@ -312,6 +315,7 @@ async def chat_text_stream(chat_request: ChatRequest, http_request: Request):
             parameters=chat_request.provider_parameters(),
             request_id=request_id,
             session_id=session_id,
+            approval_mode=chat_request.approval_mode,
         )
         async for event in _stream_sse_events(
                 chunks,
