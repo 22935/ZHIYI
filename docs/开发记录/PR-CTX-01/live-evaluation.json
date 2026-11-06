@@ -1,0 +1,33 @@
+{
+  "model": "deepseek-flash",
+  "before": "{\"decision\":\"keep REST\",\"path\":\"src/context.ts\",\"todo\":\"add race tests\",\"budget\":1500}",
+  "after": "{\"decision\":\"Keep REST\",\"path\":\"src/context.ts\",\"todo\":\"Add race tests for src/context.ts\",\"budget\":1500}",
+  "beforeTokens": 3866,
+  "afterTokens": 239,
+  "beforeInputTokens": 3841,
+  "afterInputTokens": 209,
+  "beforeOutputTokens": 25,
+  "afterOutputTokens": 30,
+  "criticalFacts": 4,
+  "retainedBefore": 4,
+  "retainedAfter": 4,
+  "sourceMessages": 14,
+  "projectedMessages": 2,
+  "compaction": {
+    "status": "summarized",
+    "compressionRatio": 0.9471851145038168,
+    "exactContentTokenization": false,
+    "failed": false,
+    "fixedTokens": 80,
+    "inputTokens": 20960,
+    "outputTokens": 1107,
+    "prunedChars": 0,
+    "summaryCalls": 1,
+    "summaryCostTokens": 4222,
+    "summaryLatencyMs": 4492.8805,
+    "tokenMethod": "utf8-upper-bound",
+    "tokenizerFallback": false,
+    "version": "oscode-context.v1",
+    "wireTokenCountExact": false
+  }
+}

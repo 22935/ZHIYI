@@ -1,0 +1,850 @@
+[
+  {
+    "suite": "com.kinlin.ai.architecture.ArchitectureGuardTest",
+    "tests": 30,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "45f8490ae95baa7d2f28f7b5bc4d5f2b340ad5fb28ce78d159a1df1209c25f31"
+  },
+  {
+    "suite": "com.kinlin.ai.architecture.MissionProjectionArchitectureTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "7c768acfbc7b172415b44a1b6b06ad8e9b2e3b0b806b719c33d189e0249305ea"
+  },
+  {
+    "suite": "com.kinlin.ai.architecture.QueryProjectionArchitectureTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "ee5fb40d7d6bb90dfeeed6103006358910c863b4f0d38a83a29443986834ef78"
+  },
+  {
+    "suite": "com.kinlin.ai.architecture.StaticQueryRouteArchitectureTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "630415f5fedfda8b9b53298853725a7a267a8f61a9e0edf893c114d5c5e6cab6"
+  },
+  {
+    "suite": "com.kinlin.ai.config.AgentPropertiesTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "432604898f76686b5f1caef289bc95e82c5721e5be285076261b259c925a2745"
+  },
+  {
+    "suite": "com.kinlin.ai.config.JwtPropertiesTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "8dd6283ae26d2c6d8bb03c26d3711cba08a95403fd209070328010a1f17bb4fb"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.AgentOsArtifactControllerTest",
+    "tests": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "ab30ffef6db0f95d8aefa1ebfbd6b00a9d51b726f9b4dfd5e6710595f245a4f6"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.AgentOsEventControllerTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "a26b59db6a0daa68aa37e441efb774c1a566de643d2be88093b568c965965821"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.AgentOsMissionControllerTest",
+    "tests": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "6b9565b5ca6f6b5bfc51d47bc60c9ffdbfeefdd58699a9067f6ea59d93aecbe7"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.AgentOsObservationControllerTest",
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "cc7a9990a3cdb201ef927b269271c3193524385fdeb83bc95b3e23728e96e019"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.AgentOsReviewControllerTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "daf960ec22f7b7e49ac7c3eae7cb4610dc595a154e16475606c652b66a268998"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.AgentOsRouteCompatibilityTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "551e8e833f2bd1315f9b9406b9f74a284fb2bf434fccd26a2d6b5155c4ce76a5"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.AgentOsRunControllerTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "154a0054e1580ccd5bb0fc5818e401738646e8634c300eada727402a85073a3f"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.AuthControllerTest",
+    "tests": 18,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "50cc41cb023bc0eec20e5c77f221d52ee58de73d1ab4e4dd3df6a0d568adc8a1"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.ChatControllerTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "04264a48e58117b642af142aec1356e07f692bd1e7832076843f43fc7715aaf7"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.ChatProjectionControllerTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "4110a641a81e913b8077221ce2d72a570b851ae0a563024f70bfb9d8fb073520"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.ConversationProjectionControllerTest",
+    "tests": 9,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "e92d5eefb83f23a69cbcf79d8c58db888313c54a4637f68f33a2c489674012ca"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.HealthControllerTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "4300c9eb1a042383884be4d2514c8c8f5f76f4c5af6ebb5b284e19812e45ca0f"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.MissionProjectionControllerTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "02ca4bf95bba5a26f6b7add19790595c295391977e9217496ed879260791d3cd"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.RecommendationControllerTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "ce4b6365d153517bfc1ab23d5e49e5b1ff8bdfb8783fdcb4ff0c00380cbf110c"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.RoleProjectionControllerTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "0b157e51c1c3c1d2fdd368c9518fcaf523fb67f040c531ae98f1d155ea516cfd"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.SearchProjectionControllerTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "b5b45df41499178f1199c465cb2a0e6c7cdd174ee5e5aa7d55ec7448e23bf792"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.StrippedIdentityHeaderBoundaryTest",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "eefac06afadd11270656340203c1da6b06e6c62bc639bc3043caaa21949dfcbd"
+  },
+  {
+    "suite": "com.kinlin.ai.controller.UserProjectionControllerTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "b827822fc1f185501cb97618e74e6a60508b56c660acb4869b7bab153393cfb8"
+  },
+  {
+    "suite": "com.kinlin.ai.dto.agentos.AgentOsContractSerializationTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "53026b44138a4712a6fec011a1d61a9871672839f1d2522b51ab439ca114e903"
+  },
+  {
+    "suite": "com.kinlin.ai.filter.LocalApiPathFilterTest",
+    "tests": 12,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "9d7e8a4426378b45745a93760677c904314c7608c4b11111670b3e787f9dc498"
+  },
+  {
+    "suite": "com.kinlin.ai.filter.SensitiveIdentityHeaderFilterTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "cf2ec37e721d4789d16f7e221d818bc077f1c5c709f496ea152dfe951889d141"
+  },
+  {
+    "suite": "com.kinlin.ai.filter.TraceIdFilterTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "1ff081288134a624fd1ad2a9dd52af9dc9de14b45641f0d894c05710d8fa8e13"
+  },
+  {
+    "suite": "com.kinlin.ai.gateway.AgentOsGatewayServiceTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "2d3aca1aefdd73719850478d39df48f07e234ffb22b1f565e4916ac35ed6f38f"
+  },
+  {
+    "suite": "com.kinlin.ai.gateway.AiProxyServiceTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "a7cd13c052dc6819f1d4528cff75e52f0aeb81fd5acb55260e247f46eb5bc583"
+  },
+  {
+    "suite": "com.kinlin.ai.gateway.AiSseGatewayLifecycleTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "0e4c56cf5171119e24f229cad79679ca1c907a80e910d098c8f3beb4e7460b40"
+  },
+  {
+    "suite": "com.kinlin.ai.gateway.AiSseGatewayServiceTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "1108a7cc739165cd0488543be524d301b9b8bff80cae69709f4864fb67b123f4"
+  },
+  {
+    "suite": "com.kinlin.ai.gateway.AiSseGatewaySessionRevocationTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "a64cdb080df2e6c193063fec4b23968ddd72919e2f28bc692c4a998760e13e38"
+  },
+  {
+    "suite": "com.kinlin.ai.gateway.PythonServiceAuthenticationTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "6686d368986a8987e96767c9145b83dc2dcf2db8571005b9cc2bc2c975d48ff9"
+  },
+  {
+    "suite": "com.kinlin.ai.gateway.SessionRecheckGateTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "c97c3ed283bd8c314e98c709bf8b1b5a023ac849d3da018181f705c8099aa8e0"
+  },
+  {
+    "suite": "com.kinlin.ai.gateway.TrustedUserContextForwarderTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "441ea1453b3828f69744ef717c785a1d54a53a547c14db87ab7a8907612e804d"
+  },
+  {
+    "suite": "com.kinlin.ai.infrastructure.http.PlatformAiClientCharacterizationTest$AiChatClientImpl",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "14291898dfa2cd7addde2e253a013f5d93d31bda9ffaf28d7544fb4859756236"
+  },
+  {
+    "suite": "com.kinlin.ai.infrastructure.http.PlatformAiClientCharacterizationTest$KnowledgeGraphClientImpl",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "8e95cc03685622dd3d01776313c2f35b941b46bfc8e8e198205bf1f9e39e260d"
+  },
+  {
+    "suite": "com.kinlin.ai.infrastructure.http.PlatformAiClientCharacterizationTest$RagClientImpl",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "3dc7e031bef315c5b2712d6309fabe61f3c349cdf53e7d19cc0cb80de4001c14"
+  },
+  {
+    "suite": "com.kinlin.ai.infrastructure.http.PlatformAiClientCharacterizationTest$RoleFusionClientImpl",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "32edfef132fa83d8fef8eb5bdbaa75b25090ba46013be4440c15e97528bda64d"
+  },
+  {
+    "suite": "com.kinlin.ai.infrastructure.http.PlatformAiClientCharacterizationTest$TransportErrorClassification",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "d2e601864db6c7d7ea28ec6c64032ce0ca5f8666ba9d98747a7122168ca81e69"
+  },
+  {
+    "suite": "com.kinlin.ai.infrastructure.http.PlatformAiClientCharacterizationTest",
+    "tests": 0,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "4751578bed0f7ab76e3d72d2ef424402c721764060b50102796016d21aa6696d"
+  },
+  {
+    "suite": "com.kinlin.ai.infrastructure.http.PythonClientFactoryTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "eb69db5715b823f5c0b6d0e5c4bbd619182aff4c51ce66a4d8494247e8e12cfa"
+  },
+  {
+    "suite": "com.kinlin.ai.infrastructure.http.TransportErrorClassifierTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "f4775ad2692ac019407e1c110598391eb9f8d3551749bfcc543b32525c5989f7"
+  },
+  {
+    "suite": "com.kinlin.ai.infrastructure.http.WebClientAiDependencyHealthClientTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "4c7b5e981ed248250835138d18a3b97442eb21d2fa9d371766821202544993fc"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.ChatIntegrationTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "253d6dbae032f7c17dd739e8f3ebfaa799da74be05f5001a029f67075f65ccf8"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.LegacyTransportRemovalTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "b83166d7093340017cc76937ca1b45c423ae56e335a048d7ab0ce06f3a38d9a6"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.NativePostgresTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "0b4b7e19b32b72813cd54ce671a39788bcc82a2e59559ede0109fa40064c4f58"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.PostgresMigrationIntegrationTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "69c5dceda67a1b6f6ea02322612de7283797525ad0fcb9639ba32e789711cfea"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.PostgresRepositoryIntegrationTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "ac6946e6b5464cd075790b5bf4d7cc647b8bd631fb53916bac0277143d236fe4"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.RoleCacheRedisIntegrationTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "a1ca026a76c02d65706df78b3a6fa9565add03fc893afb8eb9a9480296569e3d"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.RoleIntegrationTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "8142db53f5a3d3b668184f8c2482e4e6d053010e1a523941e409922b9e9a7fbe"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.SessionRevocationPostgresIntegrationTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "ad365a0775596c4c4158b914ea586657b2323db0617ef5b4f85316d5249e090b"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.SseSessionRevocationEndToEndTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "dae2c7560f547449539694fbe719a0fc66039bc90bf05dc3220c629dfb57bbe4"
+  },
+  {
+    "suite": "com.kinlin.ai.integration.SseSessionRevocationPostgresTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "232dcde74f303f15c9defc838ca948a1878ea05b2a0809adc3d263d0ea2dd155"
+  },
+  {
+    "suite": "com.kinlin.ai.interceptor.RateLimitInterceptorTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "34ed9b41e59c10b96bae920585fcddfd4fef0acf77517bfcd07ffea4c6bd5d1d"
+  },
+  {
+    "suite": "com.kinlin.ai.observability.LogRedactorTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "a3dc612bc80bec37a893ca7ff593ed56daf1db0f7fed2702d21351366cb51126"
+  },
+  {
+    "suite": "com.kinlin.ai.observability.ObservabilityExpositionTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "dc480260eb987dd076ee084d72c4a8322782ae81334cef50ebc9eb1a1298f564"
+  },
+  {
+    "suite": "com.kinlin.ai.observability.OutboundTracePropagationTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "61d015cf510ef4b0debb059aa121886fac41fca6511d4ec9dfea99cc6de82710"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.artifact.ArtifactProjectionSerializationTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "b690be133d80be66f37271366dc10e81aff00a2bb1a4a08cc8f31d75cc129c31"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.conversation.ConversationProjectionSerializationTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "7fb656bd86b36327f9e0ed74025848bd410d1699fd268787b0045cd0c211741e"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.copilot.CopilotProjectionMapperTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "338ae464cd821961b77bb44f9e02bc658016e888d4282ff13381a3d4796af615"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.history.HistoryAndResourceCatalogProjectionMapperTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "04867b951aed13ed2d3cbd659a9c160024f19235d561ba0e70e74fbd96e1a18e"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.knowledgegraph.KnowledgeGraphProjectionMapperTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "a66f014d570a749791152dca4b55b5234f41f07996f69dce6c06dba52f4ee49f"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.knowledgegraph.KnowledgeQueryMapperTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "bb974b1aececab1b2eb119237e04063cbf7c7e8d7adc6aa8378cfd74bca03731"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.material.MaterialProjectionTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "5c8a8d4e7524eb89fb118f196ba7136b7dd6ddc4b9951af78d6a59b86d839b1f"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.memory.MemoryEventsProjectionMapperTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "a496fa16edcbc97418039ae2aca7f33110aecae3417b59be1b8d53d9efa1ded7"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.message.MessageProjectionSerializationTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "e4cd35061154e4462706d2313c801c5419e22ba04825b97b0330e5b376e5587f"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.mission.MissionProjectionSerializationTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "2cde4f914304ff1361ae326e731beb60cfa68bb5ee7eddf1672df45d7a4ec863"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.mission.MissionSemanticProjectionSerializationTest",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "162b942871117054877e8e7e51a1f27d06f2945d751c792e2aa0ec4f5b7be838"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.output.OutputProjectionMapperTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "10794fb32f8c2a0daf671d988f7ff97675e252b51d29da359b997fb4595bd7a3"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.platform.OperationalProjectionTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "87b734d37753092f5ad28b6312d830ddee0768eabb762ac8fb33d49058764f87"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.provenance.ProvenanceProjectionMapperTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "54197c1e1185a304a2e0af090a2fdc327bdecd01e4ba052698d7f9cc970f9828"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.rag.RagProjectionMapperTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "8d8a9fd477102d9dd0d79d191435e915f38f8ca114795ed8d44c5a9374f7f168"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.recovery.RecoveryAndIdentityProjectionMapperTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "6dc942a0cde5aca61563bf6ecd181a29242923a92153bdc4e1ad762409101bd0"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.resource.ResourceUsageProjectionMapperTest",
+    "tests": 9,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "564dee0b3820eb1dad582b70850893bd622f948aa423568a5687e80e53ee7295"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.resource.ResourceUsageProjectionSerializationTest",
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "acdb99a077780570013ba387ed935f9e30aa5711e8925f0326ac6d4119d18348"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.role.RoleQuerySerializationTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "1976645c6c0227cd5e494c05a1e097d078bff7585dba5a1de8f7258074901d48"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.run.RunActionCapabilitiesProjectionTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "a54c5d394b0527916aaba4cce975e8e4bbff64ab817eb01a5758167e0b6d828a"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.run.RunProjectionBoundaryTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "896e15aadaa14970839945b75b25b95a6211c30d18a8ad008ae32cf1c7939cfb"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.trace.TraceProjectionMapperTest",
+    "tests": 12,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "f42eb00bb2fb55b1acfb80f225a83e4fec5f4c379647d48ded24f94ef32a42ec"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.trace.TraceProjectionSerializationTest",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "63bb44dd3d29aba978470f86bb244b429b39975153f9f5d0c8d248b718a9cd11"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.user.UserCredentialOutputGuardTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "4b5cd9a129c2f2263bfb7578312a7763167feb347bdf453fe60393ee16412dd0"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.user.UserQuerySerializationTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "fe5e428057fc82df453358ff4d67cf8881cfc9664910b4ecc55d8613d6d409c6"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.workspace.WorkspaceProjectionMapperTest",
+    "tests": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "436b7ae479215af925c94bc4fb1f5c9ec8df0ad6e6cdb078c0abae5286c5a0bd"
+  },
+  {
+    "suite": "com.kinlin.ai.projection.workspace.WorkspaceProjectionSerializationTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "62e29160e2cd021027bf77913466affb31d7629b61f3f6a3429f9e831d92e74b"
+  },
+  {
+    "suite": "com.kinlin.ai.security.AuthenticatedUserTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "6e14fa3dceca3371c97033699390b6c901461d62f902393bbfc8695a418c4f62"
+  },
+  {
+    "suite": "com.kinlin.ai.security.LocalApiHttpIntegrationTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "f5535ed527b60cc9352a77f1963ed9b906d31a790cdb9242e5494549f2183d33"
+  },
+  {
+    "suite": "com.kinlin.ai.security.SecurityRouteMatrixTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "519b969f7eb4b98e5cbe6d3f10d029f5d1bc5a26cd28088eb4504af50f397f81"
+  },
+  {
+    "suite": "com.kinlin.ai.security.SessionRevocationHttpContractTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "04b3d1290b5a4bf49720970ea08aaa56641ef44f08efeef086234c6f7d6d9cb4"
+  },
+  {
+    "suite": "com.kinlin.ai.security.SessionRevocationPersistenceTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "4bb17408f497b3325717e027b8b4a741963af51726bbabe08be073edcc4d5c4f"
+  },
+  {
+    "suite": "com.kinlin.ai.security.SessionStateUnavailableTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "f7ce45fae8ef50f57d5cd2ce50a9ad1cbdf1bfd50443ca4bcddccff407ddcdb4"
+  },
+  {
+    "suite": "com.kinlin.ai.security.WsEndpointAuthorizationTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "6416ed2313de77081550f8d2075a883142a5cdbd7cb2b68d41ae4b05279a65a5"
+  },
+  {
+    "suite": "com.kinlin.ai.service.ChatServiceTest",
+    "tests": 14,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "e07083f18b11e3fb24c1d0c12173be22d733479f035e5bfb61bfd53e9c972bae"
+  },
+  {
+    "suite": "com.kinlin.ai.service.ChatStreamPersistenceServiceTest",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "ed19aac91f1dcf97331fad40cdfa7e45c967bd79adc02e95f76ca4e0b8b3131b"
+  },
+  {
+    "suite": "com.kinlin.ai.service.ConversationServiceTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "24da0348ece8f6e34e8dbbfb48b650aad56db6e900c9670f92ca4fa72cb9c9b8"
+  },
+  {
+    "suite": "com.kinlin.ai.service.KnowledgeGraphServiceTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "a386ba69fbbddf58f059be8cdb4f9c1eb541c57488a10a4d32a57a96676eb797"
+  },
+  {
+    "suite": "com.kinlin.ai.service.RagServiceTest",
+    "tests": 9,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "156a1e88d6e4227aaada4d2dd1b1a2cbcded49b428c185d0c84508399c8e2364"
+  },
+  {
+    "suite": "com.kinlin.ai.service.RecommendationServiceTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "32bc268d76a032cace4b3480513f6bb99638ec3fa81ba77a3113c02ebc99cf5a"
+  },
+  {
+    "suite": "com.kinlin.ai.service.RoleFusionServiceTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "2261494f8d9c2698872200d5e1ba2fb0fe4bba1367df0f906d78361a3773007a"
+  },
+  {
+    "suite": "com.kinlin.ai.service.RoleServiceTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "15af9d6a513a4cdc7f60170f28ee868d99e1ef310d4739db7a9de56686e26937"
+  },
+  {
+    "suite": "com.kinlin.ai.service.RoleSwitchOptimizerTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "b4aa8fb123cb4267844971092476edb35e8cc2fec7008432a701e12be15fc094"
+  },
+  {
+    "suite": "com.kinlin.ai.service.RoleValidationServiceTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "e5366dc3ef4a1989029943fbd7c5756ba2aa90579420b64fcfe6cea486d6ecea"
+  },
+  {
+    "suite": "com.kinlin.ai.service.UserServiceTest",
+    "tests": 14,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "b491499351497aeebab45ce98af5cdf7943eccc95de2f156c8915a4e129a90f4"
+  },
+  {
+    "suite": "com.kinlin.ai.util.JwtUtilTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "0dd1d7deb69cc3bcf4695ae812c1d64149f7cb9eebf9e3e2fdc7a0f6ff76ffb8"
+  },
+  {
+    "suite": "com.kinlin.ai.util.PasswordUtilTest",
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sha256": "75e590038ffea8887d7f0639175b4933afec911a843904cbf7b76bc395a64f7f"
+  }
+]

@@ -1,0 +1,116 @@
+{
+  "status": "IMPLEMENTED_TARGETED_TESTED_NOT_SELF_TESTED",
+  "sourceSha256": "aa352a7326667e0017568ef5cce68a376716a403356a065c105ea9e6d0649ff1",
+  "gitHeadAtSnapshot": "d1831143178f827ae5ee97d416467d855c28c5a1",
+  "snapshotFiles": 1756,
+  "validationRoot": ".tmp-tests/pr-ctx-01/validation",
+  "verification": "All reported final checks use the immutable validation worktree. Every source byte rechecked after runs. No final checks are inferred from earlier main-tree runs.",
+  "testResults": {
+    "typescript": {
+      "tests": 28,
+      "passed": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "evidence": ".tmp-tests/pr-ctx-01/validation/.tmp-tests/pr-ctx-01/ts-tests.log"
+    },
+    "oscodeTargeted": {
+      "tests": 54,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "passed": 53,
+      "evidence": ".tmp-tests/pr-ctx-01/validation/.tmp-tests/pr-ctx-01/oscode.xml"
+    },
+    "realProvider": {
+      "tests": 1,
+      "passed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "deselected": 10,
+      "evidence": ".tmp-tests/pr-ctx-01/validation/.tmp-tests/pr-ctx-01/live-provider.log"
+    },
+    "javaFull": {
+      "tests": 548,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 548,
+      "evidence": ".tmp-tests/pr-ctx-01/validation/apps/backend/target/surefire-reports/TEST-*.xml"
+    },
+    "frontendFull": {
+      "tests": 1187,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 1187,
+      "evidence": ".tmp-tests/pr-ctx-01/validation/apps/frontend/.tmp-tests/ctx-final.xml"
+    },
+    "agentFullGate": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 1,
+      "skipped": 0,
+      "passed": 0,
+      "executedCases": 0,
+      "completedFullSuite": false,
+      "reason": "pre-existing test_hands_transport_chat.py:310 SyntaxError",
+      "evidence": ".tmp-tests/pr-ctx-01/validation/.tmp-tests/pr-ctx-01/agent-gate.xml"
+    },
+    "agentosFullGate": {
+      "tests": 235,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 234,
+      "completedFullSuite": false,
+      "reason": "fail-fast architecture test still expects removed apps/local-runtime process sources",
+      "evidence": ".tmp-tests/pr-ctx-01/validation/.tmp-tests/pr-ctx-01/agentos-gate.xml"
+    },
+    "typecheck": {
+      "passed": true,
+      "evidence": ".tmp-tests/pr-ctx-01/validation/.tmp-tests/pr-ctx-01/ts-types.log"
+    },
+    "electronBuild": {
+      "passed": true,
+      "evidence": ".tmp-tests/pr-ctx-01/validation/apps/frontend/.tmp-tests/ctx-build.log"
+    },
+    "agentFullContinuation": {
+      "completedFullSuite": false,
+      "status": "INTERRUPTED_NO_PROGRESS",
+      "passed": null,
+      "failures": null,
+      "errors": null,
+      "skipped": null,
+      "evidence": ".tmp-tests/pr-ctx-01/validation/.tmp-tests/pr-ctx-01/agent-full.log"
+    },
+    "agentosFullContinuation": {
+      "completedFullSuite": false,
+      "status": "INTERRUPTED_NO_PROGRESS",
+      "passed": null,
+      "failures": null,
+      "errors": null,
+      "skipped": null,
+      "evidence": ".tmp-tests/pr-ctx-01/validation/.tmp-tests/pr-ctx-01/agentos-full.log"
+    }
+  },
+  "ACG": {
+    "trackedPaths": 549,
+    "mainChangedPaths": [],
+    "validationChangedPaths": [],
+    "gitDiffPaths": []
+  },
+  "mainTreeDriftFromValidatedSnapshot": [
+    "apps/backend/src/main/java/com/kinlin/ai/gateway/AiSseGatewayService.java",
+    "apps/backend/src/main/resources/application.yml",
+    "apps/backend/src/test/java/com/kinlin/ai/gateway/AiSseGatewayServiceTest.java"
+  ],
+  "excludedEarlierAttempts": [
+    "Main tree checks before freeze were superseded by immutable worktree checks.",
+    "First worktree frontend run missed two pre-existing untracked sidebar helper files; both copied before final snapshot and full rerun.",
+    "Early main Java aggregate included stale target XML. Final Java totals come only from fresh worktree target reports.",
+    "Interrupted broad Python attempts were not counted as passes. Frozen gates use explicit PYTHONPATH and fail-fast reports.",
+    "Final frozen full Python continuations ran about seven minutes, did not complete, then were terminated; logs retained and partial progress not counted as passes."
+  ]
+}
