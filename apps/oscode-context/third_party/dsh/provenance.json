@@ -1,0 +1,259 @@
+{
+  "repository": "https://github.com/deepseek-ai/deepseek-harness",
+  "commit": "fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159",
+  "license": "MIT",
+  "licenseSha256": "ebb4f09972aee8608be255debaf78451a68e95c290f55c240dec2ecfa16ea6be",
+  "migrationKind": "algorithm adaptation and framework-free function extraction; NOT a verbatim package migration",
+  "files": [
+    {
+      "path": "packages/compaction/compaction/package.json",
+      "sha256": "f95819dbf3c90db2f4f63d4837140420d142b33c207981859bc30f019c399ad6",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction/src/brand.ts",
+      "sha256": "f27af81196216a6a50faf5e15da75cdb0935e47e2e78dc3d3fc7ce2dd6733a82",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction/src/checkpoint.ts",
+      "sha256": "194c6f7bf0b0a403837cff2815c37f657b35a7713b5a354cb40f64dfb42a44e3",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction/src/index.ts",
+      "sha256": "1d50528c7daf5950e79d7edb2fabca48da6682fc536e911c9f64e4d0bdea4ba1",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction/src/tool-pairing.ts",
+      "sha256": "30916d32b421553a7753aa56f5e5890bdfa2bf41b0ce3c8f42bd529fd2da4b9a",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction/src/types.ts",
+      "sha256": "af47584231f20be810e5d1f354f5f23d1a02995c454b4d2027070b502eae1e22",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction/tests/compaction.spec.ts",
+      "sha256": "3f8608331c4ffe5be9a6fe3b6d6dae47199b38e77b990a1c361819a9c9e2fc85",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction/tests/tool-pairing.spec.ts",
+      "sha256": "be37746d6eded671536db56a10659211a57a12182405c6b882eeca787ec0dd91",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction/tsdown.config.ts",
+      "sha256": "928cb66105bb47cb6cb923e31564b4d4e46858eea2ba3b97332c241daa48d400",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/package.json",
+      "sha256": "91c9785f8b3ed0063fdb7d509ca21c88180c82592b034ca26e0eb7169abb0865",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/src/config.ts",
+      "sha256": "4972edc6447dcff87eab54c3a9c5984171238aa06aa0eb34ffde4bfac4ce1275",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/src/index.ts",
+      "sha256": "1d2ecc563147967f86842b37289682a4dd7feabccc9d9d8d55cfb01810166f54",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/src/region.ts",
+      "sha256": "295b53cc9e924f7cb2e843e0d0d296e89ead73da2aab9790282db30736e2e063",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/src/summarizer.ts",
+      "sha256": "03ef6eb0b6a011530829820e30ff709c2c1b34cfa37a98c19c0037432b9d2f55",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/src/types.ts",
+      "sha256": "65fc3147b4b5a6d7ef422131374aa9f7a6e246d56feabca37755b9ca432ab57d",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/tests/compaction-basic.spec.ts",
+      "sha256": "48c4ddaf4405c825762b5115e70ab64486a6fe8812bde1a5adce9ea4b0aac117",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/tests/compaction-loop-repro.spec.ts",
+      "sha256": "acdd65ae57c712c4b7aeff044b9d243794c4133d84b270de657278aa007ec30a",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/tests/loader-composition.spec.ts",
+      "sha256": "5721c04835f4954d898ed09f0a94015e043169eff6df2c8057de92555e2bc591",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/tests/manual-compaction.spec.ts",
+      "sha256": "eedce87bbe1aecec71f8780eff3c985efa03ae3dd71d9b6f145a42dcdaa7df1c",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-basic/tests/runtime-context-admission.spec.ts",
+      "sha256": "c6473ce6d0f7c7c25db1f290b90a017ff26684ed479a93b5bd28a3a4530bea16",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-tool-result-pruner/package.json",
+      "sha256": "feb6c364f0666ce306525f50f0a49e0ee3450492160351e7bf3f04c0a67e7230",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-tool-result-pruner/src/config.ts",
+      "sha256": "8538c8b2b3bd7b2b085a86119b694f7934e308a5c4b7f4406e963b190b6eaa98",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-tool-result-pruner/src/index.ts",
+      "sha256": "2890f336ca42f9d8259794eebbc4a9423f69a7394c41796b9981216ed29ed536",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-tool-result-pruner/src/types.ts",
+      "sha256": "7f2604d2ca5ac6d8b7b2a4cf5d87a98356a7565bcde37e70c69eb4cfcb138956",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-tool-result-pruner/tests/loader-composition.spec.ts",
+      "sha256": "f6c261b80fb63befab400043b325c661c962fa2c84cf5061110000e3840accab",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/compaction/compaction-tool-result-pruner/tests/tool-result-pruner.spec.ts",
+      "sha256": "f2877b6da6f810253cfa3a342da36109ba218489dfe3347f533c95b0d40e64a7",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/package.json",
+      "sha256": "73530f19b73aa99e7352bab7034a4942aa81ebdf87478ab9a74cc78c1a2d4a2b",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/breakdown-projection.ts",
+      "sha256": "b743855c3ec03d94e7aa784b4f2ae328dfc9903d2b9adb133fb610857edec561",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/client.ts",
+      "sha256": "7f011c9fe730aeb01013ce695132a1b1c7282c4208ec4a92a6b08dbd189473f8",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/estimate.ts",
+      "sha256": "30ecc576a77aa3a65fb8173c551e13d7651ddba2d7bbd907845a003f17ee189d",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/index.ts",
+      "sha256": "9c9fd53d119cd80b6c03a0db1a7ac45197d2c384df3cf39ce9584584302b49bc",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/measurement-projection.ts",
+      "sha256": "ebc797bdf7376d4f1aea475b6178b9dbaeade966af079903638e6a0334f6125d",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/projection.ts",
+      "sha256": "916e3b00981ff5a5e54276e19e9a4fa1d00ce3fc789536a3c4dee079522a7353",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/route-pricing.ts",
+      "sha256": "4201c430b66e12fd40dcf264034bbc517cb73867f4b31a68b90c8a3ff3210840",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/surface-fold.ts",
+      "sha256": "686f597a7fdc9d45394c68eb8ef4f472094978d2483b597ee2a1def210dfb878",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/surface-projection.ts",
+      "sha256": "c8e21bd071831992ab3d8790f2647a24ca6fbafae4e05580b2ed9a0e97a02ec4",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/turn-usage.ts",
+      "sha256": "5fcf1d4099616a221f9368c3148ca8ea0121e9e50cd3ebc5daefa004137fb6bd",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/types.ts",
+      "sha256": "d0c153b4ff135839c072b1c57056366003028fb2f5ba7ea745845580c5fcb08f",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/src/usage-projection.ts",
+      "sha256": "37eef359b829e533e08dae37e21ca4cd6a0eee995e9d630509bc98e2f60e9888",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/tests/context-breakdown-projection.spec.ts",
+      "sha256": "c3cf8d11d677ae2b15c063d0ab8a8ba0ac59137a50e2b9b4e03561aa6606ac89",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/tests/measurement-projection.spec.ts",
+      "sha256": "2159f74287eacb413b31497d77e7fe2bd9be085b47b20e8edca87e98489ae263",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/tests/route-pricing.spec.ts",
+      "sha256": "ee3e911882635c226810b8b8afc821a2bb69fa46f92c4f4c14d799c2f016fab3",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/tests/token-meter.spec.ts",
+      "sha256": "b059395905551fa03534bc9d82df05a87cb7170fca52c17aa90173b9c7e9a785",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/tests/token-usage-projection.spec.ts",
+      "sha256": "b0fc3f47223ad64e25979fff64f5c69452ad7058ac4c5ec5f0ee2a8954c7b5de",
+      "role": "audited source/type/test/dependency"
+    },
+    {
+      "path": "packages/llm/token-meter/tests/turn-usage.spec.ts",
+      "sha256": "a3239616682d9025d075f68118facb5864eb9294c118a293352950a54efdef9f",
+      "role": "audited source/type/test/dependency"
+    }
+  ],
+  "mapping": {
+    "src/contracts.ts": [
+      "compaction-basic/src/config.ts",
+      "compaction/src/types.ts"
+    ],
+    "src/history-segmenter.ts": [
+      "compaction-basic/src/region.ts#selectCompactableRange",
+      "compaction/src/tool-pairing.ts"
+    ],
+    "src/tool-result-pruner.ts": [
+      "compaction-tool-result-pruner/src/index.ts#pruneContent",
+      "compaction-tool-result-pruner/src/config.ts"
+    ],
+    "src/summarizer.ts": [
+      "compaction-basic/src/summarizer.ts"
+    ],
+    "src/engine.ts": [
+      "compaction-basic/src/index.ts#compactPressure",
+      "compaction-basic/src/region.ts#summarizeCompaction"
+    ],
+    "src/token-meter.ts": [
+      "token-meter/src/estimate.ts (audit only; chars/4 not reused)",
+      "token-meter/src/route-pricing.ts (separate content/wire budgets)"
+    ]
+  }
+}

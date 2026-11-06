@@ -1,0 +1,18 @@
+{
+  "name": "@zhiyi/oscode-context",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Independent OScode context projection; DSH MIT algorithm migration",
+  "engines": { "node": ">=24.9.0" },
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "benchmark": "node test/evaluate.ts"
+  },
+  "dependencies": {
+    "@huggingface/tokenizers": "0.2.0",
+    "js-tiktoken": "1.0.21"
+  },
+  "devDependencies": { "@types/node": "24.0.0", "typescript": "5.6.3" }
+}
