@@ -47,9 +47,9 @@ class PostgresMigrationIntegrationTest extends PostgresIntegrationTestBase {
         Integer tableCount = jdbcTemplate.queryForObject(
                 "select count(*) from information_schema.tables "
                         + "where table_schema = 'public' and table_name in "
-                        + "('users','roles','conversations','messages','user_feedback')",
+                        + "('users','roles','conversations','messages')",
                 Integer.class);
-        assertThat(tableCount).isEqualTo(5);
+        assertThat(tableCount).isEqualTo(4);
     }
 
     @Test

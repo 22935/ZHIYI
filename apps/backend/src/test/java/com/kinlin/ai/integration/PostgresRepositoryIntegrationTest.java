@@ -8,7 +8,6 @@ import com.kinlin.ai.repository.ConversationRepository;
 import com.kinlin.ai.repository.MessageRepository;
 import com.kinlin.ai.repository.RoleRepository;
 import com.kinlin.ai.repository.UserRepository;
-import com.kinlin.ai.service.StatisticsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * J1.4A §十/§十一/§十八：真实 PostgreSQL 上的代表性 Repository 集成。
  *
  * <p>覆盖核心实体 User / Role / Conversation / Message 的代表性路径
- * （insert、select by id、自定义 @Query、真实存在的约束、事务回滚、readOnly 路径、
+ * （insert、select by id、自定义 @Query、真实存在的约束、事务回滚、
  * UUID/jsonb/CHECK 等 PostgreSQL 特有语义）。只断言真实 schema
  * （注意：项目 schema 无外键约束，故约束测试覆盖 UNIQUE + CHECK），
  * 不为证明 PostgreSQL 人造特性。</p>
@@ -49,9 +48,6 @@ class PostgresRepositoryIntegrationTest extends PostgresIntegrationTestBase {
 
     @Autowired
     private TransactionTemplate transactionTemplate;
-
-    @Autowired
-    private StatisticsService statisticsService;
 
     @Test
     void insertAndSelectByIdRoundTripsUuidPrimaryKey() {
@@ -136,7 +132,7 @@ class PostgresRepositoryIntegrationTest extends PostgresIntegrationTestBase {
 
     /**
      * §十八：事务回滚表征——事务内写入后主动抛异常，数据必须未落库。
-     * 与 ChatService/VoiceService 的 TransactionTemplate 短事务模式同构。
+     * 与 ChatService 的 TransactionTemplate 短事务模式同构。
      */
     @Test
     void transactionRollbackDiscardsWritesInsideTemplate() {
@@ -153,30 +149,6 @@ class PostgresRepositoryIntegrationTest extends PostgresIntegrationTestBase {
         })).isInstanceOf(IllegalStateException.class);
 
         assertThat(messageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId)).isEmpty();
-    }
-
-    /** §十八：readOnly 路径——多查询统计在真实 PostgreSQL 上可执行且结果正确。 */
-    @Test
-    void readOnlyStatisticsPathComputesWithoutMutation() {
-        UUID userId = UUID.randomUUID();
-        Conversation conversation = conversation(userId, "pg_it_ctx_" + UUID.randomUUID());
-        conversationRepository.saveAndFlush(conversation);
-        Message message = new Message();
-        message.setConversationId(conversation.getId());
-        message.setRole(Message.MessageRole.USER);
-        message.setContent("hello stats");
-        messageRepository.saveAndFlush(message);
-
-        long conversationsBefore = conversationRepository.count();
-        long messagesBefore = messageRepository.count();
-
-        Map<String, Object> stats = statisticsService.getUserStatistics(userId);
-
-        assertThat(stats.get("totalConversations")).isEqualTo(1);
-        assertThat(stats.get("totalMessages")).isEqualTo(1);
-        // readOnly 事务不得产生任何写入
-        assertThat(conversationRepository.count()).isEqualTo(conversationsBefore);
-        assertThat(messageRepository.count()).isEqualTo(messagesBefore);
     }
 
     private static Conversation conversation(UUID userId, String contextId) {
