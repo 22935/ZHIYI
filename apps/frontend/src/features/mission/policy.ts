@@ -20,9 +20,8 @@ export function resolveMissionLaunchPolicy(input:
     const select = <K extends keyof MissionLaunchPolicy>(key: K, fallback: MissionLaunchPolicy[K]): MissionLaunchPolicy[K] =>
       (input.explicit[key] !== undefined ? input.explicit[key]
         : input.inherited?.[key] !== undefined ? input.inherited[key] : fallback) as MissionLaunchPolicy[K]
-    const workspace = input.profile === 'conversation-workspace'
-    return { domain: select('domain', workspace ? 'general' : 'legal'), intent: select('intent', workspace ? 'general' : 'case_analysis'),
-      workflowId: select('workflowId', undefined), reviewMode: select('reviewMode', workspace ? 'auto' : 'human_in_loop'),
+    return { domain: select('domain', 'general'), intent: select('intent', 'general'),
+      workflowId: select('workflowId', undefined), reviewMode: select('reviewMode', 'auto'),
       enabledPluginIds: select('enabledPluginIds', undefined), input: {} }
   }
   const result: MissionLaunchPolicy & { input: Record<string, unknown> } = {

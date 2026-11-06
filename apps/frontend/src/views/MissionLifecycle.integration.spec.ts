@@ -215,7 +215,7 @@ it('manual reading survives state changes and KeepAlive; explicit Follow hands o
   const uid = view().$.uid
   await router.push('/elsewhere'); await settle(); await router.back(); await settle()
   expect(view().$.uid).toBe(uid); expect(view().activeEditorId).toBe('overview:mission.md')
-  await wrapper!.get('.workspace-lifecycle button').trigger('click'); await settle()
+  await wrapper!.get('.lifecycle-bar button').trigger('click'); await settle()
   expect(view().activeEditorId).toBe('final')
 })
 

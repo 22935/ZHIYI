@@ -1329,35 +1329,3 @@ def test_shared_join_requires_a_completed_input_from_each_conditional_region():
         assert calls == []
         assert {"join", "after"} <= set(restored.skipped_step_ids)
     asyncio.run(scenario())
-
-
-@pytest.mark.parametrize("risk", ["high", "low"])
-def test_real_legal_blueprint_keeps_report_after_review_branch(risk, monkeypatch):
-    import json
-    from pathlib import Path
-    application = Path(__file__).resolve().parents[2] / "agent"
-    monkeypatch.syspath_prepend(str(application))
-    from packs.legal.planning import build_contract_review_blueprint
-    workflow = WorkflowDefinition.model_validate(json.loads(
-        (application / "packs/legal/workflows/contract_review.yaml").read_text(encoding="utf-8")))
-    graph = ACGGraphCompiler().compile(build_contract_review_blueprint(workflow))
-    calls = []
-    async def execute(step_id, _state):
-        calls.append(step_id)
-        return {"routeValue": {"risk_level": risk}}
-    async def scenario():
-        state = ACGExecutionState(runId="legal-branch")
-        if risk == "high":
-            with pytest.raises(ExecutionInterrupt):
-                await graph.run(state, execute)
-            # Resume a serialized checkpoint, keeping the review branch choice.
-            state = ACGExecutionState.model_validate(state.model_dump(by_alias=True))
-            await graph.resume(state, ExecutionResumeCommand(runId=state.run_id, payload={"decision": "approved"}), execute)
-        else:
-            await graph.run(state, execute)
-        assert calls[-1] == "report_generate"
-        assert calls.count("report_generate") == 1
-        assert calls.count("human_review") == (risk == "high")
-        assert calls.count("auto_review") == (risk == "low")
-        assert set(state.completed_step_ids) | set(state.skipped_step_ids) == set(graph.nodes)
-    asyncio.run(scenario())

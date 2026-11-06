@@ -13,7 +13,6 @@ from test_execution_runtime_application_wiring import _environment
 
 @pytest.mark.parametrize("module_name,test_name", [
     ("test_general_golden_recovery", "test_golden_workflow_integration_survives_two_ai_service_restarts"),
-    ("test_legal_execution_runtime_vertical_slice", "test_legal_contract_review_restarts_and_resumes_without_replaying_commits"),
 ])
 async def test_golden_failure_releases_runtime_lock(module_name, test_name, tmp_path, monkeypatch):
     module = importlib.import_module(module_name)

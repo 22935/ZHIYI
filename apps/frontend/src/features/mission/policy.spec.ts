@@ -5,7 +5,7 @@ import { conversationLaunchCommand, workbenchLaunchCommand } from './command'
 
 describe('MissionLaunchPolicyResolver', () => {
   it.each([
-    [{}, { domain: 'legal', intent: 'case_analysis', reviewMode: 'human_in_loop', enabledPluginIds: undefined }],
+    [{}, { domain: 'general', intent: 'general', reviewMode: 'auto', enabledPluginIds: undefined }],
     [{ domain: 'general', intent: 'general', reviewMode: 'auto' }, { domain: 'general', intent: 'general', reviewMode: 'auto' }],
     [{ workflowId: '', enabledPluginIds: [] }, { workflowId: '', enabledPluginIds: [] }],
     [{ enabledPluginIds: null }, { enabledPluginIds: null }],

@@ -704,14 +704,7 @@ const editorMetadata = computed(() => [
   ({ stable: '稳定', balanced: '均衡', exploratory: '探索' } as const)[draft.planningDiversity],
   activePluginSummary.value
 ].join(' · '))
-const taskMaterialLength = computed(() => {
-  const legalDraft = draft.pluginData['kinlin.legal']
-  const candidates = [
-    contractText.value,
-    typeof legalDraft?.contractText === 'string' ? legalDraft.contractText : ''
-  ]
-  return (candidates.find(value => value.trim()) || '').length
-})
+const taskMaterialLength = computed(() => contractText.value.trim().length)
 const loading = reactive({ upload: false })
 const isSubmitting = ref(false)
 const isAcgLoading = ref(false)

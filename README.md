@@ -134,11 +134,11 @@
 | 超长程上下文连续性与记忆保持 | 六类 Store + Checkpoint CAS + Evidence Memory + 引用式输出                 |  ✅  |
 | 动态异构拓扑与低熵通信       | ACG + conditional routing + 并行超步 + Communication Broker + Provenance   |  ✅  |
 | 端-边-云异构资源自适应调度   | ResourceProfile + 资源注册 + 签名观测 + 租约 + 远程 Adapter + 云端重绑定   |  🚧  |
-| 典型产业场景可运行系统验证   | Legal 合同审查黄金纵切；Programmer / Education / Writer / Industrial Packs |  🚧  |
+| 典型产业场景可运行系统验证   | 通用 ACG 执行 + 本机工作区开发/测试纵切                                     |  🚧  |
 | 异常/节点失效无人工干预恢复  | Checkpoint + 恢复配方 + 契约修复 + GraphPatch + review barrier             |  ✅  |
 | 中间决策过程与推理轨迹展示   | Trace + Provenance + Checkpoint + Review + Output                          |  ✅  |
 
-> 端-边-云目前完成的是**位置选择**基础链路；神经网络层级切分尚未实现，真实多设备部署与故障演示仍待验收。Legal 链路已完整，第二个高完成度跨领域长任务仍在推进。
+> 端-边-云目前完成的是**位置选择**基础链路；神经网络层级切分尚未实现，真实多设备部署与故障演示仍待验收。当前保留通用 ACG 执行与本机工作区纵切；职业能力 Pack 已从当前树删除。
 >
 > 完整方案文档：[比赛方案](docs/赛题与项目概述/比赛方案.pdf)
 
@@ -253,7 +253,7 @@ npm run test
 │   │       └── support/        #   Packs / Skills / ACG 支撑结构
 │   ├── agent/                  # FastAPI 运行时
 │   │   ├── app/                #   Composition Root · API · 适配器
-│   │   └── packs/              #   领域 Agent Pack (法律/教育/编程/写作/工业)
+│   │   └── packs/              #   通用 Agent Pack（当前仅 workspace）
 │   ├── backend/                # Spring Boot 业务与安全边界
 │   ├── frontend/               # Vue 3 · Milan 工作台 + ACG 可视化
 │   └── desktop/                # Electron 桌面壳
@@ -278,7 +278,7 @@ Memurai RDB/AOF、SQLite Store、uploads、workspace、Electron 用户数据与 
 | [当前架构图](docs/架构设计/kinlin-agentos-current-architecture.md)                                       | 请求链、执行内核、持久化与查询投影 |
 | [核心代码层次](docs/架构设计/02-知弈AgentOS-Core代码层次架构图.md)                                       | 代码架构与模块边界                 |
 | [ACG 引擎技术设计](docs/架构设计/05-ACG动态群体智能引擎技术设计.md)                                      | ACG 引擎深度设计                   |
-| [律师 AgentOS 设计](docs/架构设计/06-知弈律师AgentOS技术设计文档.md)                                     | 合同审查验证场景                   |
+| [历史：律师 AgentOS 设计](docs/架构设计/06-知弈律师AgentOS技术设计文档.md)                               | 已下线的合同审查场景（历史设计）   |
 | [N03 原生运行说明](ops/scripts/infra/windows/native/README-N03.md)                                       | 依赖、启停、数据布局与冷备份       |
 | [Windows 原生运行链（N01A ~ N03 + 移除 Docker）](docs/开发记录/PR-N01A-N03-Windows原生运行链-合并记录.md)  | 零 Docker 原生形态与移除 Docker 的证据 |
 | [PromptRuntime 与系统提示词清单](docs/开发记录/PromptRuntime与系统提示词清单-合并记录.md)                 | 提示词权威、信任封装与审计身份     |
@@ -291,7 +291,7 @@ Memurai RDB/AOF、SQLite Store、uploads、workspace、Electron 用户数据与 
 
 |        状态        | 能力域                                                                                                                                                                                                                                                             |
 | :-----------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅ **已实现** | 单一 `ExecutionRuntime` 与执行真源、ACG 动态拓扑与并行超步、低熵通信与 Provenance、六类 Store 与 `outputRef` 引用式状态、Checkpoint/恢复/契约修复/GraphPatch、S01–S03 规划提交与图修订协议、Milan 可视化工作台、Legal 黄金纵切、Windows 原生持久栈（N03）与 Electron 桌面收口 |
+| ✅ **已实现** | 单一 `ExecutionRuntime` 与执行真源、ACG 动态拓扑与并行超步、低熵通信与 Provenance、六类 Store 与 `outputRef` 引用式状态、Checkpoint/恢复/契约修复/GraphPatch、S01–S03 规划提交与图修订协议、Milan 可视化工作台、本机工作区纵切、Windows 原生持久栈（N03）与 Electron 桌面收口 |
 | 🚧 **进行中** | 第二个高完成度跨领域长任务、数千步长程稳定性与 Token/耗时基准、浏览器级 `WAITING_REVIEW → approve → resume` 与真实模型/工具验收                                                                                                                                |
 | 📋 **规划中** | 真实端-边-云多设备调度演示、模型层切分、生产级密钥轮换与资源凭据生命周期、核心算法伪代码与对照实验归档、演示视频与提交包校验                                                                                                                                       |
 

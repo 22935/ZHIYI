@@ -137,12 +137,7 @@ def test_application_builds_the_single_execution_runtime_with_authoritative_reso
         assert set(embedded.capabilities).issuperset(registry_capabilities)
         assert runtime.workflow_registry.all()
         assert {manifest.pack_id for manifest in runtime.plugin_manifests} == {
-            "education",
-            "industrial",
-            "kinlin.legal",
-            "programmer",
             "workspace",
-            "writer",
         }
     finally:
         close_runtime(runtime)

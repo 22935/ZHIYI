@@ -137,10 +137,6 @@ const routes: RouteRecordRaw[] = [
     redirect: to => ({ path: '/history', query: { ...to.query, tab: 'acg' } })
   },
   {
-    path: '/agentos/legal/contract-review',
-    redirect: { path: '/chat', query: { workspace: 'agent' } }
-  },
-  {
     path: '/agentos/acg',
     name: 'AcgVisualization',
     component: () => import('@/views/AcgEntryView.vue'),

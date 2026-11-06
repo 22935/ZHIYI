@@ -1,10 +1,9 @@
-"""Ordered integration coverage for Packs migrated to the execution runtime."""
+"""Ordered integration coverage for the general native runtime pack."""
 
 from __future__ import annotations
 
 import json
 
-from contracts.memory import MemoryType
 from contracts.workflow import WorkflowStatus
 
 from app.execution.wiring import build_default_runtime, close_runtime
@@ -21,13 +20,6 @@ def _environment(tmp_path, name: str) -> dict[str, str]:
         "AGENTOS_PROVENANCE_DB": str(root / "provenance.sqlite3"),
         "AGENTOS_AUDIT_DB": str(root / "decisions.sqlite3"),
     }
-
-
-def _output(runtime, run, step_id: str) -> dict:
-    return runtime.execution_value_store.get_output(
-        run_id=run.run_id,
-        output_ref=run.execution_state["outputRefs"][step_id],
-    )
 
 
 class _PackToolRuntime:
@@ -98,76 +90,5 @@ async def test_01_general_native_pack_runs_planner_model_and_reference_output(tm
         assert run.execution_state["outputRefs"]
         assert run.output["outputRef"] in run.execution_state["outputRefs"].values()
         assert all(step.agent_name == "native_general_agent" for step in run.steps)
-    finally:
-        close_runtime(runtime)
-
-
-async def test_02_programmer_pack_runs_tool_context_memory_and_output_contracts(tmp_path) -> None:
-    runtime = build_default_runtime(
-        environment=_environment(tmp_path, "programmer"),
-        tool_runtime=_PackToolRuntime(),
-    )
-    try:
-        mission = runtime.create_mission(
-            title="Implement a secure FastAPI authentication endpoint",
-            domain="programmer",
-            intent="requirement_analysis",
-            workflow_id="programmer_requirement_analysis_v1",
-            input={"requirement": "Implement secure FastAPI authentication", "targetLanguage": "python"},
-        )
-        run = await runtime.start(mission.mission_id, workflow_id="programmer_requirement_analysis_v1")
-
-        assert run.status is WorkflowStatus.COMPLETED
-        assert [step.step_id for step in run.steps] == [
-            "task_understanding", "requirement_analysis", "codebase_semantic_search", "code_generation", "diagram_generation"
-        ]
-        assert _output(runtime, run, "codebase_semantic_search")["evidence_refs"] == ["src_pack_code"]
-        assert _output(runtime, run, "code_generation")["context_refs"][0]["file_path"] == "apps/agent/app/execution/wiring.py"
-        assert _output(runtime, run, "diagram_generation")["diagram_type"] == "mermaid"
-        assert any(event.event_type.value == "tool_called" for event in run.trace)
-        assert runtime.memory_store.get(f"memory:{run.run_id}:codebase_semantic_search").memory_type is MemoryType.EVIDENCE
-        assert runtime.memory_store.get(f"memory:{run.run_id}:code_generation").memory_type is MemoryType.PROCEDURAL
-    finally:
-        close_runtime(runtime)
-
-
-async def test_03_education_pack_runs_declared_profile_memory_and_output_contract(tmp_path) -> None:
-    runtime = build_default_runtime(environment=_environment(tmp_path, "education"), tool_runtime=_PackToolRuntime())
-    try:
-        mission = runtime.create_mission(
-            title="Design a lesson about linear equations",
-            domain="education",
-            intent="lesson_plan",
-            workflow_id="education_lesson_plan_v1",
-            input={"topic": "linear equations", "subject": "mathematics", "grade": "grade 7"},
-        )
-        run = await runtime.start(mission.mission_id, workflow_id="education_lesson_plan_v1")
-
-        output = _output(runtime, run, "lesson_plan")
-        assert run.status is WorkflowStatus.COMPLETED
-        assert output["lesson_plan"]["topic"] == "linear equations"
-        assert output["final_answer"]
-        assert runtime.memory_store.get(f"memory:{run.run_id}:lesson_plan").memory_type is MemoryType.PROCEDURAL
-    finally:
-        close_runtime(runtime)
-
-
-async def test_04_writer_pack_runs_declared_profile_memory_and_output_contract(tmp_path) -> None:
-    runtime = build_default_runtime(environment=_environment(tmp_path, "writer"), tool_runtime=_PackToolRuntime())
-    try:
-        mission = runtime.create_mission(
-            title="A detective discovers a city that forgets one day every year",
-            domain="writer",
-            intent="story_outline",
-            workflow_id="writer_story_outline_v1",
-            input={"premise": "A detective discovers a city that forgets one day every year", "genre": "mystery"},
-        )
-        run = await runtime.start(mission.mission_id, workflow_id="writer_story_outline_v1")
-
-        output = _output(runtime, run, "outline_generate")
-        assert run.status is WorkflowStatus.COMPLETED
-        assert len(output["outline"]["chapters"]) == 3
-        assert output["outline_markdown"] == output["final_answer"]
-        assert runtime.memory_store.get(f"memory:{run.run_id}:outline_generate").memory_type is MemoryType.EPISODIC
     finally:
         close_runtime(runtime)

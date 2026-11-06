@@ -214,7 +214,10 @@ describe('chat workflow binding', () => {
   it('refuses policy changes under an unconfirmed Conversation operation, including omitted versus empty scope', async () => {
     vi.mocked(workflowApi.startWorkflowAsync).mockRejectedValueOnce(new Error('lost'))
     const store = useChatStore()
-    const options = { conversationId: 'conversation', clientRequestId: 'operation' }
+    const options = {
+      conversationId: 'conversation', clientRequestId: 'operation',
+      domain: 'research', intent: 'analysis', reviewMode: 'human_in_loop'
+    }
     await expect(store.upgradeToWorkflow('goal', options)).rejects.toThrow('lost')
     for (const changed of [{ domain: 'general' }, { reviewMode: 'auto' }, { workflowId: '' }, { enabledPluginIds: [] }, { enabledPluginIds: null }]) {
       await expect(store.upgradeToWorkflow('goal', { ...options, ...changed })).rejects.toMatchObject({ code: 'BUSY' })
