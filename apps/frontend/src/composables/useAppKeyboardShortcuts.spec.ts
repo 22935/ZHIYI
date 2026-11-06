@@ -25,7 +25,7 @@ const mountTerminalFocus = (): { host: HTMLElement; focusable: HTMLElement; clea
 }
 
 describe('useAppKeyboardShortcuts', () => {
-  let toggleSidebar: ReturnType<typeof vi.fn>
+  let toggleChatPanel: ReturnType<typeof vi.fn>
   let historyBack: ReturnType<typeof vi.fn>
   let historyForward: ReturnType<typeof vi.fn>
   let onShowShortcuts: ReturnType<typeof vi.fn>
@@ -35,7 +35,7 @@ describe('useAppKeyboardShortcuts', () => {
   const init = (desktop = true): void => {
     dispose = initAppKeyboardShortcuts({
       desktop,
-      toggleSidebar,
+      toggleChatPanel,
       historyBack,
       historyForward,
       onShowShortcuts,
@@ -44,7 +44,7 @@ describe('useAppKeyboardShortcuts', () => {
   }
 
   beforeEach(() => {
-    toggleSidebar = vi.fn()
+    toggleChatPanel = vi.fn()
     historyBack = vi.fn()
     historyForward = vi.fn()
     onShowShortcuts = vi.fn()
@@ -56,12 +56,12 @@ describe('useAppKeyboardShortcuts', () => {
     dispose = null
   })
 
-  it('Ctrl+B 切换侧边栏、Ctrl+R/F5 刷新、Alt+方向键路由导航', () => {
+  it('Ctrl+B 开合对话栏、Ctrl+R/F5 刷新、Alt+方向键路由导航', () => {
     init()
 
-    const sidebarEvent = fireKeydown({ key: 'b', ctrlKey: true })
-    expect(toggleSidebar).toHaveBeenCalledTimes(1)
-    expect(sidebarEvent.defaultPrevented).toBe(true)
+    const panelEvent = fireKeydown({ key: 'b', ctrlKey: true })
+    expect(toggleChatPanel).toHaveBeenCalledTimes(1)
+    expect(panelEvent.defaultPrevented).toBe(true)
 
     fireKeydown({ key: 'r', ctrlKey: true })
     expect(reload).toHaveBeenCalledTimes(1)
@@ -88,15 +88,16 @@ describe('useAppKeyboardShortcuts', () => {
     expect(questionEvent.defaultPrevented).toBe(true)
   })
 
-  it('desktop=false 时桌面专属键（Ctrl+B/Ctrl+R/Alt 导航）不接管', () => {
+  it('Web 构建（desktop=false）：Ctrl+B 开合对话栏；Ctrl+R/Alt 导航不接管', () => {
     init(false)
 
     fireKeydown({ key: 'b', ctrlKey: true })
+    expect(toggleChatPanel).toHaveBeenCalledTimes(1)
+
     fireKeydown({ key: 'r', ctrlKey: true })
     fireKeydown({ key: 'ArrowLeft', altKey: true })
     fireKeydown({ key: 'ArrowRight', altKey: true })
 
-    expect(toggleSidebar).not.toHaveBeenCalled()
     expect(reload).not.toHaveBeenCalled()
     expect(historyBack).not.toHaveBeenCalled()
     expect(historyForward).not.toHaveBeenCalled()
@@ -111,10 +112,26 @@ describe('useAppKeyboardShortcuts', () => {
     fireKeydown({ key: '?', shiftKey: true }, terminal.focusable)
     fireKeydown({ key: 'ArrowLeft', altKey: true }, terminal.focusable)
 
-    expect(toggleSidebar).not.toHaveBeenCalled()
+    expect(toggleChatPanel).not.toHaveBeenCalled()
     expect(reload).not.toHaveBeenCalled()
     expect(onShowShortcuts).not.toHaveBeenCalled()
     expect(historyBack).not.toHaveBeenCalled()
+    terminal.cleanup()
+  })
+
+  it('Ctrl+B срабатывает и в поле ввода (editableSafe), но не в терминале', () => {
+    init()
+    const input = document.createElement('textarea')
+    document.body.appendChild(input)
+    input.focus()
+
+    fireKeydown({ key: 'b', ctrlKey: true }, input)
+    expect(toggleChatPanel).toHaveBeenCalledTimes(1)
+    input.remove()
+
+    const terminal = mountTerminalFocus()
+    fireKeydown({ key: 'b', ctrlKey: true }, terminal.focusable)
+    expect(toggleChatPanel).toHaveBeenCalledTimes(1)
     terminal.cleanup()
   })
 
@@ -136,17 +153,17 @@ describe('useAppKeyboardShortcuts', () => {
   it('按键重复与组合键修饰符边界不触发', () => {
     init()
 
-    const repeatEvent = new KeyboardEvent('keydown', { cancelable: true, bubbles: true, key: 'b', ctrlKey: true })
+    const repeatEvent = new KeyboardEvent('keydown', { cancelable: true, bubbles: true, key: 'r', ctrlKey: true })
     Object.defineProperty(repeatEvent, 'repeat', { value: true })
     window.dispatchEvent(repeatEvent)
-    expect(toggleSidebar).not.toHaveBeenCalled()
+    expect(reload).not.toHaveBeenCalled()
 
-    // Ctrl+Shift+B 不是侧边栏键（避免误吞其他语义组合）。
+    // Ctrl+Shift+B 不是对话栏键（避免误吞其他语义组合）；Ctrl+Alt+R 不是刷新键。
     fireKeydown({ key: 'b', ctrlKey: true, shiftKey: true })
     fireKeydown({ key: 'r', ctrlKey: true, altKey: true })
     fireKeydown({ key: 'ArrowLeft', altKey: true, ctrlKey: true })
 
-    expect(toggleSidebar).not.toHaveBeenCalled()
+    expect(toggleChatPanel).not.toHaveBeenCalled()
     expect(reload).not.toHaveBeenCalled()
     expect(historyBack).not.toHaveBeenCalled()
   })
@@ -154,7 +171,7 @@ describe('useAppKeyboardShortcuts', () => {
   it('未初始化时不响应任何快捷键', () => {
     fireKeydown({ key: 'b', ctrlKey: true })
     fireKeydown({ key: 'F1' })
-    expect(toggleSidebar).not.toHaveBeenCalled()
+    expect(toggleChatPanel).not.toHaveBeenCalled()
     expect(onShowShortcuts).not.toHaveBeenCalled()
   })
 
@@ -162,7 +179,7 @@ describe('useAppKeyboardShortcuts', () => {
     init()
     const second = initAppKeyboardShortcuts({
       desktop: true,
-      toggleSidebar,
+      toggleChatPanel,
       historyBack,
       historyForward,
       onShowShortcuts,
@@ -175,7 +192,7 @@ describe('useAppKeyboardShortcuts', () => {
 
     fireKeydown({ key: 'b', ctrlKey: true })
     fireKeydown({ key: 'F1' })
-    expect(toggleSidebar).not.toHaveBeenCalled()
+    expect(toggleChatPanel).not.toHaveBeenCalled()
     expect(onShowShortcuts).not.toHaveBeenCalled()
   })
 })

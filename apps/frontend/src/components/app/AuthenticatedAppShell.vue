@@ -3,31 +3,28 @@
   <el-container class="app-layout" :class="{ 'immersive-mode': isImmersive }">
         <AppTopBar
           v-if="showNavigation"
-          :navigation-state="usesDrawerNavigation ? 'drawer' : (mainSidebarCompact ? 'collapsed' : 'expanded')"
-          @menu="handleTopChromeMenu"
           @navigate="handleTopChromeNavigate"
         />
 
         <el-container class="app-shell-body" :class="{ 'docked-workspace-shell': isDockedWorkspaceRoute, 'is-chat-route': isChatRoute, 'has-dock-status': hasDockStatus }">
           <!-- Sidebar Navigation -->
           <el-aside
-            v-if="showNavigation && !usesDrawerNavigation"
+            v-if="showNavigation"
             :width="sidebarAsideWidth"
-            class="app-sidebar"
-            :class="{ collapsed: mainSidebarCompact, 'chat-panel-open': secondaryNavOpen, resizing: sidebarResizing || chatPanelResizing }"
+            class="app-sidebar collapsed"
+            :class="{ 'chat-panel-open': secondaryNavOpen, resizing: chatPanelResizing }"
           >
-          <div class="primary-sidebar" :style="{ width: primarySidebarWidth }">
+          <div class="primary-sidebar">
           <!-- Main Navigation -->
           <div class="sidebar-nav" ref="sidebarNav">
             <el-menu
               :default-active="activeMenu"
               router
               class="sidebar-menu"
-              :collapse="mainSidebarCompact"
+              collapse
               :collapse-transition="false"
               @wheel="handleSidebarWheel"
             >
-              <div v-if="!mainSidebarCompact" class="menu-group-title">{{ $t('nav.main') }}</div>
               <div
                 class="chat-nav-group"
                 :class="{ active: route.path.startsWith('/chat'), open: chatNavOpen }"
@@ -42,7 +39,6 @@
                   @click="handleChatNavToggle"
                 >
                   <el-icon><ChatDotRound /></el-icon>
-                  <span v-if="!mainSidebarCompact" class="chat-nav-label">{{ $t('nav.chat') }}</span>
                 </button>
 
               </div>
@@ -59,7 +55,6 @@
                   @click="handleAcgNavToggle"
                 >
                   <img class="acg-nav-logo" src="/acglogo.webp" alt="" aria-hidden="true" />
-                  <span v-if="!mainSidebarCompact" class="chat-nav-label">ACG 动态群体智能引擎</span>
                 </button>
               </div>
               <div v-if="isMissionWorkspacePath(route.path)" class="workbench-activity-views" role="group" aria-label="Workbench 左侧视图">
@@ -68,7 +63,6 @@
                   :title="item.label" :aria-label="item.label" :aria-pressed="activeWorkbenchSidebar === item.id"
                   @click="selectWorkbenchSidebar(item.id)">
                   <el-icon><component :is="item.icon" /></el-icon>
-                  <span v-if="!mainSidebarCompact" class="chat-nav-label">{{ item.label }}</span>
                 </button>
               </div>
             </el-menu>
@@ -80,25 +74,18 @@
               <button
                 class="user-identity"
                 type="button"
-                :aria-label="userIdentityActionLabel"
-                :title="userIdentityActionLabel"
-                @click="handleUserIdentityClick"
+                aria-label="打开用户中心"
+                title="打开用户中心"
+                @click="openUserProfile"
               >
               <UserAvatar :size="28" class="user-avatar" :fallback="sidebarUserInitial" />
-              <div v-if="!mainSidebarCompact" class="user-info">
-                <span class="user-name">{{ sidebarUserName }}</span>
-                <span class="user-status">{{ sidebarUserMeta }}</span>
-              </div>
-              </button>
-              <button v-if="!mainSidebarCompact" class="user-logout" type="button" aria-label="退出登录" title="退出登录" @click="handleLogout">
-                <el-icon><SwitchButton /></el-icon>
               </button>
             </div>
             <el-menu
               :default-active="activeMenu"
               router
               class="sidebar-menu sidebar-settings-menu"
-              :collapse="mainSidebarCompact"
+              collapse
               :collapse-transition="false"
             >
               <el-menu-item index="/settings">
@@ -238,90 +225,7 @@
               ></div>
             </section>
           </Transition>
-
-          <div
-            v-if="!sidebarCollapsed && !secondaryNavOpen"
-            class="sidebar-resizer"
-            role="separator"
-            aria-label="调整侧边栏宽度"
-            aria-orientation="vertical"
-            :aria-valuemin="SIDEBAR_MIN_WIDTH"
-            :aria-valuemax="SIDEBAR_MAX_WIDTH"
-            :aria-valuenow="sidebarWidth"
-            tabindex="0"
-            title="拖动调整宽度，双击恢复默认"
-            @pointerdown="startSidebarResize"
-            @keydown="handleSidebarResizeKeydown"
-            @dblclick="resetSidebarWidth"
-          ></div>
           </el-aside>
-
-        <el-drawer
-          v-if="showNavigation && usesDrawerNavigation"
-          v-model="simpleNavOpen"
-          direction="ltr"
-          :size="248"
-          :with-header="false"
-          class="simple-nav-drawer"
-        >
-          <div class="drawer-sidebar">
-            <div class="sidebar-header drawer-header">
-              <button class="drawer-close" type="button" aria-label="关闭导航" title="关闭导航" @click="simpleNavOpen = false">
-                <el-icon><Fold /></el-icon>
-                <span>导航</span>
-              </button>
-            </div>
-
-            <el-menu
-              :default-active="activeMenu"
-              router
-              class="sidebar-menu drawer-menu"
-              @select="simpleNavOpen = false"
-            >
-              <div class="menu-group-title">{{ $t('nav.main') }}</div>
-              <el-menu-item index="/chat">
-                <el-icon><ChatDotRound /></el-icon>
-                <span>{{ $t('nav.chat') }}</span>
-              </el-menu-item>
-              <el-menu-item index="/agentos/acg">
-                <img class="acg-nav-logo" src="/acglogo.webp" alt="" aria-hidden="true" />
-                <span>ACG 动态群体智能引擎</span>
-              </el-menu-item>
-            </el-menu>
-
-            <div class="sidebar-footer drawer-footer">
-              <div class="user-profile">
-                <button
-                  class="user-identity"
-                  type="button"
-                  :aria-label="userIdentityActionLabel"
-                  :title="userIdentityActionLabel"
-                  @click="handleUserIdentityClick"
-                >
-                  <UserAvatar :size="28" class="user-avatar" :fallback="sidebarUserInitial" />
-                  <div class="user-info">
-                    <span class="user-name">{{ sidebarUserName }}</span>
-                    <span class="user-status">{{ sidebarUserMeta }}</span>
-                  </div>
-                </button>
-                <button class="user-logout" type="button" aria-label="退出登录" title="退出登录" @click="handleLogout">
-                  <el-icon><SwitchButton /></el-icon>
-                </button>
-              </div>
-              <el-menu
-                :default-active="activeMenu"
-                router
-                class="sidebar-menu sidebar-settings-menu"
-                @select="simpleNavOpen = false"
-              >
-                <el-menu-item index="/settings">
-                  <el-icon><Setting /></el-icon>
-                  <span>{{ $t('nav.settings') }}</span>
-                </el-menu-item>
-              </el-menu>
-            </div>
-          </div>
-        </el-drawer>
 
           <!-- Main Content Area -->
           <el-container class="main-container">
@@ -397,9 +301,8 @@ import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, provi
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChatDotRound, ChatLineRound, Delete, Edit, EditPen, FolderAdd, MoreFilled,
-  Clock, Setting, SwitchButton,
-  Monitor, Cpu,
-  Fold
+  Clock, Setting,
+  Monitor, Cpu
 } from '@element-plus/icons-vue'
 import WorkspaceModeSwitch from '@/components/workspace/WorkspaceModeSwitch.vue'
 import { workspaceShellKey, type WorkspaceSurface, type WorkbenchSidebar } from '@/features/workspace/shell'
@@ -407,7 +310,6 @@ import { FolderOpened, Search, Share, Connection } from '@element-plus/icons-vue
 import AppTopBar from '@/components/app/AppTopBar.vue'
 import DesktopRuntimeStatus from '@/components/platform/DesktopRuntimeStatus.vue'
 const DesktopTerminalDock = defineAsyncComponent(() => import('@/components/terminal/DesktopTerminalDock.vue'))
-import { authApi } from '@/services/api/auth'
 import BrandLoader from '@/components/common/BrandLoader.vue'
 import { conversationApi, type Conversation } from '@/services/api/conversation'
 import { agentosApi, type MissionListItem } from '@/services/api/agentos'
@@ -436,7 +338,6 @@ provide(conversationBindingKey, (contextId, missionId, runId) =>
   isConversationForWorkbench(chatStore.workflowBindings, contextId, missionId, runId))
 const workflowRunsStore = useWorkflowRunsStore()
 const userStore = useUserStore()
-const simpleNavOpen = ref(false)
 const shortcutsDialogVisible = ref(false)
 let disposeAppKeyboardShortcuts: (() => void) | null = null
 type WorkspaceMode = 'agent' | 'chat'
@@ -492,38 +393,19 @@ const workspaceHistoryCount = computed(() => workspaceMode.value === 'agent'
   : visibleRecentConversations.value.length
 )
 const conversationListLoading = ref(false)
-const SIDEBAR_COLLAPSED_KEY = 'layout.sidebar_collapsed'
-const SIDEBAR_WIDTH_KEY = 'layout.sidebar_width'
-const SIDEBAR_DEFAULT_WIDTH = 248
-const SIDEBAR_MIN_WIDTH = 220
-const SIDEBAR_MAX_WIDTH = 360
-const sidebarCollapsed = ref(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1')
-const storedSidebarWidth = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
-const sidebarWidth = ref(
-  Number.isFinite(storedSidebarWidth) && storedSidebarWidth >= SIDEBAR_MIN_WIDTH && storedSidebarWidth <= SIDEBAR_MAX_WIDTH
-    ? storedSidebarWidth
-    : SIDEBAR_DEFAULT_WIDTH
-)
-const sidebarResizing = ref(false)
 const isAcgRoute = computed(() => isAcgPath(route.path))
 const secondaryNavOpen = computed(() => chatNavOpen.value)
-const mainSidebarCompact = computed(() => sidebarCollapsed.value || secondaryNavOpen.value || isMissionWorkspacePath(route.path))
+// 侧边栏固定为图标窄栏：展开宽栏与移动端抽屉已退役，唯一可变宽度是对话子栏。
 const COLLAPSED_SIDEBAR_WIDTH = 48
-const sidebarAsideWidth = computed(() => `${secondaryNavOpen.value ? COLLAPSED_SIDEBAR_WIDTH + chatPanelWidth.value : (mainSidebarCompact.value ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth.value)}px`)
-const primarySidebarWidth = computed(() => `${mainSidebarCompact.value ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth.value}px`)
-let sidebarResizeStartX = 0
-let sidebarResizeStartWidth = SIDEBAR_DEFAULT_WIDTH
+const sidebarAsideWidth = computed(() => `${secondaryNavOpen.value ? COLLAPSED_SIDEBAR_WIDTH + chatPanelWidth.value : COLLAPSED_SIDEBAR_WIDTH}px`)
 let chatPanelResizeStartX = 0
 let chatPanelResizeStartWidth = CHAT_PANEL_DEFAULT_WIDTH
-const mobileMediaQuery = window.matchMedia('(max-width: 760px)')
-const isMobileViewport = ref(mobileMediaQuery.matches)
 const sidebarUserName = computed(() => {
   const username = userStore.currentUser?.username?.trim()
   if (username) return username
   const userId = localStorage.getItem('userId')?.trim()
   return userId ? `用户 ${userId.slice(-4)}` : '当前用户'
 })
-const sidebarUserMeta = computed(() => userStore.currentUser?.email?.trim() || '已登录')
 const sidebarUserInitial = computed(() => sidebarUserName.value.charAt(0).toUpperCase())
 
 // Sidebar navigation state
@@ -658,6 +540,14 @@ const closeChatPanel = () => {
 const closeAcgPanel = () => {
   acgNavOpen.value = false
   localStorage.setItem(ACG_NAV_OPEN_KEY, '0')
+}
+
+// Ctrl+B：只在对话/Workbench 页面开合对话记录子栏；不导航，其他页面为 no-op。
+const toggleChatPanelShortcut = () => {
+  if (!isChatRoute.value && !isAcgPath(route.path)) return
+  chatNavOpen.value = !chatNavOpen.value
+  localStorage.setItem(CHAT_NAV_OPEN_KEY, chatNavOpen.value ? '1' : '0')
+  if (chatNavOpen.value) void loadRecentConversations()
 }
 
 const handleAcgNavToggle = async () => {
@@ -984,126 +874,12 @@ const isImmersive = computed(() => {
 
 const showNavigation = computed(() => !isImmersive.value && !route.meta.hideNavigation)
 
-const usesDrawerNavigation = computed(() => {
-  return showNavigation.value && isMobileViewport.value
-})
-
-const userIdentityActionLabel = computed(() => {
-  if (mainSidebarCompact.value) return '展开侧边栏'
-  return '打开用户中心'
-})
-
 const openUserProfile = () => {
   void router.push('/user')
 }
 
-const expandPrimarySidebar = () => {
-  // If the chat sub-panel is occupying the extra sidebar width, close it first
-  // so the primary navigation can expand back to its normal width.
-  if (secondaryNavOpen.value) closeChatPanel()
-  if (!sidebarCollapsed.value) return
-
-  sidebarCollapsed.value = false
-  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '0')
-}
-
-const handleUserIdentityClick = () => {
-  if (usesDrawerNavigation.value) {
-    simpleNavOpen.value = false
-    openUserProfile()
-    return
-  }
-
-  if (mainSidebarCompact.value) {
-    expandPrimarySidebar()
-    return
-  }
-
-  openUserProfile()
-}
-
-const toggleSidebar = () => {
-  if (secondaryNavOpen.value) {
-    closeChatPanel()
-    closeAcgPanel()
-    return
-  }
-  sidebarCollapsed.value = !sidebarCollapsed.value
-  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.value ? '1' : '0')
-}
-
-const handleTopChromeMenu = () => {
-  if (usesDrawerNavigation.value) {
-    simpleNavOpen.value = true
-    return
-  }
-  toggleSidebar()
-}
-
 const handleTopChromeNavigate = (path: string) => {
   void router.push(path)
-}
-
-const clampSidebarWidth = (width: number) => {
-  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(width)))
-}
-
-const persistSidebarWidth = () => {
-  localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth.value))
-}
-
-const handleSidebarResizeMove = (event: PointerEvent) => {
-  if (!sidebarResizing.value) return
-  sidebarWidth.value = clampSidebarWidth(sidebarResizeStartWidth + event.clientX - sidebarResizeStartX)
-}
-
-const stopSidebarResize = () => {
-  if (!sidebarResizing.value) return
-  sidebarResizing.value = false
-  persistSidebarWidth()
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-  window.removeEventListener('pointermove', handleSidebarResizeMove)
-  window.removeEventListener('pointerup', stopSidebarResize)
-  window.removeEventListener('pointercancel', stopSidebarResize)
-}
-
-const startSidebarResize = (event: PointerEvent) => {
-  if (event.button !== 0) return
-  event.preventDefault()
-  sidebarResizeStartX = event.clientX
-  sidebarResizeStartWidth = sidebarWidth.value
-  sidebarResizing.value = true
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-  window.addEventListener('pointermove', handleSidebarResizeMove)
-  window.addEventListener('pointerup', stopSidebarResize)
-  window.addEventListener('pointercancel', stopSidebarResize)
-}
-
-const resetSidebarWidth = () => {
-  sidebarWidth.value = SIDEBAR_DEFAULT_WIDTH
-  persistSidebarWidth()
-}
-
-const handleSidebarResizeKeydown = (event: KeyboardEvent) => {
-  const increments: Record<string, number> = {
-    ArrowLeft: -8,
-    ArrowRight: 8
-  }
-
-  if (event.key === 'Home') {
-    sidebarWidth.value = SIDEBAR_MIN_WIDTH
-  } else if (event.key === 'End') {
-    sidebarWidth.value = SIDEBAR_MAX_WIDTH
-  } else if (increments[event.key]) {
-    sidebarWidth.value = clampSidebarWidth(sidebarWidth.value + increments[event.key])
-  } else {
-    return
-  }
-
-  event.preventDefault()
-  persistSidebarWidth()
 }
 
 const clampChatPanelWidth = (width: number) => {
@@ -1168,11 +944,6 @@ const handleChatPanelResizeKeydown = (event: KeyboardEvent) => {
   persistChatPanelWidth()
 }
 
-const handleViewportChange = (event: MediaQueryListEvent) => {
-  isMobileViewport.value = event.matches
-  if (!event.matches) simpleNavOpen.value = false
-}
-
 const isRouteScrollable = computed(() => {
   const path = route.path
   return (
@@ -1191,40 +962,6 @@ const activeMenu = computed(() => {
   return path
 })
 
-// Logout with confirmation dialog
-const handleLogout = async () => {
-  try {
-    await ElMessageBox.confirm(
-      '确定要退出登录吗？退出后将需要重新登录。',
-      '确认退出',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-        customClass: 'logout-confirm'
-      }
-    )
-
-    const result = await authApi.logout()
-    if (result.success) {
-      userStore.setCurrentUser(null)
-      // 服务端撤销未确认时不得用成功样式显示"已退出"
-      if (result.serverRevoked) {
-        ElMessage.success(result.message || '退出登录成功')
-      } else {
-        ElMessage.warning(result.message || '本机已退出，服务端撤销未确认')
-      }
-      await router.replace(isDesktop() ? { path: '/login' } : { path: '/', query: { auth: '1', redirect: '/chat' } })
-    } else {
-      ElMessage.error(result.message || '退出登录失败')
-    }
-  } catch (error) {
-    if (error === 'cancel') return
-    console.error('退出登录失败:', error)
-    ElMessage.error('退出登录失败，请重试')
-  }
-}
-
 // 拖拽落到页面里无拖放承接的区域时，阻止 WebView2/浏览器默认的"导航到所拖文件"。
 // 各拖拽区（如新建工程附件）在自己的 dragover/drop 里 preventDefault 不受影响。
 const guardNativeFileDrop = (event: DragEvent): void => {
@@ -1238,11 +975,10 @@ onMounted(() => {
   window.addEventListener('dragover', guardNativeFileDrop)
   window.addEventListener('drop', guardNativeFileDrop)
   document.addEventListener('mousedown', handleSidebarActionMenuOutside)
-  mobileMediaQuery.addEventListener('change', handleViewportChange)
   // 应用级全局快捷键（Ctrl+B / Ctrl+R / Alt+方向 / F1），窗口级 F11/F12 在 Electron Main。
   disposeAppKeyboardShortcuts = initAppKeyboardShortcuts({
     desktop: isDesktop(),
-    toggleSidebar,
+    toggleChatPanel: toggleChatPanelShortcut,
     historyBack: () => router.back(),
     historyForward: () => router.forward(),
     onShowShortcuts: () => { shortcutsDialogVisible.value = true }
@@ -1254,7 +990,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   conversationLoadController?.abort()
-  stopSidebarResize()
   stopChatPanelResize()
   disposeAppKeyboardShortcuts?.()
   disposeAppKeyboardShortcuts = null
@@ -1264,7 +999,6 @@ onUnmounted(() => {
   window.removeEventListener('dragover', guardNativeFileDrop)
   window.removeEventListener('drop', guardNativeFileDrop)
   document.removeEventListener('mousedown', handleSidebarActionMenuOutside)
-  mobileMediaQuery.removeEventListener('change', handleViewportChange)
 })
 </script>
 
@@ -1300,6 +1034,8 @@ onUnmounted(() => {
 }
 
 .primary-sidebar {
+  /* 图标窄栏固定宽度（与 AppTopBar 的 is-rail-collapsed::after left:48px 同口径）。 */
+  width: 48px;
   --sidebar-icon-axis: 30px;
   --sidebar-item-icon-inset: 13px;
   --sidebar-collapsed-menu-icon-offset: 6px;
@@ -1312,7 +1048,6 @@ onUnmounted(() => {
   flex-direction: column;
   overflow: hidden;
   background: var(--app-topbar-bg);
-  transition: width 0.22s var(--ease-out);
 }
 
 .app-sidebar.chat-panel-open .primary-sidebar {
@@ -1325,50 +1060,6 @@ onUnmounted(() => {
 
 .app-sidebar.resizing .primary-sidebar {
   transition: none;
-}
-
-.sidebar-resizer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 12;
-  width: 8px;
-  cursor: col-resize;
-  touch-action: none;
-  outline: none;
-}
-
-.sidebar-resizer::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--primary-color);
-  opacity: 0;
-  transform: scaleY(0.96);
-  transition: opacity 0.16s ease, transform 0.16s ease;
-}
-
-.sidebar-resizer:hover::after,
-.sidebar-resizer:focus-visible::after,
-.app-sidebar.resizing .sidebar-resizer::after {
-  opacity: 0.8;
-  transform: scaleY(1);
-}
-
-.sidebar-header {
-  flex-shrink: 0;
-  box-sizing: border-box;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  gap: 6px;
-  border-bottom: 1px solid var(--sidebar-border);
 }
 
 .sidebar-nav {
@@ -1481,18 +1172,6 @@ onUnmounted(() => {
   background: var(--scrollbar-thumb-hover);
 }
 
-.menu-group-title {
-  box-sizing: border-box;
-  height: 33px;
-  padding: 14px 16px 6px;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-disabled);
-  letter-spacing: 0.04em;
-  text-transform: none;
-}
-
 .sidebar-menu {
   --el-menu-item-font-size: 13px;
   font-family: var(--font-sans);
@@ -1552,11 +1231,6 @@ onUnmounted(() => {
   object-fit: cover;
   /* The raster artwork has built-in side padding; align its visible mark with the line icons. */
   transform: translateX(-6px);
-}
-
-.chat-nav-label {
-  min-width: 0;
-  flex: 1;
 }
 
 .chat-nav-trigger:hover {
@@ -2171,8 +1845,7 @@ onUnmounted(() => {
   padding: 3px;
 }
 
-.user-identity,
-.user-logout {
+.user-identity {
   border: 0;
   background: transparent;
   color: inherit;
@@ -2203,134 +1876,9 @@ onUnmounted(() => {
   font-weight: 700;
 }
 
-.user-info {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.user-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.user-status {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 10px;
-  color: var(--text-secondary);
-  line-height: 1.2;
-}
-
-.user-status::before {
-  content: '●';
-  margin-right: 4px;
-  color: var(--success);
-  font-size: 7px;
-  vertical-align: 1px;
-}
-
-.user-logout {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  display: grid;
-  place-items: center;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  color: var(--text-secondary);
-  font-size: 16px;
-  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
-}
-
-.user-identity:hover .user-name,
-.user-logout:hover {
-  color: var(--danger);
-}
-
-.user-logout:hover { border-color: color-mix(in srgb, var(--danger) 32%, var(--sidebar-border)); background: var(--danger-fade); }
-
-.user-identity:focus-visible,
-.user-logout:focus-visible {
+.user-identity:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: 2px;
-}
-
-.simple-nav-drawer :deep(.el-drawer__body),
-:global(.simple-nav-drawer .el-drawer__body) {
-  padding: 0;
-  background: var(--drawer-bg);
-}
-
-.drawer-sidebar {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--app-layout-bg);
-}
-
-.drawer-header {
-  flex-shrink: 0;
-  justify-content: flex-start;
-}
-
-.drawer-close {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 8px;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 12px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  cursor: pointer;
-}
-
-.drawer-close:hover {
-  color: var(--primary-color);
-  background: var(--primary-fade);
-}
-
-.drawer-close:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 1px;
-}
-
-.drawer-menu {
-  flex: 1;
-  min-height: 0;
-  padding: 14px 8px 10px;
-  overflow-y: auto;
-}
-
-.drawer-menu::-webkit-scrollbar {
-  width: 4px;
-}
-
-.drawer-menu::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.drawer-menu::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 999px;
-}
-
-.drawer-footer {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 /* Main Content Styles */

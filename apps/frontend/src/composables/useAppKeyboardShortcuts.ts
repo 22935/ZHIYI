@@ -1,6 +1,6 @@
 /**
  * 应用级全局快捷键（AuthenticatedAppShell 装载）：
- * - Ctrl+B 侧边栏 折叠/展开；
+ * - Ctrl+B 对话记录子栏 开/关（web/桌面都生效；仅 OScode/Workbench 页面，页面切换逻辑不在快捷键里）；
  * - Ctrl+R / F5 刷新页面（放渲染进程而非 Main：内置终端里 Ctrl+R 是 shell 历史搜索，
  *   需按焦点让位；页面崩溃场景已有 render-process-gone 弹窗兜底）；
  * - Alt+← / Alt+→ 路由后退/前进（与顶栏按钮同效）；
@@ -15,9 +15,10 @@
 import { commands, installCommandKeybindings, type CommandDescriptor } from '@/workbench/core/commands'
 
 export interface AppKeyboardShortcutOptions {
-  /** 仅桌面构建启用（Web 下 Ctrl+B / Ctrl+R / Alt 导航无窗口语义）。 */
+  /** 仅桌面构建启用（Web 下 Ctrl+R / Alt 导航无窗口语义；Ctrl+B 与桌面无关，web 也注册）。 */
   desktop: boolean
-  toggleSidebar: () => void
+  /** 对话记录子栏 开/关；只翻面板状态，不导航（目标页无面板时为 no-op）。 */
+  toggleChatPanel: () => void
   historyBack: () => void
   historyForward: () => void
   onShowShortcuts: () => void
@@ -67,8 +68,21 @@ export function initAppKeyboardShortcuts(options: AppKeyboardShortcutOptions): (
     run: options.onShowShortcuts
   })
 
+  // Ctrl+B — чисто страничное действие (панель), работает и в web-сборке;
+  // editableSafe: не подавляется в полях ввода (иначе «закрыть» не сработает
+  // после того, как панель сфокусировала поле сообщения);
+  // терминал НЕ отдан: там Ctrl+B = backward-char (правило терминала ниже).
+  register({
+    id: 'app.toggleChatPanel',
+    title: '对话记录栏 开/关',
+    category: '桌面',
+    order: 30,
+    keys: ['mod+b'],
+    editableSafe: true,
+    run: options.toggleChatPanel
+  })
+
   if (options.desktop) {
-    register({ id: 'app.toggleSidebar', title: '侧边栏 折叠/展开', category: '桌面', order: 30, keys: ['mod+b'], run: options.toggleSidebar })
     register({
       id: 'app.reload',
       title: '刷新页面',

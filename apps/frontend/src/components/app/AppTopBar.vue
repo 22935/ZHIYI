@@ -1,7 +1,7 @@
 <template>
   <header
-    class="app-topbar"
-    :class="{ 'is-desktop-shell': desktopShell, 'is-rail-collapsed': props.navigationState === 'collapsed' }"
+    class="app-topbar is-rail-collapsed"
+    :class="{ 'is-desktop-shell': desktopShell }"
     v-bind="dragRegionProps"
     aria-label="应用工作栏"
   >
@@ -9,18 +9,9 @@
          否则顶栏空白处（含窗口控件两侧）按下去 target 落在包裹层上，窗口拖不动 -->
     <div class="app-topbar__left" v-bind="dragRegionProps">
       <div class="app-topbar__brand-zone" v-bind="dragRegionProps">
-        <button
-          class="app-topbar__brand"
-          :class="{ 'is-collapsed': props.navigationState === 'collapsed', 'is-drawer': props.navigationState === 'drawer' }"
-          type="button"
-          :aria-label="navigationActionLabel"
-          :title="navigationActionLabel"
-          @click="emit('menu')"
-        >
-          <span class="app-topbar__logo" aria-hidden="true">
-            <img src="/logo.webp" alt="" />
-          </span>
-        </button>
+        <span class="app-topbar__logo" aria-hidden="true">
+          <img src="/logo.webp" alt="" />
+        </span>
       </div>
 
       <nav ref="menuLinksRef" class="app-topbar__menu-links" aria-label="工作台菜单" v-bind="dragRegionProps">
@@ -263,14 +254,7 @@ import { commands as commandRegistry } from '@/workbench/core/commands'
 const desktopShell = isDesktop()
 const dragRegionProps = platform.dragRegionProps
 
-const props = withDefaults(defineProps<{
-  navigationState?: 'expanded' | 'collapsed' | 'drawer'
-}>(), {
-  navigationState: 'expanded'
-})
-
 const emit = defineEmits<{
-  menu: []
   home: []
   navigate: [path: string]
 }>()
@@ -476,10 +460,6 @@ const filteredCommands = computed(() => {
 })
 
 const selectedCommand = computed(() => filteredCommands.value[selectedCommandIndex.value])
-const navigationActionLabel = computed(() => {
-  if (props.navigationState === 'drawer') return '打开导航'
-  return props.navigationState === 'collapsed' ? '展开导航' : '收起导航'
-})
 
 const clearCommand = () => {
   query.value = ''
@@ -661,8 +641,7 @@ onBeforeUnmount(() => {
 }
 
 .app-topbar__brand-zone,
-.app-topbar__menu-links,
-.app-topbar__brand {
+.app-topbar__menu-links {
   display: flex;
   align-items: center;
 }
@@ -692,30 +671,8 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.app-topbar__brand {
-  color: inherit;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  transition: background-color 160ms ease, color 160ms ease, opacity 160ms ease;
-}
-
-.app-topbar__brand {
-  position: relative;
-  flex: 0 0 28px;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 2px;
-  border-radius: 8px;
-  text-align: left;
-}
-
-.app-topbar__brand:hover {
-  background: var(--app-topbar-hover);
-}
-
-.app-topbar__brand:focus-visible,
+/* 品牌标是纯识别物不承接点击（侧边栏固定图标窄栏，无导航开合动作）；
+   点击语义退役后此区域完全交还窗口拖拽。 */
 .app-command-center:focus-within {
   outline: 2px solid var(--app-topbar-focus-ring);
   outline-offset: 1px;
@@ -740,13 +697,6 @@ onBeforeUnmount(() => {
   width: 18px;
   height: 18px;
   object-fit: contain;
-}
-
-.app-topbar__brand:hover .app-topbar__logo,
-.app-topbar__brand:focus-visible .app-topbar__logo {
-  border-color: var(--app-topbar-focus-border);
-  box-shadow: 0 2px 5px color-mix(in srgb, var(--app-topbar-text) 12%, transparent), 0 0 0 1px color-mix(in srgb, var(--app-topbar-text) 22%, transparent) inset;
-  transform: translateY(-1px);
 }
 
 .app-topbar__menu-links {
@@ -1149,7 +1099,6 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-topbar__brand,
   .app-topbar__history-button,
   .app-command-center {
     transition: none;

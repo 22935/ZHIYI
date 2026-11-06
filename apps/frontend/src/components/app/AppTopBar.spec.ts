@@ -79,12 +79,10 @@ describe('AppTopBar', () => {
   it('emits shell actions and clears the command on Escape', async () => {
     const { wrapper } = await mountTopBar()
 
-    await wrapper.get('[aria-label="收起导航"]').trigger('click')
     await wrapper.findAll('.app-topbar__menu-links button')[1].trigger('click')
     await wrapper.get('input').setValue('trace')
     await wrapper.get('input').trigger('keydown.esc')
 
-    expect(wrapper.emitted('menu')).toHaveLength(1)
     expect(wrapper.emitted('navigate')).toEqual([['/agentos/resources']])
     expect(wrapper.get('input').element).toHaveProperty('value', '')
   })
@@ -243,15 +241,12 @@ describe('AppTopBar', () => {
     expect(wrapper.emitted('navigate')).toEqual([['/history']])
   })
 
-  it('uses the logo as the single navigation toggle', async () => {
-    const { wrapper } = await mountTopBar({ navigationState: 'collapsed' })
+  it('keeps the logo decorative: the rail is permanent and there is no navigation toggle', async () => {
+    const { wrapper } = await mountTopBar()
 
-    expect(wrapper.find('.app-topbar__menu-button').exists()).toBe(false)
-    expect(wrapper.get('[aria-label="展开导航"]').classes()).toContain('is-collapsed')
-    expect(wrapper.find('.app-topbar__logo-control').exists()).toBe(false)
-
-    await wrapper.get('[aria-label="展开导航"]').trigger('click')
-    expect(wrapper.emitted('menu')).toHaveLength(1)
+    expect(wrapper.find('[aria-label="展开导航"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="收起导航"]').exists()).toBe(false)
+    expect(wrapper.get('.app-topbar__brand-zone .app-topbar__logo img').exists()).toBe(true)
   })
 
   it('removes the requested topbar action group', async () => {
