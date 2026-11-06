@@ -102,6 +102,19 @@ export default defineConfig(({ mode, command }) => {
       include: [
         'vis-data',
         'vis-network',
+        // CodeMirror 全家钉进启动期预构建：编辑器是懒加载路由，若靠惰性发现，
+        // 长开窗口会在中途 re-optimize 时拿到旧 browserHash 模块 + 新加载块，
+        // @codemirror/state 双实例 → instanceof 断裂 → 编辑器挂载即崩
+        // （"Unrecognized extension value in extension set"，2026-11-06 实锤）。
+        '@codemirror/state',
+        '@codemirror/view',
+        '@codemirror/language',
+        '@codemirror/language-data',
+        '@codemirror/commands',
+        '@codemirror/autocomplete',
+        '@codemirror/search',
+        '@codemirror/lint',
+        '@codemirror/merge',
       ],
     },
     server: {
