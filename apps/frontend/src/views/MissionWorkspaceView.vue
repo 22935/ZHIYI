@@ -3,6 +3,7 @@
     <!-- 320px is the visual default; a deliberate drag may widen the Inspector
          until the shared workbench main-column constraint is reached. -->
     <WorkbenchLayout
+      ref="workbenchLayout"
       shared-dock-geometry
       :show-right="true"
       :show-bottom-panel="Boolean(projection)"
@@ -15,8 +16,11 @@
       storage-key="zhiyi.mission.workspace.layout.v3"
     >
       <template #left>
+        <div class="workspace-primary-sidebar">
+        <WorkspaceModeSwitch active="workbench" :pending="workspaceSwitchPending" @select="switchWorkspaceSurface" />
         <WorkbenchContributionRenderer
           v-if="projection"
+          v-show="activeSidebar === 'thought'"
           :contribution="sidebarContribution"
           :component-props="sidebarProps"
           @open="openEntry"
@@ -24,24 +28,35 @@
           @rerun="rerunSelectedRun"
           @back="returnToProjectList"
         />
-        <section v-else class="workspace-loading-pane" aria-label="Workspace loading status">
+        <KeepAlive>
+          <WorkbenchAuxiliarySidebar
+            v-if="projection && activeLeftView"
+            :key="activeLeftView.id"
+            :view="activeLeftView"
+            :component-props="leftViewProps"
+            @open-file="openWorkspaceFile"
+          />
+        </KeepAlive>
+        <section v-if="!projection" class="workspace-loading-pane" aria-label="Workspace loading status">
           <img class="workspace-loading-pane__watermark" src="/logo.webp" alt="" aria-hidden="true" />
           <span class="workspace-loading-pane__mark">MISSION</span>
           <strong>{{ loading ? 'Loading workspace…' : 'Workspace unavailable' }}</strong>
           <span>{{ loadError || '等待 Mission 投影。' }}</span>
           <button v-if="loadError" type="button" @click="loadWorkspace()">Retry</button>
         </section>
+        </div>
       </template>
 
       <template #main="mainState">
         <section class="workspace-document-surface">
         <p v-if="deliveryIntentError" role="alert">{{ deliveryIntentError }}</p>
-        <div v-if="projection" class="workspace-lifecycle" role="status" aria-live="polite">
-          <strong>{{ lifecycleLabels[lifecycle.phase] }}</strong>
-          <span>{{ lifecycle.deliveryStatus === 'MISSING' ? 'Completed · Final deliverable missing' : lifecycle.reason }}</span>
-          <small>Selected: {{ selectedRunId || '未选择' }} · Latest created: {{ lifecycle.latestRunId || '未观测' }} · Active Runs: {{ activeRunIds.join(', ') || '未观测' }}</small>
-          <button type="button" :aria-pressed="editorIntent.mode === 'follow'" @click="enableLifecycleFollow">{{ editorIntent.mode === 'follow' ? 'Following lifecycle' : 'Follow lifecycle' }}</button>
-        </div>
+        <WorkspaceLifecycleBar
+          v-if="projection"
+          :lifecycle="lifecycle"
+          :active-run-ids="activeRunIds"
+          :following="editorIntent.mode === 'follow'"
+          @follow="enableLifecycleFollow"
+        />
         <EditorGroup
           v-if="projection"
           :projection="projection"
@@ -64,6 +79,7 @@
           @select-auxiliary="selectAuxiliaryView($event, mainState)"
           @activate="activateEditor"
           @close="closeEditor"
+          @reorder="reorderEditors"
           @editor-status="activeEditorStatus = $event"
           @select-semantic-task="selectSemanticTask"
           @select-symbol="selectRunSymbol"
@@ -211,6 +227,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { agentosApi, type MissionWorkspaceProjection, type WorkspaceEntry, type WorkspaceFileOpenRequest, type WorkspaceGraphNode } from '@/services/api/agentos'
 import WorkbenchLayout from '@/components/workbench/WorkbenchLayout.vue'
+import WorkspaceModeSwitch from '@/components/workspace/WorkspaceModeSwitch.vue'
+import { workspaceShellKey, workbenchSidebarViews, type WorkspaceSurface } from '@/features/workspace/shell'
 import EditorGroup, { type OpenWorkspaceEntry } from '@/components/workspace/EditorGroup.vue'
 import type { WorkspaceFileEditorStatus } from '@/components/workbench/WorkspaceFileEditor.vue'
 import { missionDocumentContent } from '@/components/workspace/missionSemanticDisplay'
@@ -229,12 +247,21 @@ import type { ArtifactDocumentModel } from '@/workbench/runtime/artifactProjecti
 import { beginRunRecovery, pendingRunRecovery, completeRunRecovery } from '@/workbench/runtime/recoveryIdentity'
 import { readRunCapabilities } from '@/workbench/runtime/runCapabilities'
 import { conversationBindingKey, readRunDeliverableIntent } from '@/features/workspace/navigation'
-import { lifecycleLabels } from '@/features/workspace/runLifecycle'
+import WorkspaceLifecycleBar from '@/components/workspace/WorkspaceLifecycleBar.vue'
 import { projectLifecycle } from '@/workbench/runtime/lifecycleProjection'
 import { initialEditorIntent, selectLifecycleEditor } from '@/workbench/runtime/editorSelection'
 
 const route = useRoute()
 const router = useRouter()
+const workspaceShell = inject(workspaceShellKey, null)
+const workbenchLayout = ref<InstanceType<typeof WorkbenchLayout> | null>(null)
+const activeSidebar = computed(() => workspaceShell?.activeSidebar.value || 'thought')
+const workspaceSwitchPending = computed(() => workspaceShell?.switching.value || false)
+const switchWorkspaceSurface = async (surface: WorkspaceSurface) => {
+  if (workspaceShell) await workspaceShell.switchSurface(surface)
+  else if (surface === 'oscode') await router.push('/chat?workspace=chat')
+}
+watch(() => workspaceShell?.sidebarActivation.value, () => workbenchLayout.value?.restoreLeftPane())
 const hasConversationBinding = inject(conversationBindingKey, () => false)
 let viewActive = true
 let suspended = false
@@ -419,7 +446,15 @@ const workbenchContext = computed(() => createWorkbenchContext({
   lifecycle: lifecycle.value
 }))
 
-const auxiliaryViews = computed(() => registry.getAuxiliaryViews(workbenchContext.value))
+const leftViewIds = new Set(Object.values(workbenchSidebarViews))
+const auxiliaryViews = computed(() => registry.getAuxiliaryViews(workbenchContext.value)
+  .filter(view => !leftViewIds.has(view.id)))
+const activeLeftView = computed(() => activeSidebar.value === 'thought' ? null
+  : registry.resolveAuxiliaryView(workbenchSidebarViews[activeSidebar.value], workbenchContext.value))
+const leftViewProps = computed(() => ({
+  missionId: missionId.value,
+  ...(activeLeftView.value?.getProps?.(workbenchContext.value) || {})
+}))
 const activeAuxiliaryView = computed(() => (
   activeAuxiliaryId.value
     ? registry.resolveAuxiliaryView(activeAuxiliaryId.value, workbenchContext.value)
@@ -1022,6 +1057,13 @@ const closeEditor = (entryId: string) => {
   activeEditorId.value = openEditors.value[Math.max(0, index - 1)] || openEditors.value[0] || null
 }
 
+// 标签条拖拽只重排打开顺序；openEditors 与 openEntries 一一对应，索引可直接换算。
+const reorderEditors = (from: number, to: number) => {
+  if (from < 0 || from >= openEditors.value.length || from === to) return
+  const [moved] = openEditors.value.splice(from, 1)
+  openEditors.value.splice(Math.max(0, Math.min(to, openEditors.value.length)), 0, moved)
+}
+
 const selectSemanticTask = (semanticTaskKey: string | null) => {
   selectedSemanticTaskKey.value = semanticTaskKey
   selectedGraphNodeId.value = projection.value?.graphNodes.find(node => node.semanticTaskKey === semanticTaskKey)?.acgNodeId || null
@@ -1148,11 +1190,14 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.workspace-primary-sidebar { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; overflow: hidden; }
+.workspace-primary-sidebar > .workspace-switch { margin: 12px 10px 8px; }
+.workspace-primary-sidebar > :deep(.workbench-contribution-renderer),
+.workspace-primary-sidebar > :deep(.workspace-explorer),
+.workspace-primary-sidebar > :deep(.auxiliary-sidebar) { flex: 1; min-height: 0; height: auto; }
 .workspace-inspector-column { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
 .workspace-document-surface { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
 .workspace-document-surface > :deep(.editor-group) { flex: 1 1 0; height: auto; min-height: 0; }
-.workspace-lifecycle { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 10px; color: var(--wb-text-muted); font-size: 11px; }
-.workspace-lifecycle span { flex: 1; }
 .workspace-inspector-column > :deep(.runtime-inspector), .workspace-inspector-column > :deep(.workbench-auxiliary-sidebar) { flex: 1; min-height: 0; }
 .mission-workspace-view { --editor-rail-height: 32px; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-app); }
 .mission-workspace-view :deep(.workbench-pane--left),

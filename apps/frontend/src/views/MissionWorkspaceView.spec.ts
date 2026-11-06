@@ -1,3 +1,5 @@
+import { ref } from 'vue'
+import { workspaceShellKey, type WorkspaceShell } from '@/features/workspace/shell'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
@@ -95,7 +97,8 @@ const projection = (overrides: Partial<MissionWorkspaceProjection> = {}): Missio
 
 const mountWorkspace = async (
   resolved: MissionWorkspaceProjection | ((runId?: string) => MissionWorkspaceProjection) = projection(),
-  url = '/agentos/missions/mission_1/workspace'
+  url = '/agentos/missions/mission_1/workspace',
+  shell?: WorkspaceShell
 ) => {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -137,8 +140,12 @@ const mountWorkspace = async (
   const wrapper = mount(MissionWorkspaceView, {
     global: {
       plugins: [router],
+      provide: shell ? { [workspaceShellKey as symbol]: shell } : {},
       stubs: {
         WorkbenchLayout: workspaceLayoutStub,
+        WorkspaceFileExplorer: { data: () => ({ filter: '' }), template: '<div class="files-view-stub"><input v-model="filter" /></div>' },
+        WorkspaceSearchView: { template: '<div class="search-view-stub" />' },
+        WorkspaceGitView: { template: '<div class="git-view-stub" />' },
         GraphEditor: graphEditorStub,
         ArtifactEditor: artifactEditorStub,
         MissionEditor: missionEditorStub,
@@ -179,10 +186,10 @@ describe('MissionWorkspaceView', () => {
 
     expect(wrapper.find('.secondary-sidebar').exists()).toBe(true)
     expect(wrapper.find('.auxiliary-sidebar').exists()).toBe(false)
-    expect(wrapper.findAll('.editor-auxiliary-trigger')).toHaveLength(4)
-    expect(wrapper.findAll('.editor-auxiliary-trigger').some(trigger => trigger.attributes('title').includes('文件'))).toBe(true)
-    expect(wrapper.findAll('.editor-auxiliary-trigger').some(trigger => trigger.attributes('title').includes('搜索'))).toBe(true)
-    expect(wrapper.findAll('.editor-auxiliary-trigger').some(trigger => trigger.attributes('title').includes('源代码管理'))).toBe(true)
+    expect(wrapper.findAll('.editor-auxiliary-trigger')).toHaveLength(1)
+    expect(wrapper.findAll('.editor-auxiliary-trigger').some(trigger => trigger.attributes('title').includes('文件'))).toBe(false)
+    expect(wrapper.findAll('.editor-auxiliary-trigger').some(trigger => trigger.attributes('title').includes('搜索'))).toBe(false)
+    expect(wrapper.findAll('.editor-auxiliary-trigger').some(trigger => trigger.attributes('title').includes('源代码管理'))).toBe(false)
     expect(copilotTrigger().attributes('aria-label')).toBe('打开 ACG Copilot')
 
     await copilotTrigger().trigger('click')
@@ -198,6 +205,33 @@ describe('MissionWorkspaceView', () => {
     expect(wrapper.find('.secondary-sidebar').exists()).toBe(true)
     expect(wrapper.get('.editor-inspector-trigger').attributes('aria-label')).toBe('收起 Inspector')
     expect(wrapper.find('.auxiliary-drawer').exists()).toBe(false)
+  })
+
+  it('switches only the left sidebar and preserves files, editor tabs, and Inspector', async () => {
+    const activeSidebar = ref<'thought' | 'files' | 'search' | 'git'>('thought')
+    const switchSurface = vi.fn(async () => {})
+    const shell = { activeSidebar, sidebarActivation: ref(0), switching: ref(false), switchSurface }
+    const { wrapper, router } = await mountWorkspace(projection(), undefined, shell)
+    const routeBefore = router.currentRoute.value.fullPath
+    const editor = wrapper.get('.editor-group').element
+    const inspector = wrapper.get('.secondary-sidebar').element
+    const thought = wrapper.get('.workspace-explorer').element
+    activeSidebar.value = 'files'; await flushPromises()
+    await wrapper.get('.files-view-stub input').setValue('src')
+    activeSidebar.value = 'search'; await flushPromises()
+    expect(wrapper.find('.search-view-stub').exists()).toBe(true)
+    activeSidebar.value = 'git'; await flushPromises()
+    expect(wrapper.find('.git-view-stub').exists()).toBe(true)
+    activeSidebar.value = 'files'; await flushPromises()
+    expect((wrapper.get('.files-view-stub input').element as HTMLInputElement).value).toBe('src')
+    activeSidebar.value = 'thought'; await flushPromises()
+    expect(wrapper.get('.workspace-explorer').element).toBe(thought)
+    expect(wrapper.get('.editor-group').element).toBe(editor)
+    expect(wrapper.get('.secondary-sidebar').element).toBe(inspector)
+    expect(router.currentRoute.value.fullPath).toBe(routeBefore)
+    expect(wrapper.findAll('.workspace-switch-btn').map(button => button.text())).toEqual(['Workbench', 'OScode'])
+    await wrapper.findAll('.workspace-switch-btn')[1].trigger('click')
+    expect(switchSurface).toHaveBeenCalledWith('oscode')
   })
 
   it('offers a click trigger to bring back the auto-hidden left navigator', async () => {
@@ -288,6 +322,25 @@ describe('MissionWorkspaceView', () => {
     await wrapper.find('.editor-tab.is-active .editor-tab__close').trigger('click')
     expect(wrapper.findAll('.editor-tab')).toHaveLength(2)
     expect(wrapper.findAll('.editor-tab').at(-1)?.text()).toContain('graph.acg')
+  })
+
+  it('reorders editor tabs by dragging without changing the active editor', async () => {
+    const { wrapper } = await mountWorkspace()
+    // 挂载时 followLifecycle 已种下 [运行进度, mission.md, graph.acg]，点击 mission.md 使其成为活动标签。
+    await wrapper.findAll('.workspace-tree__entry').find(item => item.text().includes('mission.md'))?.trigger('click')
+    const tabTexts = () => wrapper.findAll('.editor-tab').map(tab => tab.text())
+    expect(tabTexts()).toHaveLength(3)
+
+    const tabs = wrapper.findAll('.editor-tab')
+    // jsdom 矩形为 0×0 且合成事件需显式坐标：clientX=0 落在目标中点 → 判「插到目标标签之后」。
+    await tabs[0].trigger('dragstart')
+    await tabs[2].trigger('dragover', { clientX: 0 })
+    await tabs[2].trigger('drop')
+
+    expect(tabTexts()[0]).toContain('mission.md')
+    expect(tabTexts()[1]).toContain('graph.acg')
+    expect(tabTexts()[2]).toContain('运行进度')
+    expect(wrapper.find('.editor-tab.is-active').text()).toContain('mission.md')
   })
 
   const activateGraphTab = async (wrapper: VueWrapper) => {

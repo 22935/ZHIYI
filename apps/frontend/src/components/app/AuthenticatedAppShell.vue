@@ -37,6 +37,8 @@
                   type="button"
                   :aria-expanded="chatNavOpen"
                   aria-controls="chat-side-panel"
+                  title="OScode"
+                  aria-label="OScode"
                   @click="handleChatNavToggle"
                 >
                   <el-icon><ChatDotRound /></el-icon>
@@ -52,10 +54,21 @@
                   class="chat-nav-trigger"
                   type="button"
                   :aria-current="isAcgRoute ? 'page' : undefined"
+                  title="Workbench"
+                  aria-label="Workbench"
                   @click="handleAcgNavToggle"
                 >
                   <img class="acg-nav-logo" src="/acglogo.webp" alt="" aria-hidden="true" />
                   <span v-if="!mainSidebarCompact" class="chat-nav-label">ACG 动态群体智能引擎</span>
+                </button>
+              </div>
+              <div v-if="isMissionWorkspacePath(route.path)" class="workbench-activity-views" role="group" aria-label="Workbench 左侧视图">
+                <button v-for="item in workbenchActivities" :key="item.id" class="chat-nav-trigger workbench-activity-button"
+                  type="button" :class="{ 'is-selected': activeWorkbenchSidebar === item.id }"
+                  :title="item.label" :aria-label="item.label" :aria-pressed="activeWorkbenchSidebar === item.id"
+                  @click="selectWorkbenchSidebar(item.id)">
+                  <el-icon><component :is="item.icon" /></el-icon>
+                  <span v-if="!mainSidebarCompact" class="chat-nav-label">{{ item.label }}</span>
                 </button>
               </div>
             </el-menu>
@@ -105,30 +118,7 @@
               aria-label="聊天项目"
             >
               <div class="chat-panel-content">
-                <div class="workspace-switch" role="tablist" aria-label="对话模式">
-                  <button
-                    class="workspace-switch-btn"
-                    :class="{ active: workspaceMode === 'agent' }"
-                    type="button"
-                    role="tab"
-                    :aria-selected="workspaceMode === 'agent'"
-                    @click="selectWorkspaceMode('agent')"
-                  >
-                    <el-icon><Monitor /></el-icon>
-                    <span>Agent</span>
-                  </button>
-                  <button
-                    class="workspace-switch-btn"
-                    :class="{ active: workspaceMode === 'chat' }"
-                    type="button"
-                    role="tab"
-                    :aria-selected="workspaceMode === 'chat'"
-                    @click="selectWorkspaceMode('chat')"
-                  >
-                    <el-icon><ChatDotRound /></el-icon>
-                    <span>Chat</span>
-                  </button>
-                </div>
+                <WorkspaceModeSwitch :active="isAcgRoute ? 'workbench' : 'oscode'" :pending="surfaceSwitching" @select="switchWorkspaceSurface" />
 
                 <div class="chat-submenu-section-head">
                     <span class="chat-submenu-section-title">{{ workspaceMode === 'agent' ? '工程项目' : '对话记录' }}</span>
@@ -140,12 +130,12 @@
                   <span v-if="conversationListLoading && workspaceHistoryCount" class="chat-submenu-refreshing">更新中</span>
                   <button class="chat-submenu-action new-chat-action" type="button" @click="startNewChat">
                     <el-icon><EditPen /></el-icon>
-                    <span>{{ workspaceMode === 'agent' ? '新建 Agent 任务' : '新建对话' }}</span>
+                    <span>{{ workspaceMode === 'agent' ? '新建工程' : '新建对话' }}</span>
                   </button>
                 </div>
 
                 <div v-if="conversationListLoading && !workspaceHistoryCount" class="chat-submenu-loading">正在加载…</div>
-                <div v-else-if="workspaceMode === 'agent' && recentAgentProjects.length" class="chat-project-list" role="list" aria-label="Agent 工程项目">
+                <div v-else-if="workspaceMode === 'agent' && recentAgentProjects.length" class="chat-project-list" role="list" aria-label="Workbench 工程项目">
                   <div
                     v-for="mission in recentAgentProjects"
                     :key="mission.missionId"
@@ -208,18 +198,18 @@
                         <span class="chat-project-time">{{ formatConversationTime(conversation.updatedAt || conversation.createdAt) }}</span>
                       </span>
                     </button>
-                    <div class="chat-project-actions" aria-label="瀵硅瘽鎿嶄綔">
-                      <button class="chat-project-action chat-project-action--edit" type="button" title="缂栬緫鏍囬" @click.stop="editSidebarConversation(conversation)">
+                    <div class="chat-project-actions" aria-label="对话操作">
+                      <button class="chat-project-action chat-project-action--edit" type="button" title="编辑标题" @click.stop="editSidebarConversation(conversation)">
                         <el-icon><Edit /></el-icon>
                       </button>
-                      <button class="chat-project-action chat-project-action--delete" type="button" title="鍒犻櫎瀵硅瘽" @click.stop="deleteSidebarActionConversation(conversation)">
+                      <button class="chat-project-action chat-project-action--delete" type="button" title="删除对话" @click.stop="deleteSidebarActionConversation(conversation)">
                         <el-icon><Delete /></el-icon>
                       </button>
                     </div>
                   </div>
                 </div>
                 <div v-else class="chat-submenu-empty">
-                  {{ workspaceMode === 'agent' ? '暂无 Agent 工程项目' : '暂无历史对话' }}
+                  {{ workspaceMode === 'agent' ? '暂无工程项目' : '暂无历史对话' }}
                 </div>
 
                 <button class="chat-submenu-action history-action" type="button" @click="openWorkspaceHistory">
@@ -411,6 +401,9 @@ import {
   Monitor, Cpu,
   Fold
 } from '@element-plus/icons-vue'
+import WorkspaceModeSwitch from '@/components/workspace/WorkspaceModeSwitch.vue'
+import { workspaceShellKey, type WorkspaceSurface, type WorkbenchSidebar } from '@/features/workspace/shell'
+import { FolderOpened, Search, Share, Connection } from '@element-plus/icons-vue'
 import AppTopBar from '@/components/app/AppTopBar.vue'
 import DesktopRuntimeStatus from '@/components/platform/DesktopRuntimeStatus.vue'
 const DesktopTerminalDock = defineAsyncComponent(() => import('@/components/terminal/DesktopTerminalDock.vue'))
@@ -447,17 +440,16 @@ const simpleNavOpen = ref(false)
 const shortcutsDialogVisible = ref(false)
 let disposeAppKeyboardShortcuts: (() => void) | null = null
 type WorkspaceMode = 'agent' | 'chat'
-const WORKSPACE_MODE_KEY = 'layout.workspace_mode'
-const workspaceMode = ref<WorkspaceMode>(localStorage.getItem(WORKSPACE_MODE_KEY) === 'agent' ? 'agent' : 'chat')
+const workspaceMode = computed<WorkspaceMode>(() => isAcgPath(route.path) ? 'agent' : 'chat')
 const CHAT_NAV_OPEN_KEY = 'layout.chat_nav_open'
-const chatNavOpen = ref(route.path.startsWith('/chat') && localStorage.getItem(CHAT_NAV_OPEN_KEY) === '1')
+const chatNavOpen = ref(route.path.startsWith('/agentos/acg') || (route.path.startsWith('/chat') && localStorage.getItem(CHAT_NAV_OPEN_KEY) === '1'))
 const ACG_NAV_OPEN_KEY = 'layout.acg_nav_open'
 const isMissionWorkspacePath = (path: string) => path.startsWith('/agentos/missions/') && path.endsWith('/workspace')
 const isDockedWorkspaceRoute = computed(() => route.path.startsWith('/chat') || isMissionWorkspacePath(route.path))
 const isChatRoute = computed(() => route.path.startsWith('/chat'))
 const hasDockStatus = computed(() => isMissionWorkspacePath(route.path) || (route.path.startsWith('/chat') && workspaceMode.value === 'chat'))
 const lastMissionWorkspacePath = ref(isMissionWorkspacePath(route.path) ? route.fullPath : '')
-const lastChatRoute = ref(route.path.startsWith('/chat') ? route.fullPath : `/chat?workspace=${workspaceMode.value}`)
+const lastChatRoute = ref(route.path.startsWith('/chat') ? route.fullPath : '/chat?workspace=chat')
 const isAcgPath = (path: string) => path.startsWith('/agentos/acg') || isMissionWorkspacePath(path)
 const acgNavOpen = ref(isAcgPath(route.path) && localStorage.getItem(ACG_NAV_OPEN_KEY) !== '0')
 const CHAT_PANEL_WIDTH_KEY = 'layout.chat_panel_width'
@@ -636,10 +628,9 @@ const handleChatNavToggle = async () => {
     if (generation !== navigationGeneration || source !== route.fullPath || index !== chatStore.workflowBindings
       || contextIdBefore !== chatStore.contextId || runBindingsBefore !== runBindingSnapshot()) return
     if (!target && isMissionWorkspacePath(route.path)) {
-      ElMessage.warning('当前没有可恢复的关联对话')
       const associated = Object.values(chatStore.workflowBindings).flat().some(item => !item.invalidAt
         && item.missionId === missionId && item.runId === selectedRunId)
-      if (associatedBefore || associated) return // a denied/mismatched association must never fall back to the same cached history
+      if (associatedBefore || associated) { ElMessage.warning('关联对话暂时无法核实'); return } // a denied/mismatched association must never fall back to the same cached history
       const fallback = router.resolve(lastChatRoute.value)
       const { runId: _run, missionId: _mission, ...query } = fallback.query
       const contextId = typeof query.contextId === 'string' ? query.contextId : chatStore.contextId
@@ -688,15 +679,18 @@ const handleAcgNavToggle = async () => {
     if (generation !== navigationGeneration || source !== route.fullPath || index !== chatStore.workflowBindings
       || contextIdBefore !== chatStore.contextId) return
     if (!target && isChatRoute.value) {
-      ElMessage.warning('当前对话没有可验证的关联任务')
-      if (conversationBindings(chatStore.workflowBindings, conversationId).some(item => !item.invalidAt)) return
+      if (conversationBindings(chatStore.workflowBindings, conversationId).some(item => !item.invalidAt)) {
+        ElMessage.warning('当前对话的关联任务暂时无法核实')
+        return
+      }
     }
     await router.push(target || lastMissionWorkspacePath.value || '/agentos/acg')
   }
 }
 
 const startNewChat = async () => {
-  await router.push({ path: '/chat', query: { workspace: workspaceMode.value, newConversation: '1' } })
+  if (workspaceMode.value === 'agent') { await router.push({ name: 'CreateMission' }); return }
+  await router.push({ path: '/chat', query: { workspace: 'chat', newConversation: '1' } })
 }
 
 const openWorkspaceHistory = () => {
@@ -717,7 +711,6 @@ const agentProjectState = (project: MissionListItem) => {
 }
 
 const openAgentProject = async (project: MissionListItem) => {
-  chatStore.clearMessages()
   await router.push({
     path: `/agentos/missions/${encodeURIComponent(project.missionId)}/workspace`,
     query: project.latestRunId ? { runId: project.latestRunId } : undefined
@@ -726,7 +719,7 @@ const openAgentProject = async (project: MissionListItem) => {
 
 const openConversation = async (conversation: Conversation) => {
   const contextId = conversation.contextId || conversation.id
-  await router.push({ path: '/chat', query: { contextId, workspace: workspaceMode.value } })
+  await router.push({ path: '/chat', query: { contextId, workspace: 'chat' } })
 }
 
 const formatConversationTime = (value?: string) => {
@@ -908,7 +901,7 @@ const deleteSidebarConversation = async (conversation: Conversation) => {
     removeConversationWorkspace(deletedContextId)
     if (route.query.contextId === deletedContextId) {
       chatStore.clearMessages()
-      await router.replace({ path: '/chat', query: { workspace: workspaceMode.value } })
+      await router.replace({ path: '/chat', query: { workspace: 'chat' } })
     }
 
     window.dispatchEvent(new Event('history-refresh'))
@@ -941,8 +934,10 @@ watch(
   fullPath => {
     closeSidebarActionMenu()
     if (isMissionWorkspacePath(route.path)) lastMissionWorkspacePath.value = fullPath
+    if (isMissionWorkspacePath(route.path)) closeChatPanel()
+    else if (route.path.startsWith('/agentos/acg')) { chatNavOpen.value = true; void loadRecentConversations() }
     if (route.path.startsWith('/chat')) lastChatRoute.value = fullPath
-    else if (!isMissionWorkspacePath(route.path) && chatNavOpen.value) closeChatPanel()
+    else if (!isAcgPath(route.path) && chatNavOpen.value) closeChatPanel()
     if (isAcgPath(route.path)) {
       if (localStorage.getItem(ACG_NAV_OPEN_KEY) !== '0') acgNavOpen.value = true
     } else {
@@ -951,30 +946,35 @@ watch(
   }
 )
 
-watch(
-  () => route.query.workspace,
-  workspace => {
-    if (workspace !== 'agent' && workspace !== 'chat') return
-    const workspaceChanged = workspaceMode.value !== workspace
-    workspaceMode.value = workspace
-    localStorage.setItem(WORKSPACE_MODE_KEY, workspace)
-    if (workspaceChanged && chatNavOpen.value) void loadRecentConversations()
-  },
-  { immediate: true }
-)
-
-const selectWorkspaceMode = (mode: WorkspaceMode) => {
-  if (workspaceMode.value === mode) return
-  closeSidebarActionMenu()
-  workspaceMode.value = mode
-  localStorage.setItem(WORKSPACE_MODE_KEY, mode)
-  window.dispatchEvent(new CustomEvent('workspace-mode-change', { detail: { mode } }))
-  void loadRecentConversations()
-  void router.replace({
-    path: '/chat',
-    query: { workspace: mode, newConversation: '1' }
-  })
+const surfaceSwitching = ref(false)
+const sidebarKey = 'workbench.primary_sidebar.v1'
+const storedSidebar = localStorage.getItem(sidebarKey)
+const activeWorkbenchSidebar = ref<WorkbenchSidebar>(['files', 'search', 'git'].includes(storedSidebar || '') ? storedSidebar as WorkbenchSidebar : 'thought')
+const sidebarActivation = ref(0)
+const workbenchActivities = [
+  { id: 'files' as const, label: '文件', icon: FolderOpened },
+  { id: 'search' as const, label: '搜索文件', icon: Search },
+  { id: 'git' as const, label: 'Git', icon: Share },
+  { id: 'thought' as const, label: '思维链', icon: Connection }
+]
+const selectWorkbenchSidebar = (view: WorkbenchSidebar) => {
+  activeWorkbenchSidebar.value = view
+  sidebarActivation.value++
+  localStorage.setItem(sidebarKey, view)
 }
+const switchWorkspaceSurface = async (surface: WorkspaceSurface) => {
+  if (surfaceSwitching.value || (surface === 'oscode' ? isChatRoute.value : isAcgRoute.value)) return
+  surfaceSwitching.value = true
+  try {
+    if (surface === 'oscode') await handleChatNavToggle()
+    else await handleAcgNavToggle()
+  } finally { surfaceSwitching.value = false }
+}
+provide(workspaceShellKey, {
+  activeSidebar: activeWorkbenchSidebar, sidebarActivation, switching: surfaceSwitching,
+  switchSurface: switchWorkspaceSurface
+})
+watch(workspaceMode, () => { if (chatNavOpen.value) void loadRecentConversations() })
 
 // Immersive mode: keep landing auth immersive without a standalone login page.
 const isImmersive = computed(() => {
@@ -1178,8 +1178,7 @@ const isRouteScrollable = computed(() => {
   return (
     path.startsWith('/history') ||
     path.startsWith('/agentos/resources') ||
-    path.startsWith('/rag') ||
-    path.startsWith('/voice-chat')
+    path.startsWith('/rag')
   )
 })
 
@@ -1385,54 +1384,11 @@ onUnmounted(() => {
   padding: 12px 6px 10px;
 }
 
-.workspace-switch {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 3px;
-  margin: 0 4px 8px;
-  padding: 3px;
-  border: 1px solid var(--border-light);
-  border-radius: 9px;
-  background: var(--bg-input);
-}
 
-.workspace-switch-btn {
-  width: 100%;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
-}
 
-.workspace-switch-btn:hover {
-  color: var(--text-primary);
-}
 
-.workspace-switch-btn.active {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
-}
 
-.workspace-switch-btn:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: -2px;
-}
 
-.workspace-switch-btn .el-icon {
-  font-size: 12px;
-}
 
 .chat-side-panel {
   position: relative;
@@ -2172,36 +2128,6 @@ onUnmounted(() => {
   outline-offset: 2px;
 }
 
-.sidebar-digital-human {
-  padding: 16px;
-  border-top: 1px solid var(--border-light);
-  border-bottom: 1px solid var(--border-light);
-  height: 320px; /* Keep a stable user card height */
-  min-height: 320px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.02);
-  overflow: hidden; /* Prevent overflow artifacts */
-}
-
-.sidebar-digital-human :deep(.digital-human-container) {
-  width: 100%;
-  height: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sidebar-digital-human :deep(.digital-human-canvas) {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
 .sidebar-footer {
   flex-shrink: 0;
   padding: 10px 10px 12px;
@@ -2450,8 +2376,7 @@ onUnmounted(() => {
   background: var(--wb-surface-pane);
   box-shadow: none;
 }
-.docked-workspace-shell .workspace-switch { border: 0; box-shadow: none; }
-.docked-workspace-shell .chat-panel-enter-active,
+.docked-workspace-shell .docked-workspace-shell .chat-panel-enter-active,
 .docked-workspace-shell .chat-panel-leave-active { transition: opacity 160ms ease, transform 180ms var(--ease-out); }
 .docked-workspace-shell .chat-panel-enter-from,
 .docked-workspace-shell .chat-panel-leave-to { opacity: 0; transform: translateX(-14px); }
@@ -2523,18 +2448,7 @@ onUnmounted(() => {
   padding: 12px 10px 12px;
 }
 
-.workspace-switch {
-  margin: 0 2px 10px;
-  border-color: var(--border-light);
-  background: color-mix(in srgb, var(--bg-app) 76%, var(--bg-sidebar));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 5%, transparent);
-}
 
-.workspace-switch-btn.active {
-  background: var(--bg-panel);
-  color: var(--text-primary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent);
-}
 
 .chat-submenu-section-head {
   min-height: 36px;
@@ -2602,4 +2516,9 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
+.workbench-activity-views { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+.workbench-activity-button { position: relative; }
+.workbench-activity-button.is-selected { color: var(--primary-color); background: var(--primary-fade); }
+.workbench-activity-button.is-selected::before { content: ''; position: absolute; left: 0; top: 9px; bottom: 9px; width: 2px; border-radius: 2px; background: currentColor; }
+.workbench-activity-button > .el-icon:first-child { margin-right: 0; }
 </style>

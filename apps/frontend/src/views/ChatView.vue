@@ -1,4 +1,4 @@
-<!-- 主对话页面 — 角色快速导航（律师/教师/程序员/作家）与聊天工作台 -->
+<!-- OScode — 保留原生 Chat 的文件修改、终端与工具审批链路 -->
 <template>
   <div class="chat-view detail-interface">
     <div
@@ -6,14 +6,10 @@
       class="chat-main"
       :class="[
         {
-          'has-agent-results': isAgentMode,
-          'agent-panel-collapsed': isAgentMode && agentPanelCollapsed,
-          'agent-panel-resizing': agentPanelResizing,
-          'workspace-mode-switching': workspaceModeSwitching,
           'hero-settling': !heroSettled
         }
       ]"
-      :style="agentPanelLayoutStyle"
+      :style="{ '--composer-clearance': `${composerReservedSpace}px` }"
     >
       <section
         ref="chatPanelRef"
@@ -21,117 +17,10 @@
         :class="{ 'hero-mode': showHeroMode }"
         :aria-busy="isLoadingConversation || isStreamingChat"
       >
-        <header v-if="!isAgentMode" class="chat-workspace-header">
+        <header class="chat-workspace-header">
           <el-icon aria-hidden="true"><ChatDotRound /></el-icon>
           <span>{{ conversationInfo.title }}</span>
         </header>
-        <Transition name="context-panel-slide" :css="!workspaceModeSwitching" @after-leave="finishContextPanelClose">
-          <section
-            v-if="isAgentMode && contextPanelOpen"
-            class="context-panel"
-            :class="{ resizing: contextPanelResizing }"
-            :style="{ height: `${contextPanelHeight}px` }"
-            aria-label="运行上下文"
-          >
-            <header class="context-panel__header">
-              <div class="context-panel__identity">
-                <el-icon><Cpu /></el-icon>
-                <strong>运行上下文</strong>
-                <span>{{ contextObjective }}</span>
-              </div>
-              <div class="context-panel__metrics">
-                <span>{{ contextStepNodes.length }} 步骤</span>
-                <span>{{ contextNodes.length }} 节点</span>
-                <span>{{ contextEdges.length }} 关系</span>
-                <button type="button" title="收起运行上下文" aria-label="收起运行上下文" @click="setContextPanelOpen(false)">
-                  <el-icon><ArrowDownBold /></el-icon>
-                </button>
-              </div>
-            </header>
-
-            <nav class="context-panel__tabs" aria-label="运行上下文视图">
-              <button
-                v-for="tab in contextTabs"
-                :key="tab.key"
-                type="button"
-                :class="{ active: contextPanelTab === tab.key }"
-                @click="contextPanelTab = tab.key"
-              >
-                {{ tab.label }}
-                <span>{{ tab.count }}</span>
-              </button>
-            </nav>
-
-            <div class="context-panel__body">
-              <div v-if="!contextNodes.length" class="context-panel__empty">
-                启用 Workflow 后，这里会同步展示数据血缘、执行节点和任务步骤。
-              </div>
-
-              <div v-else-if="contextPanelTab === 'lineage'" class="context-lineage">
-                <div v-for="edge in contextEdges" :key="edge.edgeId" class="context-lineage__row">
-                  <span class="context-node-pill">{{ contextNodeLabel(edge.sourceId) }}</span>
-                  <span class="context-edge-label">{{ contextEdgeLabel(edge.edgeType) }}</span>
-                  <span class="context-lineage__arrow">→</span>
-                  <span class="context-node-pill target">{{ contextNodeLabel(edge.targetId) }}</span>
-                </div>
-                <div v-if="!contextEdges.length" class="context-panel__empty">当前蓝图暂无血缘关系。</div>
-              </div>
-
-              <div v-else-if="contextPanelTab === 'nodes'" class="context-node-grid">
-                <article v-for="node in contextNodes" :key="node.nodeId" class="context-node-card">
-                  <span class="context-node-card__type">{{ contextNodeTypeLabel(node.nodeType) }}</span>
-                  <strong>{{ node.name || node.agentName || node.nodeId }}</strong>
-                  <small>{{ node.description || node.capability || node.nodeId }}</small>
-                </article>
-              </div>
-
-              <div v-else class="context-step-list">
-                <article v-for="(step, index) in contextStepNodes" :key="step.nodeId" class="context-step-item">
-                  <span class="context-step-item__index">{{ String(index + 1).padStart(2, '0') }}</span>
-                  <div>
-                    <strong>{{ step.name || step.nodeId }}</strong>
-                    <small>{{ step.agentName || step.capability || '等待分配 Agent' }}</small>
-                  </div>
-                  <span class="context-step-item__status" :class="{ done: displayCompletedStepIds.includes(step.nodeId) }">
-                    {{ displayCompletedStepIds.includes(step.nodeId) ? '已完成' : '待执行' }}
-                  </span>
-                </article>
-                <div v-if="!contextStepNodes.length" class="context-panel__empty">当前蓝图暂无任务步骤。</div>
-              </div>
-            </div>
-
-            <div
-              class="context-panel__resizer"
-              role="separator"
-              aria-label="调整运行上下文面板高度"
-              aria-orientation="horizontal"
-              :aria-valuemin="CONTEXT_PANEL_MIN_HEIGHT"
-              :aria-valuemax="CONTEXT_PANEL_MAX_HEIGHT"
-              :aria-valuenow="contextPanelHeight"
-              tabindex="0"
-              title="拖动调整高度，双击恢复默认"
-              @pointerdown="startContextPanelResize"
-              @keydown="handleContextPanelResizeKeydown"
-              @dblclick="resetContextPanelHeight"
-            ><span aria-hidden="true"></span></div>
-          </section>
-        </Transition>
-
-        <button
-          v-if="isAgentMode && !contextPanelOpen && !contextPanelClosing"
-          class="context-panel-dock"
-          type="button"
-          aria-label="展开运行上下文"
-          @click="setContextPanelOpen(true)"
-        >
-          <span class="context-panel-dock__pulse" aria-hidden="true"></span>
-          <strong>运行上下文</strong>
-          <span>{{ contextStepNodes.length }} 步骤</span>
-          <span>{{ contextNodes.length }} 节点</span>
-          <span>{{ contextEdges.length }} 关系</span>
-          <el-icon><ArrowDownBold /></el-icon>
-        </button>
-
         <div class="messages-shell">
           <div class="messages" ref="messagesRef">
           <div v-if="showHeroMode" class="empty-state">
@@ -173,7 +62,7 @@
             <h2 class="hero-greeting">{{ heroGreeting }}</h2>
           </div>
 
-          <section v-else-if="showWorkflowHistoryDetail" class="workflow-history-detail" aria-label="Agent 历史任务详情">
+          <section v-else-if="showWorkflowHistoryDetail" class="workflow-history-detail" aria-label="协作任务详情">
             <div v-if="!activeWorkflowRun" class="workflow-history-loading" :class="{ 'is-error': workflowResultState === 'error' || workflowResultState === 'partial' }">
               <template v-if="workflowResultState === 'loading' || workflowResultState === 'idle'">
                 <el-icon class="is-loading"><Loading /></el-icon>
@@ -342,7 +231,7 @@
           />
 
           <div
-            v-if="activeWorkflowRunId && !isAgentMode"
+            v-if="activeWorkflowRunId"
             class="workflow-run-strip"
             :class="activeWorkflowStatus"
           >
@@ -376,7 +265,7 @@
               :rows="1"
               :autosize="{ minRows: 1, maxRows: 6 }"
               resize="none"
-              :placeholder="$t(isAgentMode ? 'chat.placeholder' : 'chat.conversationPlaceholder')"
+              :placeholder="$t('chat.conversationPlaceholder')"
               @keydown="handleKeydown"
             />
               <div class="composer-footer">
@@ -400,26 +289,13 @@
                         <el-icon><UploadFilled /></el-icon>
                         <span>添加文件</span>
                       </button>
-                      <div v-if="!isAgentMode" class="composer-tools-menu__runtime">
+                      <div class="composer-tools-menu__runtime">
                         <span class="composer-tools-menu__label">模型设置</span>
                         <ModelRuntimeControls compact />
                       </div>
                     </div>
                   </Transition>
                 </div>
-                <PermissionSelector v-if="isAgentMode" />
-                <button
-                  v-if="isAgentMode"
-                  class="composer-acg-toggle"
-                  :class="{ active: workflowPanelOpen }"
-                  type="button"
-                  :aria-pressed="workflowPanelOpen"
-                  :title="workflowPanelOpen ? '收起 ACG 拓扑' : '展开 ACG 拓扑'"
-                  @click="toggleWorkflowPanel"
-                >
-                  <el-icon><Share /></el-icon>
-                  <span>ACG</span>
-                </button>
                 <el-tooltip v-if="contextUsage.visible" placement="top" :show-after="200">
                   <template #content>
                     <div class="context-usage-tip">
@@ -471,133 +347,11 @@
           </div>
         </div>
 
-        <Transition name="workflow-acg-slide" :css="!workspaceModeSwitching">
-          <section
-            v-if="isAgentMode && workflowPanelOpen"
-            class="workflow-acg-panel"
-            :class="{ resizing: workflowPanelResizing }"
-            :style="{ height: `${workflowPanelHeight}px` }"
-            aria-label="ACG 动态拓扑"
-          >
-            <div
-              class="workflow-panel-resizer"
-              role="separator"
-              aria-label="调整 ACG 拓扑面板高度"
-              aria-orientation="horizontal"
-              :aria-valuemin="WORKFLOW_PANEL_MIN_HEIGHT"
-              :aria-valuemax="getWorkflowPanelHardMaxHeight()"
-              :aria-valuenow="workflowPanelHeight"
-              tabindex="0"
-              title="拖动调整高度，双击恢复默认"
-              @pointerdown="startWorkflowPanelResize"
-              @keydown="handleWorkflowPanelResizeKeydown"
-              @dblclick="resetWorkflowPanelHeight"
-            >
-              <span aria-hidden="true"></span>
-            </div>
-            <AcgTopologyGraph
-              :blueprint="displayAcgBlueprint"
-              :completed-step-ids="displayCompletedStepIds"
-              :step-states="activeAcgView?.stepStates"
-              collapsible
-              @collapse="setWorkflowPanelOpen(false)"
-            />
-            <RuntimeAuditTimeline
-              v-if="activeAcgView"
-              class="chat-runtime-timeline"
-              :events="activeAcgAuditEvents"
-              :patch-refs="[]"
-              :max-items="8"
-            />
-            <div v-else class="workflow-audit-empty">
-              <span class="workflow-audit-empty__badge" aria-hidden="true"><el-icon><Clock /></el-icon></span>
-              <p class="workflow-audit-empty__title">暂无运行审计事件</p>
-              <p class="workflow-audit-empty__hint">启动工作流后，这里会按时间同步 Trace、恢复、Checkpoint、Review 与 GraphPatch 引用。</p>
-            </div>
-            <div v-if="isLoadingWorkflowResult && !activeAcgView" class="workflow-acg-loading">正在加载动态拓扑…</div>
-          </section>
-        </Transition>
-        <button
-          v-if="isAgentMode && !workflowPanelOpen"
-          class="workflow-acg-dock"
-          :class="{ idle: !hasActiveWorkflow }"
-          type="button"
-          aria-label="展开 ACG 动态拓扑"
-          @click="setWorkflowPanelOpen(true)"
-        >
-          <span class="workflow-acg-dock__pulse" aria-hidden="true"></span>
-          <span>ACG 动态拓扑</span>
-          <span class="workflow-acg-dock__meta">
-            {{ hasActiveWorkflow ? `${displayAcgBlueprint?.nodes.length || 0} 节点` : '等待任务' }}
-          </span>
-          <el-icon><ArrowUp /></el-icon>
-        </button>
       </section>
-
-      <Transition name="agent-panel-slide">
-        <aside
-          v-if="isAgentMode"
-          class="agent-panel"
-          :class="{ collapsed: agentPanelCollapsed, resizing: agentPanelResizing }"
-        >
-          <div
-            v-if="!agentPanelCollapsed"
-            class="agent-panel-resizer"
-            role="separator"
-            aria-label="调整右侧工作台宽度"
-            aria-orientation="vertical"
-            :aria-valuemin="AGENT_PANEL_MIN_WIDTH"
-            :aria-valuemax="AGENT_PANEL_MAX_WIDTH"
-            :aria-valuenow="agentPanelWidth"
-            tabindex="0"
-            title="拖动调整宽度，双击恢复默认"
-            @pointerdown="startAgentPanelResize"
-            @keydown="handleAgentPanelResizeKeydown"
-            @dblclick="resetAgentPanelWidth"
-          ></div>
-
-          <div class="agent-panel-toggle-row">
-            <button
-              class="agent-panel-toggle"
-              type="button"
-              :aria-label="agentPanelCollapsed ? '展开右侧工作台' : '收起右侧工作台'"
-              :title="agentPanelCollapsed ? '展开右侧工作台' : '收起右侧工作台'"
-              @click="agentPanelCollapsed = !agentPanelCollapsed"
-            >
-              <el-icon>
-                <DArrowLeft v-if="agentPanelCollapsed" />
-                <DArrowRight v-else />
-              </el-icon>
-              <span v-if="!agentPanelCollapsed">收起</span>
-            </button>
-          </div>
-
-          <div v-if="agentPanelCollapsed" class="agent-panel-rail" aria-hidden="true">
-            <span class="agent-panel-rail-icon">
-              <el-icon><component :is="agentIcon" /></el-icon>
-            </span>
-          </div>
-
-          <div ref="agentPanelContentRef" v-show="!agentPanelCollapsed" class="agent-panel-content">
-            <AcgRunInspector
-              :run-id="activeWorkflowRunId"
-              :status="activeWorkflowStatus"
-              :status-label="activeWorkflowStatusLabel"
-              :run="activeWorkflowRun"
-              :view="activeAcgView"
-              :progress="workflowProgressState.progress.value"
-              :blueprint="displayAcgBlueprint"
-              :loading="isSubmittingWorkflow || isLoadingWorkflowResult || workflowProgressState.isLoading.value"
-              @open-acg="openActiveWorkflowOperations"
-              @open-console="openActiveWorkflowConsole"
-            />
-          </div>
-      </aside>
-      </Transition>
 
       <!-- Chat 模式右侧停靠信息栏：ZCode/DSH 式可拖宽、可收起、宽度持久化 -->
       <aside
-        v-if="!isAgentMode"
+
         class="chat-info-dock"
         :class="{ collapsed: chatInfoCollapsed, resizing: chatInfoResizing }"
         :style="{ width: `${chatInfoCollapsed ? CHAT_INFO_COLLAPSED_WIDTH : effectiveChatInfoWidth}px` }"
@@ -633,49 +387,49 @@
             </button>
           </header>
 
-          <div class="chat-info-card">
-            <strong class="chat-info-card__title" :title="conversationInfo.title">{{ conversationInfo.title }}</strong>
+            <div class="chat-info-card">
+              <strong class="chat-info-card__title" :title="conversationInfo.title">{{ conversationInfo.title }}</strong>
 
-            <dl class="chat-info-card__metrics">
-              <div class="chat-info-card__row">
-                <dt>模型</dt>
-                <dd :title="conversationInfo.model">{{ conversationInfo.model }}</dd>
-              </div>
-              <div class="chat-info-card__row">
-                <dt>消息</dt>
-                <dd>{{ conversationInfo.messageLabel }}</dd>
-              </div>
-              <div v-if="contextUsage.visible" class="chat-info-card__row">
-                <dt>上下文</dt>
-                <dd :title="`已用 ${contextUsage.usedLabel}，共 ${contextUsage.windowLabel}`">
-                  {{ contextUsage.percent }}% · {{ contextUsage.usedLabel }} / {{ contextUsage.windowLabel }}
-                </dd>
-              </div>
-              <div class="chat-info-card__row">
-                <dt>累计 Token</dt>
-                <dd>{{ conversationInfo.tokensLabel }}</dd>
-              </div>
-              <div v-if="conversationInfo.createdAtLabel" class="chat-info-card__row">
-                <dt>开始</dt>
-                <dd>{{ conversationInfo.createdAtLabel }}</dd>
-              </div>
-              <div v-if="conversationInfo.updatedAtLabel" class="chat-info-card__row">
-                <dt>最近更新</dt>
-                <dd>{{ conversationInfo.updatedAtLabel }}</dd>
-              </div>
-            </dl>
+              <dl class="chat-info-card__metrics">
+                <div class="chat-info-card__row">
+                  <dt>模型</dt>
+                  <dd :title="conversationInfo.model">{{ conversationInfo.model }}</dd>
+                </div>
+                <div class="chat-info-card__row">
+                  <dt>消息</dt>
+                  <dd>{{ conversationInfo.messageLabel }}</dd>
+                </div>
+                <div v-if="contextUsage.visible" class="chat-info-card__row">
+                  <dt>上下文</dt>
+                  <dd :title="`已用 ${contextUsage.usedLabel}，共 ${contextUsage.windowLabel}`">
+                    {{ contextUsage.percent }}% · {{ contextUsage.usedLabel }} / {{ contextUsage.windowLabel }}
+                  </dd>
+                </div>
+                <div class="chat-info-card__row">
+                  <dt>累计 Token</dt>
+                  <dd>{{ conversationInfo.tokensLabel }}</dd>
+                </div>
+                <div v-if="conversationInfo.createdAtLabel" class="chat-info-card__row">
+                  <dt>开始</dt>
+                  <dd>{{ conversationInfo.createdAtLabel }}</dd>
+                </div>
+                <div v-if="conversationInfo.updatedAtLabel" class="chat-info-card__row">
+                  <dt>最近更新</dt>
+                  <dd>{{ conversationInfo.updatedAtLabel }}</dd>
+                </div>
+              </dl>
 
-            <template v-if="conversationInfo.sources.length">
-              <div class="chat-info-card__rule" role="separator"></div>
-              <p class="chat-info-card__section">来源 <span>{{ conversationInfo.sources.length }}</span></p>
-              <ul class="chat-info-card__sources">
-                <li v-for="source in conversationInfo.sources" :key="source.key" :title="source.label">
-                  <el-icon aria-hidden="true"><Link /></el-icon>
-                  <span>{{ source.label }}</span>
-                </li>
-              </ul>
-            </template>
-          </div>
+              <template v-if="conversationInfo.sources.length">
+                <div class="chat-info-card__rule" role="separator"></div>
+                <p class="chat-info-card__section">来源 <span>{{ conversationInfo.sources.length }}</span></p>
+                <ul class="chat-info-card__sources">
+                  <li v-for="source in conversationInfo.sources" :key="source.key" :title="source.label">
+                    <el-icon aria-hidden="true"><Link /></el-icon>
+                    <span>{{ source.label }}</span>
+                  </li>
+                </ul>
+              </template>
+            </div>
         </template>
 
         <div v-else class="chat-info-dock__rail">
@@ -692,8 +446,8 @@
       </aside>
     </div>
 
-    <footer v-if="!isAgentMode" class="chat-workspace-status" aria-label="对话状态">
-      <span>{{ isStreamingChat ? '正在回复' : isLoadingConversation ? '正在加载对话' : 'Chat' }}</span>
+    <footer class="chat-workspace-status" aria-label="对话状态">
+      <span>{{ isStreamingChat ? '正在回复' : isLoadingConversation ? '正在加载对话' : 'OScode' }}</span>
       <span>{{ conversationInfo.messageLabel }}</span>
       <span class="chat-workspace-status__model">{{ conversationInfo.model }}</span>
     </footer>
@@ -726,7 +480,6 @@ import { ElMessage } from 'element-plus'
 import MessageBubble from '@/components/MessageBubble.vue'
 import ModelRuntimeControls from '@/components/ModelRuntimeControls.vue'
 import NativeWorkspacePicker from '@/components/platform/NativeWorkspacePicker.vue'
-import PermissionSelector from '@/components/PermissionSelector.vue'
 import FormalExecutionControls from '@/components/workspace/FormalExecutionControls.vue'
 import type { FormalOperationSuccess } from '@/features/acg/formalControl'
 import { conversationWorkbenchTarget, withRunDeliverableIntent } from '@/features/workspace/navigation'
@@ -769,8 +522,6 @@ const createClientRequestId = (): string => {
   const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0'))
   return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`
 }
-type WorkspaceMode = 'agent' | 'chat'
-const WORKSPACE_MODE_KEY = 'layout.workspace_mode'
 const DRAFT_CONVERSATION_KEY = 'chat.workflow_draft_conversation_id'
 const draftConversationId = ref(
   localStorage.getItem(DRAFT_CONVERSATION_KEY) || (route.query.contextId || route.query.runId || route.query.missionId || chatStore.contextId ? '' : `draft:${createClientRequestId()}`)
@@ -798,13 +549,6 @@ const ownsComposerRequest = (owner: string, generation: number) =>
 let selectedConversationId = ''
 // A single read result is handed to the existing detail loader, avoiding a second GET on restoration.
 let restoredRunDetail: WorkflowRun | null = null
-const workspaceMode = ref<WorkspaceMode>(
-  route.query.workspace === 'agent' || localStorage.getItem(WORKSPACE_MODE_KEY) === 'agent'
-    ? 'agent'
-    : 'chat'
-)
-const workspaceModeSwitching = ref(false)
-
 const inputText = ref('')
 const loading = ref(false)
 const showFileManager = ref(false)
@@ -819,11 +563,6 @@ const heroLogoDisplacementRef = ref<SVGFEDisplacementMapElement | null>(null)
 const heroLogoPressed = ref(false)
 const isNearBottom = ref(true)
 const pendingMessageCount = ref(0)
-const AGENT_PANEL_COLLAPSED_KEY = 'chat.agent_panel_collapsed'
-const AGENT_PANEL_WIDTH_KEY = 'chat.agent_panel_width'
-const AGENT_PANEL_DEFAULT_WIDTH = 340
-const AGENT_PANEL_MIN_WIDTH = 280
-const AGENT_PANEL_MAX_WIDTH = 520
 const WORKFLOW_PANEL_HEIGHT_KEY = 'chat.workflow_panel_height'
 const WORKFLOW_PANEL_OPEN_KEY = 'chat.workflow_panel_open_v2'
 const WORKFLOW_PANEL_DEFAULT_HEIGHT = 280
@@ -833,14 +572,6 @@ const CONTEXT_PANEL_OPEN_KEY = 'chat.context_panel_open'
 const CONTEXT_PANEL_DEFAULT_HEIGHT = 250
 const CONTEXT_PANEL_MIN_HEIGHT = 170
 const CONTEXT_PANEL_MAX_HEIGHT = 420
-const agentPanelCollapsed = ref(localStorage.getItem(AGENT_PANEL_COLLAPSED_KEY) === '1')
-const storedAgentPanelWidth = Number(localStorage.getItem(AGENT_PANEL_WIDTH_KEY))
-const agentPanelWidth = ref(
-  Number.isFinite(storedAgentPanelWidth) && storedAgentPanelWidth >= AGENT_PANEL_MIN_WIDTH && storedAgentPanelWidth <= AGENT_PANEL_MAX_WIDTH
-    ? storedAgentPanelWidth
-    : AGENT_PANEL_DEFAULT_WIDTH
-)
-const agentPanelResizing = ref(false)
 // —— Chat 模式右侧停靠信息栏（ZCode/DSH 式：拖宽 + 收起 + 持久化）——
 const CHAT_INFO_COLLAPSED_KEY = 'chat.chat_info_collapsed'
 const CHAT_INFO_WIDTH_KEY = 'chat.chat_info_width'
@@ -970,19 +701,7 @@ const workflowProgressState = useWorkflowProgress({
   onTerminal: handleWorkflowTerminal
 })
 const hasActiveWorkflow = computed(() => Boolean(activeWorkflowRunId.value))
-const showWorkflowHistoryDetail = computed(() => (
-  Boolean(activeWorkflowRunId.value) && (
-    chatStore.messages.length === 0
-    || (
-      isAgentMode.value
-      && (
-        workflowProgressState.progress.value?.phase === 'completed'
-        || workflowProgressState.progress.value?.status === 'completed'
-      )
-      && !['idle', 'loading'].includes(workflowResultState.value)
-    )
-  )
-))
+const showWorkflowHistoryDetail = computed(() => Boolean(activeWorkflowRunId.value) && chatStore.messages.length === 0)
 const showHeroMode = computed(() => {
   return chatStore.messages.length === 0
     && !isSubmittingWorkflow.value
@@ -990,23 +709,14 @@ const showHeroMode = computed(() => {
 })
 const composerDockOffset = computed(() => {
   if (showHeroMode.value) return 'auto'
-  if (!isAgentMode.value) return '0px'
-  return workflowPanelOpen.value ? `${workflowPanelHeight.value}px` : '30px'
+  return '0px'
 })
 const composerHeight = ref(180)
 const composerReservedSpace = computed(() => {
   if (showHeroMode.value) return 0
-  const dockHeight = isAgentMode.value
-    ? (workflowPanelOpen.value ? workflowPanelHeight.value : 30)
-    : 0
+  const dockHeight = 0
   return Math.ceil(composerHeight.value + dockHeight + 24)
 })
-const agentPanelLayoutStyle = computed(() => ({
-  '--agent-panel-width': `${agentPanelWidth.value}px`,
-  '--composer-clearance': `${composerReservedSpace.value}px`
-}))
-let agentPanelResizeStartX = 0
-let agentPanelResizeStartWidth = AGENT_PANEL_DEFAULT_WIDTH
 let workflowPanelResizeStartY = 0
 let workflowPanelResizeStartHeight = WORKFLOW_PANEL_DEFAULT_HEIGHT
 let workflowPanelResizeMaxHeight = Number.MAX_SAFE_INTEGER
@@ -1021,7 +731,6 @@ let conversationGeneration = 0
 const terminalResultLoaded = new Set<string>()
 const workflowResultCache = new Map<string, WorkflowResultCacheEntry>()
 let composerResizeObserver: ResizeObserver | undefined
-const agentPanelContentRef = ref<HTMLElement | null>(null)
 
 const {
   displayAcgBlueprint,
@@ -1051,65 +760,6 @@ const {
   expectedMissionId: computed(() => activeWorkflowBinding.value?.missionId || activeWorkflowRun.value?.missionId || ''),
   messages: computed(() => chatStore.messages)
 })
-const clampAgentPanelWidth = (width: number) => {
-  return Math.min(AGENT_PANEL_MAX_WIDTH, Math.max(AGENT_PANEL_MIN_WIDTH, Math.round(width)))
-}
-
-const persistAgentPanelWidth = () => {
-  localStorage.setItem(AGENT_PANEL_WIDTH_KEY, String(agentPanelWidth.value))
-}
-
-const handleAgentPanelResizeMove = (event: PointerEvent) => {
-  if (!agentPanelResizing.value) return
-  agentPanelWidth.value = clampAgentPanelWidth(agentPanelResizeStartWidth + agentPanelResizeStartX - event.clientX)
-}
-
-const stopAgentPanelResize = () => {
-  if (!agentPanelResizing.value) return
-  agentPanelResizing.value = false
-  persistAgentPanelWidth()
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-  window.removeEventListener('pointermove', handleAgentPanelResizeMove)
-  window.removeEventListener('pointerup', stopAgentPanelResize)
-  window.removeEventListener('pointercancel', stopAgentPanelResize)
-}
-
-const startAgentPanelResize = (event: PointerEvent) => {
-  if (event.button !== 0) return
-  event.preventDefault()
-  agentPanelResizeStartX = event.clientX
-  agentPanelResizeStartWidth = agentPanelWidth.value
-  agentPanelResizing.value = true
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-  window.addEventListener('pointermove', handleAgentPanelResizeMove)
-  window.addEventListener('pointerup', stopAgentPanelResize)
-  window.addEventListener('pointercancel', stopAgentPanelResize)
-}
-
-const resetAgentPanelWidth = () => {
-  agentPanelWidth.value = AGENT_PANEL_DEFAULT_WIDTH
-  persistAgentPanelWidth()
-}
-
-const handleAgentPanelResizeKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Home') {
-    agentPanelWidth.value = AGENT_PANEL_MIN_WIDTH
-  } else if (event.key === 'End') {
-    agentPanelWidth.value = AGENT_PANEL_MAX_WIDTH
-  } else if (event.key === 'ArrowLeft') {
-    agentPanelWidth.value = clampAgentPanelWidth(agentPanelWidth.value + 8)
-  } else if (event.key === 'ArrowRight') {
-    agentPanelWidth.value = clampAgentPanelWidth(agentPanelWidth.value - 8)
-  } else {
-    return
-  }
-
-  event.preventDefault()
-  persistAgentPanelWidth()
-}
-
 // —— 信息栏停靠宽度：拖拽/键盘/双击复位，镜像 agent-panel 的交互 ——
 const chatInfoResizeStartX = ref(0)
 let chatInfoResizeStartWidth = CHAT_INFO_MIN_WIDTH
@@ -1334,6 +984,7 @@ const resetContextPanelHeight = () => {
 }
 
 const setContextPanelOpen = (open: boolean) => {
+  if (open && activeWorkflowRunId.value && !activeAcgView.value) void loadActiveAcgView(activeWorkflowRunId.value)
   if (open) contextPanelClosing.value = false
   else if (contextPanelOpen.value) contextPanelClosing.value = true
   contextPanelOpen.value = open
@@ -1540,8 +1191,6 @@ const handleChatReviewConflict = async () => {
   if (activeWorkflowRunId.value) await loadActiveAcgView(activeWorkflowRunId.value)
 }
 
-const isAgentMode = computed(() => workspaceMode.value === 'agent')
-const agentIcon = computed(() => Cpu)
 const heroGreeting = computed(() => {
   const hour = new Date().getHours()
   if (hour < 5) return '夜深了，把任务交给 Agent 值守吧'
@@ -1586,10 +1235,6 @@ let conversationMetaTimer: number | null = null
 
 const loadConversationMeta = async () => {
   if (!viewActive) return
-  if (isAgentMode.value) {
-    conversationMeta.value = null
-    return
-  }
   const conversationKey = currentConversationId.value
   if (!conversationKey || conversationKey.startsWith('draft:')) {
     conversationMeta.value = null
@@ -1600,7 +1245,7 @@ const loadConversationMeta = async () => {
   conversationMetaController = controller
   try {
     const userId = localStorage.getItem('userId') || undefined
-    const conversations = await conversationApi.getUserConversations(userId, 'chat', { signal: controller.signal })
+    const conversations = await conversationApi.getUserConversations(userId, undefined, { signal: controller.signal })
     if (controller.signal.aborted) return
     conversationMeta.value = conversations.find(item => (item.contextId || item.id) === conversationKey) || null
   } catch {
@@ -1670,16 +1315,6 @@ const conversationInfo = computed(() => {
   }
 })
 
-const hasAgentActivity = computed(() => {
-  const assistant = latestAssistantMessage.value
-  return isAgentMode.value && (
-    hasActiveWorkflow.value
-    || Boolean(assistant?.skillsUsed?.length)
-    || Boolean(assistant?.trace?.length)
-    || Boolean(assistant?.executionSummary?.length)
-  )
-})
-
 const showScrollToBottom = computed(() => !isNearBottom.value && chatStore.messages.length > 0)
 const isSendDisabled = computed(() => loading.value || (!inputText.value.trim() && !isRecording.value))
 const isWorkflowTerminal = computed(() => lifecycle.value.isTerminal)
@@ -1722,11 +1357,11 @@ const resetWorkspace = async () => {
   } = route.query
   await router.replace({
     path: '/chat',
-    query: { ...remainingQuery, workspace: workspaceMode.value }
+    query: { ...remainingQuery, workspace: 'chat' }
   })
 }
 
-const handleNewAgentTask = () => {
+const handleNewConversation = () => {
   void resetWorkspace()
 }
 
@@ -1797,40 +1432,9 @@ const animateComposerToConversation = async (startRect: DOMRect) => {
   }
 }
 
-const sendAgentWorkspaceMessage = async () => {
-  const userText = inputText.value.trim()
-  if (!userText) return
-
-  loading.value = true
-  const conversationId = currentConversationId.value
-  const generation = ++composerGeneration
-  const composerStartRect = chatStore.messages.length === 0
-    ? composerRef.value?.getBoundingClientRect()
-    : undefined
-
-  try {
-    inputText.value = userText
-    await upgradeChatToWorkflow()
-    if (!ownsComposerRequest(conversationId, generation)) return
-    if (composerStartRect) await animateComposerToConversation(composerStartRect)
-    if (ownsComposerRequest(conversationId, generation)) scrollToBottom()
-  } catch (error: any) {
-    if (!ownsComposerRequest(conversationId, generation)) return
-    inputText.value = userText
-    if (!wasErrorUserNotified(error)) ElMessage.error(error?.message || 'Send failed')
-  } finally {
-    if (ownsComposerRequest(conversationId, generation)) loading.value = false
-  }
-}
-
 const sendMessage = async () => {
   if (loading.value) return
   if (!inputText.value.trim() && !isRecording.value) return
-
-  if (isAgentMode.value) {
-    await sendAgentWorkspaceMessage()
-    return
-  }
 
   loading.value = true
   const generation = ++composerGeneration
@@ -1843,7 +1447,7 @@ const sendMessage = async () => {
   try {
     sendingDraftId = !chatStore.contextId && !route.query.contextId && currentConversationId.value.startsWith('draft:')
       ? currentConversationId.value : null
-    const sendPromise = chatStore.sendMessageStream(userText, 'default', loadModelSettings(), workspaceMode.value)
+    const sendPromise = chatStore.sendMessageStream(userText, 'default', loadModelSettings(), 'chat')
     if (composerStartRect) {
       await animateComposerToConversation(composerStartRect)
     }
@@ -1911,7 +1515,7 @@ const upgradeChatToWorkflow = async () => {
   workflowStartError.value = null
   inputText.value = ''
   try {
-    const startWorkflow = isAgentMode.value ? chatStore.startAgentRun : chatStore.upgradeToWorkflow
+    const startWorkflow = chatStore.upgradeToWorkflow
     const result = await startWorkflow(userText, {
       policyProfile: 'conversation-workspace',
       conversationId,
@@ -2030,7 +1634,7 @@ const handleFileSelected = async (file: any) => {
   try {
     sendingDraftId = !chatStore.contextId && !route.query.contextId && currentConversationId.value.startsWith('draft:')
       ? currentConversationId.value : null
-    const sendPromise = chatStore.sendMessage('', fileUrl, loadModelSettings(), workspaceMode.value)
+    const sendPromise = chatStore.sendMessage('', fileUrl, loadModelSettings(), 'chat')
     if (composerStartRect) {
       await animateComposerToConversation(composerStartRect)
     }
@@ -2077,8 +1681,7 @@ const conversationRailItems = computed<ConversationRailItem[]>(() => {
 
 const conversationRailOverflow = ref(false)
 const conversationRailVisible = computed(() =>
-  !isAgentMode.value
-  && conversationRailItems.value.length >= CONVERSATION_RAIL_MIN_ROUNDS
+  conversationRailItems.value.length >= CONVERSATION_RAIL_MIN_ROUNDS
   && conversationRailOverflow.value
 )
 const conversationRailRef = ref<HTMLElement | null>(null)
@@ -2200,43 +1803,11 @@ const handleScrollToBottom = () => {
 }
 
 watch(
-  () => route.query.workspace,
-  workspace => {
-    if (workspace !== 'agent' && workspace !== 'chat') return
-    workspaceMode.value = workspace
-    localStorage.setItem(WORKSPACE_MODE_KEY, workspace)
-  },
-  { immediate: true }
-)
-
-const handleWorkspaceModeChange = (event: Event) => {
-  const mode = (event as CustomEvent<{ mode?: WorkspaceMode }>).detail?.mode
-  if (mode !== 'agent' && mode !== 'chat') return
-  workspaceModeSwitching.value = true
-  workspaceMode.value = mode
-  if (mode === 'agent') {
-    agentPanelCollapsed.value = showHeroMode.value
-    setContextPanelOpen(!showHeroMode.value)
-    setWorkflowPanelOpen(!showHeroMode.value)
-  } else {
-    contextPanelOpen.value = false
-    contextPanelClosing.value = false
-    workflowPanelOpen.value = false
-    localStorage.setItem(CONTEXT_PANEL_OPEN_KEY, '0')
-    localStorage.setItem(WORKFLOW_PANEL_OPEN_KEY, '0')
-  }
-  void nextTick(() => {
-    workspaceModeSwitching.value = false
-  })
-}
-
-watch(
   () => chatStore.messages.length,
   (newLen, oldLen) => {
     if (newLen === 0) {
       setContextPanelOpen(false)
       setWorkflowPanelOpen(false)
-      agentPanelCollapsed.value = true
       return
     }
     if (newLen <= oldLen) return
@@ -2396,7 +1967,7 @@ watch(
       chatStore.migrateDraftBindings(sendingDraftId, contextId)
     }
     if (isConversationVisible() && !previous && !route.query.contextId) {
-      setConversationWorkspace(contextId, chatStore.conversationWorkspaceMode || workspaceMode.value)
+      setConversationWorkspace(contextId, chatStore.conversationWorkspaceMode || 'chat')
       void router.replace({ query: contextQuery(route.query, contextId) })
     }
   },
@@ -2411,21 +1982,6 @@ watch(
     if (!binding) return
     chatStore.markWorkflowBindingInvalid(binding.conversationId, binding.runId)
     activeWorkflowBinding.value = { ...binding, invalidAt: new Date().toISOString() }
-  }
-)
-
-watch(hasAgentActivity, active => {
-  if (active) agentPanelCollapsed.value = false
-})
-
-watch(
-  [isAgentMode, activeWorkflowRunId],
-  async ([generalMode], previous) => {
-    if (!generalMode) return
-    const previousRunId = previous?.[1]
-    if (previousRunId === activeWorkflowRunId.value && previous?.[0] === generalMode) return
-    await nextTick()
-    agentPanelContentRef.value?.scrollTo({ top: 0 })
   }
 )
 
@@ -2476,15 +2032,13 @@ onUnmounted(() => {
 })
 
 const attachViewEvents = () => {
-  window.addEventListener('workspace-mode-change', handleWorkspaceModeChange)
-  window.addEventListener('agent-new-task', handleNewAgentTask)
+  window.addEventListener('chat-new-conversation', handleNewConversation)
   window.addEventListener('resize', handleWorkflowPanelViewportResize)
   window.addEventListener('resize', handleChatInfoViewportResize)
   window.addEventListener('pointerdown', handleComposerOutsideClick)
 }
 const detachViewEvents = () => {
-  window.removeEventListener('workspace-mode-change', handleWorkspaceModeChange)
-  window.removeEventListener('agent-new-task', handleNewAgentTask)
+  window.removeEventListener('chat-new-conversation', handleNewConversation)
   window.removeEventListener('resize', handleWorkflowPanelViewportResize)
   window.removeEventListener('resize', handleChatInfoViewportResize)
   window.removeEventListener('pointerdown', handleComposerOutsideClick)
@@ -2495,7 +2049,6 @@ onMounted(async () => {
   if (showHeroMode.value) {
     setContextPanelOpen(false)
     setWorkflowPanelOpen(false)
-    agentPanelCollapsed.value = true
   }
   // Measure available space without replacing the user's shared dock preference.
   handleChatInfoViewportResize()
@@ -2513,9 +2066,6 @@ onMounted(async () => {
     composerResizeObserver.observe(composerRef.value)
   }
 
-  if (localStorage.getItem(AGENT_PANEL_COLLAPSED_KEY) === null && isAgentMode.value && !hasAgentActivity.value) {
-    agentPanelCollapsed.value = true
-  }
 
 
   void chatStore.fetchContextWindows()
@@ -2537,7 +2087,6 @@ onDeactivated(() => {
   chatInfoResizeObserver?.disconnect()
   composerResizeObserver?.disconnect()
   stopChatInfoResize()
-  stopAgentPanelResize()
   stopWorkflowPanelResize()
   stopContextPanelResize()
   if (pendingScrollFrame !== null) window.cancelAnimationFrame(pendingScrollFrame)
@@ -2579,7 +2128,6 @@ onUnmounted(() => {
     railScrollFallback = null
   }
   composerResizeObserver?.disconnect()
-  stopAgentPanelResize()
   stopWorkflowPanelResize()
   stopContextPanelResize()
   if (heroLogoMotion.frame !== null) window.cancelAnimationFrame(heroLogoMotion.frame)
@@ -2758,26 +2306,10 @@ const handleHeroLogoPointerUp = () => {
   flex: 1;
   min-height: 0;
   display: grid;
-  /* Chat 模式第二列为停靠信息栏（宽度自持，默认 ≈ 主区对半，可拖拽调整）；
-     Agent 模式由 .has-agent-results 覆盖为工作台列 */
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0;
   padding: 0;
   transition: grid-template-columns 0.24s var(--ease-out);
-}
-
-.chat-main.has-agent-results {
-  grid-template-columns: minmax(0, 1fr) var(--agent-panel-width, 340px);
-  gap: 0;
-  padding: 0;
-}
-
-.chat-main.has-agent-results.agent-panel-collapsed {
-  grid-template-columns: minmax(0, 1fr) 52px;
-}
-
-.chat-main.agent-panel-resizing {
-  transition: none;
 }
 
 
@@ -3621,9 +3153,6 @@ const handleHeroLogoPointerUp = () => {
 }
 
 /* 右侧工作台滑入动画 */
-/* 切回 Chat 模式时 has-agent-results 先于面板卸载移除，若不脱离布局流，
-   离开中的面板会掉进网格第二行把主面板压扁，英雄区随 57% 锚点滑动。 */
-.chat-main:not(.has-agent-results) > .agent-panel { display: none; }
 
 /* —— Chat 模式右侧停靠信息栏（ZCode/DSH 式：拖宽 + 收起 + 持久化）—— */
 .chat-info-dock {
@@ -3845,27 +3374,6 @@ const handleHeroLogoPointerUp = () => {
 .chat-info-dock__expand:hover {
   background: var(--primary-fade);
   color: var(--primary-color);
-}
-.agent-panel-slide-enter-active {
-  transition: opacity 0.22s var(--ease-out), transform 0.22s var(--ease-out);
-}
-.agent-panel-slide-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-.agent-panel-slide-enter-from {
-  opacity: 0;
-  transform: translateX(12px);
-}
-.agent-panel-slide-leave-to {
-  opacity: 0;
-  transform: translateX(12px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .agent-panel-slide-enter-active,
-  .agent-panel-slide-leave-active {
-    transition: none;
-  }
 }
 
 .template-item {
@@ -4340,140 +3848,6 @@ const handleHeroLogoPointerUp = () => {
   text-align: center;
   line-height: 1.6;
 }
-
-.agent-panel {
-  position: relative;
-  background: var(--bg-sidebar);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  transition: background-color 0.2s ease;
-}
-
-.agent-panel-resizer {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 12;
-  width: 8px;
-  cursor: col-resize;
-  touch-action: none;
-  outline: none;
-}
-
-.agent-panel-resizer::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 2px;
-  background: var(--primary-color);
-  opacity: 0;
-  transform: scaleY(0.96);
-  transition: opacity 0.16s ease, transform 0.16s ease;
-}
-
-.agent-panel-resizer:hover::after,
-.agent-panel-resizer:focus-visible::after,
-.agent-panel.resizing .agent-panel-resizer::after {
-  opacity: 0.8;
-  transform: scaleY(1);
-}
-
-.agent-panel-toggle-row {
-  position: absolute;
-  top: 0;
-  right: 8px;
-  z-index: 20;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-}
-
-.agent-panel-toggle {
-  min-width: 30px;
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: none;
-  cursor: pointer;
-  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
-}
-
-.agent-panel-toggle:hover {
-  background: var(--bg-panel);
-  color: var(--text-primary);
-  box-shadow: none;
-}
-
-.agent-panel-toggle span {
-  display: none;
-}
-
-.agent-panel-toggle:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-.agent-panel.collapsed .agent-panel-toggle-row {
-  position: static;
-  flex: 0 0 54px;
-  height: 54px;
-  justify-content: center;
-  padding: 0;
-}
-
-.agent-panel.collapsed .agent-panel-toggle {
-  width: 38px;
-  padding: 0;
-  font-size: 16px;
-}
-
-.agent-panel-content {
-  flex: 1;
-  min-height: 0;
-  padding: 0;
-  overflow: auto;
-}
-
-.agent-panel-rail {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  padding-top: 14px;
-}
-
-.agent-panel-rail-icon {
-  width: 34px;
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  background: var(--primary-fade);
-  color: var(--primary-color);
-  font-size: 17px;
-}
 @media (max-width: 900px) {
   .workflow-run-strip,
   .chat-workflow-progress,
@@ -4562,9 +3936,6 @@ const handleHeroLogoPointerUp = () => {
 }
 
 @media (max-width: 1100px) {
-  .chat-main.has-agent-results {
-    grid-template-columns: 1fr;
-  }
 
   /* 窄窗口收起对话信息栏，保证消息列可用宽度 */
   .chat-main {
@@ -4572,16 +3943,6 @@ const handleHeroLogoPointerUp = () => {
   }
 
   .chat-info-dock {
-    display: none;
-  }
-
-  .agent-panel {
-    border-left: none;
-    border-top: 1px solid var(--border-light);
-    max-height: 300px;
-  }
-
-  .agent-panel-resizer {
     display: none;
   }
 
@@ -4849,4 +4210,8 @@ const handleHeroLogoPointerUp = () => {
     transition: none;
   }
 }
+.composer-tools-menu__item:disabled { opacity: .45; cursor: not-allowed; }
+.chat-info-dock__body { flex: 1; min-height: 0; overflow-y: auto; }
+.chat-info-dock__body .chat-info-card { overflow: visible; }
+.chat-info-run { flex-shrink: 0; border-bottom: 1px solid var(--wb-border-soft); }
 </style>

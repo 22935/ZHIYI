@@ -1,5 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { reactive } from 'vue'
+import { reactive, defineComponent, h, inject } from 'vue'
+import WorkspaceModeSwitch from '@/components/workspace/WorkspaceModeSwitch.vue'
+import { workspaceShellKey, type WorkspaceSurface } from '@/features/workspace/shell'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.vue'
@@ -65,7 +67,8 @@ vi.mock('@/services/api/auth', () => ({
 vi.mock('@/services/api/conversation', () => ({
   conversationApi: {
     getUserConversations: vi.fn().mockResolvedValue([]),
-    deleteConversation: vi.fn()
+    deleteConversation: vi.fn(),
+    getConversation: vi.fn(async (contextId: string) => ({ id: contextId, contextId, workspaceMode: 'chat' }))
   }
 }))
 
@@ -112,7 +115,7 @@ const missions = [
   }
 ]
 
-describe('App Agent project sidebar', () => {
+describe('Workbench / OScode shell', () => {
   beforeEach(() => {
     localStorage.clear()
     chatStoreState.workflowBindings = {}
@@ -202,10 +205,11 @@ describe('App Agent project sidebar', () => {
       routes: [
         { path: '/chat', component: { template: '<div />' } },
         { path: '/history', component: { template: '<div />' } },
+        { path: '/agentos/acg', component: { template: '<div />' } },
         { path: '/agentos/missions/:missionId/workspace', component: { template: '<div />' } }
       ]
     })
-    await router.push('/chat?workspace=agent')
+    await router.push('/agentos/acg')
     await router.isReady()
 
     const wrapper = mount(App, {
@@ -267,10 +271,11 @@ describe('App Agent project sidebar', () => {
       history: createMemoryHistory(),
       routes: [
         { path: '/chat', component: { template: '<div />' } },
-        { path: '/history', component: { template: '<div />' } }
+        { path: '/history', component: { template: '<div />' } },
+        { path: '/agentos/acg', component: { template: '<div />' } }
       ]
     })
-    await router.push('/chat?workspace=agent')
+    await router.push('/agentos/acg')
     await router.isReady()
 
     const wrapper = mount(App, {
@@ -311,7 +316,8 @@ describe('App Agent project sidebar', () => {
       history: createMemoryHistory(),
       routes: [
         { path: '/chat', component: { template: '<div />' } },
-        { path: '/history', component: { template: '<div />' } }
+        { path: '/history', component: { template: '<div />' } },
+        { path: '/agentos/acg', component: { template: '<div />' } }
       ]
     })
     await router.push(`/history?workspace=${mode}`)
@@ -348,21 +354,34 @@ describe('App Agent project sidebar', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.path).toBe('/chat')
-    expect(router.currentRoute.value.query).toEqual({ workspace: mode, newConversation: '1' })
+    expect(router.currentRoute.value.query).toEqual({ workspace: 'chat', newConversation: '1' })
     expect(clearMessages).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
-  it('Shell mode changes request one fresh conversation and leave clearing to ChatView', async () => {
+  it('switches Workbench and OScode without clearing the conversation, while activity buttons only switch the left view', async () => {
     localStorage.setItem('layout.workspace_mode', 'agent')
     localStorage.setItem('layout.chat_nav_open', '1')
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/chat', component: { template: '<div />' } },
-        { path: '/history', component: { template: '<div />' } }
+        { path: '/history', component: { template: '<div />' } },
+        { path: '/agentos/acg', component: { template: '<div />' } }
       ]
     })
+    chatStoreState.contextId = 'old-context'
+    chatStoreState.messages = [{ id: 'preserved', role: 'user', content: '保留当前对话' }]
+    chatStoreState.workflowBindings = { 'old-context': [{
+      conversationId: 'old-context', missionId: 'mission-old', runId: 'old-run',
+      source: 'chat', status: 'completed', createdAt: '2026-11-05'
+    }] }
+    router.addRoute({ path: '/agentos/missions/:missionId/workspace', component: defineComponent({
+      setup() {
+        const shell = inject(workspaceShellKey)!
+        return () => h(WorkspaceModeSwitch, { active: 'workbench', onSelect: (surface: WorkspaceSurface) => shell.switchSurface(surface) })
+      }
+    }) })
     await router.push('/chat?workspace=agent&contextId=old-context&runId=old-run')
     await router.isReady()
     const wrapper = mount(App, {
@@ -380,8 +399,18 @@ describe('App Agent project sidebar', () => {
     await vi.dynamicImportSettled(); await flushPromises(); clearMessages.mockClear()
     await wrapper.find('.workspace-switch-btn[aria-selected="false"]').trigger('click')
     await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/agentos/missions/mission-old/workspace')
+    expect(router.currentRoute.value.query).toEqual({ runId: 'old-run' })
+    const workbenchPath = router.currentRoute.value.fullPath
+    for (const button of wrapper.findAll('.workbench-activity-button')) await button.trigger('click')
+    expect(wrapper.findAll('.workbench-activity-button')).toHaveLength(4)
+    expect(router.currentRoute.value.fullPath).toBe(workbenchPath)
+    expect(wrapper.get('[aria-label="思维链"]').attributes('aria-pressed')).toBe('true')
+    await wrapper.find('.workspace-switch-btn[aria-selected="false"]').trigger('click')
+    await flushPromises()
     expect(router.currentRoute.value.path).toBe('/chat')
-    expect(router.currentRoute.value.query).toEqual({ workspace: 'chat', newConversation: '1' })
+    expect(router.currentRoute.value.query.contextId).toBe('old-context')
+    expect(chatStoreState.messages[0].content).toBe('保留当前对话')
     expect(clearMessages).not.toHaveBeenCalled()
     wrapper.unmount()
   })
@@ -405,7 +434,8 @@ describe('App Agent project sidebar', () => {
       history: createMemoryHistory(),
       routes: [
         { path: '/chat', component: ChatView },
-        { path: '/history', component: { template: '<div />' } }
+        { path: '/history', component: { template: '<div />' } },
+        { path: '/agentos/acg', component: { template: '<div />' } }
       ]
     })
     await router.push(`/chat?workspace=${mode}&contextId=ctx-old&runId=run-old`)
@@ -441,7 +471,7 @@ describe('App Agent project sidebar', () => {
     expect(clearMessages).toHaveBeenCalledTimes(1)
     expect(chatStoreState.messages).toEqual([])
     expect(chatStoreState.workflowBindings['ctx-old']).toEqual([oldBinding])
-    expect(router.currentRoute.value.query).toEqual({ workspace: mode })
+    expect(router.currentRoute.value.query).toEqual({ workspace: 'chat' })
     expect(chatStoreState.getActiveWorkflowBinding(nextDraft!)).toBeUndefined()
     wrapper.unmount()
     vi.unstubAllGlobals()
@@ -457,7 +487,8 @@ describe('App Agent project sidebar', () => {
       history: createMemoryHistory(),
       routes: [
         { path: '/chat', component: { template: '<div />' } },
-        { path: '/history', component: { template: '<div />' } }
+        { path: '/history', component: { template: '<div />' } },
+        { path: '/agentos/acg', component: { template: '<div />' } }
       ]
     })
     await router.push('/chat?workspace=chat')
