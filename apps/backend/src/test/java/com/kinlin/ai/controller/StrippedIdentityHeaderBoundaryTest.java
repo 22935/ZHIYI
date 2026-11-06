@@ -1,6 +1,5 @@
 package com.kinlin.ai.controller;
 
-import com.kinlin.ai.dto.ChatResponse;
 import com.kinlin.ai.filter.SensitiveIdentityHeaderFilter;
 import com.kinlin.ai.security.AuthenticatedUserContext;
 import com.kinlin.ai.service.ChatQualityService;
@@ -9,7 +8,6 @@ import com.kinlin.ai.service.ConversationService;
 import com.kinlin.ai.service.RoleService;
 import com.kinlin.ai.service.SearchService;
 import com.kinlin.ai.service.UserService;
-import com.kinlin.ai.service.VoiceService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,7 +19,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,7 +36,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -53,7 +49,6 @@ class StrippedIdentityHeaderBoundaryTest {
     private static final String FORGED = "11111111-1111-1111-1111-111111111111";
 
     @Mock private ChatService chatService;
-    @Mock private VoiceService voiceService;
     @Mock private SearchService searchService;
     @Mock private ConversationService conversationService;
     @Mock private RoleService roleService;
@@ -83,22 +78,6 @@ class StrippedIdentityHeaderBoundaryTest {
         ArgumentCaptor<UUID> userId = ArgumentCaptor.forClass(UUID.class);
         verify(chatService).getHistory(anyString(), userId.capture());
         assertEquals(authenticatedUserId, userId.getValue(), "伪造头不得影响会话属主判定");
-    }
-
-    @Test
-    void voiceMessageIdentityComesOnlyFromTheAuthenticatedContext() throws Exception {
-        when(voiceService.processVoiceMessage(any(byte[].class), any(), any(), any(UUID.class)))
-                .thenReturn(new ChatResponse());
-
-        MockMultipartFile audio = new MockMultipartFile(
-                "audio", "a.wav", "audio/wav", new byte[]{1, 2, 3});
-        withAuth(new VoiceController(voiceService))
-                .perform(multipart("/voice/chat").file(audio).header("X-User-Id", FORGED))
-                .andExpect(status().isOk());
-
-        ArgumentCaptor<UUID> userId = ArgumentCaptor.forClass(UUID.class);
-        verify(voiceService).processVoiceMessage(any(byte[].class), any(), any(), userId.capture());
-        assertEquals(authenticatedUserId, userId.getValue());
     }
 
     @Test

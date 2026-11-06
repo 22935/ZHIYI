@@ -14,21 +14,6 @@ from app.ai_engine.model_runtime import (
 
 logger = logging.getLogger(__name__)
 
-# 可选导入创新功能（如果可用）
-try:
-    from app.services.emotionawareservice import emotion_aware_service
-    EMOTION_AWARE_AVAILABLE = True
-except ImportError:
-    EMOTION_AWARE_AVAILABLE = False
-    logger.warning("情感感知服务未加载")
-
-try:
-    from app.services.digitalhumanservice import digital_human_service
-    DIGITAL_HUMAN_AVAILABLE = True
-except ImportError:
-    DIGITAL_HUMAN_AVAILABLE = False
-    logger.warning("数字人服务未加载")
-
 class AIService:
     """AI服务类"""
     
@@ -41,27 +26,21 @@ class AIService:
         text: str,
         role_id: Optional[str] = None,
         context: Optional[List[Dict[str, str]]] = None,
-        enable_emotion_aware: bool = False,
-        audio_features: Optional[Dict] = None,
-        facial_features: Optional[Dict] = None,
         model: Optional[str] = None,
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
         thinking_mode: str = "disabled",
     ) -> Dict:
         """
-        生成文本回复（支持情感感知）
-        
+        生成文本回复
+
         Args:
             text: 用户输入文本
             role_id: 角色ID（可选）
             context: 对话上下文（可选）
-            enable_emotion_aware: 是否启用情感感知（默认False）
-            audio_features: 音频特征（可选，用于情感分析）
-            facial_features: 面部特征（可选，用于情感分析）
-        
+
         Returns:
-            包含text、confidence、emotion、animation等的字典
+            包含text、confidence、tokens_used的字典
         """
         try:
             if model and not base_url and not api_key:
@@ -77,61 +56,23 @@ class AIService:
                     reasoning_effort=thinking_mode,
                 )
 
-            # 如果启用情感感知
-            if enable_emotion_aware and EMOTION_AWARE_AVAILABLE:
-                # 获取角色配置（简化实现）
-                base_role = {
-                    "role_id": role_id or "default",
-                    "personality": "友好、专业",
-                    "knowledge_domain": []
-                }
-                
-                # 生成情感感知回复
-                emotion_response = emotion_aware_service.generate_emotion_aware_response(
-                    question=text,
-                    user_emotion=None,  # 自动分析
-                    base_role=base_role,
-                    text=text,
-                    audio_features=audio_features,
-                    facial_features=facial_features
+            if thinking_mode != "disabled":
+                prompt_messages = apply_reasoning_instruction(
+                    [{"role": "user", "content": text}], thinking_mode
                 )
-                
-                # 如果启用数字人，生成动画
-                animation = None
-                if DIGITAL_HUMAN_AVAILABLE and role_id:
-                    try:
-                        animation = digital_human_service.active_avatars.get(role_id, {}).get("avatar_data", {}).get("animations", {})
-                    except:
-                        pass
-                
-                return {
-                    "text": emotion_response.get("text", ""),
-                    "confidence": 0.85,
-                    "tokens_used": emotion_response.get("tokens_used", 0),
-                    "emotion": emotion_response.get("emotion", {}),
-                    "user_emotion": emotion_response.get("user_emotion", {}),
-                    "animation": emotion_response.get("animation", animation),
-                    "emotion_aware": True
-                }
-            else:
-                # 标准文本生成
-                if thinking_mode != "disabled":
-                    prompt_messages = apply_reasoning_instruction(
-                        [{"role": "user", "content": text}], thinking_mode
-                    )
-                    text = "\n".join(item["content"] for item in prompt_messages)
-                response = await self.client.generate_text(
-                    text=text,
-                    role_id=role_id,
-                    context=context
-                )
-                
-                return {
-                    "text": response.get("text", ""),
-                    "confidence": response.get("confidence", 0.85),
-                    "tokens_used": response.get("tokens_used", 0),
-                    "emotion_aware": False
-                }
+                text = "\n".join(item["content"] for item in prompt_messages)
+            response = await self.client.generate_text(
+                text=text,
+                role_id=role_id,
+                context=context
+            )
+
+            return {
+                "text": response.get("text", ""),
+                "confidence": response.get("confidence", 0.85),
+                "tokens_used": response.get("tokens_used", 0),
+                "emotion_aware": False
+            }
         except Exception as e:
             logger.error(f"文本生成失败: {e}", exc_info=True)
             if model or base_url or api_key:

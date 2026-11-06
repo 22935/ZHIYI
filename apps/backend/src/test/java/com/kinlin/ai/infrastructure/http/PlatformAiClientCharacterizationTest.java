@@ -4,8 +4,6 @@ import com.kinlin.ai.client.AiChatClient;
 import com.kinlin.ai.client.PlatformAiClientException;
 import com.kinlin.ai.client.RagClient;
 import com.kinlin.ai.dto.ChatResponse;
-import com.kinlin.ai.dto.DigitalHumanRequest;
-import com.kinlin.ai.dto.EmotionAnalyzeRequest;
 import com.kinlin.ai.dto.KnowledgeGraphRequest;
 import com.kinlin.ai.dto.RoleFusionRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -153,69 +151,6 @@ class PlatformAiClientCharacterizationTest {
             assertFalse(body.contains("thinking_mode"));
             assertFalse(body.contains("tool_mode"));
         }
-
-        @Test
-        void sendVoiceMessagePostsMultipartAndAssemblesChatResponse() {
-            upstream.willReturn(200,
-                    "{\"text\":\"AI回复\",\"confidence\":0.9,\"recognized_text\":\"识别的文本\"}");
-
-            ChatResponse response = client.sendVoiceMessage(new byte[]{1, 2}, "role-1");
-
-            assertEquals("/ai/chat/voice", upstream.lastUri().getPath());
-            String body = upstream.lastBodyJson();
-            assertTrue(body.contains("filename=\"audio.wav\""), body);
-            assertTrue(body.contains("name=\"role_id\""), body);
-            assertEquals("AI回复", response.getText());
-            assertEquals(0.9, response.getConfidence());
-            assertEquals("识别的文本", response.getRecognizedText());
-        }
-
-        @Test
-        void sendVoiceMessageDefaultsMissingConfidenceLikeBefore() {
-            upstream.willReturn(200, "{\"text\":\"AI回复\",\"recognized_text\":\"识别\"}");
-
-            ChatResponse response = client.sendVoiceMessage(new byte[]{1}, null);
-
-            assertEquals(0.85, response.getConfidence());
-        }
-    }
-
-    @Nested
-    class SpeechClientImpl {
-
-        private WebClientSpeechClient client;
-
-        @BeforeEach
-        void setUpClient() {
-            client = new WebClientSpeechClient(transport);
-        }
-
-        @Test
-        void textToSpeechPostsBodyAndReturnsRawAudioBytes() {
-            upstream.willReturn(200, "AUDIO");
-
-            byte[] audio = client.textToSpeech("测试文本", "female", 1.5, 0.75);
-
-            assertEquals(HttpMethod.POST, upstream.lastMethod());
-            assertEquals("/ai/tts", upstream.lastUri().getPath());
-            String body = upstream.lastBodyJson();
-            assertTrue(body.contains("\"text\":\"测试文本\""));
-            assertTrue(body.contains("\"voice\":\"female\""));
-            assertTrue(body.contains("\"speed\":1.5"));
-            assertTrue(body.contains("\"pitch\":0.75"));
-            assertEquals("AUDIO", new String(audio));
-        }
-
-        @Test
-        void textToSpeechOmitsNullSpeedAndPitch() {
-            upstream.willReturn(200, "AUDIO");
-
-            client.textToSpeech("文本", "default", null, null);
-
-            String body = upstream.lastBodyJson();
-            assertFalse(body.contains("speed"));
-            assertFalse(body.contains("pitch"));
-        }
     }
 
     @Nested
@@ -278,31 +213,6 @@ class PlatformAiClientCharacterizationTest {
     }
 
     @Nested
-    class EmotionClientImpl {
-
-        private WebClientEmotionClient client;
-
-        @BeforeEach
-        void setUpClient() {
-            client = new WebClientEmotionClient(transport);
-        }
-
-        @Test
-        void analyzePostsConditionalFieldsAndUnwrapsData() {
-            upstream.willReturn(200,
-                    "{\"success\":true,\"data\":{\"emotion\":\"happy\",\"intensity\":0.8}}");
-            EmotionAnalyzeRequest request = new EmotionAnalyzeRequest();
-            request.setText("我很开心");
-
-            Map<String, Object> data = client.analyzeEmotion(request);
-
-            assertEquals("/ai/emotion/analyze", upstream.lastUri().getPath());
-            assertTrue(upstream.lastBodyJson().contains("\"text\":\"我很开心\""));
-            assertEquals("happy", data.get("emotion"));
-        }
-    }
-
-    @Nested
     class RoleFusionClientImpl {
 
         private WebClientRoleFusionClient client;
@@ -330,54 +240,6 @@ class PlatformAiClientCharacterizationTest {
             assertTrue(body.contains("\"role_id\":\"lawyer\""));
             assertTrue(body.contains("\"knowledge_domain\":[\"法律\"]"));
             assertEquals("综合建议", data.get("fused_response"));
-        }
-    }
-
-    @Nested
-    class DigitalHumanClientImpl {
-
-        private WebClientDigitalHumanClient client;
-
-        @BeforeEach
-        void setUpClient() {
-            client = new WebClientDigitalHumanClient(transport);
-        }
-
-        @Test
-        void createPostsBodyAndAssemblesResponse() {
-            upstream.willReturn(200,
-                    "{\"success\":true,\"data\":{\"avatar_id\":\"a1\"},\"message\":\"created\"}");
-            DigitalHumanRequest request = new DigitalHumanRequest();
-            request.setRoleId("role1");
-
-            var response = client.create(request);
-
-            assertEquals("/ai/digital-human/create", upstream.lastUri().getPath());
-            String body = upstream.lastBodyJson();
-            assertTrue(body.contains("\"role_id\":\"role1\""));
-            assertTrue(body.contains("\"style\":\"realistic\""));
-            assertTrue(response.getSuccess());
-            assertEquals("created", response.getMessage());
-        }
-
-        @Test
-        void getMapsUpstream404ToFrozenNotFoundWording() {
-            upstream.willReturn(404, "{\"detail\":\"not found\"}");
-
-            var response = client.get("role1");
-
-            assertFalse(response.getSuccess());
-            assertEquals("数字人不存在: role1", response.getMessage());
-        }
-
-        @Test
-        void getKeepsFrozenUpstreamErrorWordingForNon404() {
-            upstream.willReturn(503, "{\"detail\":\"down\"}");
-
-            var response = client.get("role1");
-
-            assertFalse(response.getSuccess());
-            assertEquals("AI服务返回错误: 503 SERVICE_UNAVAILABLE", response.getMessage());
         }
     }
 

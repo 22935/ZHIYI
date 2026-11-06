@@ -16,9 +16,7 @@ import com.kinlin.ai.controller.RoleController;
 import com.kinlin.ai.controller.ChatQualityController;
 import com.kinlin.ai.controller.KnowledgeGraphController;
 import com.kinlin.ai.controller.RagController;
-import com.kinlin.ai.controller.EmotionController;
 import com.kinlin.ai.controller.RoleFusionController;
-import com.kinlin.ai.controller.DigitalHumanController;
 import com.kinlin.ai.controller.RecommendationController;
 import com.kinlin.ai.controller.AlertController;
 import com.kinlin.ai.controller.AuthController;
@@ -27,15 +25,12 @@ import com.kinlin.ai.controller.HealthController;
 import com.kinlin.ai.controller.KylinOSController;
 import com.kinlin.ai.controller.MetricsController;
 import com.kinlin.ai.controller.SearchController;
-import com.kinlin.ai.controller.StatisticsController;
 import com.kinlin.ai.controller.UserProfileController;
 import com.kinlin.ai.controller.UserController;
-import com.kinlin.ai.controller.UserFeedbackController;
 import com.kinlin.ai.entity.Conversation;
 import com.kinlin.ai.entity.Message;
 import com.kinlin.ai.entity.Role;
 import com.kinlin.ai.entity.User;
-import com.kinlin.ai.entity.UserFeedback;
 import com.kinlin.ai.projection.message.dto.MessageQuery;
 import com.kinlin.ai.projection.role.dto.RoleConfigurationQuery;
 import com.kinlin.ai.projection.role.dto.RoleContextQuery;
@@ -59,7 +54,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Shared projection guards covering every controller response closure. Platform entities
- * (User, Role, Conversation, Message, UserFeedback) are banned everywhere; the exception
+ * (User, Role, Conversation, Message) are banned everywhere; the exception
  * registry is currently empty and any new raw-entity response must be registered as a
  * loan pinned to its exact GET route and raw return type, so widening the response,
  * migrating it to a projection, or rerouting it fails loudly. Strict closed-output
@@ -198,8 +193,7 @@ class QueryProjectionArchitectureTest {
      */
     static boolean strictOutputChecked(Class<?> controller, Method method) {
         if (controller == UserController.class || controller == RoleController.class
-                || controller == ConversationController.class || controller == SearchController.class
-                || controller == UserFeedbackController.class) {
+                || controller == ConversationController.class || controller == SearchController.class) {
             return true;
         }
         if (controller == AgentOsMissionController.class) {
@@ -218,8 +212,8 @@ class QueryProjectionArchitectureTest {
                 || controller == com.kinlin.ai.controller.AgentOsWorkspaceController.class) {
             return AnnotatedElementUtils.hasAnnotation(method, GetMapping.class);
         }
-        if (controller == StatisticsController.class || controller == UserProfileController.class
-                || controller == ChatQualityController.class || controller == EmotionController.class
+        if (controller == UserProfileController.class
+                || controller == ChatQualityController.class
                 || controller == RoleFusionController.class) {
             return true;
         }
@@ -228,9 +222,6 @@ class QueryProjectionArchitectureTest {
         }
         if (controller == RagController.class) {
             return List.of("query", "listDocuments").contains(method.getName());
-        }
-        if (controller == DigitalHumanController.class) {
-            return "getDigitalHuman".equals(method.getName());
         }
         if (controller == RecommendationController.class) { return true; }
         if (controller == AuthController.class) { return "verifyToken".equals(method.getName()); }
@@ -346,7 +337,7 @@ class QueryProjectionArchitectureTest {
 
     @Test
     void negativeFixturesDetectWrappedEntitiesDynamicDtosAndConfigurationSpread() throws Exception {
-        for (String name : List.of("user", "roles", "conversations", "messages", "feedbacks", "nested", "nestedMessage",
+        for (String name : List.of("user", "roles", "conversations", "messages", "nested", "nestedMessage",
                 "dynamic", "dynamicMetadata", "opaque", "json", "raw", "wildcard", "inherited", "getter", "checkpoint", "checkpointReference")) {
             Type type = BadResponses.class.getDeclaredMethod(name).getGenericReturnType();
             assertThrows(AssertionError.class, () -> assertSafe(type, true, new HashSet<>(), name, ALL_PLATFORM_ENTITIES), name);
@@ -361,7 +352,7 @@ class QueryProjectionArchitectureTest {
     }
 
     private static final Set<Class<?>> ALL_PLATFORM_ENTITIES =
-            Set.of(User.class, Role.class, Conversation.class, Message.class, UserFeedback.class);
+            Set.of(User.class, Role.class, Conversation.class, Message.class);
 
     /** A registered raw-Message loan tolerates Message only; every other platform entity stays banned. */
     private static final Set<Class<?>> RAW_MESSAGE_LOAN_BAN = buildLoanBan();
@@ -498,7 +489,6 @@ class QueryProjectionArchitectureTest {
         ResponseEntity<List<Role>> roles();
         ResponseEntity<List<Conversation>> conversations();
         ResponseEntity<List<Message>> messages();
-        ResponseEntity<List<UserFeedback>> feedbacks();
         ResponseEntity<NestedRole> nested();
         ResponseEntity<WrappedMessage> nestedMessage();
         ResponseEntity<DynamicDto> dynamic();

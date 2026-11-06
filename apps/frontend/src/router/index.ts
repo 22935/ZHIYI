@@ -95,15 +95,6 @@ const routes: RouteRecordRaw[] = [
     redirect: to => ({ path: '/agentos/resources', query: to.query })
   },
   {
-    path: '/create-role',
-    name: 'CreateRole',
-    component: () => import('@/views/CreateRoleView.vue'),
-    meta: {
-      title: '创建角色',
-      requiresAuth: true
-    }
-  },
-  {
     path: '/settings',
     name: 'Settings',
     // Settings is the main route used to recover identity and client state.
@@ -209,15 +200,6 @@ const routes: RouteRecordRaw[] = [
     redirect: {
       path: '/chat',
       query: { workspace: 'agent' }
-    }
-  },
-  {
-    path: '/voice-chat',
-    name: 'VoiceChat',
-    component: () => import('@/views/VoiceChatView.vue'),
-    meta: {
-      title: '语音讲解',
-      requiresAuth: true
     }
   }
 ]

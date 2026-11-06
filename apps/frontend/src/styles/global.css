@@ -1597,7 +1597,6 @@ html[data-workbench-status-bar='on'] .app-shell-body {
 /* Page-level gallery polish for existing views */
 .role-view,
 .user-view,
-.create-role-view,
 .info-view {
   background: transparent !important;
   color: var(--text-primary) !important;
@@ -1705,14 +1704,12 @@ html[data-workbench-status-bar='on'] .app-shell-body {
 }
 
 .user-view,
-.create-role-view,
 .info-view {
   padding: 0 !important;
   overflow: auto !important;
 }
 
 .user-view .user-container,
-.create-role-view .content-container,
 .info-view {
   max-width: var(--page-content-max-width) !important;
   margin: 0 auto !important;
@@ -1720,13 +1717,7 @@ html[data-workbench-status-bar='on'] .app-shell-body {
 
 .user-view .profile-header-card,
 .user-view .stat-card,
-.user-view .content-card,
-.create-role-view .header,
-.create-role-view .progress-indicator,
-.create-role-view .form-content,
-.create-role-view .style-card,
-.create-role-view .config-card,
-.create-role-view .creation-summary {
+.user-view .content-card {
   border: 1px solid var(--border-light) !important;
   border-radius: 8px !important;
   background: color-mix(in srgb, var(--bg-card) 86%, transparent) !important;
@@ -1737,20 +1728,12 @@ html[data-workbench-status-bar='on'] .app-shell-body {
   display: none !important;
 }
 
-.user-view .stat-icon,
-.create-role-view .step-number,
-.create-role-view .card-icon,
-.create-role-view .style-icon {
+.user-view .stat-icon {
   border-radius: 8px !important;
   border: 1px solid var(--border-light) !important;
   background: var(--surface-solid) !important;
   color: var(--primary-color) !important;
   box-shadow: var(--shadow-sm) !important;
-}
-
-.create-role-view .style-card.active {
-  border-color: var(--primary-line) !important;
-  background: var(--primary-fade) !important;
 }
 
 .contract-planner {
