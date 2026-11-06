@@ -549,8 +549,8 @@ def prepare(run, env, name):
 def snapshot(state):
     import psutil
     result = {'services': {}, 'coreReady': True}
-    hands = state.get('backend') == 'hands'
-    for name, path, port in [('host', '/v1/health' if hands else '/health', state['hostPort']),
+    # hands 是唯一执行后端：host 探 /v1/health，进程树只认 node.exe。
+    for name, path, port in [('host', '/v1/health', state['hostPort']),
                              ('ai', '/health/ready', state['aiPort'])]:
         record = state['processes'].get(name)
         try:
@@ -558,7 +558,7 @@ def snapshot(state):
             if process is None:
                 raise RuntimeError('owned process absent')
             tree = [process, *process.children(recursive=True)]
-            tokens = [windows_token(member.pid) for member in tree if member.name().lower() == ('node.exe' if hands and name == 'host' else 'python.exe')]
+            tokens = [windows_token(member.pid) for member in tree if member.name().lower() == ('node.exe' if name == 'host' else 'python.exe')]
             if not tokens or any(t['elevated'] or int(t['integritySid'].rsplit('-', 1)[1]) > 8192 for t in tokens):
                 raise RuntimeError('Runtime must use ordinary-user non-elevated tokens')
             listeners = [c for member in tree for c in member.net_connections(kind='tcp')
@@ -568,12 +568,9 @@ def snapshot(state):
             if any(c.laddr.ip != '127.0.0.1' for c in listeners):
                 raise RuntimeError('non-loopback listener detected')
             payload = health(port, path)
-            if name == 'host' and hands:
+            if name == 'host':
                 assert payload['ok'] and payload['service'] == 'zhiyi-hands'
                 assert payload['protocolVersion'] == '1'
-            elif name == 'host':
-                assert payload['status'] == 'online' and payload['resourceId'] == 'n01a-host'
-                assert payload['protocolVersion'] == '1' and sorted(payload['capabilities']) == CAPS
             else:
                 assert payload['status'] == 'UP'
                 assert payload['checks']['dataDirectory'] and payload['checks']['workflowStore']
@@ -588,72 +585,6 @@ def snapshot(state):
     except Exception:
         result['dependencies'] = {'status': 'UNREACHABLE'}
     return result
-
-
-def up(run, ai_port, host_port, *, fail_after_host=False):
-    checked = preflight(run, ai_port, host_port)
-    run.mkdir(parents=True, exist_ok=True)
-    if not (run / 'fixture-preparation.json').is_file():
-        prepare_fixtures(run)
-    for name in ['workspace', 'temp']:
-        (run / name).mkdir(exist_ok=True)
-    # Prevent the production config's repository .env fallback without altering it.
-    (run / '.env').write_text('', encoding='utf-8')
-    write_json(run / 'preflight.json', checked)
-    creds = {name: secrets.token_hex(32) for name in ['hmac', 'token', 'key']}
-    creds['key'] = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
-    (run / 'credentials.dpapi').write_bytes(dpapi(json.dumps(creds).encode()))
-    state = {'format': 'kinlin-n01a-v1', 'runDirectory': str(run), 'aiPort': ai_port,
-             'hostPort': host_port, 'processes': {}, 'created': time.time()}
-    with control_lock(run):
-        try:
-            env = environment(run, state, creds)
-            prepare(run, env, 'ai')
-            local_env = dict(env, PYTHONPATH=os.pathsep.join([str(ROOT / 'apps/local-runtime'),
-                                                           str(ROOT / 'apps/agentOS/src')]))
-            for name, command, child_env in [
-                ('host', [sys.executable, '-m', 'runtime.main'], local_env),
-                ('ai', [sys.executable, '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1',
-                        '--port', str(ai_port), '--workers', '1'], env),
-            ]:
-                state['processes'][name] = spawn(run, name, command, child_env)
-                write_json(run / 'state.json', state)
-                if name == 'host' and fail_after_host:
-                    # Wait for an actual listener before exercising rollback.
-                    deadline = time.monotonic() + 15
-                    while time.monotonic() < deadline:
-                        try:
-                            health(host_port, '/health')
-                            break
-                        except OSError:
-                            time.sleep(0.1)
-                    else:
-                        raise RuntimeError('Failure exercise host never became healthy')
-                    raise RuntimeError('Intentional failure after real Host startup')
-            deadline = time.monotonic() + 90
-            while time.monotonic() < deadline:
-                result = snapshot(state)
-                if result['coreReady']:
-                    write_json(run / 'up.json', result)
-                    return result
-                if any(owned(p) is None for p in state['processes'].values()):
-                    break
-                time.sleep(0.5)
-            write_json(run / 'up-failure.json', result)
-            raise RuntimeError('Runtime startup failed; see up-failure.json and service logs')
-        except BaseException as primary:
-            cleanup_errors = []
-            for record in reversed(list(state['processes'].values())):
-                try:
-                    stop(record)
-                except Exception as exc:
-                    cleanup_errors.append(type(exc).__name__)
-            if cleanup_errors:
-                write_json(run / 'rollback-failure.json', {'errors': cleanup_errors})
-                primary.add_note('Rollback errors recorded; credentials retained for diagnosis')
-            else:
-                (run / 'credentials.dpapi').unlink()
-            raise
 
 
 def down(run, state, *, preserve_credentials=False):
@@ -711,7 +642,7 @@ def main():
         signal_process(int(sys.argv[2]))
         return
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['fixtures', 'preflight', 'up', 'status', 'down', 'smoke'])
+    parser.add_argument('action', choices=['fixtures', 'preflight', 'status', 'down', 'smoke'])
     parser.add_argument('--run-dir', type=Path, required=True)
     parser.add_argument('--ai-port', type=int, default=18761)
     parser.add_argument('--host-port', type=int, default=18765)
@@ -723,8 +654,6 @@ def main():
         result = prepare_fixtures(run)
     elif args.action == 'preflight':
         result = preflight(run, args.ai_port, args.host_port)
-    elif args.action == 'up':
-        result = up(run, args.ai_port, args.host_port)
     else:
         state = read_json(run / 'state.json')
         if state.get('format') != 'kinlin-n01a-v1' or state['runDirectory'] != str(run):

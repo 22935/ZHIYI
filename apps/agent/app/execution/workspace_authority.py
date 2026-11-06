@@ -120,11 +120,6 @@ class WorkspaceAuthority:
 
     def resolve(self, run):
         binding = run.input.get('workspaceBinding')
-        if binding is None and self.environment.get('AGENTOS_EXECUTION_BACKEND') == 'python':
-            # Existing Python Runs predate dynamic selection and retain their startup root.
-            return LocalRuntimeAuthorizationRef(
-                grantId=self.environment['AGENTOS_LOCAL_RUNTIME_GRANT_ID'],
-                workspaceId=self.environment['AGENTOS_LOCAL_RUNTIME_WORKSPACE_ID'])
         return self._resolve(binding, str(run.input.get('authenticatedUserId')),
                              run.input.get('authenticatedTenantId') or '__unscoped__')
 

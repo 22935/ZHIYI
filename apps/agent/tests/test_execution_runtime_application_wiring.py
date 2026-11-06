@@ -30,6 +30,7 @@ from app.execution.wiring import (
     close_runtime,
 )
 from app.llm.gateway import LLMGateway, set_llm_gateway_for_tests
+from app.tools.formal_workspace import FormalWorkspaceTools
 
 
 class _InjectedToolRuntime:
@@ -117,7 +118,9 @@ def test_application_builds_the_single_execution_runtime_with_authoritative_reso
         assert isinstance(runtime.resource_plane.store, SQLiteResourceStore)
         assert isinstance(runtime.resource_plane.health_monitor.store, SQLiteResourceHealthStore)
         assert isinstance(runtime.evolution_service.store, SQLiteEvolutionStore)
-        assert runtime.tool_runtime is tools
+        # hands 唯一后端：装配恒以 FormalWorkspaceTools 包装注入的工具运行时。
+        assert isinstance(runtime.tool_runtime, FormalWorkspaceTools)
+        assert runtime.tool_runtime.fallback is tools
         assert isinstance(runtime._model_runtime, GuardedModelRuntime)
         assert runtime._model_runtime.delegate is model
         assert runtime._intent_llm is intent

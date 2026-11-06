@@ -113,14 +113,10 @@ def manifest(home):
 def state_for(home):
     path = home / 'runtime-state.json'
     if path.exists():
-        # backend 权威在 environment.json（manifest）；旧状态文件早于 hands 分支，
-        # 读取时补注，snapshot 才能按后端选对进程/健康端点。
-        state = native.read_json(path)
-        state.setdefault('backend', manifest(home).get('backend','python'))
-        return state
+        return native.read_json(path)
     return {
         'format': FORMAT, 'runDirectory': str(home), 'aiPort': ports(manifest(home))['ai'] if (home/'environment.json').exists() else 18761,
-        'hostPort': ports(manifest(home))['host'] if (home/'environment.json').exists() else 18765, 'processes': {}, 'desktop': False, 'backend': manifest(home).get('backend','python') if (home/'environment.json').exists() else 'python',
+        'hostPort': ports(manifest(home))['host'] if (home/'environment.json').exists() else 18765, 'processes': {}, 'desktop': False,
     }
 
 
@@ -143,16 +139,15 @@ def env_for(home, info, creds):
         'AGENTOS_COORDINATION_REDIS_URL': f"redis://127.0.0.1:{ports(info)['redis']}/1",
         'PROVIDER_STATE_REDIS_URL': f"redis://127.0.0.1:{ports(info)['redis']}/2",
     })
-    env['AGENTOS_EXECUTION_BACKEND'] = info.get('backend','python')
+    env['AGENTOS_EXECUTION_BACKEND'] = 'hands'  # hands 是唯一执行后端（DSH 基座）。
     env['AGENTOS_WORKSPACE_TEST_PYTHON'] = info.get('testPython',sys.executable)
     from urllib.parse import quote
     env['AGENTOS_WORKSPACE_DATABASE_URL'] = f"postgresql://zhiyi_app:{quote(creds['db'], safe='')}@127.0.0.1:{ports(info)['postgres']}/zhiyi"
     env['AGENTOS_WORKSPACE_GRANTS_FILE'] = str(home/'hands-grants.json')
     env['ZHIYI_LOCAL_RUNTIME_WORKSPACE_PROJECTION'] = str(home/'hands-grants.json')
-    if info.get('backend') == 'hands':
-        env['AGENTOS_LOCAL_RUNTIME_SHELL_ENABLED'] = 'true'
-        env['AGENTOS_WORKSPACE_TEST_NODE'] = shutil.which('node') or ''
-        env['AGENTOS_WORKSPACE_TEST_NPM'] = shutil.which('npm.cmd') or ''
+    env['AGENTOS_LOCAL_RUNTIME_SHELL_ENABLED'] = 'true'
+    env['AGENTOS_WORKSPACE_TEST_NODE'] = shutil.which('node') or ''
+    env['AGENTOS_WORKSPACE_TEST_NPM'] = shutil.which('npm.cmd') or ''
     return env
 
 
@@ -226,7 +221,7 @@ def init(home, args):
             'redisDatabases': {'java': 0, 'coordination': 1, 'providerState': 2},
             'created': datetime.now(timezone.utc).isoformat(),
             'redisLicense': 'Memurai Developer; development/testing only; 10-day maximum uptime',
-            'initialized': False, 'portOffset':args.port_offset, 'backend':args.backend,
+            'initialized': False, 'portOffset':args.port_offset,
             'testPython':str(args.test_python.absolute()) if args.test_python else sys.executable,
             'backendJar':str(args.backend_jar.absolute()) if args.backend_jar else str(ROOT/'apps/backend/target/kinlin-backend-1.0.0.jar')}
     native.write_json(home/'environment.json', info)
@@ -421,11 +416,7 @@ def up(home, use_desktop):
                 future.result()
         with progress.stage('Terminal service readiness'):
             terminal_service.start(home, info, creds, state)
-        local_env = dict(env, PYTHONPATH=os.pathsep.join([str(ROOT/'apps/local-runtime'), str(ROOT/'apps/agentOS/src')]))
-        if info.get('backend') == 'hands':
-            start_hands(home,info,creds,state,env,start)
-        else:
-            start('host', [sys.executable, '-m', 'runtime.main'], local_env)
+        start_hands(home,info,creds,state,env,start)
         with progress.stage('AI service readiness'):
             release_next.write_text(nonce, encoding='utf-8')
             release_next.replace(release_file)
@@ -688,7 +679,6 @@ def main():
     parser.add_argument('--test-python', type=Path)
     parser.add_argument('--backend-jar', type=Path)
     parser.add_argument('--desktop', action='store_true')
-    parser.add_argument('--backend',choices=['python','hands'],default='python')
     parser.add_argument('--port-offset',type=int,choices=range(0,1001),default=0)
     parser.add_argument('--snapshot', type=Path)
     args = parser.parse_args()

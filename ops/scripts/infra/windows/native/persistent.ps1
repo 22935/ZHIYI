@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory=$true)][ValidateSet('init','up','status','down','recover','backup','restore')][string]$Action,
     [string]$HomeDir = "$env:LOCALAPPDATA\ZhiyiNative\default",
     [string]$Python = "$env:LOCALAPPDATA\ZhiyiNative\python\Scripts\python.exe",
@@ -9,7 +9,6 @@ param(
     [string]$TestPython,
     [string]$BackendJar,
     [string]$Snapshot,
-    [ValidateSet('python','hands')][string]$Backend = 'python',
     [ValidateRange(0,1000)][int]$PortOffset = 0,
     [switch]$Desktop
 )
@@ -17,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 $nativeArgs = @("$PSScriptRoot\persistent_runtime.py",$Action,'--home',$HomeDir)
 if ($Action -eq 'init') {
     $nativeArgs += @('--postgres-bin',$PostgresBin,'--memurai',$Memurai)
-    $nativeArgs += @('--backend',$Backend,'--port-offset',"$PortOffset")
+    $nativeArgs += @('--port-offset',"$PortOffset")
     if ($ProviderKeyFile) { $nativeArgs += @('--provider-key-file',$ProviderKeyFile) }
     if ($Workspace) { $nativeArgs += @('--workspace',$Workspace) }
     if ($TestPython) { $nativeArgs += @('--test-python',$TestPython) }
