@@ -8,9 +8,10 @@ reference.  Model arguments remain business arguments only.
 
 from __future__ import annotations
 
+import logging
 import re
 import time
-from typing import Any, AsyncIterator, Awaitable, Callable, Mapping
+from typing import Any, Awaitable, Callable, Mapping
 
 from adapters.local_runtime import LocalRuntimeClient
 from components.resource.local_runtime import LocalRuntimeHealthTransport, LocalRuntimeHealthProjector
@@ -36,6 +37,8 @@ TOOL_CAPABILITIES: dict[str, LocalRuntimeCapability] = {
 }
 
 _SAFE_RELATIVE_PATH = re.compile(r"^(?![\\/])(?!(?:[A-Za-z]:)).{1,4096}$")
+
+LOGGER = logging.getLogger(__name__)
 
 
 class LocalRuntimeToolError(RuntimeError):
@@ -130,7 +133,6 @@ class LocalRuntimeToolExecutor:
                     arguments=input_payload,
                 ),
             )
-        activity = self._activity(tool_name, capability.value, relative_path, status="running")
         try:
             await self._ensure_healthy_candidate(capability.value)
             invocation = CapabilityInvocation(
@@ -249,10 +251,11 @@ class LocalRuntimeToolExecutor:
             await self._ensure_healthy_candidate(capability)
             process_input = dict(input_payload)
             process_input["securityProfile"] = ExecutionSecurityProfile.HOST_APPROVED.value
-            if "timeout" in process_input:
-                process_input["timeout"] = min(
-                    float(process_input["timeout"]), self.limits.timeout_seconds
-                )
+            timeout = process_input.get("timeout")
+            if timeout is not None:
+                process_input["timeout"] = min(float(timeout), self.limits.timeout_seconds)
+            else:
+                process_input.pop("timeout", None)
             invocation = CapabilityInvocation(
                 invocationId=str(call_id),
                 capabilityId=capability,
@@ -395,6 +398,7 @@ class LocalRuntimeToolExecutor:
                 exc.terminal = terminal
             raise
         except Exception as exc:
+            LOGGER.warning("run_command local runtime execution failed", exc_info=True)
             raise LocalRuntimeToolError(
                 "LOCAL_RUNTIME_UNAVAILABLE",
                 "Local Runtime is unavailable.",
@@ -444,7 +448,7 @@ class LocalRuntimeToolExecutor:
             "patch_file": ("path", "patch", "encoding", "expectedSha256"),
             "run_command": ("mode", "program", "args", "command", "cwd", "timeout"),
         }[tool_name]
-        payload = {key: arguments[key] for key in allowed if key in arguments}
+        payload = {key: arguments[key] for key in allowed if arguments.get(key) is not None}
         if tool_name == "run_command":
             payload.setdefault("mode", "shell")
             payload.setdefault("cwd", ".")

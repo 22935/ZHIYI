@@ -333,6 +333,17 @@ def test_run_command_uses_host_approved_local_runtime_and_streams_events(monkeyp
     assert [event[0] for event in events] == [
         "execution_started", "stdout_delta", "stderr_delta", "execution_completed"
     ]
+
+    # The model may emit optional fields as null; null timeout must not fail.
+    asyncio.run(executor.execute(
+        "run_command",
+        {"mode": "shell", "command": "echo hello", "cwd": ".", "timeout": None},
+        call_id="call-shell-null-timeout",
+        request_id="chat-request-null-timeout",
+        event_sink=sink,
+    ))
+    assert "timeout" not in client.calls[1][0].input
+
     with pytest.raises(LocalRuntimeToolError, match="system-controlled"):
         asyncio.run(executor.execute(
             "run_command",

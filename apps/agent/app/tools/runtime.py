@@ -55,6 +55,15 @@ formulas inside backticks; backticked content is rendered literally as code.
 """
 
 
+def _configured_limit(value: int | float | None) -> int | None:
+    """Translate a settings limit into the SDK convention: None disables it.
+
+    ``0`` and negative values mean "no limit"; any positive value is enforced.
+    """
+    limit = int(value or 0)
+    return limit if limit > 0 else None
+
+
 def _usage_dict(usage: Any) -> dict[str, Any]:
     return {
         "requests": int(getattr(usage, "requests", 0) or 0),
@@ -95,7 +104,7 @@ class ToolInvocationContext:
     session_id: str = "anonymous"
     request_id: str = ""
     permission_event_queue: asyncio.Queue[tuple[str, dict[str, Any]]] | None = None
-    max_calls: int = 8
+    max_calls: int | None = None
     records: list[ToolExecutionRecord] = field(default_factory=list)
     sources: dict[str, SourceReference] = field(default_factory=dict)
     _call_count: int = 0
@@ -141,7 +150,7 @@ class ToolInvocationContext:
         started = time.perf_counter()
         try:
             async with self._lock:
-                if self._call_count >= self.max_calls:
+                if self.max_calls is not None and self._call_count >= self.max_calls:
                     raise ToolLimitExceededError(
                         f"tool call limit exceeded ({self.max_calls})"
                     )
@@ -469,8 +478,8 @@ class AgentsToolRuntime:
         return {
             "enabled": bool(settings.TOOL_RUNTIME_ENABLED),
             "policy": policy,
-            "maxTurns": settings.TOOL_MAX_TURNS,
-            "maxCalls": settings.TOOL_MAX_CALLS,
+            "maxTurns": _configured_limit(settings.TOOL_MAX_TURNS),
+            "maxCalls": _configured_limit(settings.TOOL_MAX_CALLS),
             "tools": self.catalog.availability(),
         }
 
@@ -502,7 +511,7 @@ class AgentsToolRuntime:
             session_id=str(session_id or "anonymous"),
             request_id=str(request_id or ""),
             permission_event_queue=permission_event_queue,
-            max_calls=max(1, int(settings.TOOL_MAX_CALLS)),
+            max_calls=_configured_limit(settings.TOOL_MAX_CALLS),
         )
 
     async def execute(
@@ -695,7 +704,7 @@ class AgentsToolRuntime:
                 agent,
                 self._input(text, history),
                 context=context,
-                max_turns=max(1, int(settings.TOOL_MAX_TURNS)),
+                max_turns=_configured_limit(settings.TOOL_MAX_TURNS),
                 run_config=RunConfig(
                     tracing_disabled=True,
                     trace_include_sensitive_data=False,
@@ -772,7 +781,7 @@ class AgentsToolRuntime:
             agent,
             self._input(text, history),
             context=context,
-            max_turns=max(1, int(settings.TOOL_MAX_TURNS)),
+            max_turns=_configured_limit(settings.TOOL_MAX_TURNS),
             run_config=RunConfig(
                 tracing_disabled=True,
                 trace_include_sensitive_data=False,
@@ -959,6 +968,9 @@ class AgentsToolRuntime:
                 await cancel(request_id)
             if permission_service is not None:
                 await permission_service.cancel_session(context.session_id)
+            projection = compaction_options.get("call_model_input_filter")
+            if projection is not None:
+                await projection.close()
             await client.close()
 
     async def cancel(self, request_id: str) -> bool:

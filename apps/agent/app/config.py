@@ -91,8 +91,10 @@ class Settings(BaseSettings):
     OSCODE_CONTEXT_COMPACTION_NODE: str = ""
     TOOL_RUNTIME_ENABLED: bool = True
     TAVILY_API_KEY: str = ""
-    TOOL_MAX_TURNS: int = 6
-    TOOL_MAX_CALLS: int = 8
+    # 0 = 不限制：agent 循环跑到模型自己收尾为止（对齐 DSH 的 no built-in turn budget）。
+    # 需要收紧时在 .env 写正整数，例如 TOOL_MAX_TURNS=12 / TOOL_MAX_CALLS=20。
+    TOOL_MAX_TURNS: int = 0
+    TOOL_MAX_CALLS: int = 0
     TOOL_TIMEOUT_SECONDS: float = 15.0
     TOOL_SEARCH_MAX_RESULTS: int = 5
     TOOL_EXTRACT_MAX_URLS: int = 3
