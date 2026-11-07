@@ -34,6 +34,24 @@ describe('Conversation history continuity', () => {
     expect(store.messages[0].content).toBe('original')
     expect(agentPost).not.toHaveBeenCalled(); expect(chatPost).not.toHaveBeenCalled(); expect(uuid).not.toHaveBeenCalled()
   })
+  it('restores persisted reasoning content for history messages', async () => {
+    vi.mocked(chatApi.getHistory).mockResolvedValue([{
+      id: 'm-reasoning',
+      role: 'assistant',
+      content: 'answer',
+      metadata: {
+        reasoningContent: 'persisted thought',
+        reasoningTruncated: true,
+        thinkingEnabled: true
+      }
+    } as any])
+    vi.mocked(conversationApi.getConversation).mockResolvedValue({ contextId: 'ctx-reasoning', roleId: 'role' } as any)
+    const store = useChatStore()
+    await store.loadHistory('ctx-reasoning')
+    expect(store.messages[0].reasoningContent).toBe('persisted thought')
+    expect(store.messages[0].reasoningTruncated).toBe(true)
+    expect(store.messages[0].thinkingState).toBe('complete')
+  })
   it('ignores both late metadata and messages from A after switching to B', async () => {
     const a = deferred<any[]>()
     const metaA = deferred<any>()

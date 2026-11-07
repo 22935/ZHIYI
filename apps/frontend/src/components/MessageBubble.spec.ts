@@ -112,8 +112,7 @@ describe('MessageBubble Markdown rendering', () => {
               description: '终端命令执行完成',
               terminal: {
                 command: 'python -c "print(1)"', cwd: '/app/workspace', exitCode: 0,
-                stdout: '1
-', stderr: '', timedOut: false, truncated: false
+                stdout: '1\n', stderr: '', timedOut: false, truncated: false
               }
             },
             {
@@ -133,5 +132,42 @@ describe('MessageBubble Markdown rendering', () => {
     expect(wrapper.find('.file-work').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('需要确认命令执行')
     expect(wrapper.text()).not.toContain('退出码')
+  })
+
+  it('shows a collapsed reasoning preview and keeps execution summary collapsed until requested', async () => {
+    const wrapper = shallowMount(MessageBubble, {
+      props: {
+        message: {
+          id: 'assistant-reasoning',
+          role: 'assistant',
+          content: '完成。',
+          createdAt: new Date('2026-08-03T12:00:00Z'),
+          thinkingState: 'complete',
+          thinkingDurationMs: 125_000,
+          reasoningContent: '先检查文件，再写一个单页。',
+          modelInfo: 'deepseek-flash',
+          effectiveThinkingMode: 'deep',
+          tokensUsed: 121_200,
+          executionSummary: [
+            { stage: 'tool:run_command:call_1', status: 'completed', description: 'run_command 调用完成', durationMs: 1220 },
+            { stage: 'tool:read_file:call_2', status: 'failed', description: 'read_file 调用失败', durationMs: 905 }
+          ]
+        }
+      },
+      global: { stubs: { 'el-icon': true, 'el-tooltip': { template: '<span><slot /></span>' }, 'el-progress': true, ImageViewer: true } }
+    })
+
+    expect(wrapper.find('.thinking-status__preview').text()).toContain('先检查文件')
+    expect(wrapper.find('.thinking-status__details').exists()).toBe(false)
+
+    await wrapper.get('.thinking-status__trigger').trigger('click')
+    expect(wrapper.find('.reasoning-content').text()).toContain('先检查文件')
+    expect(wrapper.find('.execution-summary').exists()).toBe(false)
+    expect(wrapper.get('.thinking-section__toggle').text()).toContain('2 项')
+
+    await wrapper.get('.thinking-section__toggle').trigger('click')
+    expect(wrapper.findAll('.execution-summary__item')).toHaveLength(2)
+    expect(wrapper.findAll('.execution-summary__status').map(node => node.text())).toEqual(['完成', '失败'])
+    expect(wrapper.findAll('.execution-summary__duration').map(node => node.text())).toEqual(['1.22 s', '905 ms'])
   })
 })

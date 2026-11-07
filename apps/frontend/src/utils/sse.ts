@@ -86,21 +86,34 @@ export function parseChatStreamFrame(frame: string): ChatStreamEvent | null {
   if (eventName === 'auth.invalidated' || eventName === 'error') {
     try {
       const parsed = JSON.parse(payload)
-      if (!parsed.event) return {
-        event: eventName, requestId: 'unknown', sequence: 0,
-        data: { code: parsed.code || parsed.error || 'AI_STREAM_FAILED' }
+      if (!parsed.event) {
+        const data: Record<string, any> = { code: parsed.code || parsed.error || 'AI_STREAM_FAILED' }
+        if (typeof parsed.message === 'string' && parsed.message) data.message = parsed.message
+        if (typeof parsed.retryable === 'boolean') data.retryable = parsed.retryable
+        return { event: eventName, requestId: 'unknown', sequence: 0, data }
       }
     } catch { return null }
   }
   return parseChatStreamData(payload)
 }
 
-export function chatStreamErrorMessage(code?: string): string {
-  switch (code) {
-    case 'AUTH_SESSION_INVALIDATED': return '登录会话已失效或暂时无法验证，请重新登录后重试'
-    case 'SSE_IDLE_TIMEOUT': return '等待模型响应超时，请重试'
-    case 'SSE_MAX_DURATION': return '本次回复已达到最长生成时间，请重试'
-    case 'AI_STREAM_INTERRUPTED': return '模型连接中断，请重试'
-    default: return `回复生成失败，请重试${code ? `（${code}）` : ''}`
-  }
+const STREAM_ERROR_MESSAGES: Record<string, string> = {
+  AUTH_SESSION_INVALIDATED: '登录会话已失效或暂时无法验证，请重新登录后重试',
+  SSE_IDLE_TIMEOUT: '等待模型响应超时，请重试',
+  SSE_MAX_DURATION: '本次回复已达到最长生成时间，请重试',
+  AI_STREAM_INTERRUPTED: '模型连接中断，请重试',
+  AI_TURN_LIMIT_EXCEEDED: '本次回复达到工具轮数上限，请重试',
+  AI_UPSTREAM_TIMEOUT: '模型响应超时，请重试',
+  AI_UPSTREAM_UNREACHABLE: '无法连接模型服务，请检查网络或代理后重试',
+  AI_UPSTREAM_REJECTED: '模型服务拒绝了本次请求，请重试',
+  AI_CONTEXT_OVERFLOW: '上下文超出模型窗口，请缩短对话后重试'
+}
+
+export function chatStreamErrorMessage(code?: string, message?: string): string {
+  const known = code ? STREAM_ERROR_MESSAGES[code] : undefined
+  if (known) return known
+  // Unknown code: prefer the server's fixed text, but keep the code visible so
+  // a user can report it and the log line can be matched.
+  if (message) return code ? `${message}（${code}）` : message
+  return `回复生成失败，请重试${code ? `（${code}）` : ''}`
 }

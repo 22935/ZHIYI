@@ -1,5 +1,6 @@
 package com.kinlin.ai.projection.message.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -28,6 +29,8 @@ public record MessageMetadataQuery(
         Long outputTokens,
         Long latencyMs,
         Boolean thinkingEnabled,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String reasoningContent,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Boolean reasoningTruncated,
         List<ExecutionStageQuery> executionSummary
 ) {
 
@@ -36,8 +39,8 @@ public record MessageMetadataQuery(
             String stage,
             String status,
             String description,
-            @JsonInclude(JsonInclude.Include.NON_NULL) Long durationMs,
-            @JsonInclude(JsonInclude.Include.NON_NULL) Map<String, Object> terminal,
-            @JsonInclude(JsonInclude.Include.NON_NULL) Map<String, Object> activity
+            Long durationMs,
+            Map<String, Object> terminal,
+            Map<String, Object> activity
     ) { }
 }

@@ -86,6 +86,7 @@ export interface Message {
   streamPhase?: string
   thinkingDurationMs?: number
   reasoningContent?: string
+  reasoningTruncated?: boolean
   requestedThinkingMode?: string
   effectiveThinkingMode?: string
   effectiveReasoningEffort?: string
@@ -681,7 +682,7 @@ export const useChatStore = defineStore('chat', () => {
           break
         case 'done':
           if (data.status && data.status !== 'completed') {
-            failStream(data.status === 'cancelled' ? '已停止生成' : chatStreamErrorMessage(data.code),
+            failStream(data.status === 'cancelled' ? '已停止生成' : chatStreamErrorMessage(data.code, data.message),
               data.status === 'cancelled' ? 'cancelled' : 'error')
             break
           }
@@ -705,7 +706,7 @@ export const useChatStore = defineStore('chat', () => {
         case 'error':
         case 'auth.invalidated':
           failStream(chatStreamErrorMessage(event.event === 'auth.invalidated'
-            ? 'AUTH_SESSION_INVALIDATED' : data.code))
+            ? 'AUTH_SESSION_INVALIDATED' : data.code, data.message))
           break
       }
     }
@@ -962,6 +963,8 @@ export const useChatStore = defineStore('chat', () => {
         effectiveThinkingMode: msg.metadata?.effectiveThinkingMode,
         effectiveReasoningEffort: msg.metadata?.effectiveReasoningEffort,
         thinkingDurationMs: msg.metadata?.reasoningPhaseMs,
+        reasoningContent: msg.metadata?.reasoningContent,
+        reasoningTruncated: msg.metadata?.reasoningTruncated,
         inputTokens: msg.metadata?.inputTokens,
         reasoningTokens: msg.metadata?.reasoningTokens,
         outputTokens: msg.metadata?.outputTokens,

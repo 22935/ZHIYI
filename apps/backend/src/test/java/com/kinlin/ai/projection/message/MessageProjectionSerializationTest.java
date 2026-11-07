@@ -45,6 +45,8 @@ class MessageProjectionSerializationTest {
         metadata.put("outputTokens", 200);
         metadata.put("latencyMs", 1730);
         metadata.put("thinkingEnabled", true);
+        metadata.put("reasoningContent", "bounded reasoning");
+        metadata.put("reasoningTruncated", true);
         metadata.put("executionSummary", List.of(Map.of(
                 "stage", "tool:web_search",
                 "status", "completed",
@@ -77,11 +79,13 @@ class MessageProjectionSerializationTest {
         assertEquals(200, json.get("outputTokens").asLong());
         assertEquals(1730, json.get("latencyMs").asLong());
         assertTrue(json.get("thinkingEnabled").asBoolean());
+        assertEquals("bounded reasoning", json.get("reasoningContent").asText());
+        assertTrue(json.get("reasoningTruncated").asBoolean());
         assertEquals("tool:web_search", json.get("executionSummary").get(0).get("stage").asText());
         assertEquals("completed", json.get("executionSummary").get(0).get("status").asText());
         assertEquals("web_search 调用完成", json.get("executionSummary").get(0).get("description").asText());
 
-        assertEquals(15, json.size(), "metadata key set must stay the closed whitelist");
+        assertEquals(17, json.size(), "metadata key set must stay the closed whitelist");
         for (String forbidden : List.of("role_context", "sources", "reasoning_path", "agent_mode",
                 "toolExecutions", "toolsUsed", "fallbackUsed", "resolutionReasons")) {
             assertFalse(json.has(forbidden), forbidden + " must not be exposed");

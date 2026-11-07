@@ -51,6 +51,7 @@
                 <span :key="thinkingLabel" class="thinking-status__phase">{{ thinkingLabel }}</span>
               </Transition>
             </span>
+            <span v-if="!detailsOpen && collapsedHint" class="thinking-status__hint">{{ collapsedHint }}</span>
             <el-icon class="thinking-status__chevron" :class="{ open: detailsOpen }"><ArrowDown /></el-icon>
           </button>
           <div v-else class="thinking-status__summary" role="status" aria-live="polite">
@@ -65,26 +66,44 @@
             </span>
           </div>
 
+          <button
+            v-if="!detailsOpen && reasoningPreview"
+            type="button"
+            class="thinking-status__preview"
+            @click="detailsOpen = true"
+          >
+            <span class="thinking-status__preview-label">思考</span>
+            <span class="thinking-status__preview-text">{{ reasoningPreview }}</span>
+          </button>
+
           <Transition name="thinking-details">
             <div v-if="detailsOpen && canExpandDetails" :id="detailsId" class="thinking-status__details">
-              <div v-if="message.modelInfo" class="explanation-item">
-                <span class="explanation-label">模型</span>
-                <span class="explanation-value">{{ message.modelInfo }}</span>
+              <div v-if="thinkingMetaChips.length" class="thinking-meta">
+                <span v-for="chip in thinkingMetaChips" :key="chip.label" class="thinking-meta__chip">
+                  <span class="thinking-meta__label">{{ chip.label }}</span>
+                  <strong class="thinking-meta__value">{{ chip.value }}</strong>
+                </span>
               </div>
 
-              <div v-if="message.reasoningContent" class="explanation-item vertical">
-                <span class="explanation-label">思考过程</span>
-                <div class="reasoning-content">{{ message.reasoningContent }}</div>
+              <div v-if="message.reasoningContent" class="thinking-section">
+                <div class="thinking-section__head">
+                  <span>思考过程</span>
+                  <button
+                    v-if="reasoningIsLong"
+                    type="button"
+                    class="thinking-section__link"
+                    @click="reasoningExpanded = !reasoningExpanded"
+                  >
+                    {{ reasoningExpanded ? '收起' : '展开全文' }}
+                  </button>
+                  <span v-else class="thinking-section__hint">模型原始推理</span>
+                </div>
+                <pre class="reasoning-content" :class="{ 'is-expanded': reasoningExpanded }">{{ message.reasoningContent }}</pre>
+                <p v-if="message.reasoningTruncated" class="thinking-section__note">思考正文超过保存上限，已截断。</p>
               </div>
 
-              <div v-if="message.effectiveThinkingMode" class="explanation-item">
-                <span class="explanation-label">思考强度</span>
-                <span class="explanation-value">{{ thinkingModeLabel }}</span>
-              </div>
-
-              <div v-if="message.reasoningTokens" class="explanation-item">
-                <span class="explanation-label">思考消耗</span>
-                <span class="explanation-value">{{ message.reasoningTokens }} tokens</span>
+              <div v-else-if="message.thinkingState" class="thinking-empty">
+                本次回复没有返回可展示的思考正文。
               </div>
 
               <div v-if="message.confidence" class="explanation-item">
@@ -99,11 +118,6 @@
                   />
                   <span class="value-text">{{ (message.confidence * 100).toFixed(1) }}%</span>
                 </div>
-              </div>
-
-              <div v-if="message.tokensUsed" class="explanation-item">
-                <span class="explanation-label">消耗</span>
-                <span class="explanation-value">{{ message.tokensUsed }} tokens</span>
               </div>
 
               <div v-if="message.sources && message.sources.length > 0" class="explanation-item vertical">
@@ -141,12 +155,36 @@
                 </div>
               </div>
 
-              <div v-if="message.executionSummary && message.executionSummary.length > 0" class="explanation-item vertical">
-                <span class="explanation-label">执行摘要</span>
-                <div class="execution-summary">
-                  <div v-for="item in message.executionSummary" :key="`${item.stage}-${item.status}`" class="execution-summary__item">
-                    <span class="execution-summary__stage">{{ executionStageLabel(item.stage) }}</span>
-                    <span class="execution-summary__description">{{ item.description }}</span>
+              <div v-if="message.executionSummary && message.executionSummary.length > 0" class="thinking-section">
+                <button
+                  type="button"
+                  class="thinking-section__toggle"
+                  :aria-expanded="summaryOpen"
+                  @click="summaryOpen = !summaryOpen"
+                >
+                  <span class="thinking-section__toggle-title">执行摘要</span>
+                  <span class="thinking-section__hint">
+                    {{ message.executionSummary.length }} 项
+                    <template v-if="executionTotalDuration"> · {{ formatDuration(executionTotalDuration) }}</template>
+                  </span>
+                  <el-icon class="thinking-section__chevron" :class="{ open: summaryOpen }"><ArrowDown /></el-icon>
+                </button>
+                <div v-if="summaryOpen" class="execution-summary">
+                  <div
+                    v-for="item in message.executionSummary"
+                    :key="`${item.stage}-${item.status}`"
+                    class="execution-summary__item"
+                    :class="`is-${executionStatusTone(item.status)}`"
+                  >
+                    <span class="execution-summary__dot" aria-hidden="true"></span>
+                    <div class="execution-summary__content">
+                      <div class="execution-summary__head">
+                        <code class="execution-summary__tool">{{ executionToolName(item.stage) }}</code>
+                        <span class="execution-summary__status">{{ executionStatusLabel(item.status) }}</span>
+                        <span v-if="item.durationMs" class="execution-summary__duration">{{ formatDuration(item.durationMs) }}</span>
+                      </div>
+                      <p v-if="item.description" class="execution-summary__description">{{ item.description }}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -304,6 +342,7 @@ interface Props {
     streamPhase?: string
     thinkingDurationMs?: number
     reasoningContent?: string
+    reasoningTruncated?: boolean
     requestedThinkingMode?: string
     effectiveThinkingMode?: string
     effectiveReasoningEffort?: string
@@ -315,6 +354,8 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits(['copy', 'quote', 'delete', 'tts', 'export'])
 const detailsOpen = ref(false)
+const summaryOpen = ref(false)
+const reasoningExpanded = ref(false)
 const imageViewerVisible = ref(false)
 const detailsId = computed(() => `thinking-details-${String(props.message.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`)
 
@@ -387,6 +428,42 @@ const thinkingModeLabel = computed(() => {
   return '关闭'
 })
 
+const formatTokenCount = (value: number) => {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+  return String(value)
+}
+
+const thinkingMetaChips = computed(() => {
+  const chips: Array<{ label: string; value: string }> = []
+  if (props.message.modelInfo) chips.push({ label: '模型', value: props.message.modelInfo })
+  if (props.message.effectiveThinkingMode) chips.push({ label: '强度', value: thinkingModeLabel.value })
+  if (props.message.reasoningTokens) {
+    chips.push({ label: '思考', value: `${formatTokenCount(props.message.reasoningTokens)} tokens` })
+  }
+  if (props.message.tokensUsed) {
+    chips.push({ label: '消耗', value: `${formatTokenCount(props.message.tokensUsed)} tokens` })
+  }
+  return chips
+})
+
+const reasoningPreview = computed(() => {
+  const text = (props.message.reasoningContent || '').replace(/\s+/g, ' ').trim()
+  if (!text) return ''
+  return text.length > 120 ? `${text.slice(0, 120)}…` : text
+})
+
+const reasoningIsLong = computed(() => (props.message.reasoningContent || '').trim().length > 600)
+
+const collapsedHint = computed(() => {
+  if (reasoningPreview.value) return '查看思考过程'
+  const count = props.message.executionSummary?.length || 0
+  return count ? `${count} 项工具调用` : ''
+})
+
+const executionTotalDuration = computed(() => (props.message.executionSummary || [])
+  .reduce((total, item) => total + (item.durationMs || 0), 0))
+
 const thinkingDurationSeconds = computed(() => {
   if (props.message.thinkingDurationMs === undefined) return null
   return Math.max(1, Math.ceil(props.message.thinkingDurationMs / 1000))
@@ -409,7 +486,7 @@ const thinkingLabel = computed(() => {
   if (props.message.streamActivity === 'receiving') {
     return props.message.streamPhase || '处理中'
   }
-  return '运行详情'
+  return props.message.reasoningContent ? '思考详情' : '运行详情'
 })
 
 const showContinuationStatus = computed(() => {
@@ -429,12 +506,34 @@ const getConfidenceColor = (confidence: number) => {
   return 'var(--danger)'
 }
 
-const executionStageLabel = (stage: string) => {
-  if (stage === 'reasoning') return '思考'
-  if (stage === 'answer_generation') return '回答生成'
-  if (stage.startsWith('tool:terminal')) return '终端'
-  if (stage.startsWith('tool:')) return `工具 · ${stage.split(':')[1] || 'unknown'}`
+const executionToolName = (stage: string) => {
+  if (stage.startsWith('tool:')) return stage.split(':')[1] || 'tool'
   return stage
+}
+
+const executionStatusTone = (status: string) => {
+  const value = status.toLowerCase()
+  if (['completed', 'success', 'succeeded'].includes(value)) return 'completed'
+  if (['failed', 'error', 'denied'].includes(value)) return 'failed'
+  if (['running', 'in_progress', 'started'].includes(value)) return 'running'
+  if (['approval_required', 'pending', 'waiting', 'waiting_review'].includes(value)) return 'pending'
+  if (['cancelled', 'canceled', 'stopped'].includes(value)) return 'cancelled'
+  return 'neutral'
+}
+
+const executionStatusLabel = (status: string) => {
+  const tone = executionStatusTone(status)
+  if (tone === 'completed') return '完成'
+  if (tone === 'failed') return '失败'
+  if (tone === 'running') return '进行中'
+  if (tone === 'pending') return '待确认'
+  if (tone === 'cancelled') return '已取消'
+  return status
+}
+
+const formatDuration = (durationMs: number) => {
+  if (durationMs < 1000) return `${Math.max(1, Math.round(durationMs))} ms`
+  return `${(durationMs / 1000).toFixed(2).replace(/\.?0+$/, '')} s`
 }
 
 const isImage = (url: string) => {
@@ -818,13 +917,14 @@ const formatTime = (date: Date) => {
 
 .thinking-status__trigger,
 .thinking-status__summary {
-  min-height: 28px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  padding: 3px 9px 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--border-light) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
   color: var(--text-primary);
   font: inherit;
   font-size: 13px;
@@ -834,12 +934,14 @@ const formatTime = (date: Date) => {
 
 .thinking-status__trigger {
   cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: color 180ms var(--ease-out);
+  transition: color 180ms var(--ease-out), background 180ms var(--ease-out),
+    border-color 180ms var(--ease-out);
 }
 
 .thinking-status__trigger:hover {
   color: var(--primary-color);
+  border-color: color-mix(in srgb, var(--primary-color) 28%, var(--border-light));
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--bg-card));
 }
 
 .thinking-status__trigger:focus-visible {
@@ -856,6 +958,16 @@ const formatTime = (date: Date) => {
 .thinking-status__phase {
   display: inline-block;
   min-width: 7em;
+}
+
+.thinking-status__hint {
+  padding-left: 7px;
+  border-left: 1px solid color-mix(in srgb, var(--border-light) 80%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+  opacity: 0.78;
 }
 
 .thinking-phase-enter-active,
@@ -913,11 +1025,181 @@ const formatTime = (date: Date) => {
 .thinking-status__dots i:nth-child(3) { animation-delay: 280ms; }
 
 .thinking-status__details {
-  width: min(100%, 720px);
-  margin: 8px 0 2px 7px;
-  padding: 4px 0 2px 16px;
-  border-left: 1px solid color-mix(in srgb, var(--primary-color) 32%, var(--border-light));
+  width: min(100%, 760px);
+  margin: 10px 0 2px;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
   color: var(--text-secondary);
+  max-height: min(68vh, 720px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.thinking-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.thinking-meta__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--border-light) 76%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-panel) 72%, transparent);
+  font-size: 11px;
+}
+
+.thinking-meta__label {
+  color: var(--text-secondary);
+}
+
+.thinking-meta__value {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-regular);
+  font-weight: 600;
+}
+
+.thinking-section {
+  margin-top: 12px;
+}
+
+.thinking-section:first-of-type {
+  margin-top: 0;
+}
+
+.thinking-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.thinking-section__hint {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.72;
+}
+
+.thinking-status__preview {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: min(100%, 760px);
+  margin: 6px 0 0 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.thinking-status__preview-label {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.thinking-status__preview-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.thinking-status__preview:hover .thinking-status__preview-text {
+  color: var(--text-regular);
+}
+
+.thinking-section__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.thinking-section__toggle-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.thinking-section__toggle .thinking-section__hint {
+  margin-left: auto;
+}
+
+.thinking-section__chevron {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: transform 180ms var(--ease-out);
+}
+
+.thinking-section__chevron.open {
+  transform: rotate(180deg);
+}
+
+.thinking-section__link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-color);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.thinking-section__link:hover {
+  text-decoration: underline;
+}
+
+.thinking-section__note {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  line-height: 1.5;
+  opacity: 0.78;
+}
+
+.thinking-empty {
+  margin-top: 4px;
+  padding: 9px 11px;
+  border: 1px dashed color-mix(in srgb, var(--border-light) 80%, transparent);
+  border-radius: 9px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  line-height: 1.6;
 }
 
 .thinking-details-enter-active,
@@ -970,41 +1252,157 @@ const formatTime = (date: Date) => {
 
 .reasoning-content {
   width: 100%;
-  max-height: 280px;
+  max-height: 240px;
+  margin: 0;
   overflow: auto;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 12px;
-  line-height: 1.7;
+  overflow-wrap: break-word;
+  tab-size: 2;
+  scrollbar-width: thin;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.65;
   color: var(--text-secondary);
-  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  padding: 10px 12px;
+  background: color-mix(in srgb, var(--bg-panel) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-light) 80%, transparent);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.reasoning-content.is-expanded {
+  max-height: none;
 }
 
 .execution-summary {
   display: grid;
-  gap: 6px;
+  gap: 0;
   width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border: 1px solid color-mix(in srgb, var(--border-light) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-panel) 56%, transparent);
 }
 
 .execution-summary__item {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 8px;
-  align-items: start;
-  font-size: 12px;
-  line-height: 1.55;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 11px;
+  min-width: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border-light) 65%, transparent);
 }
 
-.execution-summary__stage {
+.execution-summary__item:first-child {
+  border-top: 0;
+}
+
+.execution-summary__item:hover {
+  background: color-mix(in srgb, var(--primary-color) 4%, transparent);
+}
+
+.execution-summary__dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+}
+
+.execution-summary__item.is-completed .execution-summary__dot {
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 16%, transparent);
+}
+
+.execution-summary__item.is-failed .execution-summary__dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.execution-summary__item.is-running .execution-summary__dot,
+.execution-summary__item.is-pending .execution-summary__dot {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 16%, transparent);
+}
+
+.execution-summary__item.is-cancelled .execution-summary__dot,
+.execution-summary__item.is-neutral .execution-summary__dot {
+  background: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.execution-summary__content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.execution-summary__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.execution-summary__tool {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--border-light) 72%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
+  color: var(--text-regular);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.execution-summary__status {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.5;
   color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-secondary) 9%, transparent);
+}
+
+.execution-summary__item.is-completed .execution-summary__status {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.execution-summary__item.is-failed .execution-summary__status {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.execution-summary__item.is-running .execution-summary__status,
+.execution-summary__item.is-pending .execution-summary__status {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.execution-summary__duration {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0.8;
 }
 
 .execution-summary__description {
+  margin: 4px 0 0;
   color: var(--text-regular);
-  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: break-word;
 }
 
 .source-tag {
@@ -1078,6 +1476,12 @@ const formatTime = (date: Date) => {
 @keyframes continuationSignal {
   0%, 100% { opacity: 0.28; transform: scaleY(0.7); }
   50% { opacity: 0.95; transform: scaleY(1); }
+}
+
+@media (max-width: 900px) {
+  .thinking-status__hint {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

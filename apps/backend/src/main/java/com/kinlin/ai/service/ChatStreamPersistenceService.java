@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Persists stream results while explicitly excluding raw reasoning deltas. */
+/** Persists stream results, including bounded reasoning content for history reload. */
 @Service
 @RequiredArgsConstructor
 public class ChatStreamPersistenceService {
@@ -146,13 +146,16 @@ public class ChatStreamPersistenceService {
 
     public static final class StreamCapture {
         private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() { };
+        private static final int MAX_REASONING_CHARS = 200_000;
         private final ObjectMapper objectMapper;
         private final StringBuilder content = new StringBuilder();
+        private final StringBuilder reasoning = new StringBuilder();
         private final Map<String, Object> usage = new LinkedHashMap<>();
         private final List<Map<String, Object>> toolExecutions = new ArrayList<>();
         private final Map<String, Map<String, Object>> sources = new LinkedHashMap<>();
         private boolean reasoningStarted;
         private boolean reasoningCompleted;
+        private boolean reasoningTruncated;
         private boolean contentStarted;
         private boolean completed;
         private boolean persisted;
@@ -180,6 +183,7 @@ public class ChatStreamPersistenceService {
                         reasoningStarted = true;
                         copy(data, "requestedThinkingMode", "effectiveThinkingMode", "effectiveReasoningEffort");
                     }
+                    case "reasoning_delta" -> appendReasoning(data.get("delta"));
                     case "reasoning_end" -> {
                         reasoningCompleted = true;
                         copy(data, "reasoningPhaseMs");
@@ -232,11 +236,16 @@ public class ChatStreamPersistenceService {
                             case "SSE_IDLE_TIMEOUT" -> "等待模型响应超时，请重试";
                             case "SSE_MAX_DURATION" -> "本次回复已达到最长生成时间，请重试";
                             case "AI_STREAM_INTERRUPTED" -> "模型连接中断，请重试";
+                            case "AI_TURN_LIMIT_EXCEEDED" -> "本次回复达到工具轮数上限，请重试";
+                            case "AI_UPSTREAM_TIMEOUT" -> "模型响应超时，请重试";
+                            case "AI_UPSTREAM_UNREACHABLE" -> "无法连接模型服务，请检查网络或代理后重试";
+                            case "AI_UPSTREAM_REJECTED" -> "模型服务拒绝了本次请求，请重试";
+                            case "AI_CONTEXT_OVERFLOW" -> "上下文超出模型窗口，请缩短对话后重试";
                             default -> "回复生成失败，请重试";
                         };
                     }
                     default -> {
-                        // Raw reasoning and provider error payloads are never persisted.
+                        // Unknown provider events are ignored.
                     }
                 }
             } catch (Exception ignored) {
@@ -304,8 +313,31 @@ public class ChatStreamPersistenceService {
                         "description", completed ? "模型完成最终回答生成" : "最终回答生成未完整结束"
                 ));
             }
+            if (!reasoning.isEmpty()) {
+                metadata.put("reasoningContent", reasoning.toString());
+                if (reasoningTruncated) {
+                    metadata.put("reasoningTruncated", true);
+                }
+            }
             metadata.put("executionSummary", summary);
             return metadata;
+        }
+
+        private void appendReasoning(Object delta) {
+            if (delta == null) return;
+            reasoningStarted = true;
+            if (reasoning.length() >= MAX_REASONING_CHARS) {
+                reasoningTruncated = true;
+                return;
+            }
+            String text = String.valueOf(delta);
+            int remaining = MAX_REASONING_CHARS - reasoning.length();
+            if (text.length() > remaining) {
+                reasoning.append(text, 0, remaining);
+                reasoningTruncated = true;
+            } else {
+                reasoning.append(text);
+            }
         }
 
         private void copy(Map<String, Object> data, String... keys) {

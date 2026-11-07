@@ -60,6 +60,8 @@ public final class MessageProjectionMapper {
                 whole(source.get("outputTokens")),
                 whole(source.get("latencyMs")),
                 flag(source.get("thinkingEnabled")),
+                text(source.get("reasoningContent")),
+                flag(source.get("reasoningTruncated")),
                 stages(source.get("executionSummary")));
     }
 
