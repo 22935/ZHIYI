@@ -38,7 +38,15 @@ from .complexity import (
 from .intent_analyzer import IntentLLM
 
 
-TASK_DECOMPOSITION_PROMPT_VERSION = "task-decomposition.v7"
+TASK_DECOMPOSITION_PROMPT_VERSION = "task-decomposition.v8"
+INITIAL_DAG_CONTRACT = (
+    "INITIAL DAG CONTRACT: this Run's formal initial graph materializer accepts a DAG only. "
+    "controlPolicies MUST be []. Do not create verification_loop, backward edges or control nodes. "
+    "Preserve all requested checks, correction requirements and acceptance criteria. "
+    "Represent a bounded check/correction/recheck sequence as distinct forward-dependent tasks, "
+    "with explicit limits and a final unresolved-issues report when checks still fail. "
+    "Never silently remove a user requirement or claim an unbounded loop is supported."
+)
 
 _SCHEMA = {
     "type": "object",
@@ -229,10 +237,13 @@ class TaskDecomposer:
         planning_deadline: float | None = None,
         run_id: str | None = None,
     ) -> TaskPlan:
+        planning_schema = deepcopy(_SCHEMA)
+        if strategy == "initial_commit_candidate":
+            planning_schema["properties"]["controlPolicies"]["maxItems"] = 0
         self.last_audit = {
             "promptVersion": TASK_DECOMPOSITION_PROMPT_VERSION,
             **planner_prompt_metadata(),
-            "schemaHash": schema_hash(_SCHEMA),
+            "schemaHash": schema_hash(planning_schema),
             "modelId": str(getattr(self.llm, "model", None) or "unreported"),
             "modelVersion": str(getattr(self.llm, "version", None) or "unreported"),
             "mode": "model" if use_llm and self.llm is not None else "deterministic",
@@ -243,6 +254,8 @@ class TaskDecomposer:
                 task_input=task_input,
                 existing_semantic_tasks=existing_semantic_tasks,
             )
+            if strategy == "initial_commit_candidate":
+                prompt += "\n" + INITIAL_DAG_CONTRACT
             if (task_input or {}).get("_effectiveCapabilityProfile") == "full":
                 return self._decompose_staged(
                     mission_id=mission_id,
@@ -260,7 +273,7 @@ class TaskDecomposer:
                 first = self._call_llm(
                     stage="decompose",
                     prompt=prompt,
-                    schema=_SCHEMA,
+                    schema=planning_schema,
                     reasoning_effort=reasoning_effort,
                     prompt_version=TASK_DECOMPOSITION_PROMPT_VERSION,
                     call_key="decompose",
@@ -342,7 +355,7 @@ class TaskDecomposer:
                             + "Repair it once and return the complete JSON again. "
                             + f"Validation detail: {first_error}\n"
                             + f"Previous invalid TaskPlan JSON: {invalid_plan}",
-                            schema=_SCHEMA,
+                            schema=planning_schema,
                             reasoning_effort=reasoning_effort,
                             prompt_version=f"{TASK_DECOMPOSITION_PROMPT_VERSION}.repair1",
                             call_key="repair",
@@ -546,6 +559,8 @@ class TaskDecomposer:
                 },
                 "required": ["relations", "controlPolicies"],
             }
+            if strategy == "initial_commit_candidate":
+                relation_schema["properties"]["controlPolicies"]["maxItems"] = 0
             compact = [
                 {
                     "key": item["key"],
@@ -557,8 +572,9 @@ class TaskDecomposer:
             ]
             relation_prompt = (
                 "STAGE RELATIONS: create the acyclic prerequisite-to-dependent topology for these frozen tasks. "
-                "Add a verification_loop only when a refinement-to-verification region is present; use maxRevisions=2.\n"
-                f"Tasks: {json.dumps(compact, ensure_ascii=False)}"
+                + (INITIAL_DAG_CONTRACT + "\n" if strategy == "initial_commit_candidate" else
+                   "Add a verification_loop only when a refinement-to-verification region is present; use maxRevisions=2.\n")
+                + f"Tasks: {json.dumps(compact, ensure_ascii=False)}"
             )
             try:
                 relation_result = self._call_llm(
@@ -599,7 +615,18 @@ class TaskDecomposer:
                 )
             except Exception as exc:
                 missing_refs = self._coverage_gap_refs(exc)
-                if missing_refs:
+                if strategy == "initial_commit_candidate" and str(exc).startswith("INITIAL_CONTROL_GRAPH_UNSUPPORTED"):
+                    repaired = self._call_llm(
+                        stage="relations.repair",
+                        prompt=relation_prompt + "\nRepair only this relation unit once. Keep frozen tasks unchanged. "
+                            + f"Validation detail: {exc}\nPrevious relations: {json.dumps(relation_payload, ensure_ascii=False)}",
+                        schema=relation_schema, reasoning_effort=reasoning_effort,
+                        prompt_version=f"{TASK_DECOMPOSITION_PROMPT_VERSION}.relations.initial-dag-repair1",
+                        call_key="relations.initial-dag-repair", planning_deadline=planning_deadline, run_id=run_id)
+                    relation_payload = repaired.get("data", repaired)
+                    combined = {"tasks": detailed_tasks, "relations": relation_payload.get("relations", []),
+                                "controlPolicies": relation_payload.get("controlPolicies", [])}
+                elif missing_refs:
                     combined = self._repair_source_ref_coverage(
                         raw=combined,
                         profile=profile,
@@ -928,6 +955,10 @@ class TaskDecomposer:
         existing_semantic_tasks: tuple[Mapping[str, Any], ...] = (),
     ) -> TaskPlan:
         payload = raw.get("data", raw) if isinstance(raw, dict) else {}
+        if strategy == "initial_commit_candidate" and isinstance(payload, dict) and payload.get("controlPolicies"):
+            raise TaskDecompositionError(
+                "INITIAL_CONTROL_GRAPH_UNSUPPORTED: formal initial graphs require controlPolicies=[]. "
+                "Preserve verification/correction obligations with a bounded forward-only task sequence.")
         tasks = payload.get("tasks") if isinstance(payload, dict) else None
         if not isinstance(tasks, list) or not tasks:
             raise TaskDecompositionError("decomposer returned no tasks")

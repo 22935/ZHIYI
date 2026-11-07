@@ -6,6 +6,7 @@ from time import monotonic
 
 from components.planner.planning_commit import PlanningCommitService
 from components.planner.service import apply_task_plan_patch
+from components.planner.task_decomposer import TaskDecompositionError
 from components.planner.topology import EdgeOrigin, TopologyCompileError, validate_task_plan_for_execution
 from contracts.mission_semantic import run_intent_basis
 from contracts.planning import TaskPlan, TaskPlanPatch
@@ -422,7 +423,11 @@ class RuntimePlanningCommitAuthority:
     def accept_initial(self, run_id):
         try:
             return self._accept_initial(run_id)
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError) as exc:
+            if isinstance(exc, TaskDecompositionError) and "INITIAL_CONTROL_GRAPH_UNSUPPORTED" in str(exc):
+                return PlanningCommitRejection(code=Code.INVALID_PROPOSAL, reason=(
+                    "INITIAL_CONTROL_GRAPH_UNSUPPORTED: planner still proposed a control loop after bounded repair; "
+                    "initial planning requires a forward-only DAG preserving verification obligations"))
             return PlanningCommitRejection(code=Code.STALE_STRATEGY, reason="initial compilation sources unavailable or inconsistent")
 
     def validate_initial_sources(self, commit_id):

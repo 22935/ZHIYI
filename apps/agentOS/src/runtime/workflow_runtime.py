@@ -894,7 +894,7 @@ class ExecutionRuntime(CollaboratorAccess):
                 raise ValueError("Planning Commit authority is required for this Run")
             receipt = self.planning_commit_authority.accept_initial(run.run_id)
             if receipt.status == "REJECTED":
-                raise ValueError(f"Planning Commit rejected: {receipt.code.value}")
+                raise ValueError(f"Planning Commit rejected: {receipt.code.value}: {receipt.reason}")
             return
         frozen_task_acceptance(run)
         provided_explicit = run.input.get("acgBlueprint") or run.acg_blueprint or None
@@ -1344,7 +1344,7 @@ class ExecutionRuntime(CollaboratorAccess):
                         proposal_id="runtime:" + observation.fingerprint(),
                         idempotency_key="runtime-planning:" + run.run_id + ":" + observation.fingerprint())
                     reason = (f"Planning Commit {receipt.commit_id} accepted; awaiting materialization"
-                              if receipt.status != "REJECTED" else f"Planning Commit rejected: {receipt.code.value}")
+                              if receipt.status != "REJECTED" else f"Planning Commit rejected: {receipt.code.value}: {receipt.reason}")
                 except (ValueError, KeyError, PermissionError) as exc:
                     reason = f"Planning Commit rejected: {type(exc).__name__}"
         return RuntimePlanningDecision(observationId=observation.fingerprint(), action="wait", reason=reason)

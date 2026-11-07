@@ -167,6 +167,31 @@ def test_initial_planning_accepts_without_materializing_or_executing(ready_bound
     assert not store.get_run(run.run_id).acg_blueprint and not agent.calls
 
 
+def test_initial_rejection_reports_the_specific_barrier_reason(ready_boundary, monkeypatch):
+    from contracts.planning_commit import PlanningCommitRejection
+    runtime, store, agent, source_id, _ = ready_boundary
+    attach(runtime, store)
+    source = store.get_run(source_id)
+    _, run = runtime.prepare_run(source.mission_id, workflow_id=source.workflow_id)
+    monkeypatch.setattr(runtime.planning_commit_authority, 'accept_initial', lambda _: PlanningCommitRejection(
+        code=Code.CONTROL_BARRIER_BLOCKED, reason='control policies require later safe-cut support'))
+    with pytest.raises(ValueError, match='CONTROL_BARRIER_BLOCKED: control policies require later safe-cut support'):
+        asyncio.run(runtime.execute_prepared_run(run.run_id))
+    assert not store.get_run(run.run_id).acg_blueprint and not agent.calls
+
+
+def test_initial_loop_repair_failure_is_not_misreported_as_stale_sources(ready_boundary, monkeypatch):
+    from components.planner.task_decomposer import TaskDecompositionError
+    runtime, store, _, _, _ = ready_boundary
+    attach(runtime, store)
+    def failed(_):
+        raise TaskDecompositionError('TASK_PLAN_VALIDATION_FAILED: INITIAL_CONTROL_GRAPH_UNSUPPORTED')
+    monkeypatch.setattr(runtime.planning_commit_authority, '_accept_initial', failed)
+    receipt = runtime.planning_commit_authority.accept_initial('run-test')
+    assert receipt.code == Code.INVALID_PROPOSAL
+    assert 'INITIAL_CONTROL_GRAPH_UNSUPPORTED' in receipt.reason
+
+
 def test_revision_commit_does_not_mutate_formal_plan_graph_or_receipts(ready_boundary):
     runtime, store, agent, run_id, _ = ready_boundary
     ledger = attach(runtime, store)
