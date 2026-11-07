@@ -111,6 +111,8 @@ Redis 启动配置和 initdb 密码临时文件位于受限 temp，读取成功�
 进程命令行。down 保留 DPAPI 文件和全部数据。
 LocalIdentity 位于 `identity/local-identity.json`，启动器独立核对历史 PostgreSQL owner 与 Home binding。旧 Session 表保留历史 Schema，应用不再读取或签发登录会话。
 
+新 Home 的 binding 使用 `sha256:<environment.json 摘要>`；兼容早期 TypeScript 初始化器保存的不带前缀摘要。两种格式都必须与当前 Home 的实际摘要一致，并按文件原值传入后端；不重写既有身份文件，也不放宽 owner、tenant 或版本校验。
+
 ## 停止、故障恢复与冷备份
 
 ```powershell

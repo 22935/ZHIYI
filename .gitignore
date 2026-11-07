@@ -154,3 +154,6 @@ apps/agentOS/references
 
 # 重组前旧路径的本地构建产物（仅本机残留，防止源代码管理面板噪音）
 frontend/.vite/
+
+# Workbuddy local workspace
+.workbuddy/

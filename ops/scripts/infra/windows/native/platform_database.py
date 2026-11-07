@@ -15,7 +15,8 @@ def prepare(home, database_url, migration_dir):
 
     home = Path(home)
     identity_file = home / 'identity/local-identity.json'
-    binding = hashlib.sha256((home / 'environment.json').read_bytes()).hexdigest()
+    digest = hashlib.sha256((home / 'environment.json').read_bytes()).hexdigest()
+    binding = 'sha256:' + digest
     for path in [identity_file, *identity_file.parents]:
         if path.is_symlink() or path.is_junction():
             raise RuntimeError('Local identity may not traverse reparse points')
@@ -59,8 +60,14 @@ def prepare(home, database_url, migration_dir):
         expected = {'format': 'zhiyi-local-identity-v1', 'version': 1, 'actorId': actor,
                     'legacyUserId': actor, 'wireTenantId': None, 'homeBinding': binding}
         if identity_file.exists():
-            if json.loads(identity_file.read_text(encoding='utf-8')) != expected:
+            stored = json.loads(identity_file.read_text(encoding='utf-8'))
+            # The first TS initializer used bare digests; the controlled import
+            # used sha256:<digest>. Validate both against this Home, never rewrite.
+            if isinstance(stored, dict) and stored.get('homeBinding') == digest:
+                expected['homeBinding'] = digest
+            if stored != expected:
                 raise RuntimeError('LocalIdentity does not match the database owner or Home binding')
+            binding = expected['homeBinding']
         elif fresh:
             identity_file.parent.mkdir(exist_ok=True)
             # Exclusive creation; never overwrite a user identity.
