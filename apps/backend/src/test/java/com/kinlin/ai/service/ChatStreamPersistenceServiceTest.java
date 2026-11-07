@@ -131,7 +131,7 @@ class ChatStreamPersistenceServiceTest {
     }
 
     @Test
-    void persistsFinalContentAndMetricsWithoutRawReasoning() {
+    void persistsFinalContentAndMetricsWithBoundedReasoning() {
         ConversationRepository conversations = mock(ConversationRepository.class);
         MessageRepository messages = mock(MessageRepository.class);
         ChatStreamPersistenceService service = new ChatStreamPersistenceService(
@@ -165,8 +165,29 @@ class ChatStreamPersistenceServiceTest {
         assertEquals(320, saved.getMetadata().get("reasoningTokens"));
         assertEquals(500, saved.getMetadata().get("totalTokens"));
         assertTrue((Boolean) saved.getMetadata().get("thinkingEnabled"));
-        assertFalse(saved.getMetadata().toString().contains("raw private reasoning"));
+        assertEquals("raw private reasoning", saved.getMetadata().get("reasoningContent"));
+        assertFalse(saved.getMetadata().containsKey("reasoningTruncated"));
         assertFalse(saved.getMetadata().containsKey("reasoning_content"));
+    }
+
+    @Test
+    void capsPersistedReasoningContent() {
+        MessageRepository messages = mock(MessageRepository.class);
+        ChatStreamPersistenceService service = new ChatStreamPersistenceService(
+                mock(ConversationRepository.class), messages, new ObjectMapper());
+        ChatStreamPersistenceService.StreamCapture capture = service.capture();
+
+        capture.accept(event("reasoning_delta", Map.of("delta", "x".repeat(200_050))));
+        capture.accept(event("content_delta", Map.of("delta", "answer")));
+        capture.accept(event("done", Map.of("status", "completed")));
+
+        service.complete(new ChatStreamPersistenceService.PreparedStream(
+                UUID.randomUUID(), "ctx-cap", Map.of()), capture);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Message.class);
+        verify(messages).save(captor.capture());
+        assertEquals(200_000, String.valueOf(captor.getValue().getMetadata().get("reasoningContent")).length());
+        assertTrue((Boolean) captor.getValue().getMetadata().get("reasoningTruncated"));
     }
 
     @Test
@@ -284,7 +305,7 @@ class ChatStreamPersistenceServiceTest {
     }
 
     @Test
-    void persistsFailedPartialReplyOnceWithoutRawReasoningOrErrorPayload() {
+    void persistsFailedPartialReplyOnceWithReasoningButWithoutErrorPayload() {
         MessageRepository messages = mock(MessageRepository.class);
         ChatStreamPersistenceService service = new ChatStreamPersistenceService(
                 mock(ConversationRepository.class), messages, new ObjectMapper());
@@ -301,7 +322,8 @@ class ChatStreamPersistenceServiceTest {
         assertEquals("partial answer", captor.getValue().getContent());
         assertTrue(captor.getValue().getMetadata().toString().contains("登录会话"));
         assertTrue(captor.getValue().getMetadata().toString().contains("failed"));
-        assertFalse(captor.getValue().getMetadata().toString().contains("private reasoning"));
+        assertEquals("private reasoning", captor.getValue().getMetadata().get("reasoningContent"));
+        assertFalse(captor.getValue().getMetadata().toString().contains("AUTH_SESSION_INVALIDATED"));
         assertEquals("deepseek-flash", captor.getValue().getMetadata().get("model_info"));
     }
 
