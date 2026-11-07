@@ -58,9 +58,15 @@
                 </button>
               </div>
               <div v-if="isMissionWorkspacePath(route.path)" class="workbench-activity-views" role="group" aria-label="Workbench 左侧视图">
-                <button v-for="item in workbenchActivities" :key="item.id" class="chat-nav-trigger workbench-activity-button"
-                  type="button" :class="{ 'is-selected': activeWorkbenchSidebar === item.id }"
+                <button v-for="(item, activityIndex) in workbenchActivities" :key="item.id" class="chat-nav-trigger workbench-activity-button"
+                  type="button" :class="{
+                    'is-selected': activeWorkbenchSidebar === item.id,
+                    'is-dragging': draggingActivity === activityIndex,
+                    'is-drop-above': activityDropIndex === activityIndex,
+                    'is-drop-below': activityDropIndex === activityIndex + 1
+                  }"
                   :title="item.label" :aria-label="item.label" :aria-pressed="activeWorkbenchSidebar === item.id"
+                  v-bind="activityDrag.itemProps(activityIndex)"
                   @click="selectWorkbenchSidebar(item.id)">
                   <el-icon><component :is="item.icon" /></el-icon>
                 </button>
@@ -105,71 +111,31 @@
               aria-label="聊天项目"
             >
               <div class="chat-panel-content">
-                <WorkspaceModeSwitch :active="isAcgRoute ? 'workbench' : 'oscode'" :pending="surfaceSwitching" @select="switchWorkspaceSurface" />
+                <WorkspaceModeSwitch active="oscode" :pending="surfaceSwitching" @select="switchWorkspaceSurface" />
 
                 <div class="chat-submenu-section-head">
-                    <span class="chat-submenu-section-title">{{ workspaceMode === 'agent' ? '工程项目' : '对话记录' }}</span>
+                    <span class="chat-submenu-section-title">对话记录</span>
                   <div class="chat-submenu-section-tools">
-                    <span v-if="workspaceHistoryCount" class="chat-project-count" :aria-label="`${workspaceHistoryCount} 个项目`">
+                    <span v-if="workspaceHistoryCount" class="chat-project-count" :aria-label="`${workspaceHistoryCount} 条对话`">
                       {{ workspaceHistoryCount }}
                     </span>
                   </div>
                   <span v-if="conversationListLoading && workspaceHistoryCount" class="chat-submenu-refreshing">更新中</span>
                   <button class="chat-submenu-action new-chat-action" type="button" @click="startNewChat">
                     <el-icon><EditPen /></el-icon>
-                    <span>{{ workspaceMode === 'agent' ? '新建工程' : '新建对话' }}</span>
+                    <span>新建对话</span>
                   </button>
                 </div>
 
                 <div v-if="conversationListLoading && !workspaceHistoryCount" class="chat-submenu-loading">正在加载…</div>
-                <div v-else-if="workspaceMode === 'agent' && recentAgentProjects.length" class="chat-project-list" role="list" aria-label="Workbench 工程项目">
-                  <div
-                    v-for="mission in recentAgentProjects"
-                    :key="mission.missionId"
-                    class="chat-project-row"
-                    :class="{ active: String(route.params.missionId || '') === mission.missionId }"
-                    role="listitem"
-                    @contextmenu.prevent.stop="openSidebarActionMenu($event, { kind: 'agent', project: mission })"
-                  >
-                    <button
-                      class="chat-project-item"
-                      type="button"
-                      :title="plainMissionTitle(mission.title)"
-                      @click="openAgentProject(mission)"
-                    >
-                      <span class="chat-project-icon" aria-hidden="true">
-                        <el-icon><Cpu /></el-icon>
-                      </span>
-                      <span class="chat-project-copy">
-                        <span class="chat-project-title">{{ plainMissionTitle(mission.title) }}</span>
-                        <span class="chat-project-time">
-                          {{ agentProjectState(mission) }} · {{ formatConversationTime(mission.updatedAt || mission.createdAt) }}
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      class="chat-project-action-trigger"
-                      :class="{ 'is-open': isAgentSidebarActionOpen(mission.missionId) }"
-                      type="button"
-                      aria-haspopup="menu"
-                      aria-controls="sidebar-action-menu"
-                      :aria-expanded="isAgentSidebarActionOpen(mission.missionId)"
-                      :aria-label="`打开项目操作：${mission.title || '未命名工程'}`"
-                      title="更多操作"
-                      @click.stop="openSidebarActionMenu($event, { kind: 'agent', project: mission })"
-                    >
-                      <el-icon><MoreFilled /></el-icon>
-                    </button>
-                  </div>
-                </div>
-                <div v-else-if="workspaceMode === 'chat' && visibleRecentConversations.length" class="chat-project-list" role="list" aria-label="对话记录">
+                <div v-else-if="visibleRecentConversations.length" class="chat-project-list" role="list" aria-label="对话记录">
                   <div
                     v-for="conversation in visibleRecentConversations"
                     :key="conversation.id"
                     class="chat-project-row chat-project-row--chat"
                     :class="{ active: route.query.contextId === (conversation.contextId || conversation.id) }"
                     role="listitem"
-                    @contextmenu.prevent.stop="openSidebarActionMenu($event, { kind: 'chat', conversation })"
+                    @contextmenu.prevent.stop="openSidebarActionMenu($event, { conversation })"
                   >
                     <button
                       class="chat-project-item"
@@ -196,7 +162,7 @@
                   </div>
                 </div>
                 <div v-else class="chat-submenu-empty">
-                  {{ workspaceMode === 'agent' ? '暂无工程项目' : '暂无历史对话' }}
+                  暂无历史对话
                 </div>
 
                 <button class="chat-submenu-action history-action" type="button" @click="openWorkspaceHistory">
@@ -204,8 +170,8 @@
                     <el-icon><Clock /></el-icon>
                   </span>
                   <span class="history-action__copy">
-                    <strong>{{ workspaceMode === 'agent' ? '查看所有 ACG 记录' : '查找所有聊天记录' }}</strong>
-                    <small>{{ workspaceMode === 'agent' ? '搜索、审计与任务管理' : '搜索、编辑与管理' }}</small>
+                    <strong>查找所有聊天记录</strong>
+                    <small>搜索、编辑与管理</small>
                   </span>
                 </button>
               </div>
@@ -260,59 +226,39 @@
         :style="{ left: `${sidebarActionMenu.x}px`, top: `${sidebarActionMenu.y}px` }"
         @keydown.esc="closeSidebarActionMenu"
       >
-        <template v-if="sidebarActionMenu.target.kind === 'agent'">
-          <button type="button" role="menuitem" @click="openSidebarActionTarget">
-            <span>打开项目</span>
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            :disabled="!canMutateSidebarProject"
-            :title="canMutateSidebarProject ? '' : '运行中的任务不能归档或删除'"
-            @click="archiveSidebarProject"
-          >
-            <el-icon><FolderAdd /></el-icon><span>归档项目</span>
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            class="is-danger"
-            :disabled="!canMutateSidebarProject"
-            :title="canMutateSidebarProject ? '' : '运行中的任务不能归档或删除'"
-            @click="deleteSidebarProject"
-          >
-            <el-icon><Delete /></el-icon><span>删除项目</span>
-          </button>
-        </template>
-        <template v-else>
-          <button type="button" role="menuitem" @click="() => editSidebarConversation()">
-            <el-icon><Edit /></el-icon><span>编辑标题</span>
-          </button>
-          <button type="button" role="menuitem" class="is-danger" @click="() => deleteSidebarActionConversation()">
-            <el-icon><Delete /></el-icon><span>删除对话</span>
-          </button>
-        </template>
+        <button type="button" role="menuitem" @click="() => editSidebarConversation()">
+          <el-icon><Edit /></el-icon><span>编辑标题</span>
+        </button>
+        <button type="button" role="menuitem" class="is-danger" @click="() => deleteSidebarActionConversation()">
+          <el-icon><Delete /></el-icon><span>删除对话</span>
+        </button>
       </div>
     </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, provide, reactive, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, onUnmounted, provide, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  ChatDotRound, ChatLineRound, Delete, Edit, EditPen, FolderAdd, MoreFilled,
+  ChatDotRound, ChatLineRound, Delete, Edit, EditPen,
   Clock, Setting,
-  Monitor, Cpu
+  Monitor
 } from '@element-plus/icons-vue'
 import WorkspaceModeSwitch from '@/components/workspace/WorkspaceModeSwitch.vue'
 import { workspaceShellKey, type WorkspaceSurface, type WorkbenchSidebar } from '@/features/workspace/shell'
+import { useDragReorder } from '@/composables/useDragReorder'
+import {
+  applyWorkbenchActivityOrder,
+  readWorkbenchActivityOrder,
+  writeWorkbenchActivityOrder
+} from './workbenchActivityOrder'
 import { FolderOpened, Search, Share, Connection } from '@element-plus/icons-vue'
 import AppTopBar from '@/components/app/AppTopBar.vue'
 import DesktopRuntimeStatus from '@/components/platform/DesktopRuntimeStatus.vue'
 const DesktopTerminalDock = defineAsyncComponent(() => import('@/components/terminal/DesktopTerminalDock.vue'))
 import BrandLoader from '@/components/common/BrandLoader.vue'
 import { conversationApi, type Conversation } from '@/services/api/conversation'
-import { agentosApi, type MissionListItem } from '@/services/api/agentos'
+import { agentosApi } from '@/services/api/agentos'
 import { useChatStore } from '@/stores/chat'
 import { useWorkflowRunsStore } from '@/stores/workflowRuns'
 import { useUserStore } from '@/stores/user'
@@ -323,7 +269,6 @@ import {
   removeConversationWorkspace
 } from '@/utils/conversationWorkspace'
 import { isDesktop } from '@/platform'
-import { plainMissionTitle } from '@/utils/missionTitle'
 import { DOCK_LEFT_DEFAULT, useDockedWorkspaceGeometry } from '@/composables/useDockedWorkspaceGeometry'
 import KeyboardShortcutsDialog from '@/components/app/KeyboardShortcutsDialog.vue'
 import WorkspaceViewHost from '@/components/app/WorkspaceViewHost.vue'
@@ -342,8 +287,9 @@ const shortcutsDialogVisible = ref(false)
 let disposeAppKeyboardShortcuts: (() => void) | null = null
 type WorkspaceMode = 'agent' | 'chat'
 const workspaceMode = computed<WorkspaceMode>(() => isAcgPath(route.path) ? 'agent' : 'chat')
+// 对话子栏只在 OScode（/chat）存在：ACG 工程页只有中心列表，子栏不再于该页弹出。
 const CHAT_NAV_OPEN_KEY = 'layout.chat_nav_open'
-const chatNavOpen = ref(route.path.startsWith('/agentos/acg') || (route.path.startsWith('/chat') && localStorage.getItem(CHAT_NAV_OPEN_KEY) === '1'))
+const chatNavOpen = ref(route.path.startsWith('/chat') && localStorage.getItem(CHAT_NAV_OPEN_KEY) === '1')
 const ACG_NAV_OPEN_KEY = 'layout.acg_nav_open'
 const isMissionWorkspacePath = (path: string) => path.startsWith('/agentos/missions/') && path.endsWith('/workspace')
 const isDockedWorkspaceRoute = computed(() => route.path.startsWith('/chat') || isMissionWorkspacePath(route.path))
@@ -361,17 +307,13 @@ const dockGeometry = useDockedWorkspaceGeometry()
 const chatPanelWidth = dockGeometry.leftWidth
 const chatPanelResizing = ref(false)
 const recentConversations = ref<Conversation[]>([])
-const recentAgentProjects = ref<MissionListItem[]>([])
-type SidebarActionTarget =
-  | { kind: 'agent'; project: MissionListItem }
-  | { kind: 'chat'; conversation: Conversation }
+type SidebarActionTarget = { conversation: Conversation }
 const sidebarActionMenu = reactive<{ target: SidebarActionTarget | null; x: number; y: number }>({ target: null, x: 0, y: 0 })
 const sidebarActionMenuElement = ref<HTMLElement | null>(null)
 let conversationLoadGeneration = 0
 let conversationLoadController: AbortController | null = null
 let conversationLoadPromise: Promise<void> | null = null
 let conversationLoadWorkspace: WorkspaceMode | null = null
-const SIDEBAR_PROJECT_PAGE_SIZE = 100
 const conversationWorkspaceVersion = ref(0)
 const agentConversationIds = computed(() => new Set(
   Object.entries(chatStore.workflowBindings)
@@ -388,10 +330,7 @@ const visibleRecentConversations = computed(() => {
     return resolvedMode === workspaceMode.value
   })
 })
-const workspaceHistoryCount = computed(() => workspaceMode.value === 'agent'
-  ? recentAgentProjects.value.length
-  : visibleRecentConversations.value.length
-)
+const workspaceHistoryCount = computed(() => visibleRecentConversations.value.length)
 const conversationListLoading = ref(false)
 const isAcgRoute = computed(() => isAcgPath(route.path))
 const secondaryNavOpen = computed(() => chatNavOpen.value)
@@ -445,18 +384,6 @@ const loadRecentConversations = (): Promise<void> => {
 
   const pending = (async () => {
     try {
-      if (requestedWorkspace === 'agent') {
-        const missionPage = await agentosApi.listMissions(
-          { page: 1, pageSize: SIDEBAR_PROJECT_PAGE_SIZE },
-          { signal: controller.signal }
-        )
-        if (requestGeneration !== conversationLoadGeneration || requestedWorkspace !== workspaceMode.value) return
-        const projects = missionPage.items || []
-        if (requestGeneration !== conversationLoadGeneration || requestedWorkspace !== workspaceMode.value) return
-        recentAgentProjects.value = projects
-        return
-      }
-
       const userId = localStorage.getItem('userId') || undefined
       const conversations = await conversationApi.getUserConversations(userId, 'chat', { signal: controller.signal })
       if (requestGeneration !== conversationLoadGeneration || requestedWorkspace !== workspaceMode.value) return
@@ -542,9 +469,9 @@ const closeAcgPanel = () => {
   localStorage.setItem(ACG_NAV_OPEN_KEY, '0')
 }
 
-// Ctrl+B：只在对话/Workbench 页面开合对话记录子栏；不导航，其他页面为 no-op。
+// Ctrl+B：只在 OScode 对话页开合对话记录子栏；不导航，其他页面为 no-op。
 const toggleChatPanelShortcut = () => {
-  if (!isChatRoute.value && !isAcgPath(route.path)) return
+  if (!isChatRoute.value) return
   chatNavOpen.value = !chatNavOpen.value
   localStorage.setItem(CHAT_NAV_OPEN_KEY, chatNavOpen.value ? '1' : '0')
   if (chatNavOpen.value) void loadRecentConversations()
@@ -579,32 +506,11 @@ const handleAcgNavToggle = async () => {
 }
 
 const startNewChat = async () => {
-  if (workspaceMode.value === 'agent') { await router.push({ name: 'CreateMission' }); return }
   await router.push({ path: '/chat', query: { workspace: 'chat', newConversation: '1' } })
 }
 
 const openWorkspaceHistory = () => {
-  if (workspaceMode.value === 'agent') {
-    void router.push({ path: '/history', query: { tab: 'acg', source: 'agent' } })
-    return
-  }
   void router.push({ path: '/history', query: { workspace: 'chat' } })
-}
-
-const agentProjectState = (project: MissionListItem) => {
-  const status = project.latestRunStatus || project.status
-  if (status === 'completed' || status === 'succeeded') return '已完成'
-  if (status === 'failed') return '执行失败'
-  if (status === 'cancelled') return '已取消'
-  if (status === 'waiting_review') return '等待审核'
-  return '运行中'
-}
-
-const openAgentProject = async (project: MissionListItem) => {
-  await router.push({
-    path: `/agentos/missions/${encodeURIComponent(project.missionId)}/workspace`,
-    query: project.latestRunId ? { runId: project.latestRunId } : undefined
-  })
 }
 
 const openConversation = async (conversation: Conversation) => {
@@ -632,24 +538,9 @@ const formatConversationTime = (value?: string) => {
   return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric' })
 }
 
-const isTerminalSidebarProject = (project: MissionListItem) => {
-  if (project.runCount === 0) return true
-  const status = project.latestRunStatus || project.status
-  return ['completed', 'succeeded', 'failed', 'cancelled', 'superseded'].includes(status)
-}
-
-const canMutateSidebarProject = computed(() => {
-  const target = sidebarActionMenu.target
-  return target?.kind === 'agent' && isTerminalSidebarProject(target.project)
-})
-
 const closeSidebarActionMenu = () => {
   sidebarActionMenu.target = null
 }
-
-const isAgentSidebarActionOpen = (missionId: string) => (
-  sidebarActionMenu.target?.kind === 'agent' && sidebarActionMenu.target.project.missionId === missionId
-)
 
 const openSidebarActionMenu = async (event: MouseEvent, target: SidebarActionTarget) => {
   sidebarActionMenu.target = target
@@ -664,76 +555,9 @@ const openSidebarActionMenu = async (event: MouseEvent, target: SidebarActionTar
   sidebarActionMenu.y = Math.max(8, Math.min(sidebarActionMenu.y, window.innerHeight - menu.offsetHeight - 8))
 }
 
-const openSidebarActionTarget = () => {
-  const target = sidebarActionMenu.target
-  if (!target) return
-  closeSidebarActionMenu()
-  if (target.kind === 'agent') void openAgentProject(target.project)
-  else void openConversation(target.conversation)
-}
-
-const sidebarMissionMutationError = (error: unknown, action: string) => {
-  const response = (error as { response?: { status?: number; data?: { detail?: unknown; message?: unknown } } })?.response
-  const detail = [response?.data?.message, response?.data?.detail]
-    .find(value => typeof value === 'string' && value.trim())
-  if (response?.status === 409 && detail === 'mission has active runs') return `项目仍在运行，暂时不能${action}`
-  if (response?.status === 404) return '项目不存在或当前账户无权操作'
-  return typeof detail === 'string' ? `${action}失败：${detail.slice(0, 160)}` : `项目${action}失败，请稍后重试`
-}
-
-const archiveSidebarProject = async () => {
-  const target = sidebarActionMenu.target
-  if (!target || target.kind !== 'agent' || !isTerminalSidebarProject(target.project)) return
-  const project = target.project
-  try {
-    await agentosApi.archiveMission(project.missionId)
-    recentAgentProjects.value = recentAgentProjects.value.filter(item => item.missionId !== project.missionId)
-    closeSidebarActionMenu()
-    ElMessage.success('项目已归档')
-    window.dispatchEvent(new Event('history-refresh'))
-    if (String(route.params.missionId || '') === project.missionId) {
-      await router.replace({ path: '/chat', query: { workspace: 'agent' } })
-    }
-  } catch (error: unknown) {
-    ElMessage.error(sidebarMissionMutationError(error, '归档'))
-  }
-}
-
-const deleteSidebarProject = async () => {
-  const target = sidebarActionMenu.target
-  if (!target || target.kind !== 'agent' || !isTerminalSidebarProject(target.project)) return
-  const project = target.project
-  try {
-    await ElMessageBox.confirm(
-      `确定删除项目“${project.title || '未命名工程'}”吗？此操作不可恢复。`,
-      '删除项目',
-      {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning',
-        customClass: 'destructive-confirm'
-      }
-    )
-  } catch {
-    return
-  }
-  try {
-    await agentosApi.deleteMission(project.missionId)
-    recentAgentProjects.value = recentAgentProjects.value.filter(item => item.missionId !== project.missionId)
-    closeSidebarActionMenu()
-    ElMessage.success('项目已删除')
-    window.dispatchEvent(new Event('history-refresh'))
-    if (String(route.params.missionId || '') === project.missionId) {
-      await router.replace({ path: '/chat', query: { workspace: 'agent' } })
-    }
-  } catch (error: unknown) {
-    ElMessage.error(sidebarMissionMutationError(error, '删除'))
-  }
-}
-
 const editSidebarConversation = async (conversationOverride?: Conversation) => {
   const target = sidebarActionMenu.target
-  const conversation = conversationOverride || (target?.kind === 'chat' ? target.conversation : null)
+  const conversation = conversationOverride || target?.conversation || null
   if (!conversation) return
   closeSidebarActionMenu()
   try {
@@ -764,7 +588,7 @@ const editSidebarConversation = async (conversationOverride?: Conversation) => {
 
 const deleteSidebarActionConversation = (conversationOverride?: Conversation) => {
   const target = sidebarActionMenu.target
-  const conversation = conversationOverride || (target?.kind === 'chat' ? target.conversation : null)
+  const conversation = conversationOverride || target?.conversation || null
   if (!conversation) return
   closeSidebarActionMenu()
   void deleteSidebarConversation(conversation)
@@ -824,10 +648,9 @@ watch(
   fullPath => {
     closeSidebarActionMenu()
     if (isMissionWorkspacePath(route.path)) lastMissionWorkspacePath.value = fullPath
-    if (isMissionWorkspacePath(route.path)) closeChatPanel()
-    else if (route.path.startsWith('/agentos/acg')) { chatNavOpen.value = true; void loadRecentConversations() }
+    // 子栏只在 /chat 存在：离开对话页（含进入 ACG hub）一律收起，不得在别页弹出。
     if (route.path.startsWith('/chat')) lastChatRoute.value = fullPath
-    else if (!isAcgPath(route.path) && chatNavOpen.value) closeChatPanel()
+    else if (chatNavOpen.value) closeChatPanel()
     if (isAcgPath(route.path)) {
       if (localStorage.getItem(ACG_NAV_OPEN_KEY) !== '0') acgNavOpen.value = true
     } else {
@@ -841,12 +664,28 @@ const sidebarKey = 'workbench.primary_sidebar.v1'
 const storedSidebar = localStorage.getItem(sidebarKey)
 const activeWorkbenchSidebar = ref<WorkbenchSidebar>(['files', 'search', 'git'].includes(storedSidebar || '') ? storedSidebar as WorkbenchSidebar : 'thought')
 const sidebarActivation = ref(0)
-const workbenchActivities = [
-  { id: 'files' as const, label: '文件', icon: FolderOpened },
-  { id: 'search' as const, label: '搜索文件', icon: Search },
-  { id: 'git' as const, label: 'Git', icon: Share },
-  { id: 'thought' as const, label: '思维链', icon: Connection }
-]
+// 图标顺序可拖拽调整（仅显示偏好，全局记忆）；描述符固定，顺序存 id 数组。
+const workbenchActivityDescriptors: Record<WorkbenchSidebar, { id: WorkbenchSidebar; label: string; icon: typeof FolderOpened }> = {
+  files: { id: 'files', label: '文件', icon: FolderOpened },
+  search: { id: 'search', label: '搜索文件', icon: Search },
+  git: { id: 'git', label: 'Git', icon: Share },
+  thought: { id: 'thought', label: '思维链', icon: Connection }
+}
+const activityOrder = ref<WorkbenchSidebar[]>(applyWorkbenchActivityOrder(readWorkbenchActivityOrder()))
+const workbenchActivities = computed(() => activityOrder.value.map(id => workbenchActivityDescriptors[id]))
+
+const reorderWorkbenchActivities = (from: number, to: number) => {
+  const next = [...activityOrder.value]
+  const [moved] = next.splice(from, 1)
+  if (!moved) return
+  next.splice(to, 0, moved)
+  activityOrder.value = next
+  writeWorkbenchActivityOrder(next)
+}
+
+const activityDrag = useDragReorder({ group: 'workbench-activities', onReorder: reorderWorkbenchActivities })
+const { draggingIndex: draggingActivity, dropIndex: activityDropIndex } = activityDrag
+onBeforeUnmount(() => activityDrag.resetDrag())
 const selectWorkbenchSidebar = (view: WorkbenchSidebar) => {
   activeWorkbenchSidebar.value = view
   sidebarActivation.value++
@@ -864,7 +703,6 @@ provide(workspaceShellKey, {
   activeSidebar: activeWorkbenchSidebar, sidebarActivation, switching: surfaceSwitching,
   switchSurface: switchWorkspaceSurface
 })
-watch(workspaceMode, () => { if (chatNavOpen.value) void loadRecentConversations() })
 
 // Immersive mode: keep landing auth immersive without a standalone login page.
 const isImmersive = computed(() => {
@@ -2066,7 +1904,12 @@ onUnmounted(() => {
 
 .workbench-activity-views { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
 .workbench-activity-button { position: relative; }
-.workbench-activity-button.is-selected { color: var(--primary-color); background: var(--primary-fade); }
-.workbench-activity-button.is-selected::before { content: ''; position: absolute; left: 0; top: 9px; bottom: 9px; width: 2px; border-radius: 2px; background: currentColor; }
+.workbench-activity-button.is-selected { color: var(--primary-color); }
 .workbench-activity-button > .el-icon:first-child { margin-right: 0; }
+/* —— 图标拖拽排序：拖起半透明，落点上/下缘画指示线 —— */
+.workbench-activity-button { cursor: grab; }
+.workbench-activity-button:active { cursor: grabbing; }
+.workbench-activity-button.is-dragging { opacity: .45; }
+.workbench-activity-button.is-drop-above { box-shadow: inset 0 2px 0 var(--primary-color, var(--wb-accent)); }
+.workbench-activity-button.is-drop-below { box-shadow: inset 0 -2px 0 var(--primary-color, var(--wb-accent)); }
 </style>

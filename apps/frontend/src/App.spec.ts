@@ -104,17 +104,6 @@ vi.mock('@/services/api/workflow', () => ({
 const passthrough = { template: '<div><slot /></div>' }
 const iconStub = { template: '<span><slot /></span>' }
 
-const missions = [
-  {
-    missionId: 'mission_1', userId: 'user_1', title: '供应商质量追溯', description: '目标', status: 'created',
-    latestRunId: 'run_2', latestRunStatus: 'failed', createdAt: '2026-09-05T00:00:00Z', updatedAt: '2026-09-06T00:00:00Z', runCount: 2
-  },
-  {
-    missionId: 'mission_2', userId: 'user_1', title: '医院门诊优化', description: '流程', status: 'created',
-    latestRunId: 'run_3', latestRunStatus: 'completed', createdAt: '2026-09-04T00:00:00Z', updatedAt: '2026-09-05T00:00:00Z', runCount: 3
-  }
-]
-
 describe('Workbench / OScode shell', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -128,7 +117,6 @@ describe('Workbench / OScode shell', () => {
       configurable: true,
       value: vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
     })
-    vi.mocked(agentosApi.listMissions).mockResolvedValue({ items: missions, total: missions.length, page: 1, pageSize: 100 })
     vi.mocked(workflowApi.listRuns).mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 100 })
   })
 
@@ -199,7 +187,7 @@ describe('Workbench / OScode shell', () => {
     wrapper.unmount()
   })
 
-  it('uses one sidebar row per Mission and the canonical project count', async () => {
+  it('keeps the ACG hub free of the history side panel; projects live only in the center', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -235,38 +223,25 @@ describe('Workbench / OScode shell', () => {
     await vi.dynamicImportSettled()
     await flushPromises()
 
-    expect(agentosApi.listMissions).toHaveBeenCalledWith(
-      { page: 1, pageSize: 100 },
-      { signal: expect.any(AbortSignal) }
-    )
+    // hub 不再弹出历史子栏，也不再为子栏拉取工程项目
+    expect(wrapper.find('#chat-side-panel').exists()).toBe(false)
+    expect(wrapper.find('.chat-project-count').exists()).toBe(false)
+    expect(wrapper.find('.chat-project-row').exists()).toBe(false)
+    expect(agentosApi.listMissions).not.toHaveBeenCalled()
     expect(workflowApi.listRuns).not.toHaveBeenCalled()
-    expect(wrapper.find('.chat-project-count').text()).toBe('2')
-    expect(wrapper.findAll('.chat-project-row')).toHaveLength(2)
     expect(wrapper.find('.sidebar-nav [index="/settings"]').exists()).toBe(false)
     expect(wrapper.find('.primary-sidebar .sidebar-settings-menu [index="/settings"]').exists()).toBe(true)
     const sidebarFooter = wrapper.find('.primary-sidebar .sidebar-footer')
     expect(sidebarFooter.find('.user-profile').element.compareDocumentPosition(sidebarFooter.find('.sidebar-settings-menu').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(wrapper.text()).toContain('供应商质量追溯')
-    expect(wrapper.text()).toContain('医院门诊优化')
     expect(wrapper.text()).not.toContain('ACG 历史记录')
     expect(wrapper.text()).not.toContain('联邦管理')
     expect(wrapper.text()).not.toContain('模型管理')
     expect(wrapper.text()).not.toContain('nav.roles')
 
-    await wrapper.findAll('.chat-project-action-trigger')[0].trigger('click')
-    await flushPromises()
-    expect(document.body.querySelector('.sidebar-action-menu')?.textContent).toContain('归档项目')
-    expect(document.body.querySelector('.sidebar-action-menu')?.textContent).toContain('删除项目')
-
-    await wrapper.findAll('.chat-project-item')[0].trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.params.missionId).toBe('mission_1')
-    expect(router.currentRoute.value.query.runId).toBe('run_2')
-
     wrapper.unmount()
   })
 
-  it('routes the Agent history shortcut to the unified ACG history tab', async () => {
+  it('routes the chat panel history shortcut to the chat history tab', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -275,7 +250,7 @@ describe('Workbench / OScode shell', () => {
         { path: '/agentos/acg', component: { template: '<div />' } }
       ]
     })
-    await router.push('/agentos/acg')
+    await router.push('/chat?workspace=chat')
     await router.isReady()
 
     const wrapper = mount(App, {
@@ -301,10 +276,11 @@ describe('Workbench / OScode shell', () => {
     await vi.dynamicImportSettled()
     await flushPromises()
 
+    expect(wrapper.find('#chat-side-panel').exists()).toBe(true)
     await wrapper.find('.history-action').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/history')
-    expect(router.currentRoute.value.query).toMatchObject({ tab: 'acg', source: 'agent' })
+    expect(router.currentRoute.value.query).toMatchObject({ workspace: 'chat' })
 
     wrapper.unmount()
   })
