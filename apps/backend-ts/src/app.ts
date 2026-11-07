@@ -1,6 +1,10 @@
 import Fastify from 'fastify';
 import type { Config } from './config.js';
 import { loadIdentity, type LocalIdentity } from './identity.js';
+import { createDatabase } from './db.js';
+import { registerPlatform } from './platform.js';
+import { registerChat } from './chat.js';
+import { PythonGateway, registerGateway } from './gateway.js';
 
 declare module 'fastify' {
   interface FastifyRequest { localIdentity: Readonly<LocalIdentity> | null }
@@ -14,7 +18,7 @@ function hasIdentityClaim(value: unknown): boolean {
   const pending = [value];
   while (pending.length) {
     const item = pending.pop();
-    if (!item || typeof item !== 'object') continue;
+    if (!item || typeof item !== 'object' || Buffer.isBuffer(item)) continue;
     for (const [key, child] of Object.entries(item)) {
       if (key.split(/[\[\].]/).some(part => authorityFields.has(part.replace(/[_-]/g, '').toLowerCase()))) {
         return true;
@@ -27,16 +31,32 @@ function hasIdentityClaim(value: unknown): boolean {
 
 export async function createApp(config: Config) {
   const state = await loadIdentity(config);
+  const db = createDatabase(config);
+  // An idle connection failure must not become an unhandled EventEmitter error.
+  db.on('error', () => undefined);
+  const gateway = new PythonGateway(config);
   const app = Fastify({
     logger: false,
     trustProxy: false,
-    bodyLimit: 16 * 1024,
-    requestTimeout: 5000,
-    connectionTimeout: 5000,
+    bodyLimit: 32 * 1024 * 1024,
+    requestTimeout: 120000,
+    connectionTimeout: 0,
     forceCloseConnections: 'idle',
     return503OnClosing: true,
   });
   app.decorateRequest('localIdentity', null);
+  app.setErrorHandler((error, request, reply) => {
+    const failure = error as { statusCode?: number; code?: string; message?: string };
+    if (failure.code === '23505') {
+      return reply.code(409).send({ error: 'RESOURCE_CONFLICT', message: '资源已存在，请使用其他名称' });
+    }
+    const status = typeof failure.statusCode === 'number' ? failure.statusCode : 500;
+    if (status >= 500) {
+      request.log.error({ code: failure.code ?? 'BACKEND_REQUEST_FAILED' }, 'Backend request failed');
+      return reply.code(status).send({ error: 'BACKEND_REQUEST_FAILED', message: '平台服务请求失败' });
+    }
+    return reply.code(status).send({ error: failure.code ?? 'INVALID_REQUEST', message: failure.message });
+  });
 
   app.addHook('onRequest', async (request, reply) => {
     const address = app.server.address();
@@ -57,11 +77,17 @@ export async function createApp(config: Config) {
     }
     if (origin !== undefined) {
       reply.header('Access-Control-Allow-Origin', origin).header('Vary', 'Origin');
+      reply.header('Access-Control-Expose-Headers', 'Content-Disposition, Content-Range, X-Request-Id, X-Context-Id, X-Chat-Context-Id, X-Chat-Request-Id, X-RAG-Download-Source, X-Mission-Launch-Conflict');
+    }
+    if (request.method === 'OPTIONS' && origin) {
+      return reply.header('Access-Control-Allow-Methods', 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS')
+        .header('Access-Control-Allow-Headers', 'Content-Type, X-Zhiyi-Local-Request, Last-Event-ID')
+        .code(204).send();
     }
     reply.header('Cache-Control', 'no-store');
     const path = request.url.split('?')[0];
     const health = ['GET', 'HEAD'].includes(request.method)
-      && ['/health/live', '/health/ready'].includes(path);
+      && ['/health/live', '/health/ready', '/api/health/ready', '/api/health/live'].includes(path);
     if (!health) {
       if (!origin) return reply.code(403).send({ error: 'LOCAL_ORIGIN_REQUIRED' });
       if (!state.identity) return reply.code(503).send({ error: state.error });
@@ -77,9 +103,22 @@ export async function createApp(config: Config) {
       return reply.code(403).send({ error: 'IDENTITY_OVERRIDE_FORBIDDEN' });
     }
   });
-  app.get('/health/live', async () => ({ status: 'UP' }));
-  app.get('/health/ready', async (_request, reply) => state.identity
-    ? { status: 'UP' }
-    : reply.code(503).send({ status: 'DOWN', reason: state.error }));
+  for (const path of ['/health/live', '/api/health/live']) app.get(path, async () => ({ status: 'UP' }));
+  for (const path of ['/health/ready', '/api/health/ready']) app.get(path, async (_request, reply) => {
+    if (!state.identity) return reply.code(503).send({ status: 'DOWN', reason: state.error });
+    if (!config.databaseUrl && !process.env.PGHOST) {
+      return reply.code(503).send({ status: 'DOWN', reason: 'DATABASE_NOT_CONFIGURED' });
+    }
+    try {
+      const result = await db.query('SELECT id FROM users WHERE id=$1', [state.identity.actorId]);
+      if (result.rowCount !== 1) throw new Error('Owner missing');
+      return { status: 'UP' };
+    } catch { return reply.code(503).send({ status: 'DOWN', reason: 'DATABASE_NOT_READY' }); }
+  });
+  await registerPlatform(app, db, config);
+  await registerChat(app, db, gateway, config);
+  registerGateway(app, gateway);
+  app.addHook('preClose', async () => gateway.close());
+  app.addHook('onClose', async () => db.end());
   return app;
 }

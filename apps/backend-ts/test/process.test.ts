@@ -53,7 +53,7 @@ it('runs compiled Node entry twice with the same read-only identity and exits cl
         const status = await new Promise<number | undefined>((resolve, reject) => {
           get(address + '/health/ready', response => { response.resume(); resolve(response.statusCode); }).on('error', reject);
         });
-        expect(status).toBe(200);
+        expect(status).toBe(503); // identity is valid, but this isolated process has no database
       } finally { expect(await stop(running.child, running.exited)).toBe(0); }
       expect(running.diagnostics()).toBe('');
       expect(await readFile(f.file)).toEqual(original);

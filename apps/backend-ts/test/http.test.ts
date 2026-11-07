@@ -56,8 +56,8 @@ describe('real loopback HTTP contracts', () => {
   });
   afterAll(async () => { await app?.close(); await f?.cleanup(); });
 
-  it('reports live/ready without disclosing identity or requiring an Origin', async () => {
-    for (const path of ['/health/live', '/health/ready']) {
+  it('reports liveness without disclosing identity or requiring an Origin', async () => {
+    for (const path of ['/health/live']) {
       const result = await call(port, path);
       expect(result.status).toBe(200); expect(JSON.parse(result.body)).toEqual({ status: 'UP' });
       expect(result.headers['cache-control']).toBe('no-store');
