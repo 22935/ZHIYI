@@ -1,10 +1,10 @@
 """知弈 AgentOS 内部发行版启动器（product 模式）。
 
 与 N03 开发栈的区别（刻意为之）：
-1. 二进制全部来自随包 runtime\\，不碰 PATH 上的 JDK / Node / Python / PostgreSQL；
+1. 二进制全部来自随包 runtime\\，不碰 PATH 上的 Node / Python / PostgreSQL；
 2. **不启动 Vite**：桌面壳直接用 asar 产物（kinlin-app://shell）；
-3. 端口被占用时**只报错不杀进程**（N03 的 takeover 语义属于开发栈，产品里会误杀用户程序）；
-4. 首次启动自动注册本地账号并保存到 DPAPI，界面不出现登录页；
+3. 端口被占用时**只报错不杀进程**；
+4. 首次启动建立本机身份，保留已有 Home 的历史身份；
 5. 不注入任何模型 Key：用户在 Settings 里自配，重启后生效。
 
 复用 N03 的成熟部件：DPAPI 凭据、端口偏移、日志目录、schema 准备、workspace grant、
@@ -22,8 +22,6 @@ import socket
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 
 # 产品根 = ops/scripts/release/product_runtime.py 的上三层
@@ -43,7 +41,6 @@ import desktop_runtime as desktop  # noqa: E402
 persistent.ROOT = PRODUCT_ROOT
 
 FORMAT = persistent.FORMAT
-LOCAL_USER = "zhiyi"
 DEFAULT_HOME = PRODUCT_ROOT / "data-home"
 SHELL_EXE_NAME = "Zhiyi AgentOS Electron.exe"
 
@@ -52,7 +49,6 @@ def runtime_paths() -> dict[str, Path]:
     runtime = PRODUCT_ROOT / "runtime"
     return {
         "python": runtime / "python/python.exe",
-        "jre": runtime / "jre/bin/java.exe",
         "node": runtime / "node/node.exe",
         "postgres_bin": runtime / "pgsql/bin",
         "memurai": runtime / "memurai/memurai.exe",
@@ -71,10 +67,10 @@ def fail(message: str) -> None:
 def prepare_environment() -> None:
     """把随包二进制放到 PATH 最前面。
 
-    native_runtime / terminal_service 内部用 shutil.which('node'|'java') 解析解释器，
+    native_runtime / terminal_service 内部用 shutil.which('node') 解析解释器，
     这里统一改 PATH 比逐个改它们的调用点更稳，也避免误用用户机器上的同名程序。
     """
-    front = [PATHS["node"].parent, PATHS["jre"].parent, PATHS["postgres_bin"]]
+    front = [PATHS["node"].parent, PATHS["postgres_bin"]]
     parts = [str(p) for p in front if p.is_dir()]
     os.environ["PATH"] = os.pathsep.join(parts + [os.environ.get("PATH", "")])
     # 本机（及部分开发机）会把 Electron 二进制当 node 用；产品壳必须排除该变量，
@@ -153,14 +149,14 @@ def occupied_ports(info: dict) -> list[tuple[str, int]]:
 
     只检查产品真正会绑定的端口；frontend/debug 是 N03 开发栈专用的，产品不用。
     """
-    used = ("postgres", "redis", "ai", "host", "java", "terminal")
+    used = ("postgres", "redis", "ai", "host", "backend", "terminal")
     ports = persistent.ports(info)
     return [(name, ports[name]) for name in used if not port_free(ports[name])]
 
 
 def pick_port_offset() -> int:
     """挑一个整组端口都空闲的偏移，供 init 一次性固定下来。"""
-    used = ("postgres", "redis", "ai", "host", "java", "terminal")
+    used = ("postgres", "redis", "ai", "host", "backend", "terminal")
     for offset in range(0, 40):
         ports = persistent.ports({"portOffset": offset})
         if all(port_free(ports[name]) for name in used):
@@ -194,7 +190,7 @@ def initialize(home: Path) -> dict:
     # 不预置模型 Key：用户在产品内配置。deepseek 保留空串是因为
     # persistent_runtime.env_for() 会无条件读取该键，空串等价于“未配置”。
     creds = {name: secrets.token_hex(32)
-             for name in ("pgadmin", "db", "redis", "jwt", "token", "hmac", "test_password")}
+             for name in ("pgadmin", "db", "redis", "token", "hmac")}
     creds.update(key=base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(), deepseek="")
     (home / "credentials.dpapi").write_bytes(native.dpapi(json.dumps(creds).encode()))
 
@@ -208,13 +204,13 @@ def initialize(home: Path) -> dict:
         "memurai": str(PATHS["memurai"]),
         "database": "zhiyi",
         "databaseRole": "zhiyi_app",
-        "redisDatabases": {"java": 0, "coordination": 1, "providerState": 2},
+        "redisDatabases": {"backend": 0, "coordination": 1, "providerState": 2},
         "created": datetime.now(timezone.utc).isoformat(),
         "redisLicense": "Memurai Developer; development/testing only; 10-day maximum uptime",
         "initialized": False,
         "portOffset": offset,
         "backend": "hands",
-        "backendJar": str(PRODUCT_ROOT / "apps/backend/kinlin-backend-1.0.0.jar"),
+        "backendEntry": str(PRODUCT_ROOT / "apps/backend-ts/dist/main.js"),
         "authMode": "local",
     }
     native.write_json(home / "environment.json", info)
@@ -224,59 +220,10 @@ def initialize(home: Path) -> dict:
 
 
 # ---------------------------------------------------------------- HTTP
-def http_json(method: str, url: str, payload: dict | None = None, timeout: float = 15.0) -> tuple[int, dict]:
-    body = json.dumps(payload).encode() if payload is not None else None
-    request = urllib.request.Request(url, data=body, method=method,
-                                     headers={"Content-Type": "application/json"})
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    try:
-        with opener.open(request, timeout=timeout) as response:
-            raw = response.read().decode("utf-8", "replace")
-            return response.status, (json.loads(raw) if raw.strip() else {})
-    except urllib.error.HTTPError as error:
-        raw = error.read().decode("utf-8", "replace")
-        try:
-            return error.code, json.loads(raw) if raw.strip() else {}
-        except json.JSONDecodeError:
-            return error.code, {"message": raw[:200]}
-
-
 def api_base(info: dict) -> str:
-    return f"http://127.0.0.1:{persistent.ports(info)['java']}"
+    return f"http://127.0.0.1:{persistent.ports(info)['backend']}"
 
 
-def ensure_local_account(home: Path, info: dict) -> dict:
-    """首启建本地账号；以后复用。凭据只进 DPAPI，渲染层永远拿不到密码。"""
-    creds = native.credentials(home)
-    if creds.get("accountUser") and creds.get("accountPassword"):
-        return creds
-    username = LOCAL_USER
-    password = secrets.token_urlsafe(24)
-    base = api_base(info)
-    status, payload = http_json("POST", f"{base}/auth/register",
-                                {"username": username, "password": password})
-    if status == 200 and payload.get("token"):
-        creds.update(accountUser=username, accountPassword=password)
-    elif status == 400 and "已存在" in str(payload.get("message", "")):
-        # 换过 home 但复用同一数据库时的兜底；密码无法恢复，直接生成新账号名。
-        username = f"{LOCAL_USER}-{secrets.token_hex(3)}"
-        status, payload = http_json("POST", f"{base}/auth/register",
-                                    {"username": username, "password": password})
-        if not payload.get("token"):
-            fail(f"本地账号创建失败: HTTP {status} {payload.get('message', '')}")
-        creds.update(accountUser=username, accountPassword=password)
-    else:
-        fail(f"本地账号创建失败: HTTP {status} {payload.get('message', '')}")
-
-    # 注册成功即已登录；这里立刻验证一次，避免把不可用凭据写进 DPAPI。
-    verify = http_json("POST", f"{base}/auth/login", {"username": username, "password": password})
-    if not verify[1].get("token"):
-        fail(f"本地账号登录校验失败: HTTP {verify[0]}")
-    (home / "credentials.dpapi").write_bytes(native.dpapi(json.dumps(creds).encode()))
-    return creds
-
-
-# ---------------------------------------------------------------- 启动/停止
 def start_service(home: Path, session: str, state: dict, name: str, command: list[str], env: dict):
     record = native.spawn(home, f"logs/{session}/{name}", command, env)
     state["processes"][name] = record
@@ -368,9 +315,6 @@ def shell_environment(home: Path, info: dict, creds: dict) -> dict:
     env = {key: value for key, value in os.environ.items() if key.upper() in allowed}
     env.update({
         "KINLIN_API_ORIGIN": api_base(info),
-        "KINLIN_AUTH_MODE": "local",
-        "KINLIN_BOOTSTRAP_USER": creds.get("accountUser", ""),
-        "KINLIN_BOOTSTRAP_PASSWORD": creds.get("accountPassword", ""),
         "KINLIN_APP_VERSION": native.read_json(PRODUCT_ROOT / "product.json").get("version", "")
         if (PRODUCT_ROOT / "product.json").exists() else "",
     })
@@ -427,6 +371,17 @@ def up(home: Path, *, window: bool = True) -> dict:
                                             f"'{creds['db']}';")
             if not persistent.sql(info, creds, "SELECT 1 FROM pg_database WHERE datname='zhiyi';"):
                 persistent.sql(info, creds, "CREATE DATABASE zhiyi OWNER zhiyi_app;")
+        if not info["initialized"]:
+            info["initialized"] = True
+            native.write_json(home / "environment.next.json", info)
+            (home / "environment.next.json").replace(home / "environment.json")
+        backend_env = persistent.prepare_platform(home, info, creds)
+        backend_env.pop("ZHIYI_BACKEND_TS_DEV_ORIGIN", None)
+        backend = start_service(home, session, state, "backend", [
+            str(PATHS["node"]), str(PRODUCT_ROOT / "apps/backend-ts/dist/main.js")], backend_env)
+        desktop.wait_until(
+            lambda: native.health(persistent.ports(info)["backend"], "/health/ready").get("status") == "UP",
+            backend, 90)
         start_redis(home, info, creds, session, state)
         persistent.schema(home, env, not (home / "data").exists())
         persistent.prepare_workspace_grants(home, info, env)
@@ -439,15 +394,6 @@ def up(home: Path, *, window: bool = True) -> dict:
             lambda: native.health(persistent.ports(info)["ai"], "/health/ready").get("status") == "UP",
             ai, 240)
 
-        java_env = persistent.java_environment(home, info, creds)
-        java_env["CORS_ALLOWED_ORIGINS"] = "kinlin-app://shell"
-        java = start_service(home, session, state, "java", [
-            str(PATHS["jre"]), "-jar", info["backendJar"]], java_env)
-        desktop.wait_until(
-            lambda: native.health(persistent.ports(info)["java"], "/actuator/health/readiness").get("status") == "UP",
-            java, 240)
-
-        creds = ensure_local_account(home, info)
         windows = start_shell(home, info, creds, session, state) if window else []
         if not info["initialized"]:
             info["initialized"] = True
@@ -494,7 +440,6 @@ def open_window(home: Path) -> dict:
         if windows:
             return {"status": "UP", "desktopWindows": windows}
     session = state.get("session") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    creds = ensure_local_account(home, info)
     windows = start_shell(home, info, creds, session, state)
     return {"status": "UP", "desktopWindows": windows}
 

@@ -16,7 +16,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Frontend-Vue%203-42b883?style=flat-square&logo=vue.js" alt="Vue 3">
-  <img src="https://img.shields.io/badge/Backend-Spring%20Boot%203.2-6db33f?style=flat-square&logo=spring" alt="Spring Boot">
+  <img src="https://img.shields.io/badge/Backend-TypeScript%20%2B%20Fastify-3178c6?style=flat-square&logo=typescript" alt="TypeScript + Fastify">
   <img src="https://img.shields.io/badge/Runtime-FastAPI-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Core-Python%203.14-3776ab?style=flat-square&logo=python" alt="Python">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=flat-square" alt="Platform">
@@ -149,7 +149,7 @@
 ### 前置条件
 
 - **Windows 11**（当前唯一支持的本地原生持久运行形态；不再需要 Docker Desktop / WSL 容器）
-- JDK 21（N03 运行时；后端编译目标 Java 17）、Maven、Node.js 18+、Python 3.14
+- Node.js 24 LTS、Python 3.14
 - Git
 
 PostgreSQL 15.19、Memurai 4.1.2 与 Python 3.14 venv 由
@@ -166,9 +166,10 @@ $py = "$env:LOCALAPPDATA\ZhiyiNative\python\Scripts\python.exe"
 & $py -m pip install --require-hashes --only-binary=:all: -r apps/agent/requirements.lock -r apps/agent/requirements.native-tools.lock
 & $py ops/scripts/infra/windows/native/prepare_persistent_dependencies.py
 
-# 2. 构建后端 jar
-Push-Location apps/backend
-mvn -DskipTests package
+# 2. 构建 TypeScript 后端
+Push-Location apps/backend-ts
+npm ci
+npm run build
 Pop-Location
 
 # 3. 首次：初始化独立 home（模型 Key 由 DPAPI 保存；路径仅首次可指定）
@@ -183,8 +184,8 @@ $homeDir = "$env:LOCALAPPDATA\ZhiyiNative\default"
 ```
 
 默认 loopback 端口：PostgreSQL 15432、Memurai 16379、Python 18761、知行 Host 18765、
-Java 18080、Vite 15200；`-Desktop` 额外使用 Chromium CDP 19222。
-首次通过桌面注册/登录；后续 `up` 复用同一 home、同一身份与全部数据，不重建数据库。
+TypeScript Backend 18080、Vite 15200；`-Desktop` 额外使用 Chromium CDP 19222。
+启动后自动就绪本机身份，无账号密码；后续 `up` 复用同一 home、同一身份与全部数据，不重建数据库。
 
 ### 桌面热更新开发
 
@@ -195,7 +196,7 @@ N03 栈运行时（无需 `-Desktop`）：
 .\ops\scripts\start-desktop-hot.ps1
 ```
 
-热更新链固定 Vite 15100，代理默认直连 N03 Java 18080；关闭桌面窗口即结束本次开发运行。
+热更新链固定 Vite 15100，代理默认直连 N03 TypeScript Backend 18080；关闭桌面窗口即结束本次开发运行。
 
 ---
 
@@ -208,9 +209,11 @@ python -m pytest tests -q
 Set-Location ../agent
 python -m pytest tests -q
 
-# Spring 后端的真实 PostgreSQL/Redis 契约测试由测试 JVM 自管临时实例，不需要 Docker
-Set-Location ../backend
-mvn -B -ntp test
+# TypeScript 平台服务（不依赖 JVM）
+Set-Location ../backend-ts
+npm ci
+npm run typecheck
+npm test
 
 Set-Location ../frontend
 npm ci
@@ -223,7 +226,7 @@ npm run test
 | :-------------------------- | ---------------------------: | :-------------------------------------------------------------------- |
 | AgentOS Kernel              |         **1730 cases** | ACG 节点/边模型、图执行、通信、记忆、恢复、规划提交、图修订、资源调度 |
 | Agent Runtime / API / Packs |      见 `apps/agent/tests` | 规划器、通信器、执行器、领域 Packs、SSE 流式事件                      |
-| Spring Gateway              | 见 `apps/backend/src/test` | 鉴权、安全契约、可观测性契约、架构守卫、自管 PG/Redis 集成测试       |
+| TypeScript Backend          | 见 `apps/backend-ts/test` | 本机身份、PostgreSQL 业务、Python Gateway 与 SSE |
 | Milan Frontend              |     见 `apps/frontend/src` | 视图、组件、状态与交互回归                                            |
 
 ### 最近一次完整收束基线（2026-08-19）
@@ -232,9 +235,9 @@ npm run test
 | :------------------------------------------ | --------------------------------------------------------------: |
 | AgentOS Kernel                              |                                            **187 passed** |
 | Python Application / Packs / AgentOS v2 API |                                 **102 passed**, 1 skipped |
-| Spring Gateway                              |                                            **132 passed** |
+| TypeScript Backend / Gateway                 |                    由 `apps/backend-ts` 当前测试覆盖 |
 | Milan Frontend                              |                            **24 files, 115 tests passed** |
-| N03 原生栈健康检查                          | PostgreSQL / Memurai / AI / Host / Java / Vite 全部 UP          |
+| N03 原生栈健康检查                          | PostgreSQL / Memurai / AI / Host / Node Backend / Vite 全部 UP |
 
 > 内核套件已从 187 项增长到 1730 项。代码变更后必须重新执行，历史数字不代表当前结果。
 
@@ -254,7 +257,7 @@ npm run test
 │   ├── agent/                  # FastAPI 运行时
 │   │   ├── app/                #   Composition Root · API · 适配器
 │   │   └── packs/              #   通用 Agent Pack（当前仅 workspace）
-│   ├── backend/                # Spring Boot 业务与安全边界
+│   ├── backend-ts/             # Fastify 平台业务、数据访问与 Python 网关
 │   ├── frontend/               # Vue 3 · Milan 工作台 + ACG 可视化
 │   └── desktop/                # Electron 桌面壳
 ├── contracts/                  # AgentOS v2 接口契约

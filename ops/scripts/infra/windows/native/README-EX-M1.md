@@ -2,13 +2,13 @@
 
 > 范围说明：下文 M1 的端口、固定工作区和历史桌面证据仅代表 M1。
 > 当前入口的 `-Desktop` 启动 Electron；动态工作区必须在 Electron 中选择候选目录，
-> 再由登录用户通过 WorkspaceAuthority 授权。目录选择 IPC 本身不签发 Grant。
+> 再由本机身份通过 WorkspaceAuthority 授权。目录选择 IPC 本身不签发 Grant。
 > Electron、动态授权、正式 ACG 开发及冷重启的本次证据见
 > [M2B 验收记录](../../../../../docs/开发记录/PR-EX-M1-M2B-执行闭环与工作区授权-合并记录.md)。
 
-沿用 [N03 环境](README-N03.md) 的 PostgreSQL、Memurai、DPAPI、Workflow SQLite、Java 和 Python 服务。
+沿用 [N03 环境](README-N03.md) 的 PostgreSQL、Memurai、DPAPI、Workflow SQLite、TypeScript Backend 和 Python 服务。
 Hands 是独立 Node.js 服务，源代码仅从本仓 `apps/hands` 加载；不读取原 zhi-xing 仓库。
-默认 `Backend=python` 保留原 Local Runtime，`Backend=hands` 使用同一 ResourcePlane/HMAC/Grant 选择 Hands。
+默认使用 Hands 执行后端与同一 ResourcePlane/HMAC/Grant 选择。
 
 ## 构建
 
@@ -16,9 +16,10 @@ Hands 是独立 Node.js 服务，源代码仅从本仓 `apps/hands` 加载；不
 pnpm --dir apps/hands install --frozen-lockfile
 pnpm --dir apps/hands exec tsc --noEmit
 pnpm --dir apps/hands test
-# 为并行环境构建独立 Java JAR，避免覆盖正在使用的原 target。
-Push-Location apps/backend
-mvn.cmd -DskipTests '-Dzhiyi.build.directory=C:/build/zhiyi-ex-m1/backend' package
+# 构建 TypeScript Backend，不依赖 JVM。
+Push-Location apps/backend-ts
+npm ci
+npm run build
 Pop-Location
 ```
 
@@ -30,8 +31,7 @@ Pop-Location
 ```powershell
 $profileHome = "$env:LOCALAPPDATA\ZhiyiNative\ex-m1"
 $entry = '.\ops\scripts\infra\windows\native\persistent.ps1'
-& $entry init -HomeDir $profileHome -Backend hands -PortOffset 200 `
-  -BackendJar 'C:\build\zhiyi-ex-m1\backend\kinlin-backend-1.0.0.jar' `
+& $entry init -HomeDir $profileHome -PortOffset 200 `
   -TestPython 'C:\test-tools\Scripts\python.exe'
 & $entry up -HomeDir $profileHome -Desktop
 & $entry status -HomeDir $profileHome
@@ -41,8 +41,8 @@ $entry = '.\ops\scripts\infra\windows\native\persistent.ps1'
 ```
 
 本轮真实环境为 `%LOCALAPPDATA%\ZhiyiNative\ex-m1-20261029`；测试 Python 位于其 `test-python`。
-端口为 PostgreSQL 15632、Memurai 16579、Python 18961、Hands 18965、Java 18280、前端 15400、桌面 CDP 19422。
-默认环境不参与这些启停命令。现有桌面入口用于验收，Electron 迁移不在本轮范围。
+端口为 PostgreSQL 15632、Memurai 16579、Python 18961、Hands 18965、Node Backend 18280、前端 15400、桌面 CDP 19422。
+默认环境不参与这些启停命令。现有桌面入口用于验收，Electron 与 TypeScript Backend 通过同一 LocalIdentity 运行。
 
 ## 数据和权限
 

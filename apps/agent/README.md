@@ -36,7 +36,7 @@ python -m pytest tests
 
 ## 主要 API
 
-通过 Spring Boot Gateway 访问时，前端主要使用 `/ai/core/**`。Python Agent 直接暴露同名 AgentOS Core API：
+通过本地 TypeScript Gateway 访问时，前端主要使用 `/ai/core/**`。Python Agent 直接暴露同名 AgentOS Core API：
 
 ```text
 POST /ai/core/tasks

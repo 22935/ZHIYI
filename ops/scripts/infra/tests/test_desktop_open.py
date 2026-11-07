@@ -11,10 +11,10 @@ import persistent_runtime as runtime
 
 def setup_runtime(monkeypatch, tmp_path, desktop_alive=False):
     processes = {name: {'pid': index} for index, name in enumerate(
-        ('postgres', 'redis', 'host', 'ai', 'java', 'frontend', 'desktop', 'terminal'), 1)}
+        ('postgres', 'redis', 'host', 'ai', 'backend', 'frontend', 'desktop', 'terminal'), 1)}
     state = {'processes': processes}
     snapshot = {'services': {name: {'alive': name != 'desktop' or desktop_alive} for name in processes},
-                'runtime': {'coreReady': True}, 'postgresReady': True, 'redisReady': True, 'javaReady': True,
+                'runtime': {'coreReady': True}, 'postgresReady': True, 'redisReady': True, 'backendReady': True,
                 'status': 'UP' if desktop_alive else 'DOWN'}
     monkeypatch.setattr(runtime, 'manifest', lambda home: {})
     monkeypatch.setattr(runtime, 'state_for', lambda home: state)
@@ -46,10 +46,10 @@ def test_existing_window_is_focused_without_spawning(monkeypatch, tmp_path):
 
 def test_partial_environment_is_never_automatically_restarted(monkeypatch, tmp_path):
     _, snapshot = setup_runtime(monkeypatch, tmp_path)
-    snapshot['services']['java']['alive'] = False
+    snapshot['services']['backend']['alive'] = False
     start = Mock()
     monkeypatch.setattr(runtime, 'up', start)
-    with pytest.raises(RuntimeError, match='partially running; unavailable: java'):
+    with pytest.raises(RuntimeError, match='partially running; unavailable: backend'):
         runtime.open_desktop(tmp_path)
     start.assert_not_called()
 
@@ -60,7 +60,7 @@ def test_closed_shell_reopens_with_same_home_and_without_secrets(monkeypatch, tm
     monkeypatch.setenv('AI_INTERNAL_TOKEN', 'private-test-value')
     monkeypatch.setenv('ELECTRON_RUN_AS_NODE', '1')
     release = Mock()
-    monkeypatch.setattr(runtime.native, 'release_port', release)
+    monkeypatch.setattr(runtime.native, 'port_free', release)
     monkeypatch.setattr(runtime.desktop_shell, 'desktop_command', Mock(return_value=(['electron'], tmp_path)))
     spawn = Mock(return_value={'pid': 88})
     monkeypatch.setattr(runtime.desktop, 'spawn_app', spawn)

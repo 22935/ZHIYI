@@ -1,8 +1,9 @@
-"""Cross-process Runtime Streaming acceptance for the Java -> Python SSE chain.
+"""Cross-process Runtime Streaming acceptance for the TypeScript -> Python SSE chain.
 
 This script is intentionally outside the production runtime and is not a second
 streaming implementation. It starts the existing Python router and the current
-Backend jar, then drives the public Java HTTP gateway with a dev-profile JWT.
+compiled Node backend, then drives its real HTTP gateway with an isolated LocalIdentity.
+The model provider is a deterministic local HTTP fixture; no external model is claimed.
 """
 
 from __future__ import annotations
@@ -42,7 +43,11 @@ for import_root in (
 from app.security.internal_auth import InternalServiceAuthMiddleware
 from app.api.agentos_v2 import create_router
 from app.execution.coordinator import RunExecutionCoordinator
+from app.execution.wiring import aclose_runtime
+from contracts.planning import PlannedTask, TaskImplementationBinding, TaskPlan
 from runtime.live_events import RuntimeEventBroker
+from support.acg.models import ACGBlueprint, StepNode
+from support.acg.planning import ACGResourcePlan, AgentBindingSpec
 
 import app.api.agentos_v2 as agentos_v2
 import components.executor.node_runner as node_runner
@@ -60,7 +65,7 @@ RegisteredModelRuntime = production_e2e.RegisteredModelRuntime
 
 
 INTERNAL_TOKEN = "combined-runtime-streaming-acceptance-token-20260903"
-JWT_SECRET = "combined-runtime-streaming-dev-jwt-secret-20260903-" + "x" * 32
+ACTOR_ID = "11111111-1111-4111-8111-111111111111"
 
 
 class TrackingBroker(RuntimeEventBroker):
@@ -72,7 +77,7 @@ class TrackingBroker(RuntimeEventBroker):
     async def subscribe(self, run_id: str):
         # The parent generator registers its queue synchronously before the
         # first await. Setting this immediately before entering it lets the
-        # orchestration task start Runtime only after Java has reached Python.
+        # orchestration task start Runtime only after TypeScript has reached Python.
         self.subscription_ready.set()
         try:
             async for event in super().subscribe(run_id):
@@ -87,35 +92,27 @@ def _free_port() -> int:
         return int(listener.getsockname()[1])
 
 
-def _start_java_gateway(python_base_url: str) -> tuple[subprocess.Popen[str], str, list[str]]:
-    jar = PROJECT_ROOT / "apps" / "backend" / "target" / "kinlin-backend-1.0.0.jar"
-    if not jar.is_file():
-        raise RuntimeError(
-            f"current Backend jar is missing: {jar}; run mvn -q -DskipTests package first"
-        )
+def _start_backend_gateway(python_base_url: str, directory: Path) -> tuple[subprocess.Popen[str], str, list[str]]:
+    entry = PROJECT_ROOT / "apps/backend-ts/dist/main.js"
+    if not entry.is_file():
+        raise RuntimeError("Build apps/backend-ts first: npm run build")
     port = _free_port()
+    identity = directory / "gateway-identity.json"
+    identity.write_text(json.dumps({"format": "zhiyi-local-identity-v1", "version": 1,
+        "actorId": ACTOR_ID, "legacyUserId": ACTOR_ID, "wireTenantId": None,
+        "homeBinding": "isolated-streaming-acceptance"}), encoding="utf-8")
     env = os.environ.copy()
     env.update({
-        "SPRING_PROFILES_ACTIVE": "dev",
-        "SERVER_ADDRESS": "127.0.0.1",
-        "SERVER_PORT": str(port),
-        "AI_SERVICE_URL": python_base_url,
-        "AI_INTERNAL_TOKEN": INTERNAL_TOKEN,
-        "AI_INTERNAL_REQUIRED": "true",
-        "APP_JWT_SECRET": JWT_SECRET,
-        "AGENT_ENABLED": "true",
-        "LOGGING_LEVEL_ROOT": "WARN",
-        "LOGGING_LEVEL_COM_KINLIN_AI": "WARN",
+        "ZHIYI_BACKEND_TS_PORT": str(port),
+        "ZHIYI_BACKEND_TS_IDENTITY_FILE": str(identity),
+        "ZHIYI_BACKEND_TS_EXPECTED_USER_ID": ACTOR_ID,
+        "ZHIYI_BACKEND_TS_HOME_BINDING": "isolated-streaming-acceptance",
+        "AI_SERVICE_URL": python_base_url, "AI_INTERNAL_TOKEN": INTERNAL_TOKEN,
     })
     process = subprocess.Popen(
-        ["java", "-jar", str(jar)],
-        cwd=PROJECT_ROOT / "apps" / "backend",
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        [shutil.which("node"), str(entry)], cwd=directory, env=env,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        encoding="utf-8", errors="replace", creationflags=(subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0),
     )
     output: list[str] = []
 
@@ -139,22 +136,22 @@ def _stop_process(process: subprocess.Popen[str]) -> None:
         process.wait(timeout=5)
 
 
-async def _wait_java_ready(base_url: str, process: subprocess.Popen[str], logs: list[str]) -> None:
+async def _wait_backend_ready(base_url: str, process: subprocess.Popen[str], logs: list[str]) -> None:
     deadline = time.monotonic() + 45
     async with httpx.AsyncClient(timeout=1) as client:
         while time.monotonic() < deadline:
             if process.poll() is not None:
                 tail = "\n".join(logs[-30:])
-                raise RuntimeError(f"Java gateway exited with {process.returncode}\n{tail}")
+                raise RuntimeError(f"TypeScript gateway exited with {process.returncode}\n{tail}")
             try:
-                response = await client.get(f"{base_url}/health")
+                response = await client.get(f"{base_url}/health/live")
                 if response.status_code == 200:
                     return
             except httpx.HTTPError:
                 pass
             await asyncio.sleep(0.25)
     tail = "\n".join(logs[-30:])
-    raise TimeoutError(f"Java gateway did not become ready\n{tail}")
+    raise TimeoutError(f"TypeScript gateway did not become ready\n{tail}")
 
 
 async def _start_http_app_async(app: FastAPI) -> tuple[uvicorn.Server, asyncio.Task[None], str]:
@@ -178,10 +175,35 @@ def _event_payload(event_type: str, data: str) -> dict[str, Any]:
     return payload
 
 
-async def _read_java_events(
+def _bind_native_plan(runtime, mission) -> None:
+    """Supply the explicit plan package required by the current Runtime contract.
+
+    WorkflowStepDefinition is a registration hint; Runtime deliberately no longer
+    promotes it into an executable plan. This isolated acceptance supplies its own
+    one-node TaskPlan, Blueprint and bindings without changing execution policy.
+    """
+    agent = next(iter(runtime.agent_registry.all()))
+    blueprint = ACGBlueprint(
+        graphId="combined-native-streaming-graph",
+        nodes=[StepNode(nodeId="understand", name="Understand streamed task",
+                        goal="consume the native streaming model", capability="task_understanding")],
+        edges=[],
+        resourcePlan=ACGResourcePlan(bindings=(AgentBindingSpec(
+            stepId="understand", plannedAgentId=agent.profile.agent_name),)),
+    )
+    plan = TaskPlan(missionId=mission.mission_id, nodes=(PlannedTask(
+        key="step:understand", title="Understand streamed task", objective="consume the native streaming model",
+        capabilityRequirements=("task_understanding",), logicalRole="task"),))
+    binding = TaskImplementationBinding(planNodeKey="step:understand", acgNodeId="understand")
+    mission.input.update(acgBlueprint=blueprint.model_dump(by_alias=True, mode="json"),
+                         taskPlan=plan.model_dump(by_alias=True, mode="json"),
+                         taskBindings=[binding.model_dump(by_alias=True, mode="json")])
+    runtime.workflow_store.save_mission(mission)
+
+
+async def _read_backend_events(
     client: httpx.AsyncClient,
     url: str,
-    token: str,
     *,
     disconnect_after_first: bool = False,
 ) -> tuple[list[str], list[dict[str, Any]], float | None, float | None]:
@@ -192,13 +214,13 @@ async def _read_java_events(
     async with client.stream(
         "GET",
         url,
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Origin": "kinlin-app://shell"},
     ) as response:
         if response.status_code != 200:
-            raise AssertionError(f"Java SSE status={response.status_code}: {await response.aread()}")
+            raise AssertionError(f"TypeScript SSE status={response.status_code}: {await response.aread()}")
         content_type = response.headers.get("content-type", "")
         if not content_type.startswith("text/event-stream"):
-            raise AssertionError(f"Java SSE content-type={content_type!r}")
+            raise AssertionError(f"TypeScript SSE content-type={content_type!r}")
         current_type = ""
         async for line in response.aiter_lines():
             if line.startswith("event:"):
@@ -210,9 +232,16 @@ async def _read_java_events(
                 now = time.monotonic()
                 if current_type == "model.output.delta" and first_delta_at is None:
                     first_delta_at = now
+                if current_type in {"model.output.delta", "planner.model.output.delta"}:
+                    # The local provider withholds its remaining chunks until a
+                    # real delta crossed Python -> Node -> this HTTP consumer.
+                    _StreamingProviderHandler.first_delta_ack.set()
                 if current_type == "node.completed" and node_completed_at is None:
                     node_completed_at = now
                 if disconnect_after_first and len(event_types) >= 1:
+                    # An observer must not control execution. Release the test
+                    # provider gate before deliberately closing this observer.
+                    _StreamingProviderHandler.first_delta_ack.set()
                     return event_types, payloads, first_delta_at, node_completed_at
                 if current_type == "run.completed":
                     break
@@ -224,13 +253,16 @@ async def _run_case(kind: str, *, disconnect: bool = False) -> dict[str, Any]:
     provider_thread = threading.Thread(target=provider.serve_forever, daemon=True)
     provider_thread.start()
     _StreamingProviderHandler.requests = []
+    _StreamingProviderHandler.first_delta_ack = threading.Event()
     setup = None
     python_server = None
     python_task = None
-    java_process = None
+    backend_process = None
     temp_dir = None
     stream_task = None
     execution = None
+    runtime = None
+    previous_environment: dict[str, str | None] = {}
     try:
         registry = ModelCompatibilityRegistry()
         setup = ApplicationSetup.from_environment(
@@ -239,6 +271,10 @@ async def _run_case(kind: str, *, disconnect: bool = False) -> dict[str, Any]:
         )
         await setup.start()
         temp_dir = Path(tempfile.mkdtemp(prefix=f"runtime-streaming-{kind}-"))
+        for key in ("CONTENT_MANIFEST", "EXECUTION_MEMORY", "PROVENANCE", "AUDIT", "COMMUNICATION", "EVOLUTION"):
+            variable = f"AGENTOS_{key}_DB"
+            previous_environment[variable] = os.environ.get(variable)
+            os.environ[variable] = str(temp_dir / f"{key.lower()}.sqlite3")
         runtime = _planner_runtime(temp_dir, registry) if kind == "planner" else _runtime(temp_dir, registry)
         runtime.default_model_binding = setup.default_model_binding
         if kind == "planner":
@@ -255,32 +291,25 @@ async def _run_case(kind: str, *, disconnect: bool = False) -> dict[str, Any]:
         native_module.runtime_event_broker = broker
         app = FastAPI()
         coordinator = RunExecutionCoordinator(runtime)
-        app.include_router(create_router(runtime, coordinator))
         app.include_router(create_router(runtime, coordinator), prefix="/ai")
         app.add_middleware(InternalServiceAuthMiddleware, token=INTERNAL_TOKEN)
         python_server, python_task, python_base_url = await _start_http_app_async(app)
-        java_process, java_base_url, java_logs = _start_java_gateway(python_base_url)
-        await _wait_java_ready(java_base_url, java_process, java_logs)
+        backend_process, backend_base_url, backend_logs = _start_backend_gateway(python_base_url, temp_dir)
+        await _wait_backend_ready(backend_base_url, backend_process, backend_logs)
 
-        username = f"stream_e2e_{uuid.uuid4().hex[:12]}"
-        password = "Stream-E2E-password-20260903"
         async with httpx.AsyncClient(timeout=20) as client:
-            auth = await client.post(
-                f"{java_base_url}/auth/register",
-                json={"username": username, "password": password, "email": f"{username}@example.invalid"},
-            )
-            if auth.status_code != 200:
-                raise AssertionError(f"dev auth registration failed: {auth.status_code} {auth.text}")
-            token = auth.json()["token"]
             task_record = runtime.create_mission(
                 f"Combined {kind} streaming acceptance",
                 workflow_id=f"{kind}-http-streaming-e2e",
                 input={
+                    "authenticatedUserId": ACTOR_ID,
                     "userIntent": f"run the {kind} combined streaming acceptance",
                     "usePlanner": kind == "planner",
                     "deterministicIntent": False,
                 },
             )
+            if kind == "native":
+                _bind_native_plan(runtime, task_record)
             _, prepared_run = runtime.prepare_run(
                 task_record.mission_id,
                 workflow_id=f"{kind}-http-streaming-e2e",
@@ -288,10 +317,9 @@ async def _run_case(kind: str, *, disconnect: bool = False) -> dict[str, Any]:
                 defer_acg_planning=kind == "planner",
             )
             run_id = prepared_run.run_id
-            stream_task = asyncio.create_task(_read_java_events(
+            stream_task = asyncio.create_task(_read_backend_events(
                 client,
-                f"{java_base_url}/api/agentos/v2/runs/{run_id}/events",
-                token,
+                f"{backend_base_url}/api/agentos/v2/runs/{run_id}/events",
                 disconnect_after_first=disconnect,
             ))
             await asyncio.wait_for(broker.subscription_ready.wait(), timeout=10)
@@ -338,7 +366,7 @@ async def _run_case(kind: str, *, disconnect: bool = False) -> dict[str, Any]:
             if missing:
                 raise AssertionError(f"combined Planner stream missing {missing}: {event_types}")
             planner_payloads = [
-                json.dumps(payload, ensure_ascii=False)
+                json.dumps(production_e2e._without_public_provenance(payload), ensure_ascii=False)
                 for payload in payloads
                 if payload.get("eventType", "").startswith("planner.")
             ]
@@ -358,14 +386,16 @@ async def _run_case(kind: str, *, disconnect: bool = False) -> dict[str, Any]:
             ) if kind == "native" else None,
         }
     finally:
+        _StreamingProviderHandler.first_delta_ack.set()
         if stream_task is not None and not stream_task.done():
             stream_task.cancel()
             await asyncio.gather(stream_task, return_exceptions=True)
-        if execution is not None and not execution.done():
-            execution.cancel()
+        if execution is not None:
+            if not execution.done():
+                execution.cancel()
             await asyncio.gather(execution, return_exceptions=True)
-        if java_process is not None:
-            _stop_process(java_process)
+        if backend_process is not None:
+            _stop_process(backend_process)
         if python_server is not None:
             python_server.should_exit = True
         if python_task is not None:
@@ -376,11 +406,21 @@ async def _run_case(kind: str, *, disconnect: bool = False) -> dict[str, Any]:
                 await asyncio.gather(python_task, return_exceptions=True)
         if setup is not None:
             await setup.close()
+        if runtime is not None:
+            await aclose_runtime(runtime)
         provider.shutdown()
         provider.server_close()
         provider_thread.join(timeout=3)
         if temp_dir is not None:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            resolved = temp_dir.resolve()
+            if resolved.parent != Path(tempfile.gettempdir()).resolve() or not resolved.name.startswith(f"runtime-streaming-{kind}-"):
+                raise RuntimeError("Refusing to clean a directory outside this acceptance case")
+            shutil.rmtree(resolved)
+        for variable, value in previous_environment.items():
+            if value is None:
+                os.environ.pop(variable, None)
+            else:
+                os.environ[variable] = value
 
 
 async def main() -> None:

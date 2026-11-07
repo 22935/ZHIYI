@@ -24,6 +24,7 @@ import native_runtime as native
 import desktop_runtime as desktop
 import desktop_shell
 import terminal_service
+import platform_database
 
 ROOT = native.ROOT
 PORTS = [15432, 16379, 18761, 18765, 18080, 15200, 18766, 19222]
@@ -73,7 +74,7 @@ class StartupProgress:
                 pass
 
 def ports(info):
-    return dict(zip(['postgres','redis','ai','host','java','frontend','terminal','debug'], [port+int(info.get('portOffset',0)) for port in PORTS]))
+    return dict(zip(['postgres','redis','ai','host','backend','frontend','terminal','debug'], [port+int(info.get('portOffset',0)) for port in PORTS]))
 
 
 def protect(directory):
@@ -151,17 +152,24 @@ def env_for(home, info, creds):
     return env
 
 
-def java_environment(home, info, creds):
-    return dict(env_for(home, info, creds),
-        SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{ports(info)['postgres']}/zhiyi",
-        SPRING_DATASOURCE_USERNAME='zhiyi_app', SPRING_DATASOURCE_PASSWORD=creds['db'],
-        SPRING_REDIS_HOST='127.0.0.1', SPRING_REDIS_PORT=str(ports(info)['redis']), SPRING_REDIS_DATABASE='0',
-        SPRING_REDIS_PASSWORD=creds['redis'], APP_JWT_SECRET=creds['jwt'],
-        AI_INTERNAL_REQUIRED='true', AI_SERVICE_URL=f"http://127.0.0.1:{ports(info)['ai']}",
-        SERVER_PORT=str(ports(info)['java']), SERVER_ADDRESS='127.0.0.1',
-        CORS_ALLOWED_ORIGINS=f"http://127.0.0.1:{ports(info)['frontend']},kinlin-app://shell",
-        APP_UPLOAD_DIR=str(home/'uploads'), SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE='3',
-        SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE='1')
+def backend_environment(home, info, creds):
+    env = env_for(home, info, creds)
+    env.update({
+        'ZHIYI_DATABASE_URL': env['AGENTOS_WORKSPACE_DATABASE_URL'],
+        'AI_SERVICE_URL': f"http://127.0.0.1:{ports(info)['ai']}",
+        'ZHIYI_BACKEND_TS_PORT': str(ports(info)['backend']),
+        'ZHIYI_BACKEND_TS_DEV_ORIGIN': f"http://127.0.0.1:{ports(info)['frontend']}",
+        'APP_UPLOAD_DIR': str(home/'uploads'),
+    })
+    return env
+
+
+def prepare_platform(home, info, creds):
+    env = backend_environment(home, info, creds)
+    identity_env = platform_database.prepare(home, env['ZHIYI_DATABASE_URL'],
+                                             ROOT/'apps/backend-ts/migrations')
+    env.update(identity_env)
+    return env
 
 
 def pg_env(creds):
@@ -213,17 +221,17 @@ def init(home, args):
     protect(home)
     for path in [home/'temp', home/'logs', home/'redis', workspace]: path.mkdir(exist_ok=True)
     (home/'.env').write_text('', encoding='utf-8')
-    creds = {name: secrets.token_hex(32) for name in ['pgadmin','db','redis','jwt','token','hmac','test_password']}
+    creds = {name: secrets.token_hex(32) for name in ['pgadmin','db','redis','token','hmac']}
     creds.update(key=base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(), deepseek=key)
     (home/'credentials.dpapi').write_bytes(native.dpapi(json.dumps(creds).encode()))
     info = {'format': FORMAT, 'home': str(home), 'workspace': str(workspace),
             'postgresBin': str(pg), 'memurai': str(memurai), 'database': 'zhiyi', 'databaseRole': 'zhiyi_app',
-            'redisDatabases': {'java': 0, 'coordination': 1, 'providerState': 2},
+            'redisDatabases': {'backend': 0, 'coordination': 1, 'providerState': 2},
             'created': datetime.now(timezone.utc).isoformat(),
             'redisLicense': 'Memurai Developer; development/testing only; 10-day maximum uptime',
             'initialized': False, 'portOffset':args.port_offset,
             'testPython':str(args.test_python.absolute()) if args.test_python else sys.executable,
-            'backendJar':str(args.backend_jar.absolute()) if args.backend_jar else str(ROOT/'apps/backend/target/kinlin-backend-1.0.0.jar')}
+            'backendEntry':str(ROOT/'apps/backend-ts/dist/main.js')}
     native.write_json(home/'environment.json', info)
     save(home, state_for(home))
     return {'status': 'READY', 'initializedNow': True, 'home': str(home), 'workspace': str(workspace)}
@@ -238,23 +246,23 @@ def schema(home, env, first):
             subprocess.run(command, cwd=home, env=env, stdout=log, stderr=log, check=True)
 
 
-def prepare_workspace_grants(home, info, env, java=None):
+def prepare_workspace_grants(home, info, env, backend=None):
     grants = home/'hands-grants.json'
     dynamic = [g for g in native.read_json(grants).get('grants', []) if g['grantId'].startswith('wgrant_')] if grants.exists() else []
-    native.write_json(grants, {'grants':dynamic+[{'grantId':'n01a-grant','workspaceId':'n01a-workspace',
+    if not grants.exists():
+        native.write_json(grants, {'grants':dynamic+[{'grantId':'n01a-grant','workspaceId':'n01a-workspace',
         'canonicalRoot':info['workspace'],'capabilities':native.CAPS+['shell.exec'],
         'allowedCallers':['n01a-credential'],'revoked':False}]})
     # PostgreSQL is authoritative after crashes too. Missing table is possible
-    # only on a first boot, before Java/Flyway; no dynamic grant may survive it.
+    # only on a first boot, before platform initialization; no dynamic grant may survive it.
     import psycopg
     def authority_table_ready():
         with psycopg.connect(env['AGENTOS_WORKSPACE_DATABASE_URL'], connect_timeout=5) as connection:
             return connection.execute("SELECT to_regclass('public.local_workspace_authorizations')").fetchone()[0]
-    if java is not None:
-        # Wait for the actual authority table, not all Spring beans. Flyway
-        # commits its migration before the table is visible. Projection below
+    if backend is not None:
+        # Wait for the actual authority table. Projection below
         # still fails closed if the resulting schema/data is incompatible.
-        desktop.wait_until(authority_table_ready, java, 150)
+        desktop.wait_until(authority_table_ready, backend, 150)
     exists = authority_table_ready()
     if exists:
         command = [sys.executable, '-c',
@@ -304,17 +312,13 @@ def up(home, use_desktop):
         raise RuntimeError('Startup-issued workspace root changed; refusing to reissue authority')
     if any(alive(record) for record in state['processes'].values()):
         raise RuntimeError('This persistent environment already owns running processes; use status or recover')
-    backend_jar = Path(info.get('backendJar',str(ROOT/'apps/backend/target/kinlin-backend-1.0.0.jar')))
-    if not backend_jar.is_file():
-        raise RuntimeError('Build the Java backend first: mvn -DskipTests package')
-    # A leftover dev server or an orphaned service from an earlier session must
-    # not block startup: stop whatever still listens, then bind the runtime's own
-    # ports. The runtime itself, its ancestors and Windows session processes are
-    # always refused (see native.release_port).
+    backend_entry = ROOT/'apps/backend-ts/dist/main.js'
+    if not backend_entry.is_file():
+        raise RuntimeError('Build the TypeScript backend first: cd apps/backend-ts && npm run build')
+    # Never take over an unrelated process, even in the development launcher.
     target_ports = list(ports(info).values()) if use_desktop else list(ports(info).values())[:-1]
-    released = native.release_ports(target_ports)
-    if released:
-        record_port_takeover(home, released)
+    for port in target_ports:
+        native.port_free(port)
     session = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')+'-'+secrets.token_hex(2)
     logdir = home/'logs'/session
     logdir.mkdir()
@@ -372,20 +376,23 @@ def up(home, use_desktop):
             finally:
                 client.close()
         authconfig.unlink()
-        # Java needs only PostgreSQL/Redis (both ready above). Spawning it before
-        # the SQLite inspection chain lets Spring Boot boot overlap the schema→ai
-        # work instead of extending the serial critical path; readiness is still
-        # awaited in order below and a failed boot fails startup exactly as before.
+        # Complete new-Home metadata before binding LocalIdentity to its bytes.
+        # Existing Homes and their verified identity files are never rewritten.
+        if not info['initialized']:
+            info['initialized'] = True
+            native.write_json(home/'environment.next.json', info)
+            (home/'environment.next.json').replace(home/'environment.json')
+        with progress.stage('Validate platform schema and LocalIdentity'):
+            backend_env = prepare_platform(home, info, creds)
         front_env = {key:value for key,value in env.items() if key in {
             'SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','PROGRAMDATA',
             'TEMP','TMP','NO_PROXY'}}
-        front_env.update(DEV_BACKEND_PROXY_TARGET=f"http://127.0.0.1:{ports(info)['java']}", VITE_API_BASE_URL='')
-        # Vite can prepare its module graph while schema/AI/Java become ready.
+        front_env.update(DEV_BACKEND_PROXY_TARGET=f"http://127.0.0.1:{ports(info)['backend']}", VITE_API_BASE_URL='')
+        # Vite can prepare its module graph while schema/AI/Backend become ready.
         # Its proxy readiness gate stays below all backend gates; Electron never
         # opens early. A startup failure still cleans up every recorded child.
-        with progress.stage('Launch Java and frontend'):
-            java = start('java', [shutil.which('java'), '-jar', str(backend_jar)],
-                         java_environment(home, info, creds))
+        with progress.stage('Launch Node backend and frontend'):
+            backend = start('backend', [shutil.which('node'), str(backend_entry)], backend_env)
             vite = start('frontend', [shutil.which('node'), str(ROOT/'apps/frontend/node_modules/vite/bin/vite.js'),
                                       str(ROOT/'apps/frontend'), '--mode','electron','--host','127.0.0.1','--port',str(ports(info)['frontend'])], front_env)
         # Preload only audited definitions. app.main (and therefore store/lock
@@ -405,7 +412,7 @@ def up(home, use_desktop):
 
         def prepare_grants():
             with progress.stage('Prepare workspace grants'):
-                prepare_workspace_grants(home, info, env, java)
+                prepare_workspace_grants(home, info, env, backend)
 
         # SQLite preparation and PostgreSQL/JSON grant projection use separate
         # stores. Join both workers before release or cleanup; no worker writes
@@ -421,12 +428,13 @@ def up(home, use_desktop):
             release_next.write_text(nonce, encoding='utf-8')
             release_next.replace(release_file)
             desktop.wait_until(lambda: native.health(ports(info)['ai'],'/health/ready').get('status') == 'UP', ai, 180)
-        with progress.stage('Java service readiness'):
-            desktop.wait_until(lambda: native.health(ports(info)['java'],'/actuator/health/readiness').get('status') == 'UP', java, 150)
+        with progress.stage('Backend service readiness'):
+            desktop.wait_until(lambda: native.health(ports(info)['backend'],'/health/ready').get('status') == 'UP', backend, 150)
         with progress.stage('Frontend proxy readiness'):
             desktop.wait_until(lambda: native.health(ports(info)['frontend'],'/api/health/ready').get('status') == 'UP', vite, 60)
         if use_desktop:
             appenv = desktop_shell.desktop_env(shell, front_env)
+            appenv['KINLIN_API_ORIGIN'] = f"http://127.0.0.1:{ports(info)['backend']}"
             appenv.update(terminal_service.desktop_environment(home, info, creds))
             command, cwd = desktop_shell.desktop_command(ROOT, shell, f"http://127.0.0.1:{ports(info)['frontend']}",
                                                          debug_port=ports(info)['debug'])
@@ -483,12 +491,12 @@ def open_desktop(home):
         return up(home, True)
     with StartupProgress().stage('Check existing services'):
         current = status(home)
-    required = ('postgres', 'redis', 'host', 'ai', 'java', 'frontend')
+    required = ('postgres', 'redis', 'host', 'ai', 'backend', 'frontend')
     if not (all(current['services'].get(name, {}).get('alive') for name in required)
             and current['runtime']['coreReady']
-            and all(current.get(name) for name in ('postgresReady', 'redisReady', 'javaReady'))):
+            and all(current.get(name) for name in ('postgresReady', 'redisReady', 'backendReady'))):
         unavailable = [name for name in required if not current['services'].get(name, {}).get('alive')]
-        unavailable += [name for name, key in [('postgres', 'postgresReady'), ('redis', 'redisReady'), ('java', 'javaReady')]
+        unavailable += [name for name, key in [('postgres', 'postgresReady'), ('redis', 'redisReady'), ('backend', 'backendReady')]
                         if not current.get(key) and name not in unavailable]
         if not current['runtime']['coreReady']:
             unavailable += [name for name in ('host', 'ai')
@@ -506,11 +514,12 @@ def open_desktop(home):
         if not windows:
             raise RuntimeError('Desktop process exists but has no window; inspect its log')
         return dict(current, desktopWindows=windows)
-    native.release_port(ports(info)['debug'])
+    native.port_free(ports(info)['debug'])
     # Only OS/frontend variables reach the desktop; no DPAPI credentials are inherited.
     appenv = {key: value for key, value in os.environ.items() if key.upper() in {
         'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'PATH', 'PATHEXT', 'USERPROFILE', 'APPDATA',
         'LOCALAPPDATA', 'PROGRAMDATA', 'TEMP', 'TMP', 'NO_PROXY'}}
+    appenv['KINLIN_API_ORIGIN'] = f"http://127.0.0.1:{ports(info)['backend']}"
     appenv.update(terminal_service.desktop_environment(home, info, native.credentials(home)))
     command, cwd = desktop_shell.desktop_command(ROOT, shell, f"http://127.0.0.1:{ports(info)['frontend']}",
                                                  debug_port=ports(info)['debug'])
@@ -535,7 +544,7 @@ def status(home):
     try:
         creds = native.credentials(home)
     except Exception:
-        result.update(postgresReady=False, redisReady=False, javaReady=False)
+        result.update(postgresReady=False, redisReady=False, backendReady=False)
     else:
         def redis_ready():
             client = redis_client(creds, port=ports(info)['redis'])
@@ -547,13 +556,13 @@ def status(home):
         for name, key, check in [
             ('postgres', 'postgresReady', lambda: sql(info, creds, 'SELECT 1;', timeout=5) == '1'),
             ('redis', 'redisReady', redis_ready),
-            ('java', 'javaReady', lambda: native.health(ports(info)['java'], '/actuator/health/readiness')['status'] == 'UP'),
+            ('backend', 'backendReady', lambda: native.health(ports(info)['backend'], '/health/ready')['status'] == 'UP'),
         ]:
             try:
                 result[key] = bool(result['services'].get(name, {}).get('alive') and check())
             except Exception:
                 result[key] = False
-    result['status'] = 'UP' if result['services'] and all(x['alive'] for x in result['services'].values()) and result['runtime']['coreReady'] and all(result.get(x) for x in ['postgresReady','redisReady','javaReady']) else 'DOWN'
+    result['status'] = 'UP' if result['services'] and all(x['alive'] for x in result['services'].values()) and result['runtime']['coreReady'] and all(result.get(x) for x in ['postgresReady','redisReady','backendReady']) else 'DOWN'
     return result
 
 
@@ -565,7 +574,7 @@ def down(home):
     stop_modes = {}
     # Startup is now parallel: insertion order no longer describes dependencies.
     # Runtime cleanup may still use Host/terminal, so stop AI before its providers.
-    stop_order = ('desktop', 'frontend', 'ai', 'host', 'terminal', 'java', 'redis', 'postgres')
+    stop_order = ('desktop', 'frontend', 'ai', 'host', 'terminal', 'backend', 'java', 'redis', 'postgres')
     ordered = [name for name in reversed(records) if name not in stop_order]
     ordered += [name for name in stop_order if name in records]
     progress = StartupProgress()
@@ -677,7 +686,6 @@ def main():
     parser.add_argument('--provider-key-file', type=Path)
     parser.add_argument('--workspace', type=Path)
     parser.add_argument('--test-python', type=Path)
-    parser.add_argument('--backend-jar', type=Path)
     parser.add_argument('--desktop', action='store_true')
     parser.add_argument('--port-offset',type=int,choices=range(0,1001),default=0)
     parser.add_argument('--snapshot', type=Path)

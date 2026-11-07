@@ -16,9 +16,11 @@ def configure_startup(monkeypatch, tmp_path, fail_at=None):
     for name in ('postgres', 'redis', 'temp', 'logs', 'workspace', 'data'):
         (tmp_path / name).mkdir()
     (tmp_path / 'postgres/PG_VERSION').write_text('15')
-    jar = tmp_path / 'backend.jar'
-    jar.touch()
-    info = {'workspace': str((tmp_path / 'workspace').resolve()), 'backendJar': str(jar),
+    entry = tmp_path / 'apps/backend-ts/dist/main.js'
+    entry.parent.mkdir(parents=True)
+    entry.touch()
+    monkeypatch.setattr(runtime, 'ROOT', tmp_path)
+    info = {'workspace': str((tmp_path / 'workspace').resolve()), 'backendEntry': str(entry),
             'postgresBin': str(tmp_path), 'memurai': 'memurai', 'initialized': True}
     state = {'processes': {}}
     events, environments, commands = [], {}, {}
@@ -27,8 +29,9 @@ def configure_startup(monkeypatch, tmp_path, fail_at=None):
     monkeypatch.setattr(runtime, 'state_for', lambda home: state)
     monkeypatch.setattr(runtime.native, 'credentials', lambda home: {'redis': 'test-only'})
     monkeypatch.setattr(runtime, 'env_for', lambda *args: {'PATH': 'test', 'AI_INTERNAL_TOKEN': 'private'})
-    monkeypatch.setattr(runtime, 'java_environment', lambda *args: {})
-    monkeypatch.setattr(runtime.native, 'release_ports', Mock(return_value=[]))
+    monkeypatch.setattr(runtime, 'backend_environment', lambda *args: {})
+    monkeypatch.setattr(runtime, 'prepare_platform', lambda *args: {})
+    monkeypatch.setattr(runtime.native, 'port_free', Mock())
     monkeypatch.setattr(runtime, 'save', Mock())
     monkeypatch.setattr(runtime, 'sql', lambda *args, **kwargs: '1')
     monkeypatch.setattr(runtime, 'redis_client', lambda *args, **kwargs: Mock(ping=Mock(return_value=True)))
@@ -67,6 +70,7 @@ def configure_startup(monkeypatch, tmp_path, fail_at=None):
             raise RuntimeError('test grants failure')
     monkeypatch.setattr(runtime, 'prepare_workspace_grants', grants)
     monkeypatch.setattr(runtime.terminal_service, 'start', Mock())
+    monkeypatch.setattr(runtime, 'start_hands', lambda home, info, creds, state, env, start: start('host', ['node'], env))
     monkeypatch.setattr(runtime.terminal_service, 'desktop_environment', lambda *args: {})
     monkeypatch.setattr(runtime.desktop_shell, 'desktop_command', lambda *args, **kwargs: (['electron'], tmp_path))
     monkeypatch.setattr(runtime.desktop_shell, 'ready_check', lambda port: lambda: True)
@@ -95,7 +99,7 @@ def test_frontend_preparation_overlaps_backends_but_desktop_waits_for_all_gates(
     assert all(stage['status'] == 'DONE' and stage['durationSeconds'] >= 0 for stage in timings['stages'])
 
 
-@pytest.mark.parametrize('failure', ['schema', 'grants', 'ai', 'java', 'frontend'])
+@pytest.mark.parametrize('failure', ['schema', 'grants', 'ai', 'backend', 'frontend'])
 def test_failed_gate_cleans_up_early_frontend_and_never_opens_desktop(monkeypatch, tmp_path, failure):
     state, events, _, cleanup = configure_startup(monkeypatch, tmp_path, failure)
     with pytest.raises(RuntimeError, match='test .* failure'):
@@ -125,9 +129,9 @@ def test_schema_and_grants_overlap_and_both_finish_before_ai_release(monkeypatch
     assert runtime.up(tmp_path, True)['status'] == 'UP'
 
 
-@pytest.mark.parametrize('failed', ['postgres', 'redis', 'java'])
+@pytest.mark.parametrize('failed', ['postgres', 'redis', 'backend'])
 def test_health_checks_do_not_mark_other_services_down(monkeypatch, tmp_path, failed):
-    processes = {name: {'name': name} for name in ('postgres', 'redis', 'java')}
+    processes = {name: {'name': name} for name in ('postgres', 'redis', 'backend')}
     monkeypatch.setattr(runtime, 'manifest', lambda home: {'workspace': str(home), 'redisLicense': 'test'})
     monkeypatch.setattr(runtime, 'state_for', lambda home: {'processes': processes})
     monkeypatch.setattr(runtime, 'alive', lambda record: record)
@@ -142,7 +146,7 @@ def test_health_checks_do_not_mark_other_services_down(monkeypatch, tmp_path, fa
     monkeypatch.setattr(runtime, 'sql', lambda *args, **kwargs: '1' if probe('postgres') else '')
     redis = Mock(ping=lambda: probe('redis'))
     monkeypatch.setattr(runtime, 'redis_client', lambda *args, **kwargs: redis)
-    monkeypatch.setattr(runtime.native, 'health', lambda *args: {'status': 'UP' if probe('java') else 'DOWN'})
+    monkeypatch.setattr(runtime.native, 'health', lambda *args: {'status': 'UP' if probe('backend') else 'DOWN'})
     result = runtime.status(tmp_path)
     for name in processes:
         assert result[name + 'Ready'] is (name != failed)
@@ -181,7 +185,7 @@ def test_timing_write_error_does_not_replace_startup_failure(monkeypatch, tmp_pa
 def test_shutdown_uses_dependencies_instead_of_parallel_spawn_order(monkeypatch, tmp_path):
     (tmp_path / 'logs').mkdir()
     (tmp_path / 'temp').mkdir()
-    names = ('postgres', 'redis', 'java', 'frontend', 'ai', 'terminal', 'host', 'desktop')
+    names = ('postgres', 'redis', 'backend', 'frontend', 'ai', 'terminal', 'host', 'desktop')
     state = {'processes': {name: {'name': name} for name in names}, 'desktop': True}
     stopped = []
     redis_stopped = False
@@ -204,7 +208,7 @@ def test_shutdown_uses_dependencies_instead_of_parallel_spawn_order(monkeypatch,
     cleanup = Mock(return_value={'status': 'PASS'})
     monkeypatch.setattr(runtime.native, 'down', cleanup)
     assert runtime.down(tmp_path)['status'] == 'PASS'
-    assert stopped == ['desktop', 'frontend', 'ai', 'host', 'terminal', 'java', 'redis', 'postgres']
+    assert stopped == ['desktop', 'frontend', 'ai', 'host', 'terminal', 'backend', 'redis', 'postgres']
     assert cleanup.call_args.kwargs['preserve_credentials'] is True
 
 

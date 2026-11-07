@@ -104,9 +104,8 @@ class TestRuntimeWiring:
         source = (NATIVE_DIR / 'persistent_runtime.py').read_text(encoding='utf-8')
         creds = {'token': 't', 'key': 'k', 'hmac': 'h', 'deepseek': 'd',
                  'db': 'db', 'redis': 'r', 'jwt': 'j'}
-        origins = persistent_runtime.java_environment(
-            Path('C:/home'), {'workspace': 'C:/home/workspace'}, creds)['CORS_ALLOWED_ORIGINS']
-        assert 'kinlin-app://shell' in origins
+        origins = persistent_runtime.backend_environment(
+            Path('C:/home'), {'workspace': 'C:/home/workspace'}, creds)['ZHIYI_BACKEND_TS_DEV_ORIGIN']
         assert 'http://127.0.0.1:15200' in origins
         assert 'tauri' not in origins
         assert 'desktop_shell.window_classes' in source
@@ -116,7 +115,7 @@ class TestRuntimeWiring:
         creds = {'token': 't', 'key': 'k', 'hmac': 'h', 'deepseek': 'd',
                  'db': 'db', 'redis': 'r', 'jwt': 'j'}
         info = {'workspace': 'C:/home/workspace', 'portOffset': 10}
-        origins = persistent_runtime.java_environment(Path('C:/home'), info, creds)['CORS_ALLOWED_ORIGINS']
+        origins = persistent_runtime.backend_environment(Path('C:/home'), info, creds)['ZHIYI_BACKEND_TS_DEV_ORIGIN']
         assert 'http://127.0.0.1:15210' in origins
         assert 'http://127.0.0.1:15200' not in origins
         assert persistent_runtime.ports(info)['debug'] == 19232

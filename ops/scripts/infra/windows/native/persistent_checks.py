@@ -71,7 +71,7 @@ def main(home, output):
         'serverVersion':client.info('server').get('redis_version'),
         'persistence':{k:v for k,v in client.info('persistence').items()
                        if k in ['aof_enabled','aof_last_write_status','rdb_last_bgsave_status']},
-        'databases':{'java':0,'coordination':1,'provider':2,'probes':3}}
+        'databases':{'backend':0,'coordination':1,'provider':2,'probes':3}}
     native.write_json(output,result)
     coordinator.close()
     print(result)
@@ -80,21 +80,20 @@ def main(home, output):
 def capture(home, run_id, output):
     """Capture real persisted application identities before/after a cold restart.
 
-    The acceptance account's JWT stays inside the user's DPAPI file; evidence
-    contains counts, identities and hashes, not credentials or raw sessions.
+    Uses the existing LocalIdentity; evidence contains only counts and hashes.
     """
     creds = native.credentials(home)
     info = deployment.manifest(home)
     def api(path):
-        request = urllib.request.Request(f"http://127.0.0.1:{deployment.ports(info)['java']}"+path,
-            headers={'Authorization':'Bearer '+creds['browser_token']})
+        request = urllib.request.Request(f"http://127.0.0.1:{deployment.ports(info)['backend']}"+path,
+            headers={'Origin':'kinlin-app://shell'})
         with urllib.request.urlopen(request,timeout=30) as response: return json.load(response)
     base = '/api/agentos/v2/runs/'+urllib.parse.quote(run_id,safe='')
     run = api(base)
     output_ref = run.get('outputRef')
     content = api(base+'/outputs/'+urllib.parse.quote(output_ref,safe='')) if output_ref else None
     calls = api(base+'/resource-usage/calls?pageSize=100')
-    conversations = api('/conversations')
+    conversations = api('/api/conversations')
     counts = deployment.sql(info,creds, "\\connect zhiyi\nSELECT json_build_object("
         "'users',(SELECT count(*) FROM users), 'conversations',(SELECT count(*) FROM conversations),"
         "'messages',(SELECT count(*) FROM messages), 'loginSessions',(SELECT count(*) FROM iam_login_sessions));")

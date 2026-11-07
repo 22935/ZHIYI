@@ -3,7 +3,7 @@
 设计要点（均已在本机验证）：
 - Python 不是 venv：复制一份 python.org 的 CPython 树（可搬移，sys.prefix 跟随 exe 位置），
   再把 venv 的 site-packages 整包放进 Lib/site-packages（.pth 无绝对路径）。
-- JRE 用 jlink 裁剪，不依赖目标机的 JDK。
+- TypeScript 后端使用随包 Node.js 24，不依赖 JVM。
 - PostgreSQL 只取 bin/lib/share（pgAdmin 4 占原始 828MB 里的 683MB，不打包）。
 - 承载并复用仓库现有代码布局：产品根目录仍保留 apps/ 结构，
   这样 native_runtime.ROOT 指向产品根即可复用既有启动逻辑。
@@ -31,16 +31,6 @@ ZHIYI_HOME = LOCALAPPDATA / "ZhiyiNative"
 DEFAULT_PYTHON_BASE = Path(os.environ.get("LOCALAPPDATA") or "") / "Programs/Python/Python314"
 DEFAULT_SITE_PACKAGES = ZHIYI_HOME / "python/Lib/site-packages"
 DEFAULT_DEPENDENCIES = ZHIYI_HOME / "dependencies"
-DEFAULT_JDK = Path("C:/Program Files/Eclipse Adoptium/jdk-21.0.11.10-hotspot")
-
-# Spring Boot 实际需要比 java.base 多得多；宁可多带几个模块也不要目标机报 NoClassDefFoundError。
-JRE_MODULES = [
-    "java.base", "java.logging", "java.sql", "java.naming", "java.management",
-    "java.net.http", "java.desktop", "java.instrument", "java.scripting",
-    "java.security.jgss", "java.xml", "java.xml.crypto", "java.compiler",
-    "jdk.crypto.ec", "jdk.unsupported", "jdk.management", "jdk.zipfs",
-]
-
 # 这些目录在复制时排除：开发产物、测试、文档、依赖缓存、数据与凭据。
 COMMON_EXCLUDE_DIRS = [
     ".git", ".github", "__pycache__", ".pytest_cache", ".ruff_cache", "node_modules",
@@ -113,25 +103,6 @@ def copy_python(base: Path, site_packages: Path, target: Path) -> None:
     robocopy(site_packages, destination, exclude_files=("*.pyc", "*.pyo"))
 
 
-def build_jre(jdk: Path, target: Path) -> None:
-    jlink = jdk / "bin/jlink.exe"
-    if not jlink.is_file():
-        raise SystemExit(f"找不到 jlink: {jlink}")
-    output = target / "runtime/jre"
-    if output.exists():
-        shutil.rmtree(output)
-    log(f"JRE: jlink 裁剪 {len(JRE_MODULES)} 个模块 -> {output}")
-    command = [str(jlink), "--add-modules", ",".join(JRE_MODULES), "--strip-debug",
-               "--no-header-files", "--no-man-pages", "--compress=zip-6", "--output", str(output)]
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise SystemExit(f"jlink 失败: {result.stderr[-2000:]}")
-    java = output / "bin/java.exe"
-    version = subprocess.run([str(java), "-version"], capture_output=True, text=True)
-    if version.returncode != 0:
-        raise SystemExit(f"裁剪后的 JRE 无法运行: {version.stderr[-800:]}")
-
-
 def copy_postgres(dependencies: Path, target: Path) -> None:
     source = dependencies / "postgresql-15.19/pgsql"
     log(f"PostgreSQL: 复制 bin/lib/share（跳过 pgAdmin 4 / StackBuilder / doc）")
@@ -156,7 +127,14 @@ def copy_node(node_exe: Path, target: Path) -> None:
     log(f"Node: 复制 {node_exe}（{node_exe.stat().st_size / 1048576:.0f} MB）")
     destination = target / "runtime/node"
     destination.mkdir(parents=True, exist_ok=True)
+    version = subprocess.check_output([str(node_exe), "-v"], text=True).strip()
+    if not version.startswith("v24."):
+        raise SystemExit("发行版需要 Node.js 24 LTS")
     shutil.copy2(node_exe, destination / "node.exe")
+    for name in ("LICENSE", "LICENSE.txt", "nodevars.bat"):
+        candidate = node_exe.parent / name
+        if candidate.is_file():
+            shutil.copy2(candidate, destination / name)
 
 
 def copy_shell(win_unpacked: Path, target: Path) -> None:
@@ -165,13 +143,19 @@ def copy_shell(win_unpacked: Path, target: Path) -> None:
     robocopy(win_unpacked, destination, exclude_files=("*.pdb",))
 
 
-def copy_backend_jar(jar: Path, target: Path) -> None:
-    if not jar.is_file():
-        raise SystemExit(f"缺少后端 jar（先在 apps/backend 执行 mvn -DskipTests package）: {jar}")
-    destination = target / "apps/backend"
-    destination.mkdir(parents=True, exist_ok=True)
-    log(f"后端 jar: {jar.name}（{jar.stat().st_size / 1048576:.0f} MB）")
-    shutil.copy2(jar, destination / jar.name)
+def copy_backend(source: Path, target: Path) -> None:
+    if not (source / "dist/main.js").is_file():
+        raise SystemExit("先在 apps/backend-ts 执行 npm ci && npm run build")
+    destination = target / "apps/backend-ts"
+    robocopy(source / "dist", destination / "dist")
+    robocopy(source / "migrations", destination / "migrations")
+    for name in ("package.json", "package-lock.json"):
+        shutil.copy2(source / name, destination / name)
+    npm = shutil.which("npm.cmd") or shutil.which("npm")
+    if not npm:
+        raise SystemExit("装配构建机需要 npm")
+    subprocess.run([npm, "ci", "--omit=dev", "--no-audit", "--no-fund"],
+                   cwd=destination, check=True)
 
 
 def relink_junctions(source_root: Path, destination_root: Path) -> int:
@@ -352,7 +336,7 @@ README_TEMPLATE = """# 知弈 AgentOS（内部版 {version}）
 2. 双击 `start.cmd`：首次会初始化本地数据目录 `data-home\\`，然后拉起全部服务并打开窗口。
 3. 首次进入后到 **设置 → 模型供应商** 填你自己的 API Key 并激活。
 4. 回到桌面运行 `restart.cmd`（或 `stop.cmd` 后 `start.cmd`），让新配置对规划与执行链路生效。
-5. 之后每次直接 `start.cmd`；数据、账号与配置都保留在 `data-home\\`。
+5. 之后每次直接 `start.cmd`；数据、本机身份与配置都保留在 `data-home\\`。
 
 | 文件 | 作用 |
 | :-- | :-- |
@@ -365,7 +349,7 @@ README_TEMPLATE = """# 知弈 AgentOS（内部版 {version}）
 
 - **路径必须是纯 ASCII**：PostgreSQL 不支持中文/非 ASCII 路径（程序目录与数据目录都算），
   含中文时启动器会直接报错并提示换路径，而不是抛出 initdb 的原始错误。
-- **免登录**：首启自动创建一个本地账号，凭据保存在当前 Windows 用户的 DPAPI 里；
+- **免登录**：首启建立本机身份，已有数据沿用历史 owner；
   界面不提供注册/登录。换机器或换 Windows 用户需要重新初始化 `data-home\\`。
 - **Memurai（Redis 兼容层）为 Developer 版**：仅限开发测试用途，连续运行最长 10 天；
   长时间使用请按需重启。本发行版仅供内部使用，不得对外分发。
@@ -429,7 +413,7 @@ def write_product_manifest(target: Path, version: str) -> None:
         "builtAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "layout": {
             "shell": "app/",
-            "runtime": "runtime/{python,jre,node,pgsql,memurai}",
+            "runtime": "runtime/{python,node,pgsql,memurai}",
             "application": "apps/",
             "launcher": "ops/scripts/infra/windows/native/",
         },
@@ -438,9 +422,6 @@ def write_product_manifest(target: Path, version: str) -> None:
                                      capture_output=True, text=True).stdout.strip(),
             "node": subprocess.run([str(target / "runtime/node/node.exe"), "-v"],
                                    capture_output=True, text=True).stdout.strip(),
-            "java": subprocess.run([str(target / "runtime/jre/bin/java.exe"), "-version"],
-                                   capture_output=True, text=True).stderr.splitlines()[0].strip()
-            if (target / "runtime/jre/bin/java.exe").exists() else "",
             "postgres": next((p.name for p in (target / "runtime/pgsql/share").glob("*.txt")), ""),
         },
     }
@@ -501,12 +482,13 @@ def validate(target: Path) -> list[str]:
         "app/Zhiyi AgentOS Electron.exe",
         "runtime/python/python.exe",
         "runtime/python/Lib/site-packages/fastapi/__init__.py",
-        "runtime/jre/bin/java.exe",
         "runtime/node/node.exe",
         "runtime/pgsql/bin/postgres.exe",
         "runtime/pgsql/bin/initdb.exe",
         "runtime/memurai/memurai.exe",
-        "apps/backend/kinlin-backend-1.0.0.jar",
+        "apps/backend-ts/dist/main.js",
+        "apps/backend-ts/node_modules/fastify/package.json",
+        "apps/backend-ts/migrations/V13__drop_user_feedback.sql",
         "apps/agent/app/main.py",
         "apps/agentOS/src/runtime/workflow_runtime.py",
         "apps/hands/node_modules/tsx/dist/cli.mjs",
@@ -524,11 +506,10 @@ def main() -> int:
     parser.add_argument("--python-base", type=Path, default=DEFAULT_PYTHON_BASE)
     parser.add_argument("--site-packages", type=Path, default=DEFAULT_SITE_PACKAGES)
     parser.add_argument("--dependencies", type=Path, default=DEFAULT_DEPENDENCIES)
-    parser.add_argument("--jdk", type=Path, default=DEFAULT_JDK)
     parser.add_argument("--node-exe", type=Path, default=Path(shutil.which("node") or ""))
     parser.add_argument("--win-unpacked", type=Path,
                         default=REPO / "apps/desktop/electron/release/win-unpacked")
-    parser.add_argument("--jar", type=Path, default=REPO / "apps/backend/target/kinlin-backend-1.0.0.jar")
+    parser.add_argument("--backend", type=Path, default=REPO / "apps/backend-ts")
     parser.add_argument("--checksums", action="store_true", help="额外生成逐文件 SHA-256（较慢）")
     parser.add_argument("--zip", action="store_true", help="装配后压缩为 zip")
     parser.add_argument("--dry-run", action="store_true")
@@ -537,8 +518,8 @@ def main() -> int:
     target = args.out.resolve()
     sources = {
         "python-base": args.python_base, "site-packages": args.site_packages,
-        "dependencies": args.dependencies, "jdk": args.jdk, "node": args.node_exe,
-        "shell": args.win_unpacked, "jar": args.jar,
+        "dependencies": args.dependencies, "node": args.node_exe,
+        "shell": args.win_unpacked, "backend": args.backend / "dist/main.js",
     }
     log(f"产品根: {target}")
     for name, path in sources.items():
@@ -558,12 +539,11 @@ def main() -> int:
 
     started = time.time()
     copy_python(args.python_base, args.site_packages, target)
-    build_jre(args.jdk, target)
     copy_postgres(args.dependencies, target)
     copy_memurai(args.dependencies, target)
     copy_node(args.node_exe, target)
     copy_shell(args.win_unpacked, target)
-    copy_backend_jar(args.jar, target)
+    copy_backend(args.backend, target)
     stage_crt_runtime(target)
     copy_application_code(target)
     copy_launcher(target)
