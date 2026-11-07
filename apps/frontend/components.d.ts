@@ -35,6 +35,7 @@ declare module 'vue' {
     CheckpointPanel: typeof import('./src/components/agentos/CheckpointPanel.vue')['default']
     ConversationExport: typeof import('./src/components/ConversationExport.vue')['default']
     ConversationList: typeof import('./src/components/ConversationList.vue')['default']
+    ConversationWorkFeed: typeof import('./src/components/ConversationWorkFeed.vue')['default']
     CreateRoleDialog: typeof import('./src/components/CreateRoleDialog.vue')['default']
     DesktopRuntimeStatus: typeof import('./src/components/platform/DesktopRuntimeStatus.vue')['default']
     DesktopTerminalDock: typeof import('./src/components/terminal/DesktopTerminalDock.vue')['default']
