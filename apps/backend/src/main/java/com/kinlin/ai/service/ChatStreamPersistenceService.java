@@ -270,19 +270,25 @@ public class ChatStreamPersistenceService {
             if (!sources.isEmpty()) {
                 metadata.put("sources", List.copyOf(sources.values()));
             }
-            List<Map<String, String>> summary = new ArrayList<>();
+            List<Map<String, Object>> summary = new ArrayList<>();
             summary.add(Map.of("stage", "chat_stream", "status", completed ? "completed" : cancelled ? "cancelled" : "failed",
                     "description", completed ? "回复已完成" : failure == null ? "回复生成未完成，请重试" : failure));
             for (Map<String, Object> item : toolExecutions) {
                 String toolName = String.valueOf(item.getOrDefault("toolName", "unknown"));
                 String status = String.valueOf(item.getOrDefault("status", "completed"));
-                summary.add(Map.of(
-                        "stage", "tool:" + toolName,
-                        "status", status,
-                        "description", "failed".equals(status)
-                                ? toolName + " 调用失败"
-                                : toolName + " 调用完成"
-                ));
+                // stage 带 callId、terminal/activity 随条目持久化：前端刷新恢复后
+                // 「命令与执行」页签才能还原命令文本与输出（与流式期间一致）。
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("stage", "tool:" + toolName + ":"
+                        + String.valueOf(item.getOrDefault("callId", toolName)));
+                entry.put("status", status);
+                entry.put("description", "failed".equals(status)
+                        ? toolName + " 调用失败"
+                        : toolName + " 调用完成");
+                if (item.get("durationMs") != null) entry.put("durationMs", item.get("durationMs"));
+                if (item.get("terminal") != null) entry.put("terminal", item.get("terminal"));
+                if (item.get("activity") != null) entry.put("activity", item.get("activity"));
+                summary.add(entry);
             }
             if (reasoningStarted) {
                 summary.add(Map.of(
@@ -327,7 +333,7 @@ public class ChatStreamPersistenceService {
             Map<String, Object> record = new LinkedHashMap<>();
             for (String key : List.of(
                     "callId", "toolName", "status", "durationMs", "inputSummary",
-                    "outputSummary", "sourceRefs", "errorCode"
+                    "outputSummary", "sourceRefs", "errorCode", "terminal", "activity"
             )) {
                 if (data.containsKey(key) && data.get(key) != null) {
                     record.put(key, data.get(key));

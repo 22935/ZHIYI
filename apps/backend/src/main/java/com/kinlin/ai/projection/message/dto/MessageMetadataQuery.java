@@ -3,6 +3,7 @@ package com.kinlin.ai.projection.message.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Whitelisted public slice of the persisted message metadata JSON.
@@ -31,5 +32,12 @@ public record MessageMetadataQuery(
 ) {
 
     /** One observable pipeline stage as persisted by the stream capture. */
-    public record ExecutionStageQuery(String stage, String status, String description) { }
+    public record ExecutionStageQuery(
+            String stage,
+            String status,
+            String description,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Long durationMs,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Map<String, Object> terminal,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Map<String, Object> activity
+    ) { }
 }

@@ -221,6 +221,54 @@ class ChatStreamPersistenceServiceTest {
         assertFalse(metadata.toString().contains("full page body"));
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void persistsRunCommandSummaryWithCallIdAndTerminalForHistoryRestore() {
+        MessageRepository messages = mock(MessageRepository.class);
+        ChatStreamPersistenceService service = new ChatStreamPersistenceService(
+                mock(ConversationRepository.class), messages, new ObjectMapper());
+        ChatStreamPersistenceService.StreamCapture capture = service.capture();
+
+        Map<String, Object> terminal = Map.of(
+                "command", "echo RUN_OK",
+                "cwd", ".",
+                "exitCode", 0,
+                "stdout", "RUN_OK\n",
+                "stderr", "",
+                "timedOut", false,
+                "truncated", false
+        );
+        capture.accept(event("tool_result", Map.of(
+                "callId", "call-9",
+                "toolName", "run_command",
+                "status", "completed",
+                "durationMs", 88,
+                "outputSummary", "Command completed (exit code 0)",
+                "terminal", terminal
+        )));
+        capture.accept(event("done", Map.of("status", "completed")));
+
+        ChatStreamPersistenceService.PreparedStream prepared =
+                new ChatStreamPersistenceService.PreparedStream(UUID.randomUUID(), "ctx-run-cmd", Map.of());
+        service.complete(prepared, capture);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Message.class);
+        verify(messages).save(captor.capture());
+        Map<String, Object> metadata = captor.getValue().getMetadata();
+        List<Map<String, Object>> summary =
+                (List<Map<String, Object>>) metadata.get("executionSummary");
+
+        Map<String, Object> stage = summary.stream()
+                .filter(item -> String.valueOf(item.get("stage")).startsWith("tool:run_command"))
+                .findFirst()
+                .orElseThrow();
+        // stage 带 callId（与流式期间一致，刷新恢复后同一键）；terminal 完整回传供侧栏还原
+        assertEquals("tool:run_command:call-9", stage.get("stage"));
+        assertEquals("completed", stage.get("status"));
+        assertEquals(88, stage.get("durationMs"));
+        assertEquals(terminal, stage.get("terminal"));
+    }
+
     private ServerSentEvent<String> event(String type, Map<String, Object> data) {
         try {
             String json = new ObjectMapper().writeValueAsString(Map.of(

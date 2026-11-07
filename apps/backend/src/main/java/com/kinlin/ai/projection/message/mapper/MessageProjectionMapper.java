@@ -9,6 +9,7 @@ import com.kinlin.ai.projection.message.dto.MessageTypeQuery;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -124,9 +125,29 @@ public final class MessageProjectionMapper {
                     && stage.get("stage") instanceof String stageName
                     && stage.get("status") instanceof String status
                     && stage.get("description") instanceof String description) {
-                stages.add(new MessageMetadataQuery.ExecutionStageQuery(stageName, status, description));
+                stages.add(new MessageMetadataQuery.ExecutionStageQuery(
+                        stageName,
+                        status,
+                        description,
+                        whole(stage.get("durationMs")),
+                        mapSlice(stage.get("terminal")),
+                        mapSlice(stage.get("activity"))));
             }
         }
         return stages.isEmpty() ? null : stages;
+    }
+
+    /** Terminal/activity payloads are opaque JSON objects passed through verbatim. */
+    private static Map<String, Object> mapSlice(Object value) {
+        if (!(value instanceof Map<?, ?> raw)) {
+            return null;
+        }
+        Map<String, Object> copy = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : raw.entrySet()) {
+            if (entry.getKey() instanceof String key) {
+                copy.put(key, entry.getValue());
+            }
+        }
+        return copy;
     }
 }
