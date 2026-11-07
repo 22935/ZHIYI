@@ -15,6 +15,25 @@ export const request = (messages = history()): ProjectionRequest => ({ contextId
   budget: { contextWindow: 14000, outputReserve: 1000, safetyMargin: 500 } })
 const make = (fn = invoke, config = {}) => new ContextCompactionEngine(new TokenMeter(), fn, { retainTurns: 1, retainRatio: 0, ...config })
 
+test('explicit compact summarizes below automatic threshold and preserves protected turns', async () => {
+  const input = request(history(4, 1500)), original = structuredClone(input)
+  input.budget.contextWindow = 1_000_000
+  assert.equal((await make().project(input)).status, 'unchanged')
+  const result = await new ContextCompactionEngine(new TokenMeter(), invoke).project({ ...input, force: true })
+  assert.equal(result.status, 'summarized')
+  assert.deepEqual(result.messages.at(-1), input.messages.at(-1))
+  assert.ok(result.metrics.outputTokens < result.metrics.inputTokens)
+  assert.deepEqual(input.messages, original.messages)
+})
+
+test('explicit compact does not consume recent-only conversations', async () => {
+  const input = request([{ role: 'user', content: 'recent request' }, { role: 'assistant', content: 'recent answer' }])
+  const result = await make().project({ ...input, force: true })
+  assert.equal(result.status, 'no_safe_range')
+  assert.equal(result.metrics.summaryCalls, 0)
+  assert.deepEqual(result.messages, input.messages)
+})
+
 test('short conversation preserves exact input, system instruction budget and no LLM call', async () => {
   let calls = 0
   const input = request(history(1, 20)), original = structuredClone(input)

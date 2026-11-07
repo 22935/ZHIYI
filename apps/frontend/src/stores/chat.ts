@@ -5,6 +5,7 @@ import { chatStreamErrorMessage, parseChatStreamFrame, type ChatStreamEvent } fr
 import { apiUrl } from '@/platform'
 import type { AsyncWorkflowStartResponse } from '@/services/api/workflow'
 import type { ConversationLaunchContext } from '@/features/mission/request'
+import { conversationInput, projectedInput, type ContextCheckpoint } from '@/features/chat/compaction'
 import { conversationLaunchCommand, matchesConversationLaunchContext } from '@/features/mission/command'
 import { createMissionLaunchAttempt, MissionLaunchStateError } from '@/features/mission/launchAttempt'
 import type { MissionLaunchResult } from '@/features/mission/launch'
@@ -159,6 +160,10 @@ export const useChatStore = defineStore('chat', () => {
   const loading = ref(false)
   const isStreaming = ref(false)
   const isLoadingConversation = ref(false)
+  const isCompacting = ref(false)
+  const compactionNotice = ref('')
+  // Page-lifetime projections only; raw messages and stored history stay intact.
+  const contextCheckpoints = new Map<string, ContextCheckpoint>()
   const workflowBindings = ref<Record<string, ChatWorkflowBinding[]>>(loadWorkflowBindings())
   const workflowRunsStore = useWorkflowRunsStore()
   let activeStreamController: AbortController | null = null
@@ -176,6 +181,8 @@ export const useChatStore = defineStore('chat', () => {
     activeStreamController = null
     activeRequestId = null
     isStreaming.value = false
+    isCompacting.value = false
+    compactionNotice.value = ''
     loading.value = false
   }
   // Context window usage for the composer indicator: tokens consumed by the
@@ -309,6 +316,76 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  const compactionModelKey = (settings: ModelSettings) => JSON.stringify([
+    settings.provider, settings.selectedModel, settings.provider === 'system' ? '' : settings.baseUrl, currentRoleId.value
+  ])
+
+  const currentProjectedInput = (settings: ModelSettings) => {
+    if (!contextId.value || conversationWorkspaceMode.value === 'agent') return
+    const checkpoint = contextCheckpoints.get(contextId.value)
+    const projected = projectedInput(checkpoint, conversationInput(messages.value), compactionModelKey(settings))
+    if (checkpoint && !projected) contextCheckpoints.delete(contextId.value)
+    return projected
+  }
+
+  const compactContext = async (settings: ModelSettings = loadModelSettings()) => {
+    if (loading.value || isLoadingConversation.value) return
+    if (historyError.value) throw new Error(historyError.value)
+    if (conversationWorkspaceMode.value === 'agent') throw new Error('/compact 仅用于 OScode 对话')
+    const owner = contextId.value
+    const source = conversationInput(messages.value)
+    if (!owner || !source.length) {
+      compactionNotice.value = '暂无可压缩的上下文，请先开始对话。'
+      return
+    }
+    const generation = ++messageGeneration
+    const isCurrent = () => generation === messageGeneration && contextId.value === owner
+    const modelKey = compactionModelKey(settings)
+    const controller = new AbortController()
+    activeStreamController = controller
+    loading.value = true
+    isCompacting.value = true
+    compactionNotice.value = '正在压缩上下文，完整聊天记录会保留…'
+    try {
+      const model = toModelRequestSettings(settings)
+      const response = await chatApi.compactContext({
+        context_id: owner, context: currentProjectedInput(settings) || source,
+        role_id: currentRoleId.value || undefined, model: model.model,
+        base_url: settings.provider === 'system' ? undefined : settings.baseUrl,
+        api_key: settings.provider === 'system' ? undefined : settings.apiKey
+      }, controller.signal)
+      if (!isCurrent()) return
+      if (response.contextId !== owner || JSON.stringify(conversationInput(messages.value)) !== JSON.stringify(source)) {
+        throw new Error('对话内容已变化，本次压缩结果未应用，请重试。')
+      }
+      if (response.status === 'summarized' || response.status === 'pruned') {
+        if (contextCheckpoints.size >= 8 && !contextCheckpoints.has(owner)) {
+          contextCheckpoints.delete(contextCheckpoints.keys().next().value!)
+        }
+        contextCheckpoints.set(owner, { source, projected: response.messages, modelKey })
+        const before = Number(response.metrics.inputTokens), after = Number(response.metrics.outputTokens)
+        applyContextUsage(after, response.model, response.contextWindowTokens)
+        compactionNotice.value = `上下文已压缩：估算 ${before.toLocaleString()} → ${after.toLocaleString()} Token。本页后续对话使用摘要，完整记录保留。`
+      } else if (response.status === 'failed_passthrough') {
+        compactionNotice.value = '本次摘要未通过压缩校验，继续使用原上下文。可以稍后重试。'
+      } else {
+        compactionNotice.value = '暂无可压缩的历史内容，近期对话已保留。'
+      }
+      return response
+    } catch (error) {
+      if (isCurrent()) {
+        compactionNotice.value = '上下文压缩未完成，原上下文已保留。'
+        throw error
+      }
+    } finally {
+      if (isCurrent()) {
+        isCompacting.value = false
+        loading.value = false
+        activeStreamController = null
+      }
+    }
+  }
+
   const sendMessage = async (
     text: string,
     fileUrl?: string,
@@ -320,6 +397,8 @@ export const useChatStore = defineStore('chat', () => {
 
     const generation = ++messageGeneration
     const isCurrent = () => generation === messageGeneration
+    const settings = runtimeSettings || loadModelSettings()
+    const compacted = workspaceMode === 'chat' ? currentProjectedInput(settings) : undefined
     pushUserMessage(text, fileUrl)
 
     loading.value = true
@@ -330,6 +409,7 @@ export const useChatStore = defineStore('chat', () => {
         contextId: contextId.value || undefined,
         workspaceMode: contextId.value ? conversationWorkspaceMode.value || workspaceMode : workspaceMode,
         fileUrl: fileUrl || undefined,
+        context: compacted,
         ...toModelRequestSettings(runtimeSettings || loadModelSettings())
       }
 
@@ -382,6 +462,7 @@ export const useChatStore = defineStore('chat', () => {
     const generation = ++messageGeneration
     const isCurrent = () => generation === messageGeneration
     const modelRequestSettings = toModelRequestSettings(runtimeSettings)
+    const compacted = workspaceMode === 'chat' ? currentProjectedInput(runtimeSettings) : undefined
 
     pushUserMessage(text)
     loading.value = true
@@ -654,6 +735,7 @@ export const useChatStore = defineStore('chat', () => {
           tool_mode: 'auto',
           approval_mode: approvalMode.value,
           context_id: contextId.value || undefined,
+          context: compacted,
           workspace_mode: contextId.value ? conversationWorkspaceMode.value || workspaceMode : workspaceMode
         })
       })
@@ -830,6 +912,7 @@ export const useChatStore = defineStore('chat', () => {
     invalidateMessageRequest()
     const owner = messageGeneration
     if (targetContextId) await chatApi.clearHistory(targetContextId)
+    if (targetContextId) contextCheckpoints.delete(targetContextId)
     if (generation === historyGeneration && owner === messageGeneration && contextId.value === targetContextId) clearMessages()
   }
 
@@ -973,6 +1056,9 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   return {
+    isCompacting,
+    compactionNotice,
+    compactContext,
     approvalMode,
     messages,
     loading,

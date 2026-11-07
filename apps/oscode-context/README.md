@@ -18,7 +18,17 @@ OScode's Python Chat API opts into `RunConfig.call_model_input_filter`. The defa
 
 The TS worker emits `summarize` RPC; Python calls the existing `generate_with_runtime_model` with no tools, disabled thinking and an explicit output cap. The summary call never uses Runner or this input filter. Existing API/SSE/Provider contracts remain unchanged.
 
-## Configuration (default OFF)
+## Manual `/compact`
+
+In OScode, type `/compact` and send, or type `/` and choose the command suggestion. The command is handled locally rather than becoming a user message or starting a tool run. The UI displays progress, estimated before/after Token counts, or a no-op/failure explanation.
+
+`POST /ai/chat/compact` uses the current conversation and model settings. It invokes the same TS engine with `force=true`, bypassing the automatic pressure threshold while retaining recent turns, balanced tool groups, protected content and summary validation. The Provider is called only for the tool-free summary. Original stored and displayed chat records are retained.
+
+Validated projections are held in the current page's Chat store and supplied as `context` on later streaming/text requests, with new complete messages appended. They are scoped to the conversation and model settings; source-prefix edits invalidate them. Switching conversations discards late results. Refreshing the page restores full raw context; there is no durable checkpoint database or cross-device sync.
+
+`OSCODE_CONTEXT_COMPACTION_MANUAL_ENABLED=true` enables this explicit endpoint independently of the automatic flag. Set it to `false` to disable manual requests. Model budgets, tokenizer assets and Node requirements below also apply to manual compaction. Restart the Python AI service after adding this route/configuration; Java uses its existing authenticated generic proxy.
+
+## Automatic configuration (default OFF)
 
 `OSCODE_CONTEXT_COMPACTION_ENABLED=false` is the default. No deployment or runtime setting is changed by PR-CTX-01.
 
@@ -51,7 +61,7 @@ Content is tokenized with a matching configured tokenizer, or OpenAI `js-tiktoke
 - Structured summaries are lower-priority `user` background data, never new system instructions. Prompt injection inside historical data must not be executed.
 - Protected old multimodal/opaque messages form hard range boundaries; a protected span that alone exceeds the budget fails explicitly instead of being cut.
 - Summary schema, length, shrink target and source revision are validated before projection. Within the hard input limit, summary failure returns the entire original input with an explicit failure status/log. Over-limit failure blocks the request, retaining history.
-- Hysteresis and an eight-entry request-local memo avoid repeated same-prefix summary calls inside a tool loop. No cross-request cache or DB migration is introduced. Consecutive HTTP requests may therefore pay for the same old prefix again.
-- DSH's Session journal, durable shadow events, distributed locks, route-usage calibration, automatic overflow retry, UI compact command, and tool-schema prefix-cache replay are not migrated. This is an algorithm adaptation/function extraction, not a verbatim package migration.
+- Hysteresis and an eight-entry request-local memo avoid repeated same-prefix summary calls inside a tool loop. Automatic projections have no cross-request cache; explicit manual checkpoints can be reused by the same page. No DB migration is introduced.
+- DSH's Session journal, durable shadow events, distributed locks, route-usage calibration, automatic overflow retry, and tool-schema prefix-cache replay are not migrated. The OScode command is a host integration; this remains an algorithm adaptation/function extraction, not a verbatim package migration.
 
 Upstream commit, source/test/dependency SHA256 and full MIT license: `third_party/dsh/`.

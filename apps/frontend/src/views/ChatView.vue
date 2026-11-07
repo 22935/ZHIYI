@@ -129,6 +129,7 @@
                   streamPhase: msg.streamPhase,
                   thinkingDurationMs: msg.thinkingDurationMs,
                   reasoningContent: msg.reasoningContent,
+                  reasoningTruncated: msg.reasoningTruncated,
                   requestedThinkingMode: msg.requestedThinkingMode,
                   effectiveThinkingMode: msg.effectiveThinkingMode,
                   effectiveReasoningEffort: msg.effectiveReasoningEffort,
@@ -268,6 +269,17 @@
               :placeholder="$t('chat.conversationPlaceholder')"
               @keydown="handleKeydown"
             />
+            <button
+              v-if="showCompactCommand && !loading"
+              type="button"
+              class="composer-compact-command"
+              @click="runCompactCommand"
+            >
+              <code>/compact</code><span>压缩当前对话上下文</span>
+            </button>
+            <div v-if="chatStore.compactionNotice" class="composer-compaction-notice" role="status" aria-live="polite">
+              {{ chatStore.compactionNotice }}
+            </div>
               <div class="composer-footer">
                 <div class="left-actions">
                 <div ref="composerToolsAnchorRef" class="composer-tools-anchor">
@@ -322,15 +334,16 @@
                 </span>
                 <el-button v-if="inputText.length > 500" text @click="autoSegment">自动分段</el-button>
                 <el-button
-                  v-if="isStreamingChat"
-                  class="composer-cancel"
-                  type="danger"
-                  @click="cancelMessageStream"
+                  class="composer-send"
+                  :class="{ 'is-stop': isStreamingChat }"
+                  type="primary"
+                  :disabled="isStreamingChat ? false : isSendDisabled"
+                  :aria-label="isStreamingChat ? '停止生成' : '发送'"
+                  :title="isStreamingChat ? '停止生成' : '发送'"
+                  @click="isStreamingChat ? cancelMessageStream() : sendMessage()"
                 >
-                  <span>停止</span>
-                </el-button>
-                <el-button class="composer-send" type="primary" :disabled="isSendDisabled" @click="sendMessage">
-                  <el-icon v-if="!loading"><ArrowUp /></el-icon>
+                  <span v-if="isStreamingChat" class="composer-stop-square" aria-hidden="true"></span>
+                  <el-icon v-else-if="!loading"><ArrowUp /></el-icon>
                   <el-icon v-else class="is-loading"><Loading /></el-icon>
                 </el-button>
               </div>
@@ -1353,6 +1366,14 @@ const conversationInfo = computed(() => {
 
 const showScrollToBottom = computed(() => !isNearBottom.value && chatStore.messages.length > 0)
 const isSendDisabled = computed(() => loading.value || (!inputText.value.trim() && !isRecording.value))
+const showCompactCommand = computed(() => {
+  const command = inputText.value.trim().toLowerCase()
+  return command.startsWith('/') && '/compact'.startsWith(command)
+})
+const runCompactCommand = () => {
+  inputText.value = '/compact'
+  return sendMessage()
+}
 const isWorkflowTerminal = computed(() => lifecycle.value.isTerminal)
 const isWorkflowUnavailable = computed(() =>
   workflowProgressState.syncError.value === '该运行记录不存在或当前账户无权访问'
@@ -1481,6 +1502,15 @@ const sendMessage = async () => {
     : undefined
 
   try {
+    if (/^\/compact$/i.test(userText)) {
+      await chatStore.compactContext(loadModelSettings())
+      return
+    }
+    if (/^\/compact\s/i.test(userText)) {
+      ElMessage.info('输入 /compact 并发送即可压缩上下文，无需额外参数。')
+      inputText.value = userText
+      return
+    }
     sendingDraftId = !chatStore.contextId && !route.query.contextId && currentConversationId.value.startsWith('draft:')
       ? currentConversationId.value : null
     const sendPromise = chatStore.sendMessageStream(userText, 'default', loadModelSettings(), 'chat')
@@ -2297,6 +2327,29 @@ const handleHeroLogoPointerUp = () => {
 </script>
 
 <style scoped>
+.composer-compact-command {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 10px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.composer-compact-command:hover { background: var(--el-fill-color); }
+.composer-compact-command code { font-size: 14px; color: var(--el-color-primary); }
+.composer-compact-command span { font-size: 13px; }
+.composer-compaction-notice {
+  padding: 8px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
+  overflow-wrap: anywhere;
+}
 .chat-view {
   height: 100%;
   min-height: 0;
@@ -4278,6 +4331,24 @@ const handleHeroLogoPointerUp = () => {
   background: #E2E1DA;
   color: #482E19;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.composer-send.el-button.is-stop {
+  background: #E2E1DA;
+  color: #482E19;
+}
+
+.composer-send .composer-stop-square {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: currentColor;
+}
+
+.composer-send.el-button.is-stop:active {
+  transform: scale(0.94);
 }
 
 .composer-send.el-button:hover,

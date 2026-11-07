@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = ""
     # OScode only. ACG never opts into this model-input projection.
     OSCODE_CONTEXT_COMPACTION_ENABLED: bool = False
+    # Explicit /compact is independently available; automatic compaction stays opt-in.
+    OSCODE_CONTEXT_COMPACTION_MANUAL_ENABLED: bool = True
     # Exact keys: "https://provider.example/v1::model-id"; no global guessed window.
     OSCODE_CONTEXT_COMPACTION_MODELS: dict = {}
     OSCODE_CONTEXT_COMPACTION_NODE: str = ""

@@ -51,12 +51,14 @@ class TypeScriptInputFilter:
         await self.process.stdin.drain()
 
     async def __call__(self, call):
+        return await self.project(call.model_data)
+
+    async def project(self, data, *, force=False):
         from agents.run import ModelInputData
-        data = call.model_data
         # Cheap UTF-8 upper bound admits short input without spawning a process,
         # loading tokenizers or making any auxiliary Provider call.
         limit = self.budget["contextWindow"] - self.budget["outputReserve"] - self.budget["safetyMargin"]
-        if _upper_bound(data.input, data.instructions or "", self.tools) < int(limit * self.config.get("triggerRatio", .85)):
+        if not force and _upper_bound(data.input, data.instructions or "", self.tools) < int(limit * self.config.get("triggerRatio", .85)):
             return data
         async with self._lock:
             source_hash = hashlib.sha256(_wire(data.input).encode('utf8')).digest()
@@ -75,6 +77,7 @@ class TypeScriptInputFilter:
                             env=child_env, limit=32 * 1024 * 1024)
                     await self._send({"type": "project", "request": {
                         "contextId": self.context_id, "provider": self.base_url.rstrip("/"), "model": self.model,
+                        "force": force,
                         "messages": data.input, "instructions": data.instructions or "", "tools": self.tools,
                         "budget": self.budget}, "config": self.config, "tokenizer": self.tokenizer})
                     while True:

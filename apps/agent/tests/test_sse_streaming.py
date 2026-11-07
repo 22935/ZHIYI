@@ -82,3 +82,32 @@ async def test_model_exception_is_not_reflected_to_client():
     assert len(events) == 1
     assert "AI_STREAM_FAILED" in events[0]
     assert "private-key-material" not in events[0]
+
+
+@pytest.mark.asyncio
+async def test_turn_limit_failure_reports_its_own_code():
+    from agents.exceptions import MaxTurnsExceeded
+
+    async def chunks():
+        raise MaxTurnsExceeded("Max turns (6) exceeded")
+        yield  # pragma: no cover
+
+    events = await collect(_stream_sse_events(chunks(), FakeRequest(), 0.01))
+
+    payload = json.loads(events[0].split("data: ", 1)[1])
+    assert payload["data"]["code"] == "AI_TURN_LIMIT_EXCEEDED"
+    assert payload["data"]["retryable"] is False
+    assert "本次回复达到工具轮数上限" in payload["data"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_timeout_failure_reports_upstream_timeout():
+    async def chunks():
+        raise asyncio.TimeoutError()
+        yield  # pragma: no cover
+
+    events = await collect(_stream_sse_events(chunks(), FakeRequest(), 0.01))
+
+    payload = json.loads(events[0].split("data: ", 1)[1])
+    assert payload["data"]["code"] == "AI_UPSTREAM_TIMEOUT"
+    assert payload["data"]["retryable"] is True

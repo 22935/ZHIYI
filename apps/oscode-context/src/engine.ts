@@ -55,7 +55,7 @@ export class ContextCompactionEngine {
         tokenizerFallback: this.meter.fallbackUsed, compressionRatio: 1 - after / Math.max(1, before) } }
     }
     const threshold = Math.floor(limit * this.config.triggerRatio)
-    if (before < threshold) return finish(original, 'unchanged')
+    if (!request.force && before < threshold) return finish(original, 'unchanged')
     const started = performance.now()
     const summarizer = new LLMSummarizer(this.invoke, this.meter, request.budget, this.config.maxSummaryCalls)
     try {
@@ -63,10 +63,13 @@ export class ContextCompactionEngine {
       const safeEnd = cuts.lastIndexOf(true)
       const pruned = pruneResults(original, this.config, safeEnd)
       metrics.prunedChars = pruned.removedChars
-      if (fixed + this.meter.messages(pruned.messages) < threshold) return finish(pruned.messages, 'pruned')
+      if (!request.force && fixed + this.meter.messages(pruned.messages) < threshold) return finish(pruned.messages, 'pruned')
+      // Manual compaction may run far below the window threshold: retaining a
+      // fraction of the full window would otherwise protect the entire history.
+      const retentionBase = request.force ? Math.max(0, before - fixed) : limit - fixed
       const selected = selectRange(pruned.messages, this.meter, this.config.retainTurns,
-        Math.floor((limit - fixed) * this.config.retainRatio))
-      if (!selected) return finish(pruned.messages, 'no_safe_range')
+        Math.floor(retentionBase * this.config.retainRatio))
+      if (!selected) return finish(pruned.messages, pruned.removedChars > 0 ? 'pruned' : 'no_safe_range')
       const [start, end] = selected
       const old = pruned.messages.slice(start, end), prefix = pruned.messages.slice(0, start), tail = pruned.messages.slice(end)
       const refs = sourceReferences(old)

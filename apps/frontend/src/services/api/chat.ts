@@ -1,5 +1,15 @@
 import request from '@/utils/request'
 import type { ReasoningEffort, ThinkingMode } from '@/config/modelSettings'
+import type { ContextMessage } from '@/features/chat/compaction'
+
+export interface CompactResponse {
+  contextId: string
+  status: 'unchanged' | 'pruned' | 'summarized' | 'no_safe_range' | 'failed_passthrough'
+  messages: ContextMessage[]
+  model: string
+  contextWindowTokens: number
+  metrics: Record<string, string | number | boolean>
+}
 
 export interface ChatRequest {
   text?: string
@@ -49,6 +59,13 @@ export interface ChatResponse {
 export type ChatApprovalDecision = 'allow_once' | 'allow_session' | 'deny'
 
 export const chatApi = {
+  async compactContext(payload: {
+    context_id: string; context: ContextMessage[]; role_id?: string
+    model?: string; base_url?: string; api_key?: string
+  }, signal?: AbortSignal): Promise<CompactResponse> {
+    const response = await request.post<CompactResponse>('/ai/chat/compact', payload, { signal, timeout: 130000 })
+    return response.data
+  },
   // 发送文本消息
   async sendMessage(chatRequest: ChatRequest): Promise<ChatResponse & { audioUrl?: string; animation?: any }> {
     const response = await request.post<ChatResponse & { audioUrl?: string; animation?: any }>('/chat/text', {

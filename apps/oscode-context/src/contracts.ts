@@ -27,6 +27,8 @@ export const DEFAULTS: Readonly<Config> = Object.freeze({
   thresholdChars: 8192, headChars: 4096, tailChars: 1024,
 })
 export interface ProjectionRequest {
+  /** Explicit /compact request; still respects protected turns and hard limits. */
+  force?: boolean
   contextId: string
   provider: string
   model: string

@@ -1,8 +1,10 @@
 """
 对话API路由
 """
+from agents.exceptions import MaxTurnsExceeded
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import StreamingResponse
+from openai import APIConnectionError, APIStatusError, APITimeoutError, BadRequestError
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Dict, Literal, Optional
 import asyncio
@@ -11,6 +13,7 @@ import time
 from uuid import uuid4
 from app.services.aiservice import AIService
 from app.config import settings
+from app.api.chat_compaction import router as compaction_router
 from app.ai_engine.model_runtime import (
     apply_reasoning_instruction,
     list_system_runtime_models,
@@ -28,6 +31,8 @@ from app.tools.permissions import (
 )
 
 router = APIRouter()
+
+router.include_router(compaction_router)
 
 # 依赖注入AI服务
 ai_service = AIService()
@@ -204,6 +209,43 @@ async def chat_text(request: ChatRequest):
         },
     )
 
+def _stream_failure(error: BaseException) -> Dict[str, object]:
+    """Classify a stream exception into a stable, client-facing failure payload.
+
+    Provider payloads, request bodies and exception text are never forwarded:
+    the client receives only a fixed message and a retry hint, so a stream that
+    dies mid-generation is still diagnosable from the code alone.
+    """
+    if isinstance(error, MaxTurnsExceeded):
+        return {
+            "code": "AI_TURN_LIMIT_EXCEEDED",
+            "message": "本次回复达到工具轮数上限，请重试",
+            "retryable": False,
+        }
+    if isinstance(error, (asyncio.TimeoutError, TimeoutError, APITimeoutError)):
+        return {"code": "AI_UPSTREAM_TIMEOUT", "message": "模型响应超时，请重试", "retryable": True}
+    if isinstance(error, APIConnectionError):
+        return {
+            "code": "AI_UPSTREAM_UNREACHABLE",
+            "message": "无法连接模型服务，请检查网络或代理后重试",
+            "retryable": True,
+        }
+    if isinstance(error, BadRequestError) and "context_length" in str(error):
+        return {
+            "code": "AI_CONTEXT_OVERFLOW",
+            "message": "上下文超出模型窗口，请缩短对话后重试",
+            "retryable": False,
+        }
+    if isinstance(error, APIStatusError):
+        status = int(getattr(error, "status_code", 0) or 0)
+        return {
+            "code": "AI_UPSTREAM_REJECTED",
+            "message": f"模型服务拒绝了本次请求（HTTP {status}）",
+            "retryable": status == 429 or status >= 500,
+        }
+    return {"code": "AI_STREAM_FAILED", "message": "回复生成失败，请重试", "retryable": True}
+
+
 async def _stream_sse_events(
     chunks,
     http_request: Request,
@@ -278,13 +320,16 @@ async def _stream_sse_events(
         logger.info("SSE generation cancelled by downstream")
         raise
     except Exception as error:
-        logger.exception("SSE model stream failed. type=%s", type(error).__name__)
+        failure = _stream_failure(error)
+        logger.exception(
+            "SSE model stream failed. type=%s code=%s", type(error).__name__, failure["code"]
+        )
         sequence += 1
         stream_event = ChatStreamEvent(
             event=ChatStreamEventType.ERROR,
             request_id=request_id,
             sequence=sequence,
-            data={"code": "AI_STREAM_FAILED"},
+            data=dict(failure),
         )
         yield f"event: error\ndata: {stream_event.sse_data()}\n\n"
     finally:

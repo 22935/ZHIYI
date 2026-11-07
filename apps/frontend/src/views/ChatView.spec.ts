@@ -79,7 +79,9 @@ function createChatStoreMock() {
       chatStoreMock.contextId = null
     }),
     fetchContextWindows: vi.fn(async () => {}),
-    sendMessageStream: vi.fn()
+    sendMessageStream: vi.fn(),
+    compactContext: vi.fn(),
+    cancelMessageStream: vi.fn()
   })
 }
 
@@ -194,6 +196,22 @@ describe('ChatView ACG progress integration', () => {
     await wrapper.findAll('[role="menuitemradio"]')[1].trigger('click')
     expect(chatStoreMock.approvalMode).toBe('auto')
     expect(wrapper.get('[aria-label="访问权限"]').text()).toContain('帮我批准')
+  })
+
+  it('uses one combined send/stop control', async () => {
+    const { wrapper } = await mountPage('?workspace=chat')
+
+    expect(wrapper.find('.composer-cancel').exists()).toBe(false)
+    expect(wrapper.get('.composer-send').classes()).not.toContain('is-stop')
+
+    chatStoreMock.isStreaming = true
+    await flushPromises()
+
+    const button = wrapper.get('.composer-send')
+    expect(button.classes()).toContain('is-stop')
+    expect(button.find('.composer-stop-square').exists()).toBe(true)
+    await button.trigger('click')
+    expect(chatStoreMock.cancelMessageStream).toHaveBeenCalledTimes(1)
   })
 
   it('writes the first chat context into the URL, preserving queries, without reloading its messages', async () => {
@@ -523,6 +541,29 @@ describe('ChatView ACG progress integration', () => {
     expect(feed.exists()).toBe(true)
     expect(feed.props('items')).toHaveLength(1)
     expect(feed.props('items')[0]).toMatchObject({ stage: 'tool:patch_file:call_1' })
+    wrapper.unmount()
+  })
+
+  it('routes /compact through manual compaction without sending it as a model message', async () => {
+    const { wrapper } = await mountPage('?workspace=chat')
+    await wrapper.get('.composer-card textarea').setValue('/compact')
+    await wrapper.get('.composer-send').trigger('click')
+    await flushPromises()
+    expect(chatStoreMock.compactContext).toHaveBeenCalledWith(expect.any(Object))
+    expect(chatStoreMock.sendMessageStream).not.toHaveBeenCalled()
+    expect(chatStoreMock.startAgentRun).not.toHaveBeenCalled()
+    expect((wrapper.get('.composer-card textarea').element as HTMLTextAreaElement).value).toBe('')
+    wrapper.unmount()
+  })
+
+  it('offers the compact command while typing its prefix', async () => {
+    const { wrapper } = await mountPage('?workspace=chat')
+    await wrapper.get('.composer-card textarea').setValue('/co')
+    expect(wrapper.get('.composer-compact-command').text()).toContain('/compact')
+    await wrapper.get('.composer-compact-command').trigger('click')
+    await flushPromises()
+    expect(chatStoreMock.compactContext).toHaveBeenCalledOnce()
+    expect(chatStoreMock.sendMessageStream).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
