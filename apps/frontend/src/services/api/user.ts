@@ -17,15 +17,10 @@ export interface AvatarUploadResponse extends User {
   avatar?: string
 }
 
-export interface ChangePasswordRequest {
-  currentPassword: string
-  newPassword: string
-}
-
 export const userApi = {
   // 获取当前用户信息
   async getCurrentUser(): Promise<User> {
-    const response = await request.get<User>('/users/me')
+    const response = await request.get<User>('/user/profile')
     return response.data
   },
 
@@ -57,11 +52,5 @@ export const userApi = {
       responseType: 'blob'
     })
     return response.data
-  },
-
-  // 修改密码
-  async changePassword(userId: string, passwordData: ChangePasswordRequest): Promise<void> {
-    await request.post(`/users/${userId}/password`, passwordData)
   }
 }
-

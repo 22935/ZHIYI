@@ -1,3 +1,4 @@
+import { localFetch } from '@/platform/api'
 import { backendUrl } from './api'
 import selectedAdapter from '@platform'
 import type { PlatformAdapter, RuntimeStatus } from './types'
@@ -12,7 +13,7 @@ export * from './types'
 /** Check the existing Backend readiness contract without starting or supervising Runtime processes. */
 export async function checkRuntimeStatus(signal?: AbortSignal): Promise<RuntimeStatus> {
   try {
-    const response = await fetch(backendUrl('/health/ready'), {
+    const response = await localFetch(backendUrl('/health/ready'), {
       method: 'GET',
       headers: { Accept: 'application/json' },
       cache: 'no-store',

@@ -238,10 +238,6 @@ export const useWorkflowRunsStore = defineStore('workflowRuns', () => {
   const bootstrap = () => {
     if (bootstrapPromise) return bootstrapPromise
     bootstrapPromise = (async () => {
-      if (!localStorage.getItem('token')) {
-        initialized.value = true
-        return
-      }
       isSyncing.value = true
       syncError.value = null
       try {

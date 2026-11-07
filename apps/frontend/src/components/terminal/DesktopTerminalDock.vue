@@ -117,6 +117,7 @@
 </template>
 
 <script setup lang="ts">
+import { localFetch } from '@/platform/api'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Terminal } from '@xterm/xterm'
 import type { FitAddon } from '@xterm/addon-fit'
@@ -234,13 +235,9 @@ async function renderSession(id: string | null) {
 function activate(id: string) { terminalActiveId.value = id; terminal?.focus() }
 async function selectedDirectory(): Promise<string | undefined> {
   try {
-    const token = localStorage.getItem('token')
-    if (token) {
-      const response = await fetch(apiUrl('/api/agentos/v2/workspaces/current'), {
-        headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(2000)
-      })
-      if (response.ok) { const data = await response.json(); if (data.workspaceRoot) return data.workspaceRoot }
-    }
+
+    const response = await localFetch(apiUrl('/api/agentos/v2/workspaces/current'), { signal: AbortSignal.timeout(2000) })
+    if (response.ok) { const data = await response.json(); if (data.workspaceRoot) return data.workspaceRoot }
     return (await getElectronBridge()?.workspace?.current())?.root
   } catch { return undefined }
 }

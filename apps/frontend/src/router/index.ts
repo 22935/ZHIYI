@@ -1,60 +1,16 @@
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { authApi } from '@/services/api/auth'
 import { isDesktop } from '@/platform'
-import { ensureDesktopSession } from '@/platform/electron/session'
-
-const normalizeRedirect = (redirect?: string) => {
-  if (!redirect) return '/chat'
-  if (!redirect.startsWith('/') || redirect.startsWith('//')) return '/chat'
-  return redirect
-}
-
-const stringQuery = (value: unknown) => typeof value === 'string' ? value : undefined
-
-const landingAuthQuery = (redirect?: unknown, from?: unknown) => ({
-  auth: '1',
-  redirect: normalizeRedirect(stringQuery(redirect)),
-  ...(typeof from === 'string' ? { from } : {})
-})
-
-// Unauthenticated access to a protected route: web falls back to landing
-// embedded auth, the desktop shell returns to the standalone login page.
-const unauthRedirect = (fullPath: string) => isDesktop()
-  ? `/login?redirect=${encodeURIComponent(fullPath)}`
-  : { path: '/', query: landingAuthQuery(fullPath) }
 
 const routes: RouteRecordRaw[] = [
-  {
-    path: '/',
-    name: 'Landing',
-    component: () => import('@/views/LandingView.vue'),
-    meta: {
-      title: '首页',
-      requiresAuth: false
-    }
-  },
-  {
-    path: '/login',
-    name: 'Login',
-    component: () => import('@/views/LoginView.vue'),
-    // Web presents auth embedded on the landing page; the desktop shell keeps
-    // the standalone login surface with its own title-bar chrome.
-    beforeEnter: to => (isDesktop()
-      ? true
-      : { path: '/', query: landingAuthQuery(to.query.redirect, to.query.from) }),
-    meta: {
-      title: '登录',
-      requiresAuth: false
-    }
-  },
+  { path: '/', redirect: '/chat' },
+  { path: '/login', redirect: '/chat' },
   {
     path: '/user',
     name: 'User',
     component: () => import('@/views/UserView.vue'),
     meta: {
       title: '用户中心',
-      requiresAuth: true,
       hideNavigation: true
     }
   },
@@ -63,21 +19,19 @@ const routes: RouteRecordRaw[] = [
     name: 'Info',
     component: () => import('@/views/InfoView.vue'),
     meta: {
-      title: '信息入口',
-      requiresAuth: true
+      title: '信息入口'
     }
   },
   {
     path: '/history',
     name: 'History',
     // These workspace surfaces pull in graph and visualization libraries.
-    // Load them only after navigation so the login shell does not ask Vite to
-    // transform the entire authenticated workspace at startup. Chunk failures
+    // Load them only after navigation so initial rendering does not ask Vite to
+    // transform the entire workspace at startup. Chunk failures
     // remain covered by the one-shot router recovery below.
     component: () => import('@/views/HistoryView.vue'),
     meta: {
-      title: '历史记录',
-      requiresAuth: true
+      title: '历史记录'
     }
   },
   {
@@ -85,8 +39,7 @@ const routes: RouteRecordRaw[] = [
     name: 'Chat',
     component: () => import('@/views/ChatView.vue'),
     meta: {
-      title: '对话',
-      requiresAuth: true
+      title: '对话'
     }
   },
   {
@@ -103,8 +56,7 @@ const routes: RouteRecordRaw[] = [
     // 页面内自建拖拽区实测无效，顶栏是唯一可靠拖拽面。
     component: () => import('@/views/SettingsView.vue'),
     meta: {
-      title: '设置',
-      requiresAuth: true
+      title: '设置'
     }
   },
   {
@@ -112,8 +64,7 @@ const routes: RouteRecordRaw[] = [
     name: 'RAG',
     component: () => import('@/views/RagView.vue'),
     meta: {
-      title: '知识库查询',
-      requiresAuth: true
+      title: '知识库查询'
     }
   },
   {
@@ -141,8 +92,7 @@ const routes: RouteRecordRaw[] = [
     name: 'AcgVisualization',
     component: () => import('@/views/AcgEntryView.vue'),
     meta: {
-      title: 'ACG 动态群体智能引擎',
-      requiresAuth: true
+      title: 'ACG 动态群体智能引擎'
     }
   },
   {
@@ -150,8 +100,7 @@ const routes: RouteRecordRaw[] = [
     name: 'ProjectsHub',
     component: () => import('@/views/ProjectsHubView.vue'),
     meta: {
-      title: '项目',
-      requiresAuth: true
+      title: '项目'
     }
   },
   {
@@ -159,8 +108,7 @@ const routes: RouteRecordRaw[] = [
     name: 'ResourceCenter',
     component: () => import('@/views/ResourceCenterView.vue'),
     meta: {
-      title: 'Resource Center',
-      requiresAuth: true
+      title: 'Resource Center'
     }
   },
   {
@@ -168,8 +116,7 @@ const routes: RouteRecordRaw[] = [
     name: 'MemoryCenter',
     component: () => import('@/views/MemoryView.vue'),
     meta: {
-      title: 'Run Memory',
-      requiresAuth: true
+      title: 'Run Memory'
     }
   },
   {
@@ -177,8 +124,7 @@ const routes: RouteRecordRaw[] = [
     name: 'CreateMission',
     component: () => import('@/views/CreateMissionView.vue'),
     meta: {
-      title: '新建任务',
-      requiresAuth: true
+      title: '新建任务'
     }
   },
   {
@@ -186,8 +132,7 @@ const routes: RouteRecordRaw[] = [
     name: 'MissionWorkspace',
     component: () => import('@/views/MissionWorkspaceView.vue'),
     meta: {
-      title: 'Mission Project Workspace',
-      requiresAuth: true
+      title: 'Mission Project Workspace'
     }
   },
   {
@@ -241,96 +186,8 @@ router.afterEach((to) => {
   }
 })
 
-const clearAuthState = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('userId')
-}
-
-const isAuthorizationFailure = (error: unknown) => {
-  const status = (error as { response?: { status?: number } } | null)?.response?.status
-  return status === 401 || status === 403
-}
-
-// Global route guard
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} - 知弈AgentOS` : '知弈AgentOS'
-
-  // 内部发行版：桌面壳启动即建立本地会话（账号由启动器首启自动注册），
-  // 因此登录页不会出现在界面上；拿不到会话时回落到原有登录流程。
-  if (isDesktop() && !localStorage.getItem('token')) {
-    await ensureDesktopSession()
-  }
-
-  const token = localStorage.getItem('token')
-  const requiresAuth = Boolean(to.meta.requiresAuth)
-
-  // The desktop shell never shows the public landing page: unauthenticated
-  // sessions open the standalone login surface instead.
-  if (to.path === '/' && isDesktop()) {
-    next({ path: '/login', replace: true })
-    return
-  }
-
-  // Validate login state for protected routes
-  if (requiresAuth) {
-    if (!token) {
-      next(unauthRedirect(to.fullPath))
-      return
-    }
-
-    try {
-      const result = await authApi.verifyToken()
-      if (!result.valid) {
-        clearAuthState()
-        next(unauthRedirect(to.fullPath))
-        return
-      }
-    } catch (error) {
-      if (isAuthorizationFailure(error)) {
-        clearAuthState()
-        next(unauthRedirect(to.fullPath))
-      } else {
-        // A temporary backend/dev-server interruption is not an authentication
-        // decision. Keep the session and route so recovery does not force login.
-        next()
-      }
-      return
-    }
-  }
-
-  // 已登录时访问登录页，回到来源页（如果有）或默认聊天页。
-  if (to.path === '/login' && token) {
-    try {
-      const result = await authApi.verifyToken()
-      if (result.valid) {
-        const redirect = normalizeRedirect(typeof to.query.redirect === 'string' ? to.query.redirect : undefined)
-        next(redirect)
-        return
-      }
-      clearAuthState()
-    } catch (error) {
-      if (isAuthorizationFailure(error)) clearAuthState()
-    }
-  }
-
-  // 已登录时打开首页内嵌认证入口，回到来源页（如果有）或默认聊天页。
-  if (to.path === '/' && to.query.auth === '1' && token) {
-    try {
-      const result = await authApi.verifyToken()
-      if (result.valid) {
-        const redirect = normalizeRedirect(typeof to.query.redirect === 'string' ? to.query.redirect : undefined)
-        next(redirect)
-        return
-      }
-      clearAuthState()
-    } catch (error) {
-      if (isAuthorizationFailure(error)) clearAuthState()
-    }
-  }
-
-  next()
 })
 
 export default router
-
-

@@ -6,7 +6,7 @@ import { createNativeWorkbenchDraft } from '@/features/acg/workbench'
 
 vi.mock('@/services/api/workflow', () => ({ workflowApi: { startWorkflowAsync: vi.fn() } }))
 const request = () => workbenchLaunchCommand({ ...createNativeWorkbenchDraft(), taskGoal: 'goal' }, [])
-beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear() })
+beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear(); localStorage.setItem('userId', 'local-owner') })
 it('P0: attachment-not-ready never rotates the operation identity', async () => {
   const failure = { response: { status: 409, data: { detail: { code: 'ATTACHMENT_NOT_READY' } } } }
   vi.mocked(workflowApi.startWorkflowAsync).mockRejectedValueOnce(failure).mockResolvedValueOnce({ missionId: 'm', runId: 'r' } as any)

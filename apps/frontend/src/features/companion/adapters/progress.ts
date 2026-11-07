@@ -34,7 +34,7 @@ export class WorkflowProgressPort implements ProgressPort {
 
   async read(runId: string, signal?: AbortSignal): Promise<ProgressSnapshot> {
     try {
-      const raw = await workflowApi.getWorkflowProgress(runId, signal ? { signal } : {}) as Record<string, unknown>
+      const raw = await workflowApi.getWorkflowProgress(runId, signal ? { signal } : {}) as unknown as Record<string, unknown>
       const num = (key: string, fallback = 0): number => {
         const value = raw[key]
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback

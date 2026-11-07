@@ -110,31 +110,6 @@ export const chatApi = {
     return response.data
   },
 
-  // 获取角色对话历史
-  async getConversationHistory(roleId: string) {
-    try {
-      const response = await request.get(`/chat/history/role/${roleId}`)
-      return response.data
-    } catch (error) {
-      // 如果API不存在，返回空数据
-      return {
-        messages: [],
-        summary: ''
-      }
-    }
-  },
-
-  // 获取对话摘要
-  async getConversationSummary(roleId: string) {
-    try {
-      const response = await request.get(`/chat/summary/${roleId}`)
-      return response.data.summary || ''
-    } catch (error) {
-      // 如果API不存在，返回空字符串
-      return ''
-    }
-  },
-
   // 清除对话历史
   async clearHistory(contextId: string) {
     await request.delete(`/chat/history/${contextId}`)

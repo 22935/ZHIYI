@@ -11,7 +11,7 @@ const calls = () => vi.mocked(workflowApi.startWorkflowAsync).mock.calls
 
 describe('Mission launch operation authority', () => {
   beforeEach(() => {
-    vi.resetAllMocks(); sessionStorage.clear(); localStorage.clear()
+    vi.resetAllMocks(); sessionStorage.clear(); localStorage.clear(); localStorage.setItem('userId', 'local-owner')
     vi.mocked(workflowApi.createMaterial).mockResolvedValue({ manifestId: 'sealed' } as any)
     vi.mocked(workflowApi.startWorkflowAsync).mockResolvedValue(run)
     vi.mocked(workflowApi.reconcileMissionLaunch).mockResolvedValue({ status: 'NOT_FOUND' })
@@ -147,11 +147,11 @@ describe('Mission launch operation authority', () => {
     expect(JSON.stringify(sessionStorage)).not.toContain('never-persist')
     expect(calls()).toHaveLength(0)
   })
-  it('does not send an old account snapshot after login identity changes', async () => {
+  it('does not send an old Home snapshot after local identity changes', async () => {
     localStorage.setItem('userId', 'first')
     const attempt = createMissionLaunchAttempt(); const identity = attempt.begin(command())
     localStorage.setItem('userId', 'second')
-    expect(() => attempt.resume(identity.operationId)).toThrow('登录身份已改变')
+    expect(() => attempt.resume(identity.operationId)).toThrow('本机身份已改变')
     expect(calls()).toHaveLength(0)
   })
   it('canonicalizes object order and set-like scope/attachment refs while freezing wire ordering', () => {
@@ -198,9 +198,9 @@ describe('Mission launch operation authority', () => {
     expect(attempt.pending()!.missionId).toBe('mission')
     expect(calls()).toHaveLength(1)
   })
-  it('fails closed when an authenticated browser has no stable user identity', () => {
-    localStorage.setItem('token', 'do-not-persist-this-token')
-    expect(() => createMissionLaunchAttempt()).toThrow('缺少用户身份')
+  it('fails closed when the local profile is not ready', () => {
+    localStorage.removeItem('userId')
+    expect(() => createMissionLaunchAttempt()).toThrow('本机身份尚未就绪')
     expect(sessionStorage.length).toBe(0)
   })
 })

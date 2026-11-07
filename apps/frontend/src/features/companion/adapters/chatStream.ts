@@ -1,20 +1,17 @@
-import { apiUrl } from '@/platform/api'
+import { apiUrl, localFetch } from '@/platform/api'
 import { parseChatStreamFrame } from '@/utils/sse'
 import type { ChatPort, CompanionContext } from '../types'
 
 const CONTEXT_STORAGE_KEY = 'companion.chat_context_id.v1'
 
 /**
- * 可选的真实模型对话适配器：复用既有 SSE 帧协议，但使用独立的 context_id，
- * 不写入 chatStore、不改动 /ai/chat/text/stream 的行为。
- *
- * 注意：这是 P0 的过渡通道。P1 接入 /ai/companion/* 专用端点后，
- * 只需替换 ChatPort 的实现，UI 与业务层无需变化。
+ * 虚拟伙伴复用平台聊天协议，并保留服务端创建的独立 Conversation。
+ * 首条消息省略 context_id，后续消息只复用服务端返回的上下文。
  */
 export class StreamChatPort implements ChatPort {
   private contextId: string | null = null
 
-  private resolveContextId(): string {
+  private resolveContextId(): string | null {
     if (this.contextId) return this.contextId
     let stored: string | null = null
     try {
@@ -22,34 +19,44 @@ export class StreamChatPort implements ChatPort {
     } catch {
       stored = null
     }
-    const id = stored || `companion:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`
-    this.contextId = id
+    // Older adapters invented these IDs without creating a Conversation.
+    // They cannot be submitted as owner-checked references to the new backend.
+    if (stored?.startsWith('companion:')) {
+      try { localStorage.removeItem(CONTEXT_STORAGE_KEY) } catch { /* optional storage */ }
+      stored = null
+    }
+    this.contextId = stored?.trim() || null
+    return this.contextId
+  }
+
+  private rememberContextId(value: unknown): void {
+    if (typeof value !== 'string' || !value.trim()) return
+    this.contextId = value.trim()
     try {
-      localStorage.setItem(CONTEXT_STORAGE_KEY, id)
+      localStorage.setItem(CONTEXT_STORAGE_KEY, this.contextId)
     } catch {
       // Storage can be unavailable in embedded webviews; keep the in-memory id.
     }
-    return id
   }
 
   async reply(text: string, _context: CompanionContext, signal?: AbortSignal): Promise<string> {
-    const token = localStorage.getItem('token')
-    if (!token) return '需要先登录，我才能调用模型陪你聊天。'
-    const response = await fetch(apiUrl('/ai/chat/text/stream'), {
+
+    const contextId = this.resolveContextId()
+    const response = await localFetch(apiUrl('/ai/chat/text/stream'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({
         text,
         tool_mode: 'auto',
-        context_id: this.resolveContextId(),
+        ...(contextId ? { context_id: contextId } : {}),
         workspace_mode: 'chat'
       }),
       signal
     })
     if (!response.ok || !response.body) throw new Error(`Companion stream failed with HTTP ${response.status}`)
+    this.rememberContextId(response.headers.get('X-Context-Id') || response.headers.get('X-Chat-Context-Id'))
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -62,8 +69,16 @@ export class StreamChatPort implements ChatPort {
       const frames = buffer.replace(/\r\n/g, '\n').split('\n\n')
       buffer = done ? '' : frames.pop() || ''
       for (const frame of frames) {
+        if (/^event:\s*meta\s*$/m.test(frame)) {
+          const data = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
+          try {
+            const meta = JSON.parse(data)
+            this.rememberContextId(meta.contextId ?? meta.meta?.contextId ?? meta.data?.contextId)
+          } catch { /* A malformed metadata frame does not discard the model reply. */ }
+        }
         const event = parseChatStreamFrame(frame)
         if (!event) continue
+        this.rememberContextId(event.data.contextId ?? event.data.meta?.contextId)
         if (event.event === 'content_delta') content += String(event.data.delta ?? '')
         if (event.event === 'error') failure = String(event.data.code ?? 'AI_STREAM_FAILED')
         if (event.event === 'done' || failure) break

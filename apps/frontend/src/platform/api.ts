@@ -16,7 +16,7 @@ const configuredApiOrigin = (isDesktopFamilyMode && env.DEV
   : env.VITE_API_BASE_URL || defaultDesktopApiOrigin
 ).trim().replace(/\/$/, '')
 
-// 内部发行版：启动器可能把 Java 端口整体偏移（避免与本机其他程序冲突），
+// 内部发行版：启动器可能把 Backend 端口整体偏移（避免与本机其他程序冲突），
 // 渲染层以 Main 同步下发的 origin 为准，构建期常量只作兜底。
 const bridgeApiOrigin = (() => {
   const value = (globalThis as { kinlinDesktop?: { apiOrigin?: unknown } }).kinlinDesktop?.apiOrigin
@@ -33,11 +33,22 @@ const normalizePath = (path: string): string => path.startsWith('/') ? path : `/
  *
  * Web builds and the desktop hot-reload build keep relative URLs so they use
  * the active Vite proxy. The packaged Electron build (自定义协议同源规则)
- * falls back to the loopback Java backend because no Vite server is present.
+ * falls back to the loopback TypeScript backend because no Vite server is present.
  */
 export const apiUrl = (path: string): string => `${absoluteApiOrigin}${normalizePath(path)}`
 
-/** Resolve health/readiness through the Java backend's /api aliases. */
+/** Local writes require an explicit application header; no user credential is sent. */
+export const LOCAL_REQUEST_HEADERS = { 'X-Zhiyi-Local-Request': '1' } as const
+
+export const localFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase()
+  if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return fetch(input, init)
+  const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined))
+  headers.set('X-Zhiyi-Local-Request', '1')
+  return fetch(input, { ...init, headers })
+}
+
+/** Resolve health/readiness through the TypeScript backend's /api aliases. */
 export const backendUrl = (path: string): string => {
   const normalizedPath = normalizePath(path)
   const gatewayPath = normalizedPath === '/api' || normalizedPath.startsWith('/api/')

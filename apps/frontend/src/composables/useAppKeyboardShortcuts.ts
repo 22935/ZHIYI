@@ -1,5 +1,5 @@
 /**
- * 应用级全局快捷键（AuthenticatedAppShell 装载）：
+ * 应用级全局快捷键（AppShell 装载）：
  * - Ctrl+B 对话记录子栏 开/关（web/桌面都生效；仅 OScode/Workbench 页面，页面切换逻辑不在快捷键里）；
  * - Ctrl+R / F5 刷新页面（放渲染进程而非 Main：内置终端里 Ctrl+R 是 shell 历史搜索，
  *   需按焦点让位；页面崩溃场景已有 render-process-gone 弹窗兜底）；

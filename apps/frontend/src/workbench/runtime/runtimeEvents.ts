@@ -1,3 +1,4 @@
+import { localFetch } from '@/platform/api'
 import { reactive } from 'vue'
 import { apiUrl } from '@/platform'
 
@@ -339,18 +340,17 @@ export class RuntimeEventClient {
   }
 
   private async consume(controller: AbortController, generation: number) {
-    const token = localStorage.getItem('token')
+
     const headers: Record<string, string> = { Accept: 'text/event-stream' }
-    if (token) headers.Authorization = `Bearer ${token}`
     try {
-      const response = await fetch(apiUrl(`/api/agentos/v2/runs/${this.store.runId}/events`), {
+      const response = await localFetch(apiUrl(`/api/agentos/v2/runs/${this.store.runId}/events`), {
         method: 'GET',
         headers,
         cache: 'no-store',
         signal: controller.signal
       })
       if (response.status === 401 || response.status === 403) {
-        this.disconnect() // A new authenticated session must explicitly reconnect.
+        this.disconnect() // Configuration failures require an explicit reconnect.
         return
       }
       if (!response.ok) throw new Error(`Runtime event stream failed with HTTP ${response.status}`)
@@ -381,11 +381,6 @@ export class RuntimeEventClient {
   }
 
   private consumeFrame(frame: string) {
-    // 服务端会话撤销终止事件（INT-2F-4B）：立即停流且不自动重连，须重新登录建立新会话
-    if (/^event:\s*auth\.invalidated\s*$/m.test(frame)) {
-      this.disconnect()
-      return
-    }
     const data = frame.split('\n')
       .filter(line => line.startsWith('data:'))
       .map(line => line.slice(5).trimStart())
@@ -396,7 +391,7 @@ export class RuntimeEventClient {
       this.store.apply(event)
       if (['run.completed', 'run.failed', 'run.cancelled'].includes(event.eventType)) this.disconnect()
     } catch {
-      // A malformed frame must not terminate the authenticated stream.
+      // A malformed frame must not terminate the runtime stream.
     }
   }
 }
@@ -435,12 +430,4 @@ export const releaseRunRuntimeStore = (runId: string | null, store?: RuntimeEven
     item.client.disconnect()
     shared.delete(runId)
   }
-}
-
-// INT-2F-4B：主动登出时中止全部运行时事件流（fetch 中止 + 重连定时器清除），
-// 不等服务端逐流撤销传播，避免凭证清理后继续消耗连接资源
-if (typeof window !== 'undefined') {
-  window.addEventListener('kinlin:auth-logout', () => {
-    for (const item of shared.values()) item.client.disconnect()
-  })
 }

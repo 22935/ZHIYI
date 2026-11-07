@@ -42,8 +42,6 @@ export const IPC = {
   notify: 'kinlin:notify',
   openExternal: 'kinlin:open-external',
   appInfo: 'kinlin:app/info',
-  /** 内部发行版：渲染层在启动或 401 后向 Main 索取本机会话（账号密码只在 Main 的环境变量里）。 */
-  sessionBootstrap: 'kinlin:session/bootstrap',
   /** 同步读取后端 origin：product 模式下端口可能被启动器改过，不能只信构建期常量。 */
   appApiOrigin: 'kinlin:app/api-origin'
 } as const

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/platform', () => ({
+  LOCAL_REQUEST_HEADERS: { 'X-Zhiyi-Local-Request': '1' },
   platform: { platform: 'desktop', openDirectory: mocks.openDirectory },
   apiUrl: (path: string) => path
 }))

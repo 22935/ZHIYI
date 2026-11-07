@@ -5,7 +5,7 @@ interface Session { state: CopilotState; draft: string; model: string; permissio
 const sessions = new Map<string, Session>()
 let account: string | null | undefined
 function checkAccount() {
-  const next = localStorage.getItem('token')
+  const next = localStorage.getItem('userId')
   if (account !== next) { sessions.clear(); account = next }
 }
 export function getCopilotSession(runId: string) {
@@ -13,9 +13,9 @@ export function getCopilotSession(runId: string) {
   const value = sessions.get(runId)
   return value ? JSON.parse(JSON.stringify(value)) as Session : undefined
 }
-export function saveCopilotSession(runId: string, session: Session, ownerToken: string | null) {
+export function saveCopilotSession(runId: string, session: Session, ownerId: string | null) {
   checkAccount()
-  if (ownerToken !== account) return
+  if (ownerId !== account) return
   sessions.delete(runId)
   sessions.set(runId, JSON.parse(JSON.stringify(session)))
   while (sessions.size > 8) sessions.delete(sessions.keys().next().value!)

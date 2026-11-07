@@ -31,14 +31,11 @@ ELECTRON_DEV_SERVER_URL=http://127.0.0.1:15200 npm run dev
 ```
 
 开发模式页面来自 Vite dev server（`--mode electron`），API/SSE/WS 走 Vite 代理（默认转发本机
-Java 后端 18080）；生产模式从注册为 standard+secure 的自定义协议 `kinlin-app://shell` 加载
+TypeScript 后端 18080）；生产模式从注册为 standard+secure 的自定义协议 `kinlin-app://shell` 加载
 asar 内产物，Origin 固定为 `kinlin-app://shell`（后端 CORS 已加该来源，不用通配符），
 API 默认直连 `http://127.0.0.1:18080`（`KINLIN_API_ORIGIN` 可覆写，CSP 同步）。
 
-Java 入口的 `LocalApiPathFilter` 统一接受旧业务路径的 `/api` 别名，例如
-`/api/auth/login` → `/auth/login`；原生 `/api/agentos/v2` 等路径保留。
-路径在鉴权前归一化，复用原有认证规则；开发代理不再承担路径重写。
-打包版需要使用包含该过滤器的新后端 jar，本地后端与其他服务仍由 N03 启停。
+平台服务由 Node.js + Fastify 提供。桌面直接使用启动器配置的 LocalIdentity，无账号密码、JWT 或 Session Bootstrap。写请求携带 `X-Zhiyi-Local-Request: 1`，服务间凭据仅保留在主进程。
 
 ## 构建 / 打包 / 测试
 

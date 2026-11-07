@@ -1,6 +1,6 @@
 import { beforeEach, expect, it } from 'vitest'
 import { beginRunRecovery, completeRunRecovery, pendingRunRecovery } from './recoveryIdentity'
-beforeEach(() => { sessionStorage.clear(); localStorage.clear() })
+beforeEach(() => { sessionStorage.clear(); localStorage.clear(); localStorage.setItem('userId', 'local-owner') })
 const retry = (mode = 'successor_run') => ({ kind: 'retry', stepId: 'step', payload: { mode, clientRequestId: 'same-id', expectedRuntimeRevision: 4 } } as any)
 it('refuses current_run for every source, including historical failed Runs', () => {
   expect(() => beginRunRecovery('m', 'a', retry('current_run'), sessionStorage)).toThrow('身份损坏')

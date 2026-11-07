@@ -7,32 +7,27 @@
         </div>
       </transition>
 
-      <PublicRouteLayout v-if="isPublicRoute" />
-      <AuthenticatedAppShell v-else />
+      <AppShell />
       <ZoomIndicator />
-      <CompanionHost v-if="!isPublicRoute" />
+      <CompanionHost />
     </div>
   </ErrorBoundary>
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
-import PublicRouteLayout from '@/components/app/PublicRouteLayout.vue'
 import ZoomIndicator from '@/components/desktop/ZoomIndicator.vue'
 import { initUiZoom } from '@ui-zoom'
 
-const AuthenticatedAppShell = defineAsyncComponent(
-  () => import('@/components/app/AuthenticatedAppShell.vue')
+const AppShell = defineAsyncComponent(
+  () => import('@/components/app/AppShell.vue')
 )
-// 虚拟伙伴是接入层可拔插能力：只在认证态挂载，公开路由不加载任何会话依赖。
+// 虚拟伙伴按需加载，使用同一本机后端。
 const CompanionHost = defineAsyncComponent(
   () => import('@/components/companion/CompanionHost.vue')
 )
 
-const route = useRoute()
-const isPublicRoute = computed(() => route.path === '/' || route.path === '/login')
 const globalError = ref('')
 
 const clearGlobalError = () => {

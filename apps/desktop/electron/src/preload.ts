@@ -26,10 +26,6 @@ const apiOrigin = ((): string => {
 
 const bridge = {
   apiOrigin,
-  session: {
-    ensure: (): Promise<{ token: string; userId?: string; username?: string }> =>
-      invoke(IPC.sessionBootstrap) as Promise<{ token: string; userId?: string; username?: string }>
-  },
   window: {
     minimize: (): void => {
       void invoke(IPC.windowMinimize).catch(() => undefined)

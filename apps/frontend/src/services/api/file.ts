@@ -1,24 +1,11 @@
 import axios from 'axios'
-import { apiUrl } from '@/platform'
+import { apiUrl, LOCAL_REQUEST_HEADERS } from '@/platform'
 
 const api = axios.create({
+  headers: LOCAL_REQUEST_HEADERS,
   baseURL: apiUrl('/api'),
   timeout: 240000
 })
-
-// 请求拦截器：添加Token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  }
-)
 
 export interface FileUploadResponse {
   filePath: string

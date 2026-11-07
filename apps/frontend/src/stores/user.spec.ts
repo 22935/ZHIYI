@@ -10,8 +10,6 @@ describe('current user loading', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
-    localStorage.setItem('token', 'session-a')
-    localStorage.setItem('userId', 'user-a')
     vi.resetAllMocks()
   })
 
@@ -39,30 +37,26 @@ describe('current user loading', () => {
     expect(store.loading).toBe(false)
   })
 
-  it('does not restore profile data after logout', async () => {
+  it('ignores a response after the displayed profile is replaced', async () => {
     let resolve!: (value: any) => void
     vi.mocked(request.get).mockReturnValue(new Promise(done => { resolve = done }))
     const store = useUserStore()
     const first = store.loadCurrentUser()
     store.setCurrentUser(null)
-    localStorage.removeItem('token')
     resolve({ data: profile })
     await first
     expect(store.currentUser).toBeNull()
     expect(store.loading).toBe(false)
   })
 
-  it('discards late responses from another account', async () => {
-    let resolve!: (value: any) => void
-    vi.mocked(request.get).mockReturnValueOnce(new Promise(done => { resolve = done })).mockResolvedValueOnce({ data: { id: 'user-b', username: 'Bob' } })
+  it('reads the launcher identity without a saved account id', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: profile })
     const store = useUserStore()
-    const first = store.loadCurrentUser()
-    localStorage.setItem('token', 'session-b')
-    localStorage.setItem('userId', 'user-b')
     await store.loadCurrentUser()
-    resolve({ data: profile })
-    await first
-    expect(store.currentUser?.id).toBe('user-b')
+    expect(request.get).toHaveBeenCalledWith('/user/profile', { timeout: 10000 })
+    expect(store.currentUser).toEqual(profile)
+    expect(localStorage.getItem('userId')).toBe('user-a')
+    expect(localStorage.getItem('token')).toBeNull()
   })
 
   it('revalidates an expired profile', async () => {

@@ -97,10 +97,6 @@ export interface TerminalBridge {
 export interface KinlinDesktopBridge {
   /** Main 同步下发的后端 origin（product 模式下启动器可能改端口）。Web 构建为空串。 */
   apiOrigin?: string
-  /** 内部发行版的本地会话：Main 用启动器注入的凭据换 JWT，密码不过 IPC。 */
-  session?: {
-    ensure(): Promise<{ token: string; userId?: string; username?: string }>
-  }
   terminal?: TerminalBridge
   lsp?: LspBridge
   window: {

@@ -69,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+import { localFetch } from '@/platform/api'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Document, Delete, Download } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -211,7 +212,7 @@ const handleDownload = async (file: FileItem) => {
   
   try {
     // 尝试从RAG API下载文档
-    const response = await fetch(apiUrl(`/api/rag/documents/${file.id}/download`))
+    const response = await localFetch(apiUrl(`/api/rag/documents/${file.id}/download`))
     if (!response.ok) {
       throw new Error('下载失败')
     }
@@ -220,7 +221,16 @@ const handleDownload = async (file: FileItem) => {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = file.name
+    const disposition = response.headers.get('content-disposition') || ''
+    const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1]
+    const quotedName = /filename="([^"]+)"/i.exec(disposition)?.[1]
+    let suggestedName = quotedName || file.name
+    if (encodedName) {
+      try { suggestedName = decodeURIComponent(encodedName) } catch { /* retain a usable filename */ }
+    } else if (response.headers.get('x-rag-download-source') === 'extracted-text' && !/\.(txt|md)$/i.test(suggestedName)) {
+      suggestedName += '.txt'
+    }
+    a.download = suggestedName.replace(/[\\/]/g, '_')
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

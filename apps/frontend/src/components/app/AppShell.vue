@@ -1,4 +1,4 @@
-<!-- 已认证工作区布局 — 侧边栏导航、沉浸/简洁模式和工作区事件 -->
+<!-- 工作区布局 — 侧边栏导航、沉浸/简洁模式和工作区事件 -->
 <template>
   <el-container class="app-layout" :class="{ 'immersive-mode': isImmersive }">
         <AppTopBar
@@ -704,11 +704,7 @@ provide(workspaceShellKey, {
   switchSurface: switchWorkspaceSurface
 })
 
-// Immersive mode: keep landing auth immersive without a standalone login page.
-const isImmersive = computed(() => {
-  const path = route.path
-  return path === '/' && route.query.auth === '1'
-})
+const isImmersive = computed(() => false)
 
 const showNavigation = computed(() => !isImmersive.value && !route.meta.hideNavigation)
 
@@ -822,7 +818,7 @@ onMounted(() => {
     onShowShortcuts: () => { shortcutsDialogVisible.value = true }
   })
   if (chatNavOpen.value) void loadRecentConversations()
-  if (localStorage.getItem('userId')) void userStore.loadCurrentUser()
+  void userStore.loadCurrentUser()
   void workflowRunsStore.bootstrap()
 })
 

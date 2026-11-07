@@ -46,7 +46,7 @@ import {
  */
 
 const DEV_DEFAULT_SERVER = 'http://127.0.0.1:15100'
-// 原生运行形态没有 Docker 网关：打包壳直连 N03 本机 Java 后端。
+// 原生运行形态没有 Docker 网关：打包壳直连本机 TypeScript 后端。
 const DEFAULT_API_ORIGIN = 'http://127.0.0.1:18080'
 
 function parseArgValue(flag: string): string | undefined {
@@ -71,33 +71,6 @@ const apiOrigin = (() => {
   const configured = parseHttpUrl(process.env.KINLIN_API_ORIGIN)
   return configured ? configured.origin : DEFAULT_API_ORIGIN
 })()
-
-/**
- * 内部发行版的本地会话：启动器在首启时自动注册账号并把凭据放进本进程环境，
- * 这里用它换 JWT 交给渲染层。密码不出 Main 进程；每次调用都重新登录，
- * 因此会话过期后渲染层再要一次即可，不需要刷新令牌机制。
- */
-async function bootstrapLocalSession(): Promise<{ token: string; userId?: string; username?: string }> {
-  const username = (process.env.KINLIN_BOOTSTRAP_USER ?? '').trim()
-  const password = process.env.KINLIN_BOOTSTRAP_PASSWORD ?? ''
-  if (!username || !password) {
-    throw new Error('本机尚未建立登录会话；请从知弈启动入口重新打开应用')
-  }
-  const response = await fetch(new URL('/auth/login', apiOrigin), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-    signal: AbortSignal.timeout(15000)
-  })
-  const payload = (await response.json().catch(() => ({}))) as {
-    token?: string; userId?: string; username?: string; message?: string
-  }
-  if (!response.ok || !payload.token) {
-    logger?.warn('local session bootstrap failed', { status: response.status, message: payload.message })
-    throw new Error(payload.message || `登录失败（HTTP ${response.status}）`)
-  }
-  return { token: payload.token, userId: payload.userId, username: payload.username ?? username }
-}
 
 registerAppScheme() // 必须发生在 app ready 之前
 let mainWindow: BrowserWindow | null = null
@@ -443,11 +416,6 @@ function registerIpcHandlers(): void {
     event.returnValue = senderOk ? apiOrigin : ''
   })
 
-  // 本地会话：账号密码来自启动器注入的环境变量，永远不过 IPC 到渲染层。
-  ipcMain.handle(IPC.sessionBootstrap, async (event) => {
-    guard(event)
-    return bootstrapLocalSession()
-  })
 }
 
 function wireGlobalErrorHandling(): void {

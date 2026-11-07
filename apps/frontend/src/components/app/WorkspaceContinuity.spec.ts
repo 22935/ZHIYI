@@ -3,7 +3,7 @@ import { defineComponent, ref } from 'vue'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import AuthenticatedAppShell from './AuthenticatedAppShell.vue'
+import AppShell from './AppShell.vue'
 import ChatView from '@/views/ChatView.vue'
 import MissionWorkspaceView from '@/views/MissionWorkspaceView.vue'
 import WorkbenchLayout from '@/components/workbench/WorkbenchLayout.vue'
@@ -89,7 +89,7 @@ const mountShell = async (url = '/chat?workspace=chat&contextId=ctx&missionId=mi
     { path: '/agentos/acg', component: { template: '<div>ACG</div>' } }
   ] })
   await router.push(url); await router.isReady()
-  wrapper = mount(AuthenticatedAppShell, { global: {
+  wrapper = mount(AppShell, { global: {
     plugins: [pinia, router], mocks: { $t: (key: string) => key }, stubs: {
       AppTopBar: passthrough, DesktopRuntimeStatus: passthrough, UserAvatar: passthrough,
       'el-container': passthrough, 'el-aside': passthrough, 'el-main': passthrough,
@@ -294,7 +294,7 @@ describe('PR-UI-02B actual Shell / Chat / Workbench continuity', () => {
     expect(state().activeEditorId).not.toBe('artifact')
   })
   beforeEach(() => {
-    localStorage.clear(); sessionStorage.clear(); observations.instances = []; resetOpenFile(); workspaceDocuments.reset()
+    localStorage.clear(); localStorage.setItem('userId', 'local-owner'); sessionStorage.clear(); observations.instances = []; resetOpenFile(); workspaceDocuments.reset()
     localStorage.setItem('layout.workspace_mode', 'chat'); localStorage.setItem('layout.chat_nav_open', '1')
     localStorage.setItem('chat.workflow_draft_conversation_id', 'draft:original')
     activeStreams = 0; maximumStreams = 0; newestRun = 'run'; chatTransport = undefined

@@ -10,7 +10,7 @@
             class="message-image-wrapper"
             @click="openImageViewer"
           >
-            <img :src="message.fileUrl" class="message-image" />
+            <img :src="fileSource" crossorigin="anonymous" class="message-image" />
             <div class="image-overlay">
               <el-icon><FullScreen /></el-icon>
             </div>
@@ -19,14 +19,14 @@
             <el-icon><Document /></el-icon>
             <div class="file-info">
               <span class="filename">附件文件</span>
-              <a :href="message.fileUrl" target="_blank" class="download-link">下载</a>
+              <a :href="fileSource" class="download-link" @click.prevent="downloadAttachment">下载</a>
             </div>
           </div>
         </div>
 
         <ImageViewer
           v-model:visible="imageViewerVisible"
-          :src="message.fileUrl"
+          :src="fileSource"
           :file-name="'image.png'"
         />
 
@@ -256,6 +256,7 @@ import { computed, ref } from 'vue'
 import { ArrowDown, Cpu, Document, Link, CopyDocument, ChatLineSquare, Delete, Microphone, Download, FullScreen } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ImageViewer from '@/components/common/ImageViewer.vue'
+import { apiUrl, localFetch } from '@/platform/api'
 import { renderMarkdown } from '@/utils/markdown'
 
 interface Source {
@@ -352,6 +353,22 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const fileSource = computed(() => {
+  const source = props.message.fileUrl || ''
+  return source.startsWith('/api/') ? apiUrl(source) : source
+})
+const downloadAttachment = async () => {
+  try {
+    const response = await localFetch(fileSource.value)
+    if (!response.ok) throw new Error(`下载失败（HTTP ${response.status}）`)
+    const url = URL.createObjectURL(await response.blob())
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = fileSource.value.split('/').pop()?.split('?')[0] || 'attachment'
+    anchor.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch (error) { ElMessage.error(error instanceof Error ? error.message : '附件下载失败') }
+}
 const emit = defineEmits(['copy', 'quote', 'delete', 'tts', 'export'])
 const detailsOpen = ref(false)
 const summaryOpen = ref(false)

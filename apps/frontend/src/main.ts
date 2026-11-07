@@ -9,6 +9,7 @@ import en from 'element-plus/dist/locale/en.mjs'
 
 import App from './App.vue'
 import router from './router'
+import { useUserStore } from './stores/user'
 import i18n from './i18n'
 import { initTheme } from './composables/useTheme'
 import './styles/global.css'
@@ -31,9 +32,12 @@ const getElementPlusLocale = () => {
 }
 
 app.use(pinia)
-app.use(router)
 app.use(i18n)
 provideGlobalConfig({ locale: getElementPlusLocale() }, app, true)
 
-app.mount('#app')
+// Restore workspace drafts only after resolving the launcher's Home identity.
+void useUserStore(pinia).loadCurrentUser().finally(() => {
+  app.use(router)
+  app.mount('#app')
+})
 

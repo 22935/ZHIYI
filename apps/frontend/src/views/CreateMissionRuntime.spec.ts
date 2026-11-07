@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CreateMissionView from './CreateMissionView.vue'
 import { workflowApi } from '@/services/api/workflow'
 
-vi.mock('@/platform', () => ({ platform: { platform: 'web' }, apiUrl: (path: string) => path }))
+vi.mock('@/platform', () => ({ platform: { platform: 'web' }, apiUrl: (path: string) => path, LOCAL_REQUEST_HEADERS: { 'X-Zhiyi-Local-Request': '1' } }))
 vi.mock('@/services/api/workflow', async original => {
   const actual = await original<typeof import('@/services/api/workflow')>()
   return { ...actual, workflowApi: { ...actual.workflowApi, startWorkflowAsync: vi.fn() } }
@@ -33,6 +33,7 @@ const page = async (efforts: string[], alwaysThinking = false) => {
 describe('Create Mission runtime settings', () => {
   beforeEach(() => {
     localStorage.clear(); sessionStorage.clear(); vi.clearAllMocks()
+    localStorage.setItem('userId', 'test-local-owner')
     localStorage.setItem('kinlin.model_settings', JSON.stringify({ provider: 'system', selectedModel: '系统默认',
       models: [], apiKey: '', baseUrl: '', thinkingMode: 'deep', reasoningEffort: 'high' }))
     vi.mocked(workflowApi.startWorkflowAsync).mockResolvedValue({ missionId: 'mission', runId: 'run', status: 'pending' } as any)

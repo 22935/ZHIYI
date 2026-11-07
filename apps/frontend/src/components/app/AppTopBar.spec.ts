@@ -7,6 +7,7 @@ import { installCommandKeybindings } from '@/workbench/core/commands'
 const platformState = vi.hoisted(() => ({ desktop: false }))
 
 vi.mock('@/platform', () => ({
+  LOCAL_REQUEST_HEADERS: { 'X-Zhiyi-Local-Request': '1' },
   isDesktop: () => platformState.desktop,
   platform: {
     get platform() { return platformState.desktop ? 'desktop' : 'web' },

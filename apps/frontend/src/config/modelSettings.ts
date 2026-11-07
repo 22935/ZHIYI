@@ -1,3 +1,4 @@
+import { localFetch } from '@/platform/api'
 import { apiUrl } from '@/platform'
 
 export type ModelProviderId = 'system' | 'qwen' | 'deepseek' | 'glm' | 'openai' | 'custom'
@@ -196,9 +197,8 @@ export async function fetchModelCapability(model: string, baseUrl = ''): Promise
   const params = new URLSearchParams({ model: trimmed })
   if (baseUrl.trim()) params.set('base_url', baseUrl.trim())
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(apiUrl(`/ai/chat/model-capabilities?${params.toString()}`), {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+
+    const response = await localFetch(apiUrl(`/ai/chat/model-capabilities?${params.toString()}`), {
     })
     if (!response.ok) return null
     return capabilityFromPayload(await response.json())

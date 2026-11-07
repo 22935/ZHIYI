@@ -45,7 +45,7 @@ export function createMissionLaunchAttempt(options: { slot?: string; storage?: S
   const storage = options.storage || sessionStorage
   const slot = options.slot || 'workbench'
   const ownerScope = () => {
-    if (localStorage.getItem('token') && !localStorage.getItem('userId')) throw new MissionLaunchStateError('IDENTITY_CONFLICT', '当前登录缺少用户身份，禁止恢复或新建提交。')
+    if (!localStorage.getItem('userId')) throw new MissionLaunchStateError('IDENTITY_CONFLICT', '本机身份尚未就绪，禁止恢复或新建提交。')
     return `${localStorage.getItem('tenantId') || ''}:${localStorage.getItem('userId') || 'session'}`
   }
   const owner = ownerScope()
@@ -53,7 +53,7 @@ export function createMissionLaunchAttempt(options: { slot?: string; storage?: S
   const operationKey = (id: string) => `mission.launch.operation.v2:${encodeURIComponent(owner)}:${id}`
   const assertOwner = () => {
     if (ownerScope() !== owner) {
-      throw new MissionLaunchStateError('IDENTITY_CONFLICT', '登录身份已改变，禁止提交原账号快照。')
+      throw new MissionLaunchStateError('IDENTITY_CONFLICT', '本机身份已改变，禁止提交其他身份的快照。')
     }
   }
   const save = (identity: LaunchAttemptIdentity) => {

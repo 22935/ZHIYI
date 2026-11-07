@@ -272,7 +272,7 @@ export class WorkspaceDocumentService {
     this.requests.delete(uri)
   }
 
-  /** 测试与退出登录时清空全部缓存。 */
+  /** 测试与本机工作区重置时清空全部缓存。 */
   reset(): void {
     this.documents.clear()
     this.requests.clear()

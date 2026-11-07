@@ -1,49 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { authApi } from '@/services/api/auth'
 import router from './index'
-
-vi.mock('@/views/LandingView.vue', () => ({ default: { template: '<main>Landing</main>' } }))
 vi.mock('@/views/ChatView.vue', () => ({ default: { template: '<main>Chat</main>' } }))
 vi.mock('@/views/HistoryView.vue', () => ({ default: { template: '<main>History</main>' } }))
 vi.mock('@/views/ResourceCenterView.vue', () => ({ default: { template: '<main>Resources</main>' } }))
 
-vi.mock('@/services/api/auth', () => ({
-  authApi: {
-    verifyToken: vi.fn()
-  }
-}))
-
-describe('public route contract', () => {
-  beforeEach(async () => {
-    localStorage.clear()
-    vi.clearAllMocks()
+describe('local application routing', () => {
+  beforeEach(() => { localStorage.clear() })
+  it('opens chat directly without account credentials', async () => {
     await router.push('/')
+    expect(router.currentRoute.value.path).toBe('/chat')
+    expect(localStorage.getItem('token')).toBeNull()
   })
-
-  it('keeps the root route public and resolves it to the landing page', () => {
-    expect(router.currentRoute.value.path).toBe('/')
-    expect(router.currentRoute.value.name).toBe('Landing')
+  it('resolves an old login bookmark to the application', async () => {
+    await router.push('/login')
+    expect(router.currentRoute.value.path).toBe('/chat')
   })
-
-  it('redirects the legacy login path to landing embedded auth', async () => {
-    await router.push('/login?redirect=%2Fchat&from=%2F%23about')
-
-    expect(router.currentRoute.value.path).toBe('/')
-    expect(router.currentRoute.value.query).toMatchObject({
-      auth: '1',
-      redirect: '/chat',
-      from: '/#about'
-    })
-  })
-
-  it('opens landing embedded auth for protected routes without a token', async () => {
-    await router.push('/chat?workspace=agent')
-
-    expect(router.currentRoute.value.path).toBe('/')
-    expect(router.currentRoute.value.query).toMatchObject({
-      auth: '1',
-      redirect: '/chat?workspace=agent'
-    })
+  it('allows a workspace route without token verification', async () => {
+    await router.push('/history?tab=acg')
+    expect(router.currentRoute.value.path).toBe('/history')
+    expect(router.currentRoute.value.query.tab).toBe('acg')
   })
 })
 
@@ -54,47 +29,6 @@ describe('user center route contract', () => {
     expect(userRoute?.path).toBe('/user')
     expect(userRoute?.redirect).toBeUndefined()
     expect(userRoute?.components?.default).toBeDefined()
-  })
-})
-
-describe('authentication outage handling', () => {
-  beforeEach(async () => {
-    localStorage.clear()
-    vi.clearAllMocks()
-    await router.push('/')
-  })
-
-  it('keeps the session and protected route on a temporary network failure', async () => {
-    localStorage.setItem('token', 'still-valid-token')
-    localStorage.setItem('userId', 'user-1')
-    vi.mocked(authApi.verifyToken).mockRejectedValue(new Error('Network Error'))
-
-    await router.push('/chat')
-
-    expect(router.currentRoute.value.path).toBe('/chat')
-    expect(localStorage.getItem('token')).toBe('still-valid-token')
-    expect(localStorage.getItem('userId')).toBe('user-1')
-  })
-
-  it('clears the session when token verification explicitly returns unauthorized', async () => {
-    localStorage.setItem('token', 'expired-token')
-    localStorage.setItem('userId', 'user-1')
-    vi.mocked(authApi.verifyToken).mockRejectedValue({ response: { status: 401 } })
-
-    await router.push('/chat')
-
-    expect(router.currentRoute.value.path).toBe('/')
-    expect(localStorage.getItem('token')).toBeNull()
-    expect(localStorage.getItem('userId')).toBeNull()
-  })
-
-  it('keeps the session when embedded authentication verification has a network outage', async () => {
-    localStorage.setItem('token', 'still-valid-token')
-    localStorage.setItem('userId', 'user-1')
-    vi.mocked(authApi.verifyToken).mockRejectedValue(new Error('Network Error'))
-    await router.push('/?auth=1&redirect=%2Fchat')
-    expect(localStorage.getItem('token')).toBe('still-valid-token')
-    expect(localStorage.getItem('userId')).toBe('user-1')
   })
 })
 
@@ -121,8 +55,6 @@ describe('integrated legacy route contract', () => {
     ['/federated-models?source=legacy', '/agentos/resources', { source: 'legacy', tab: 'models' }],
     ['/agentos-console?runId=run_1&source=legacy', '/history', { runId: 'run_1', source: 'legacy', tab: 'acg' }],
   ])('resolves %s to its integrated tab target', async (legacyUrl, targetPath, query) => {
-    localStorage.setItem('token', 'token')
-    vi.mocked(authApi.verifyToken).mockResolvedValue({ valid: true } as never)
 
     await router.push(legacyUrl)
 

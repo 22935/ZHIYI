@@ -11,6 +11,7 @@ vi.mock('element-plus', () => ({
 
 vi.mock('@/platform', () => ({
   apiUrl: (path: string) => path,
+  LOCAL_REQUEST_HEADERS: { 'X-Zhiyi-Local-Request': '1' },
   isDesktop
 }))
 
@@ -49,61 +50,28 @@ describe('request error notifications', () => {
     expect(wasErrorUserNotified({ message: 'not an Error instance' })).toBe(false)
   })
 
-  it('keeps an unauthorized desktop redirect inside hash history', async () => {
-    isDesktop.mockReturnValue(true)
-    window.location.hash = '#/roles?tab=favorites'
-    localStorage.setItem('token', 'expired-token')
-
-    const pending = request.request({
-      url: '/roles/builtin',
-      method: 'get',
-      adapter: async config => Promise.reject({
-        config,
-        response: { status: 401, data: {} }
-      })
-    })
-
-    await pending.catch(() => undefined)
-
-    expect(window.location.hash).toBe('#/login?redirect=%2Froles%3Ftab%3Dfavorites')
-    expect(localStorage.getItem('token')).toBeNull()
-    expect(errorMessage).toHaveBeenCalledWith('登录状态已过期，请重新登录')
-  })
-
-  it('strips a stale authorization header from public authentication requests', async () => {
-    localStorage.setItem('token', 'stored-token')
-    let authorization: unknown
-
+  it('reports service authentication errors without navigation or identity removal', async () => {
+    window.location.hash = '#/chat'
+    localStorage.setItem('userId', 'local-owner')
     await request.request({
-      url: '/auth/login',
-      method: 'post',
-      headers: { Authorization: 'Bearer stale-header' },
-      adapter: async config => {
-        authorization = config.headers.Authorization
-        return { data: { token: 'new-token' }, status: 200, statusText: 'OK', headers: {}, config }
-      }
-    })
-
-    expect(authorization).toBeUndefined()
-    expect(localStorage.getItem('token')).toBe('stored-token')
-  })
-
-  it.each(['/auth/login', '/auth/register', '/auth/verify'])('keeps %s 401 handling with its auth page', async url => {
-    localStorage.setItem('token', 'stored-token')
-    localStorage.setItem('userId', 'user_1')
-    isDesktop.mockReturnValue(true)
-    window.location.hash = '#/login'
-
-    await request.request({
-      url,
-      method: 'post',
+      url: '/roles/builtin', method: 'get',
       adapter: async config => Promise.reject({ config, response: { status: 401, data: {} } })
     }).catch(() => undefined)
+    expect(window.location.hash).toBe('#/chat')
+    expect(localStorage.getItem('userId')).toBe('local-owner')
+    expect(errorMessage).toHaveBeenCalledWith('本机服务认证失败，请检查运行配置')
+  })
 
-    expect(errorMessage).not.toHaveBeenCalled()
-    expect(localStorage.getItem('token')).toBe('stored-token')
-    expect(localStorage.getItem('userId')).toBe('user_1')
-    expect(window.location.hash).toBe('#/login')
+  it('adds the local write header and ignores a historical user token', async () => {
+    localStorage.setItem('token', 'obsolete-token')
+    await request.request({
+      url: '/conversations', method: 'post',
+      adapter: async config => {
+        expect(config.headers.Authorization).toBeUndefined()
+        expect(config.headers['X-Zhiyi-Local-Request']).toBe('1')
+        return { data: {}, status: 200, statusText: 'OK', headers: {}, config }
+      }
+    })
   })
 
   it('keeps global forbidden notifications on the shared request client', async () => {

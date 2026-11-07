@@ -13,39 +13,32 @@ export interface User {
 export const useUserStore = defineStore('user', () => {
   const currentUser = ref<User | null>(null)
   const loading = ref(false)
-  const PROFILE_TTL_MS = 30000
-  let loadedIdentity = ''
+  const loadError = ref('')
   let loadedAt = 0
   let generation = 0
-  let pending: { identity: string; promise: Promise<void> } | null = null
-  const identity = () => `${localStorage.getItem('token') || ''}:${localStorage.getItem('userId') || ''}`
+  let pending: Promise<void> | null = null
 
   const loadCurrentUser = async (options: { force?: boolean } = {}) => {
-    const userId = localStorage.getItem('userId')
-    const sessionIdentity = identity()
-    if (!userId) {
-      setCurrentUser(null)
-      return
-    }
-    if (!options.force && currentUser.value && loadedIdentity === sessionIdentity && Date.now() - loadedAt < PROFILE_TTL_MS) return
-    if (pending?.identity === sessionIdentity) return pending.promise
+    if (!options.force && currentUser.value && Date.now() - loadedAt < 30000) return
+    if (pending) return pending
     const requestGeneration = ++generation
-    if (loadedIdentity !== sessionIdentity) currentUser.value = null
     loading.value = true
-    const promise = request.get<User>(`/users/${userId}`).then(response => {
-      if (requestGeneration === generation && identity() === sessionIdentity) {
-        currentUser.value = response.data
-        loadedIdentity = sessionIdentity
-        loadedAt = Date.now()
-      }
+    loadError.value = ''
+    const promise = request.get<User>('/user/profile', { timeout: 10000 }).then(response => {
+      if (requestGeneration !== generation) return
+      if (!response.data?.id) throw new Error('本机身份尚未就绪')
+      currentUser.value = response.data
+      // Draft/cache scoping only; backend authority comes from LocalIdentity.
+      localStorage.setItem('userId', response.data.id)
+      loadedAt = Date.now()
     }).catch(error => {
-      console.error('加载用户信息失败', error)
-      if (requestGeneration === generation && identity() !== sessionIdentity) currentUser.value = null
+      if (requestGeneration === generation) loadError.value = error.message || '本机身份加载失败'
+      console.error('加载本机身份失败', error)
     }).finally(() => {
-      if (pending?.promise === promise) pending = null
+      if (pending === promise) pending = null
       if (requestGeneration === generation) loading.value = false
     })
-    pending = { identity: sessionIdentity, promise }
+    pending = promise
     return promise
   }
 
@@ -54,20 +47,9 @@ export const useUserStore = defineStore('user', () => {
     pending = null
     loading.value = false
     currentUser.value = user
-    if (user) {
-      localStorage.setItem('userId', user.id)
-    } else {
-      localStorage.removeItem('userId')
-    }
-    loadedIdentity = user ? identity() : ''
+    if (user) localStorage.setItem('userId', user.id)
     loadedAt = user ? Date.now() : 0
   }
 
-  return {
-    currentUser,
-    loading,
-    loadCurrentUser,
-    setCurrentUser
-  }
+  return { currentUser, loading, loadError, loadCurrentUser, setCurrentUser }
 })
-

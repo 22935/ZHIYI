@@ -200,6 +200,7 @@
 </template>
 
 <script setup lang="ts">
+import { localFetch } from '@/platform/api'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -397,9 +398,8 @@ const loadSystemModel = async (): Promise<void> => {
   if (modelSettings.value.provider !== 'system' || typeof fetch !== 'function') return
   const requestId = ++systemModelsRequest
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(apiUrl('/ai/chat/models'), {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+
+    const response = await localFetch(apiUrl('/ai/chat/models'), {
     })
     if (!response.ok || requestId !== systemModelsRequest || modelSettings.value.provider !== 'system') return
     const data = await response.json() as { models?: unknown; default_model?: unknown; capabilities?: unknown }
@@ -560,8 +560,7 @@ const submit = async () => {
   try {
     if (desktopWorkspaceRequired) {
       const expected = { ...workspaceState.value }
-      const response = await fetch(apiUrl('/api/agentos/v2/workspaces/current'), {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+      const response = await localFetch(apiUrl('/api/agentos/v2/workspaces/current'), {
         signal: controller.signal, cache: 'no-store'
       })
       if (!response.ok) throw new Error('无法复核工作区授权，请重新选择并信任工作区。')

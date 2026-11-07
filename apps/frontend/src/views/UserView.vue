@@ -8,24 +8,19 @@
             <el-icon><ArrowLeft /></el-icon>
             返回
           </button>
-          <span class="content-eyebrow">{{ activeSection === 'profile' ? 'PROFILE' : 'SECURITY' }}</span>
-          <h1>{{ activeSection === 'profile' ? '个人资料' : '账户安全' }}</h1>
-          <p>{{ activeSection === 'profile' ? '管理您的个人资料信息与工作活动。' : '修改密码和账户安全设置。' }}</p>
+          <span class="content-eyebrow">PROFILE</span>
+          <h1>个人资料</h1>
+          <p>管理本机个人资料与工作活动。</p>
         </div>
         <div class="content-actions">
           <button class="profile-action" type="button" @click="inviteFriend"><el-icon><Promotion /></el-icon>邀请好友</button>
           <button class="profile-action" type="button" @click="shareProfile"><el-icon><Share /></el-icon>分享</button>
           <span class="profile-action profile-status"><el-icon><Lock /></el-icon>私有</span>
-          <button v-if="activeSection === 'profile'" class="profile-action" type="button" @click="editing = !editing"><el-icon><Edit /></el-icon>{{ editing ? '完成编辑' : '编辑' }}</button>
+          <button class="profile-action" type="button" @click="editing = !editing"><el-icon><Edit /></el-icon>{{ editing ? '完成编辑' : '编辑' }}</button>
         </div>
       </header>
 
-      <nav class="user-sections" aria-label="个人中心导航">
-        <button type="button" :class="{ active: activeSection === 'profile' }" @click="router.replace({ path: '/user', query: {} })">个人资料</button>
-        <button type="button" :class="{ active: activeSection === 'security' }" @click="router.replace({ path: '/user', query: { section: 'security' } })">账户安全</button>
-      </nav>
 
-      <template v-if="activeSection === 'profile'">
         <section class="identity-hero">
           <button class="avatar-uploader" type="button" :disabled="avatarUploading" @click="openAvatarPicker">
             <span class="hero-avatar">
@@ -76,30 +71,20 @@
             <div class="detail-card__body">
               <el-form :model="userInfo" label-position="top" class="user-form">
                 <el-form-item label="用户名"><el-input v-model="userInfo.username" disabled class="custom-input" /><div class="form-hint">用户名不可修改</div></el-form-item>
-                <el-form-item label="邮箱地址"><el-input v-model="userInfo.email" :disabled="!editing" placeholder="请输入邮箱地址" class="custom-input" /><div class="form-hint">用于接收重要通知和找回密码</div></el-form-item>
+                <el-form-item label="邮箱地址"><el-input v-model="userInfo.email" :disabled="!editing" placeholder="请输入邮箱地址" class="custom-input" /><div class="form-hint">用于个人资料展示</div></el-form-item>
                 <el-form-item><el-button type="primary" :disabled="!editing" @click="updateProfile"><el-icon><Check /></el-icon>保存更改</el-button></el-form-item>
               </el-form>
             </div>
           </article>
         </section>
-      </template>
 
-      <template v-else>
-        <section class="security-hero"><span class="hero-avatar is-static"><el-icon :size="38"><Lock /></el-icon></span><h2 class="hero-name">密码与安全</h2><p class="hero-handle">定期修改密码可以有效保护账户安全</p></section>
-        <section class="security-panel"><el-form :model="accountForm" label-position="top" class="user-form">
-          <el-form-item label="当前密码"><el-input v-model="accountForm.currentPassword" type="password" placeholder="请输入当前密码" show-password class="custom-input" /></el-form-item>
-          <el-form-item label="新密码"><el-input v-model="accountForm.newPassword" type="password" placeholder="请输入新密码（至少8位）" show-password class="custom-input" /><div class="form-hint">密码长度至少8位，建议包含字母和数字</div></el-form-item>
-          <el-form-item label="确认新密码"><el-input v-model="accountForm.confirmPassword" type="password" placeholder="请再次输入新密码" show-password class="custom-input" /></el-form-item>
-          <el-form-item><el-button type="primary" @click="changePassword"><el-icon><Lock /></el-icon>修改密码</el-button></el-form-item>
-        </el-form></section>
-      </template>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { ArrowLeft, Camera, Check, Edit, Lock, Promotion, Share, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
@@ -114,7 +99,6 @@ type ActivityRecord = { date: string; events: number; tokens: number }
 type ActivityDay = { key: string; label: string; level: number; isToday: boolean; isFuture: boolean }
 type ActivityColumn = { key: string; days: ActivityDay[] }
 
-const props = defineProps<{ section?: 'profile' | 'security' }>()
 const router = useRouter()
 
 const goBack = () => {
@@ -124,7 +108,6 @@ const goBack = () => {
   }
   void router.push('/chat')
 }
-const route = useRoute()
 const userStore = useUserStore()
 const chatStore = useChatStore()
 const workflowRunsStore = useWorkflowRunsStore()
@@ -137,10 +120,8 @@ const activityMode = ref<ActivityMode>('daily')
 const activityLoading = ref(false)
 const remoteConversations = ref<Conversation[]>([])
 const remoteRuns = ref<WorkflowRunSummary[]>([])
-const activeSection = computed(() => props.section || (route.query.section === 'security' ? 'security' : 'profile'))
 const activityModes: Array<{ id: ActivityMode; label: string }> = [{ id: 'daily', label: '每日' }, { id: 'weekly', label: '每周' }, { id: 'total', label: '累计' }]
 const userInfo = ref({ username: '', email: '', avatar: '', createdAt: new Date() as Date | string })
-const accountForm = ref({ currentPassword: '', newPassword: '', confirmPassword: '' })
 
 const toDate = (value: string | number | Date | null | undefined): Date | null => {
   if (value == null || value === '') return null
@@ -287,7 +268,7 @@ const handleAvatarChange = async (event: Event) => {
   if (!supportedTypes.includes(file.type)) return ElMessage.warning('请选择 JPG、PNG、WebP 或 GIF 图片')
   if (file.size > 5 * 1024 * 1024) return ElMessage.warning('头像图片不能超过 5MB')
   const userId = userStore.currentUser?.id
-  if (!userId) return ElMessage.error('用户信息不存在，请重新登录')
+  if (!userId) return ElMessage.error('本机身份尚未就绪，请稍后重试')
 
   avatarUploading.value = true
   try {
@@ -321,21 +302,11 @@ const shareProfile = async () => {
 }
 const updateProfile = async () => {
   if (!userInfo.value.email) return ElMessage.warning('请输入邮箱地址')
-  if (!userStore.currentUser?.id) return ElMessage.error('用户信息不存在，请重新登录')
+  if (!userStore.currentUser?.id) return ElMessage.error('本机身份尚未就绪，请稍后重试')
   try {
     await userApi.updateUser(userStore.currentUser.id, { username: userInfo.value.username, email: userInfo.value.email })
     await userStore.loadCurrentUser({ force: true }); editing.value = false; ElMessage.success('个人信息已更新')
   } catch (error: any) { ElMessage.error('更新失败: ' + (error.message || '未知错误')) }
-}
-const changePassword = async () => {
-  if (!accountForm.value.currentPassword || !accountForm.value.newPassword) return ElMessage.warning('请填写完整的密码信息')
-  if (accountForm.value.newPassword !== accountForm.value.confirmPassword) return ElMessage.warning('两次输入的密码不一致')
-  if (accountForm.value.newPassword.length < 8) return ElMessage.warning('密码长度至少8位')
-  if (!userStore.currentUser?.id) return ElMessage.error('用户信息不存在，请重新登录')
-  try {
-    await userApi.changePassword(userStore.currentUser.id, { currentPassword: accountForm.value.currentPassword, newPassword: accountForm.value.newPassword })
-    accountForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }; ElMessage.success('密码已修改')
-  } catch (error: any) { const message = error.response?.data?.message || error.message || '未知错误'; ElMessage.error(error.response?.status === 400 ? '当前密码错误，请重新输入' : '修改失败: ' + message) }
 }
 const loadActivity = async () => {
   activityLoading.value = true

@@ -5,7 +5,7 @@ type RecoveryCommand = { kind: 'retry'; stepId: string; payload: SingleStepRetry
   | { kind: 'rerun'; payload: WorkflowRerunRequest }
 export type RecoveryIdentity = RecoveryCommand & { missionId: string; sourceRunId: string; fingerprint: string }
 const keyFor = (missionId: string, sourceRunId: string) => {
-  if (localStorage.getItem('token') && !localStorage.getItem('userId')) throw new Error('缺少账户身份，禁止恢复操作')
+  if (!localStorage.getItem('userId')) throw new Error('本机身份尚未就绪，禁止恢复操作')
   return `workbench.recovery.v1:${encodeURIComponent(JSON.stringify([localStorage.getItem('tenantId'), localStorage.getItem('userId'), missionId, sourceRunId]))}`
 }
 const fingerprint = (value: Omit<RecoveryIdentity, 'fingerprint'>) => canonicalLaunchJson(value)

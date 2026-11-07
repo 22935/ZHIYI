@@ -42,7 +42,7 @@ let disposed = false
 
 onMounted(() => {
   // 桌面适配在构建期决定，但 Electron 桥是运行期能力，挂载后再解析；
-  // 桥缺失（非 Electron 宿主、Preload 未注入）时组件渲染为空，不打断登录路由。
+  // 桥缺失（非 Electron 宿主、Preload 未注入）时组件渲染为空，不打断页面导航。
   bridge = getElectronBridge()
   if (!bridge) return
 

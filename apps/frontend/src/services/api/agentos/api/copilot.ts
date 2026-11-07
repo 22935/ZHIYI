@@ -1,7 +1,7 @@
+import { localFetch } from '@/platform/api'
 import { agentosRequest } from '../client'
 import { runPath } from '../paths'
 import { apiUrl } from '@/platform'
-import { handleUnauthorizedError } from '@/utils/requestAuth'
 
 export interface CopilotStreamEvent { type: 'content' | 'activity' | 'heartbeat' | 'completed' | 'error'; content?: string; message?: string; exchange?: CopilotExchange }
 export interface CopilotMessageOptions { modelId?: string; permission: CopilotPermission; reasoningEffort?: string }
@@ -43,14 +43,13 @@ export const createCopilotApi = () => ({
     return (await agentosRequest.get(`${runPath(runId)}/copilot`, { signal })).data
   },
   async streamCopilotMessage(runId: string, content: string, operationId: string, onEvent: (event: CopilotStreamEvent) => void, signal?: AbortSignal, options?: CopilotMessageOptions): Promise<CopilotExchange> {
-    const token = localStorage.getItem('token')
-    const response = await fetch(apiUrl(`/api/agentos/v2${runPath(runId)}/copilot/messages/stream`), {
-      method: 'POST', signal, headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+
+    const response = await localFetch(apiUrl(`/api/agentos/v2${runPath(runId)}/copilot/messages/stream`), {
+      method: 'POST', signal, headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
       body: JSON.stringify({ content, operationId, ...options })
     })
     if (!response.ok) {
-      const error = Object.assign(new Error(`对话连接失败（${response.status}）`), { response: { status: response.status }, config: { __kinlinAuthToken: token } })
-      handleUnauthorizedError(error as any)
+      const error = Object.assign(new Error(`对话连接失败（${response.status}）`), { response: { status: response.status } })
       throw error
     }
     if (!response.body) throw new Error('服务未返回流式响应')

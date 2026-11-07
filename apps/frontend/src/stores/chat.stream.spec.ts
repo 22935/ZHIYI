@@ -32,12 +32,12 @@ describe('Chat stream termination', () => {
     expect(JSON.parse(init.body as string)).toMatchObject({ tool_mode: 'auto', approval_mode: mode })
   })
 
-  it('recognizes a split gateway auth event and clears running status', async () => {
-    respond([frame('reasoning_start', {}), 'event:auth.inval', 'idated\r\ndata:{"code":"AUTH_SESSION_INVALIDATED"}\r\n\r\n'])
+  it('recognizes a split gateway error event and clears running status', async () => {
+    respond([frame('reasoning_start', {}), 'event:err', 'or\r\ndata:{"code":"AI_UPSTREAM_TIMEOUT"}\r\n\r\n'])
     const store = useChatStore()
     await store.sendMessageStream('你好', 'default', settings)
     const reply = store.messages.at(-1)!
-    expect(reply.content).toContain('登录会话')
+    expect(reply.content).toContain('模型响应超时')
     expect(reply.thinkingState).toBe('error')
     expect(reply.streamActivity).toBe('complete')
     expect(reply.streamPhase).toBe('请求未完成')

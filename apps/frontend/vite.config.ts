@@ -19,7 +19,7 @@ export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const isElectron = mode === 'electron'
   // 桌面（Electron）与 Web 共用本配置：15100 端口与平台适配层只在桌面模式
-  // 启用，前端一律直连本机 Java 后端（N03 口径，默认 18080）。
+  // 启用，前端一律直连本机 TypeScript 后端（N03 口径，默认 18080）。
   const platformAdapter = resolve(
     __dirname,
     isElectron ? 'src/platform/electron/adapter.ts' : 'src/platform/web/adapter.ts'
@@ -36,6 +36,16 @@ export default defineConfig(({ mode, command }) => {
   const BACKEND_PROXY_TARGET =
     env.DEV_BACKEND_PROXY_TARGET ||
     'http://127.0.0.1:18080'
+
+  const devPort = isElectron ? 15100 : 3000
+  // Same-origin browser GETs omit Origin. Only our exact local Vite host may
+  // acquire it here; an existing cross-origin header always reaches the backend.
+  const forwardLocalOrigin = (proxy: any) => proxy.on('proxyReq', (out: any, req: any) => {
+    const port = req.socket.localPort
+    if (!req.headers.origin && Number.isInteger(port) && req.headers.host === `127.0.0.1:${port}`) {
+      out.setHeader('Origin', `http://127.0.0.1:${port}`)
+    }
+  })
 
   return {
     plugins: [
@@ -73,6 +83,7 @@ export default defineConfig(({ mode, command }) => {
       environment: 'jsdom',
       globals: true,
       css: false,
+      setupFiles: ['./src/test/setup.ts'],
       // 全量 625 条 jsdom 用例在并行 worker 下存在负载型计时抖动（断言调用次数/
       // 列表渲染条数的用例偶发漂移，单跑必现通过）；失败重跑一次吸收调度抖动，
       // 确定性失败仍然两次都挂，不会被掩盖。
@@ -118,11 +129,12 @@ export default defineConfig(({ mode, command }) => {
       ],
     },
     server: {
-      port: isElectron ? 15100 : 3000,
+      port: devPort,
+      host: '127.0.0.1',
       // 桌面模式端口是 Electron dev 的硬约定（--dev-server=127.0.0.1:15100，
       // 并与后端 CORS 白名单对应）：端口被占就快速失败，
       // 禁止 Vite 静默漂移到 3001 导致 API 全部落入 CORS 陷阱。
-      strictPort: isElectron,
+      strictPort: true,
       // 跨文件系统挂载可能不产生 inotify 事件，chokidar 常规监听会静默失效：
       // 源码已更新而 Vite 转换缓存永不失效，浏览器硬刷新仍拿到旧模块。
       // 需要轮询的环境显式设 CHOKIDAR_USEPOLLING=true；桌面开发使用原生监听，
@@ -136,8 +148,9 @@ export default defineConfig(({ mode, command }) => {
           changeOrigin: true,
           timeout: DEV_PROXY_TIMEOUT_MS,
           proxyTimeout: DEV_PROXY_TIMEOUT_MS,
-          // Java 入口统一兼容 /api 别名；开发与打包版使用相同路由。
+          // TypeScript 入口统一兼容 /api 别名；开发与打包版使用相同路由。
           configure: (proxy, _options) => {
+            forwardLocalOrigin(proxy)
             proxy.on('error', (err, _req, _res) => {
               console.log('proxy error', err)
             })
@@ -149,13 +162,14 @@ export default defineConfig(({ mode, command }) => {
             })
           }
         },
-        // 所有 /ai 路径（包括 SSE）只允许进入 Java 安全边界。
+        // 所有 /ai 路径（包括 SSE）只允许进入 TypeScript 安全边界。
         '/ai/chat/text/stream': {
           target: BACKEND_PROXY_TARGET,
           changeOrigin: true,
           timeout: DEV_PROXY_TIMEOUT_MS,
           proxyTimeout: DEV_PROXY_TIMEOUT_MS,
           configure: (proxy, _options) => {
+            forwardLocalOrigin(proxy)
             proxy.on('error', (err, _req, _res) => {
               console.log('AI stream proxy error', err)
             })
@@ -170,17 +184,18 @@ export default defineConfig(({ mode, command }) => {
         '/ai': {
           target: BACKEND_PROXY_TARGET,
           changeOrigin: true,
-          // Upgrade requests retain the Java authentication boundary too.
-          // Availability still requires a corresponding Java WS endpoint.
+          // Upgrade requests retain the TypeScript authentication boundary too.
+          // Availability still requires a corresponding TypeScript WS endpoint.
           ws: true,
           timeout: DEV_PROXY_TIMEOUT_MS,
           proxyTimeout: DEV_PROXY_TIMEOUT_MS,
           rewrite: (path) => {
-            // /ai 路径需要转发到Java后端，Java后端会代理到Python服务
-            // 所以保持路径不变，Java后端会处理
+            // /ai 路径需要转发到TypeScript后端，TypeScript后端会代理到Python服务
+            // 所以保持路径不变，TypeScript后端会处理
             return path
           },
           configure: (proxy, _options) => {
+            forwardLocalOrigin(proxy)
             proxy.on('error', (err, _req, _res) => {
               console.log('AI proxy error', err)
             })

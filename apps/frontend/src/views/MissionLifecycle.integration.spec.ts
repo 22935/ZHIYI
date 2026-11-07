@@ -57,7 +57,7 @@ const open = async (url = '/agentos/missions/m/workspace?runId=a') => {
   await settle(); return router
 }
 beforeEach(() => {
-  vi.useFakeTimers(); localStorage.clear(); sessionStorage.clear(); status = 'planning'; entries = []; streams = 0; details = {}; runList = null
+  vi.useFakeTimers(); localStorage.clear(); localStorage.setItem('userId', 'test-local-owner'); sessionStorage.clear(); status = 'planning'; entries = []; streams = 0; details = {}; runList = null
   unexpectedReads = []
   offersByRun = {}
   vi.spyOn(agentosRequest, 'get').mockImplementation(async (path: string) => { unexpectedReads.push(path); throw new Error(`Unmocked fixture GET: ${path}`) })

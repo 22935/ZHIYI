@@ -1,3 +1,4 @@
+import { localFetch } from '@/platform/api'
 import type { ChatApprovalMode } from '@/config/chatApproval'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
@@ -207,9 +208,8 @@ export const useChatStore = defineStore('chat', () => {
 
   const fetchContextWindows = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(apiUrl('/ai/chat/models'), {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+
+      const response = await localFetch(apiUrl('/ai/chat/models'), {
       })
       if (!response.ok) return
       const data = await response.json() as { context_windows?: Record<string, unknown> }
@@ -704,23 +704,19 @@ export const useChatStore = defineStore('chat', () => {
           finishThinking(message.content ? 'complete' : 'error')
           break
         case 'error':
-        case 'auth.invalidated':
-          failStream(chatStreamErrorMessage(event.event === 'auth.invalidated'
-            ? 'AUTH_SESSION_INVALIDATED' : data.code, data.message))
+          failStream(chatStreamErrorMessage(data.code, data.message))
           break
       }
     }
 
-    const token = localStorage.getItem('token')
     const streamController = new AbortController()
     activeStreamController = streamController
     activeRequestId = null
     try {
-      const resp = await fetch(apiUrl('/ai/chat/text/stream'), {
+      const resp = await localFetch(apiUrl('/ai/chat/text/stream'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
         },
         signal: streamController.signal,
         body: JSON.stringify({
@@ -748,7 +744,7 @@ export const useChatStore = defineStore('chat', () => {
       const streamContextId = resp.headers.get('X-Chat-Context-Id')
       if (streamContextId) contextId.value = streamContextId
       if (!resp.ok) {
-        failStream(resp.status === 401 ? chatStreamErrorMessage('AUTH_SESSION_INVALIDATED')
+        failStream(resp.status === 401 ? '本机服务认证失败，请检查运行配置'
           : `回复请求失败（HTTP ${resp.status}），请重试`)
         return
       }

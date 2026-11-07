@@ -97,6 +97,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Upload, Search, Document, Picture, VideoPlay, Folder } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { apiUrl } from '@/platform'
 import { fileApi, type FileInfo } from '@/services/api/file'
 import axios from 'axios'
 
@@ -121,9 +122,9 @@ const files = ref<FileInfo[]>([])
 const loading = ref(false)
 const searchKeyword = ref('')
 
-const uploadUrl = computed(() => '/api/files/upload')
+const uploadUrl = computed(() => apiUrl('/api/files/upload'))
 const uploadHeaders = {
-  Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+  'X-Zhiyi-Local-Request': '1'
 }
 
 const filteredFiles = computed(() => {
@@ -171,7 +172,8 @@ const beforeUpload = (file: File) => {
 }
 
 const handleUploadSuccess = (response: any) => {
-  if (response.data && response.data.filePath) {
+  const result = response.data || response
+  if (result.filePath) {
     ElMessage.success('文件上传成功')
     loadFiles()
   } else {

@@ -28,6 +28,7 @@ const acceptedResponse = {
 describe('chat workflow binding', () => {
   beforeEach(() => {
     localStorage.clear()
+    localStorage.setItem('userId', 'test-local-owner')
     sessionStorage.clear()
     setActivePinia(createPinia())
     vi.resetAllMocks()

@@ -138,7 +138,7 @@ describe('RunRuntimeStore streaming projection', () => {
     expect(store.planning.status).toBe('COMPLETED')
     expect(store.planning.elapsedMs).toBe(120)
   })
-  it('carries bearer authentication and consumes SSE custom event names', async () => {
+  it('consumes SSE custom events without a user bearer token', async () => {
     localStorage.setItem('token', 'runtime-token')
     const encoder = new TextEncoder()
     const reader = {
@@ -158,60 +158,11 @@ describe('RunRuntimeStore streaming projection', () => {
     await vi.waitFor(() => expect(store.terminal).toBe(true))
     expect(store.planning.status).toBe('STARTING')
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/agentos/v2/runs/run/events'), expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: 'Bearer runtime-token', Accept: 'text/event-stream' }),
+      headers: { Accept: 'text/event-stream' },
       signal: expect.any(AbortSignal)
     }))
     localStorage.removeItem('token')
     vi.unstubAllGlobals()
   })
 
-  describe('session revocation and logout (INT-2F-4B)', () => {
-    it('stops the stream without reconnecting when auth.invalidated arrives', async () => {
-      vi.useFakeTimers()
-      const encoder = new TextEncoder()
-      const reader = {
-        read: vi.fn()
-          .mockResolvedValueOnce({ done: false, value: encoder.encode('event: model.output.delta\ndata: {"runId":"run","eventType":"model.output.delta","sequence":1,"payload":{}}\n\n') })
-          .mockResolvedValueOnce({ done: false, value: encoder.encode('event: auth.invalidated\ndata: {"code":"AUTH_SESSION_INVALIDATED"}\n\n') })
-          .mockReturnValue(new Promise(() => {}))
-      }
-      const fetchMock = vi.fn().mockResolvedValue({ ok: true, body: { getReader: () => reader } })
-      vi.stubGlobal('fetch', fetchMock)
-      const store = new RunRuntimeStore('run')
-      const client = new RuntimeEventClient(store)
-      try {
-        client.connect()
-        await vi.advanceTimersByTimeAsync(0)
-        // 第二帧 auth.invalidated 后 consumeFrame 调 disconnect：abort 使读循环退出，不再有第三次 read
-        await vi.waitFor(() => expect(reader.read).toHaveBeenCalledTimes(2))
-        await vi.advanceTimersByTimeAsync(5000)
-        // 服务端撤销终止事件：立即停流且不再自动重连
-        expect(fetchMock).toHaveBeenCalledTimes(1)
-        expect(vi.getTimerCount()).toBe(0)
-      } finally { client.disconnect(); vi.useRealTimers(); vi.unstubAllGlobals() }
-    })
-
-    it('aborts the live stream when the auth logout broadcast fires', async () => {
-      vi.useFakeTimers()
-      let capturedSignal: AbortSignal | undefined
-      const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
-        capturedSignal = init?.signal as AbortSignal
-        return new Promise<Response>(() => {})
-      })
-      vi.stubGlobal('fetch', fetchMock)
-      const store = acquireRunRuntimeStore('logout-broadcast-run')
-      try {
-        expect(fetchMock).toHaveBeenCalledTimes(1)
-        expect(capturedSignal?.aborted).toBe(false)
-        window.dispatchEvent(new Event('kinlin:auth-logout'))
-        expect(capturedSignal?.aborted).toBe(true)
-        // 断流后不得再排重连
-        expect(vi.getTimerCount()).toBe(0)
-      } finally {
-        releaseRunRuntimeStore('logout-broadcast-run', store)
-        vi.useRealTimers()
-        vi.unstubAllGlobals()
-      }
-    })
-  })
 })

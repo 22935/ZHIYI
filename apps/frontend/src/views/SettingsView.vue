@@ -207,13 +207,6 @@
               <el-option label="30天后删除" value="30" />
             </el-select>
           </div>
-          <div class="setting-row setting-row-control">
-            <div>
-              <strong>隐私密码</strong>
-              <p>可选，用于保护敏感设置。</p>
-            </div>
-            <el-input v-model="settings.privacyPassword" type="password" show-password class="inline-input" placeholder="未设置" />
-          </div>
         </div>
       </section>
 
@@ -405,6 +398,7 @@
 </template>
 
 <script setup lang="ts">
+import { localFetch } from '@/platform/api'
 import { computed, onMounted, ref, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -442,7 +436,6 @@ interface AppSettings {
   showStatusBar: boolean
   storageLocation: 'local' | 'cloud'
   autoDelete: 'never' | '7' | '30'
-  privacyPassword: string
   autoSend: boolean
   messageSound: boolean
   historyRetention: '1' | '7' | '30' | 'forever'
@@ -525,7 +518,6 @@ const defaultSettings = (): AppSettings => ({
   showStatusBar: true,
   storageLocation: 'local',
   autoDelete: 'never',
-  privacyPassword: '',
   autoSend: false,
   messageSound: true,
   historyRetention: '7',
@@ -710,12 +702,11 @@ function profileHost(url: string): string {
 }
 
 async function serverFetch(path: string, init?: RequestInit): Promise<Response> {
-  const token = localStorage.getItem('token')
-  return fetch(apiUrl(path), {
+
+  return localFetch(apiUrl(path), {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers
     }
   })

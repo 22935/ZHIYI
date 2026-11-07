@@ -367,7 +367,6 @@ describe('MissionWorkspaceView', () => {
         resolve({ done: false, value })
       } else queued.push(value)
     }
-    localStorage.setItem('token', 'workspace-runtime-token')
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, body: { getReader: () => reader } })
     vi.stubGlobal('fetch', fetchMock)
     const formalRunId = 'run_formal_streaming'
@@ -385,7 +384,7 @@ describe('MissionWorkspaceView', () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const [streamUrl, streamOptions] = fetchMock.mock.calls[0]
     expect(streamUrl).toContain(`/api/agentos/v2/runs/${formalRunId}/events`)
-    expect(streamOptions.headers.Authorization).toBe('Bearer workspace-runtime-token')
+    expect(streamOptions.headers.Authorization).toBeUndefined()
     const event = (sequence: number, eventType: string, payload: Record<string, unknown> = {}) => ({
       eventId: `runtime-${sequence}`,
       eventType,

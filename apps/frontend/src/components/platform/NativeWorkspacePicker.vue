@@ -163,6 +163,7 @@
 </template>
 
 <script setup lang="ts">
+import { localFetch } from '@/platform/api'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { apiUrl, platform } from '@/platform'
 import type { NativeWorkspaceState } from './workspaceState'
@@ -231,8 +232,7 @@ watch([binding, candidate, loading, busy, loadError, error], () => {
   })
 }, { immediate: true })
 
-const authHeaders = () => ({
-  Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+const jsonHeaders = () => ({
   'Content-Type': 'application/json'
 })
 
@@ -250,8 +250,8 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const response = await fetch(apiUrl('/api/agentos/v2/workspaces/current'), {
-      headers: authHeaders()
+    const response = await localFetch(apiUrl('/api/agentos/v2/workspaces/current'), {
+      headers: jsonHeaders()
     }).catch(() => null)
     if (!response) {
       loadError.value = '无法连接本地 Runtime'
@@ -259,7 +259,7 @@ async function load() {
     }
     if (!response.ok) {
       loadError.value = response.status === 401
-        ? '登录状态已失效，无法读取工作区授权'
+        ? '本机服务认证失败，无法读取工作区授权'
         : `读取工作区授权失败（${response.status}）`
       return
     }
@@ -315,9 +315,9 @@ async function trust() {
   busy.value = true
   error.value = ''
   try {
-    const response = await fetch(apiUrl('/api/agentos/v2/workspaces/select'), {
+    const response = await localFetch(apiUrl('/api/agentos/v2/workspaces/select'), {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify({ path: candidate.value })
     })
     const data = await response.json().catch(() => ({}))
@@ -342,9 +342,9 @@ async function revoke() {
   busy.value = true
   error.value = ''
   try {
-    const response = await fetch(
+    const response = await localFetch(
       apiUrl(`/api/agentos/v2/workspaces/${encodeURIComponent(binding.value.workspaceId)}/revoke`),
-      { method: 'POST', headers: authHeaders() }
+      { method: 'POST', headers: jsonHeaders() }
     )
     if (!response.ok) throw new Error('撤销信任失败')
     binding.value = await response.json()

@@ -19,7 +19,7 @@ const deferred = <T>() => {
   return { promise, resolve, reject }
 }
 describe('Conversation history continuity', () => {
-  beforeEach(() => { localStorage.clear(); sessionStorage.clear(); setActivePinia(createPinia()); vi.resetAllMocks() })
+  beforeEach(() => { localStorage.clear(); localStorage.setItem('userId', 'local-owner'); sessionStorage.clear(); setActivePinia(createPinia()); vi.resetAllMocks() })
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
   it('restores the context key and its role rather than the database UUID', async () => {
     const agentPost = vi.spyOn(agentosRequest, 'post'); const chatPost = vi.spyOn(request, 'post')

@@ -60,9 +60,6 @@ vi.mock('@/stores/user', () => ({
   })
 }))
 
-vi.mock('@/services/api/auth', () => ({
-  authApi: { logout: vi.fn() }
-}))
 
 vi.mock('@/services/api/conversation', () => ({
   conversationApi: {
@@ -123,68 +120,6 @@ describe('Workbench / OScode shell', () => {
   afterEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
-  })
-
-  it('keeps the public route outside the authenticated shell', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/', component: { template: '<div data-testid="public-view">landing</div>' } }]
-    })
-    await router.push('/')
-    await router.isReady()
-
-    const wrapper = mount(App, {
-      global: {
-        plugins: [router],
-        stubs: {
-          ErrorBoundary: passthrough,
-          ZoomIndicator: true,
-          'el-container': passthrough,
-          'el-main': passthrough
-        }
-      }
-    })
-    await vi.dynamicImportSettled()
-    await flushPromises()
-
-    expect(wrapper.find('.public-layout').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="public-view"]').exists()).toBe(true)
-    expect(wrapper.find('.app-sidebar').exists()).toBe(false)
-    expect(useChatStore).not.toHaveBeenCalled()
-    expect(bootstrap).not.toHaveBeenCalled()
-
-    wrapper.unmount()
-  })
-
-  it('keeps standalone login on the public layout with the root zoom indicator', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/login', component: { template: '<div data-testid="standalone-login">login</div>' } }]
-    })
-    await router.push('/login')
-    await router.isReady()
-
-    const wrapper = mount(App, {
-      global: {
-        plugins: [router],
-        stubs: {
-          ErrorBoundary: passthrough,
-          ZoomIndicator: true,
-          'el-container': passthrough,
-          'el-main': passthrough
-        }
-      }
-    })
-    await flushPromises()
-
-    expect(wrapper.find('.public-layout').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="standalone-login"]').exists()).toBe(true)
-    expect(wrapper.find('.app-sidebar').exists()).toBe(false)
-    expect(wrapper.find('zoom-indicator-stub').exists()).toBe(true)
-    expect(useChatStore).not.toHaveBeenCalled()
-    expect(bootstrap).not.toHaveBeenCalled()
-
-    wrapper.unmount()
   })
 
   it('keeps the ACG hub free of the history side panel; projects live only in the center', async () => {

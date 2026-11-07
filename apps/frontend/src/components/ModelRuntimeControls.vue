@@ -170,6 +170,7 @@
 </template>
 
 <script setup lang="ts">
+import { localFetch } from '@/platform/api'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ArrowDown, Check, Connection, Cpu, Opportunity } from '@element-plus/icons-vue'
 import { apiUrl } from '@/platform'
@@ -378,9 +379,8 @@ async function loadSystemModels(preferServerDefault = false): Promise<void> {
   const requestId = ++systemModelsRequest
   modelsLoading.value = true
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(apiUrl('/ai/chat/models'), {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+
+    const response = await localFetch(apiUrl('/ai/chat/models'), {
     })
     if (!response.ok || requestId !== systemModelsRequest || settings.value.provider !== 'system') return
     const data = await response.json() as { models?: unknown; default_model?: unknown; capabilities?: unknown }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { clearConversationLaunchIdentity, conversationLaunchRequestId } from './conversationLaunchIdentity'
 
 describe('Legacy Conversation identity safety', () => {
-  beforeEach(() => { sessionStorage.clear(); localStorage.clear() })
+  beforeEach(() => { sessionStorage.clear(); localStorage.clear(); localStorage.setItem('userId', 'test-local-owner') })
   it('reads existing legacy identity hints without clearing or replacing unknown submissions', () => {
     sessionStorage.setItem('chat.workflow_submission.conversation', JSON.stringify({ conversationId: 'conversation', text: '目标', clientRequestId: 'legacy' }))
     sessionStorage.setItem('unrelated', 'preserve')
@@ -13,7 +13,8 @@ describe('Legacy Conversation identity safety', () => {
     expect(JSON.parse(sessionStorage.getItem('chat.workflow_submission.conversation')!).clientRequestId).toBe('legacy')
   })
   it('does not generate a second identity outside the command authority', () => {
-    expect(() => conversationLaunchRequestId(sessionStorage, 'new-conversation', '目标')).toThrow('Mission Launch Authority')
+    localStorage.removeItem('userId')
+    expect(() => conversationLaunchRequestId(sessionStorage, 'new-conversation', '目标')).toThrow('本机身份尚未就绪')
     expect(sessionStorage.length).toBe(0)
   })
 })

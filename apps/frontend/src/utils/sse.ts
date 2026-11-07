@@ -27,7 +27,6 @@ export type ChatStreamEventType =
   | 'usage'
   | 'done'
   | 'error'
-  | 'auth.invalidated'
 
 export interface ChatStreamEvent {
   event: ChatStreamEventType
@@ -83,7 +82,7 @@ export function parseChatStreamFrame(frame: string): ChatStreamEvent | null {
   }
   if (!data.length) return null
   const payload = data.join('\n')
-  if (eventName === 'auth.invalidated' || eventName === 'error') {
+  if (eventName === 'error') {
     try {
       const parsed = JSON.parse(payload)
       if (!parsed.event) {
@@ -98,7 +97,6 @@ export function parseChatStreamFrame(frame: string): ChatStreamEvent | null {
 }
 
 const STREAM_ERROR_MESSAGES: Record<string, string> = {
-  AUTH_SESSION_INVALIDATED: '登录会话已失效或暂时无法验证，请重新登录后重试',
   SSE_IDLE_TIMEOUT: '等待模型响应超时，请重试',
   SSE_MAX_DURATION: '本次回复已达到最长生成时间，请重试',
   AI_STREAM_INTERRUPTED: '模型连接中断，请重试',

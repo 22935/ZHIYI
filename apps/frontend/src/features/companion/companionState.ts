@@ -16,7 +16,9 @@ export const STATE_PRIORITY: Record<CompanionState, number> = {
   idle: 0,
   sleeping: 0,
   listening: 1,
-  happy: 2,
+  // Completion is a user-visible terminal signal and should replace routine
+  // thinking/working progress while remaining below alert/error states.
+  happy: 4,
   thinking: 3,
   working: 3,
   alert: 4,
@@ -68,7 +70,9 @@ export interface Notice {
  */
 export class ProactivityQueue {
   private seen = new Set<string>()
-  private lastSentAt = 0
+  // A fresh queue must allow its first notice immediately. Using zero here
+  // incorrectly throttles startup notices when the clock is near epoch.
+  private lastSentAt = Number.NEGATIVE_INFINITY
 
   constructor(private readonly throttleMs = 4000, private readonly now: () => number = () => Date.now()) {}
 
@@ -83,7 +87,7 @@ export class ProactivityQueue {
 
   reset(): void {
     this.seen.clear()
-    this.lastSentAt = 0
+    this.lastSentAt = Number.NEGATIVE_INFINITY
   }
 }
 

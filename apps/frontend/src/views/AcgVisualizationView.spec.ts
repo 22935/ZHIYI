@@ -163,7 +163,7 @@ const mountPage = async (query = ''): Promise<{ wrapper: VueWrapper; router: Rou
 
 describe('AcgVisualizationView 执行运行时 page wiring', () => {
   beforeEach(() => {
-    localStorage.clear()
+    localStorage.clear(); localStorage.setItem('userId', 'local-owner')
     sessionStorage.clear()
     vi.clearAllMocks()
     vi.mocked(workflowApi.getWorkflowProgress).mockResolvedValue(progress())

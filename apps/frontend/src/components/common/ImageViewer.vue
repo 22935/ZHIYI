@@ -46,6 +46,7 @@
                   v-if="src"
                   :src="src"
                   :alt="alt"
+                  crossorigin="anonymous"
                   class="viewer-image"
                   draggable="false"
                   @load="onImageLoad"

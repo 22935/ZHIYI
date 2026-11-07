@@ -148,7 +148,7 @@ function proposalAllowed(action: CopilotAction, sourceRunId?: string) {
 const hasFormalControl = computed(() => Boolean(controlRun.value?.formalControl || controlRun.value?.executionState?.planningCommitRequired))
 const refreshRun = () => { emit('refresh-run'); void refresh() }
 const state = ref<CopilotState | null>(null)
-const sessionOwnerToken = localStorage.getItem('token')
+const sessionOwnerId = localStorage.getItem('userId')
 const tab = ref<'chat' | 'trace'>('chat')
 const draft = ref(''), error = ref(''), traceSearch = ref('')
 const reviewComment = ref(''), reviewReceipt = ref('')
@@ -324,7 +324,7 @@ async function confirmAction(proposalId: string, action: CopilotAction, sourceRu
 watch(() => props.graphNode?.acgNodeId || props.entry?.acgNodeId, id => { operationStep.value = id || '' }, { immediate: true })
 function onKeydown(e: KeyboardEvent) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); void send() } }
 function poll() { clearTimeout(timer); if (!viewActive) return; const token = generation; const terminal = ['completed', 'failed', 'cancelled', 'superseded'].includes(state.value?.status || ''); timer = setTimeout(async () => { if (viewActive && !busy.value && !loading.value && props.runId && !document.hidden) await refresh(true); if (token === generation && viewActive) poll() }, document.hidden ? 30000 : terminal ? 15000 : 3000) }
-function saveSession(id = props.runId) { if (id && state.value) saveCopilotSession(id, { state: state.value, draft: draft.value, model: selectedModel.value, permission: permission.value, effort: reasoningEffort.value, operation: requestKey }, sessionOwnerToken) }
+function saveSession(id = props.runId) { if (id && state.value) saveCopilotSession(id, { state: state.value, draft: draft.value, model: selectedModel.value, permission: permission.value, effort: reasoningEffort.value, operation: requestKey }, sessionOwnerId) }
 watch(() => props.runId, (_next, previous) => {
   saveSession(previous)
   generation++; controller?.abort(); controller = new AbortController(); clearTimeout(timer)

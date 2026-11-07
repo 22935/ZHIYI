@@ -17,10 +17,11 @@
     <div v-if="fileUrl" class="file-preview">
       <el-image
         v-if="isImage"
-        :src="fileUrl"
+        :src="apiUrl(fileUrl)"
+        crossorigin="anonymous"
         fit="cover"
         style="width: 100px; height: 100px"
-        :preview-src-list="[fileUrl]"
+        :preview-src-list="[apiUrl(fileUrl)]"
       />
       <div v-else class="file-info">
         <el-icon><Document /></el-icon>
@@ -42,7 +43,7 @@
 import { ref, computed } from 'vue'
 import { Upload, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import { apiUrl, LOCAL_REQUEST_HEADERS } from '@/platform'
 
 interface Props {
   type?: string
@@ -66,10 +67,10 @@ const emit = defineEmits<Emits>()
 const fileUrl = ref<string>('')
 const fileName = ref<string>('')
 
-const uploadUrl = computed(() => `/api/files/upload?type=${props.type}`)
+const uploadUrl = computed(() => apiUrl(`/api/files/upload?type=${encodeURIComponent(props.type)}`))
 
 const uploadHeaders = {
-  // 可以添加认证头
+  ...LOCAL_REQUEST_HEADERS
 }
 
 const isImage = computed(() => {
@@ -88,9 +89,10 @@ const beforeUpload = (file: File) => {
 }
 
 const handleSuccess = (response: any) => {
-  if (response.data && response.data.filePath) {
-    fileUrl.value = `/api/files/download/${response.data.filePath}`
-    fileName.value = response.data.originalFilename || '文件'
+  const result = response.data || response
+  if (result.filePath) {
+    fileUrl.value = `/api/files/download/${result.filePath}`
+    fileName.value = result.originalFilename || '文件'
     emit('uploaded', fileUrl.value, fileName.value)
     ElMessage.success('上传成功')
   }

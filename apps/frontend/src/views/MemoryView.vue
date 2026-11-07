@@ -532,7 +532,7 @@ function formatRunStatus(status: string | null | undefined): string {
 
 function formatRunsError(error: unknown): string {
   const status = (error as { response?: { status?: number } } | null)?.response?.status
-  if (status === 401 || status === 403) return '登录状态已失效，请重新登录后再查看运行记忆。'
+  if (status === 401 || status === 403) return '本机服务认证失败，请检查运行配置后重试。'
   if (status != null && status >= 500) return '运行服务暂时不可用，请稍后重试。'
   return error instanceof Error && error.message ? error.message : '运行记录暂时无法加载，请重试。'
 }

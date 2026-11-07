@@ -5,7 +5,7 @@ import CreateMissionView from './CreateMissionView.vue'
 import { workflowApi } from '@/services/api/workflow'
 
 const native = vi.hoisted(() => ({ openDirectory: vi.fn() }))
-vi.mock('@/platform', () => ({ platform: { platform: 'desktop', openDirectory: native.openDirectory }, apiUrl: (path: string) => path }))
+vi.mock('@/platform', () => ({ platform: { platform: 'desktop', openDirectory: native.openDirectory }, apiUrl: (path: string) => path, LOCAL_REQUEST_HEADERS: { 'X-Zhiyi-Local-Request': '1' } }))
 vi.mock('@/services/api/workflow', async original => {
   const actual = await original<typeof import('@/services/api/workflow')>()
   return { ...actual, workflowApi: { ...actual.workflowApi,
@@ -38,6 +38,7 @@ const page = async () => {
 describe('Create Mission desktop workspace', () => {
   beforeEach(() => {
     localStorage.clear(); sessionStorage.clear(); vi.clearAllMocks()
+    localStorage.setItem('userId', 'test-local-owner')
     binding = { workspaceRoot: '', selected: false }
     vi.mocked(workflowApi.startWorkflowAsync).mockResolvedValue({ missionId: 'mission-demo', runId: 'run-demo', status: 'pending' } as any)
     vi.stubGlobal('fetch', vi.fn(async (url, init) => {

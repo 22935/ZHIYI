@@ -1,29 +1,20 @@
 import axios, { AxiosError, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
-import { apiUrl } from '@/platform'
+import { apiUrl, LOCAL_REQUEST_HEADERS } from '@/platform'
 import {
-  attachAuthToken,
-  handleUnauthorizedError,
   markErrorAsUserNotified
-} from './requestAuth'
+} from './requestErrors'
 
-export { wasErrorUserNotified } from './requestAuth'
+export { wasErrorUserNotified } from './requestErrors'
 
 const request = axios.create({
   baseURL: apiUrl('/api'),
   timeout: 240000,
   headers: {
+    ...LOCAL_REQUEST_HEADERS,
     'Content-Type': 'application/json'
   }
 })
-
-// 请求拦截器
-request.interceptors.request.use(
-  attachAuthToken,
-  (error) => {
-    return Promise.reject(error)
-  }
-)
 
 // 响应拦截器
 request.interceptors.response.use(
@@ -59,7 +50,7 @@ request.interceptors.response.use(
           notifyError(backendMessage || '请求参数错误')
           break
         case 401:
-          handleUnauthorizedError(error)
+          notifyError(backendMessage || '本机服务认证失败，请检查运行配置')
           break
         case 403:
           notifyError(backendMessage || '拒绝访问')
