@@ -1,0 +1,27 @@
+{
+  "java_sources": 299,
+  "java_lines": 16993,
+  "controllers": 25,
+  "mapping_annotations": 141,
+  "method_path_rows": 145,
+  "explicit_method_path_rows": 140,
+  "proxy_method_rows": 5,
+  "api_alias_rows": 53,
+  "service_package_files": 20,
+  "spring_service_annotations": 23,
+  "projection_files": 148,
+  "projection_mappers": 29,
+  "java_test_source_files": 115,
+  "test_declarations": 542,
+  "migration_files": 13,
+  "frontend_callsites": 152,
+  "frontend_classes": {
+    "DYNAMIC_HELPER_EXPANDED_AT_CALLERS": 1,
+    "EXPLICIT_ROUTE": 125,
+    "EXTERNAL_OR_ARTIFACT_FETCH": 1,
+    "FRONTEND_ONLY": 5,
+    "INTERNAL_TERMINAL_TRANSPORT": 1,
+    "PROXY_CARRIED": 18,
+    "UNKNOWN_WEBSOCKET_TRANSPORT": 1
+  }
+}

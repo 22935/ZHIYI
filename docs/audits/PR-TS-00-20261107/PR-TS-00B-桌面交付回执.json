@@ -1,0 +1,17 @@
+{
+  "zip": "C:\\Users\\LZX\\Desktop\\PR-TS-00B-迁移准入审计-20261107.zip",
+  "sha256": "8feb8b8471d24f6483172cfcf9ccdd8aa4ecffc678c6447c8212565596b3c03b",
+  "bytes": 656968,
+  "members": 63,
+  "zip_crc_test": "PASS",
+  "member_sha256_checks": "PASS",
+  "privacy_scan": "PASS",
+  "snapshot_included": false,
+  "credentials_included": false,
+  "private_logs_included": false,
+  "original_home_bytes_unchanged": true,
+  "prior_audit_artifacts_unchanged": true,
+  "conclusion": "CONDITIONAL ACCEPT",
+  "PR_TS_01": "GO restricted architecture/scaffold only",
+  "note": "This post-packaging receipt and SHA sidecar are outside ZIP to avoid hash circularity."
+}

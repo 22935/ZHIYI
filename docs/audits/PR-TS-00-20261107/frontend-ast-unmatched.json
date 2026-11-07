@@ -1,0 +1,34 @@
+[
+  {
+    "file": "apps/frontend/src/workbench/core/documents.ts",
+    "expression": "this.requests.get",
+    "enclosing": "save",
+    "start": 257,
+    "end": 257,
+    "httpCandidate": true
+  },
+  {
+    "file": "apps/frontend/src/workbench/core/documents.ts",
+    "expression": "this.requests.delete",
+    "enclosing": "close",
+    "start": 272,
+    "end": 272,
+    "httpCandidate": true
+  },
+  {
+    "file": "apps/desktop/electron/src/lib/lsp-host.ts",
+    "expression": "session.client.request",
+    "enclosing": "initialize",
+    "start": 138,
+    "end": 146,
+    "httpCandidate": true
+  },
+  {
+    "file": "apps/desktop/electron/src/lib/lsp-host.ts",
+    "expression": "session.client.request",
+    "enclosing": "definition",
+    "start": 195,
+    "end": 198,
+    "httpCandidate": true
+  }
+]

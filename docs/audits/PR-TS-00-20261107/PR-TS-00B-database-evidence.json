@@ -1,0 +1,1125 @@
+{
+  "connection": [
+    {
+      "database": "zhiyi",
+      "effective_role": "pg_read_all_data",
+      "transaction_read_only": "on",
+      "server_version": "15.19",
+      "address": "127.0.0.1/32",
+      "port": 25432
+    }
+  ],
+  "role": [
+    {
+      "rolname": "pg_read_all_data",
+      "rolsuper": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolreplication": false,
+      "rolbypassrls": false
+    }
+  ],
+  "write_privilege_tables": [
+    {
+      "n": 0
+    }
+  ],
+  "flyway": [
+    {
+      "installed_rank": 1,
+      "version": "1",
+      "description": "init schema",
+      "type": "SQL",
+      "script": "V1__init_schema.sql",
+      "checksum": 172574542,
+      "success": true
+    },
+    {
+      "installed_rank": 2,
+      "version": "2",
+      "description": "optimize indexes",
+      "type": "SQL",
+      "script": "V2__optimize_indexes.sql",
+      "checksum": -2036900921,
+      "success": true
+    },
+    {
+      "installed_rank": 3,
+      "version": "3",
+      "description": "add password hash",
+      "type": "SQL",
+      "script": "V3__add_password_hash.sql",
+      "checksum": -666480988,
+      "success": true
+    },
+    {
+      "installed_rank": 4,
+      "version": "4",
+      "description": "create user feedback table",
+      "type": "SQL",
+      "script": "V4__create_user_feedback_table.sql",
+      "checksum": -1613665344,
+      "success": true
+    },
+    {
+      "installed_rank": 5,
+      "version": "5",
+      "description": "reconcile legacy schema",
+      "type": "SQL",
+      "script": "V5__reconcile_legacy_schema.sql",
+      "checksum": -1846433067,
+      "success": true
+    },
+    {
+      "installed_rank": 6,
+      "version": "6",
+      "description": "upsert builtin roles",
+      "type": "SQL",
+      "script": "V6__upsert_builtin_roles.sql",
+      "checksum": -1754184888,
+      "success": true
+    },
+    {
+      "installed_rank": 7,
+      "version": "7",
+      "description": "add conversation workspace mode",
+      "type": "SQL",
+      "script": "V7__add_conversation_workspace_mode.sql",
+      "checksum": 439076636,
+      "success": true
+    },
+    {
+      "installed_rank": 8,
+      "version": "8",
+      "description": "add user avatar",
+      "type": "SQL",
+      "script": "V8__add_user_avatar.sql",
+      "checksum": 35128799,
+      "success": true
+    },
+    {
+      "installed_rank": 9,
+      "version": "9",
+      "description": "optimize conversation preview",
+      "type": "SQL",
+      "script": "V9__optimize_conversation_preview.sql",
+      "checksum": 938060099,
+      "success": true
+    },
+    {
+      "installed_rank": 10,
+      "version": "10",
+      "description": "delete builtin roles",
+      "type": "SQL",
+      "script": "V10__delete_builtin_roles.sql",
+      "checksum": -872460111,
+      "success": true
+    },
+    {
+      "installed_rank": 11,
+      "version": "11",
+      "description": "create iam login sessions",
+      "type": "SQL",
+      "script": "V11__create_iam_login_sessions.sql",
+      "checksum": -866868083,
+      "success": true
+    },
+    {
+      "installed_rank": 12,
+      "version": "12",
+      "description": "local workspace authorizations",
+      "type": "SQL",
+      "script": "V12__local_workspace_authorizations.sql",
+      "checksum": 1189611711,
+      "success": true
+    },
+    {
+      "installed_rank": 13,
+      "version": "13",
+      "description": "drop user feedback",
+      "type": "SQL",
+      "script": "V13__drop_user_feedback.sql",
+      "checksum": 1819505150,
+      "success": true
+    }
+  ],
+  "columns": [
+    {
+      "table_name": "conversations",
+      "column_name": "id",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "NO",
+      "column_default": "gen_random_uuid()"
+    },
+    {
+      "table_name": "conversations",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "conversations",
+      "column_name": "role_id",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "conversations",
+      "column_name": "context_id",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "conversations",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "NO",
+      "column_default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table_name": "conversations",
+      "column_name": "updated_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "YES",
+      "column_default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table_name": "conversations",
+      "column_name": "title",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "conversations",
+      "column_name": "workspace_mode",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": "'chat'::character varying"
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "installed_rank",
+      "data_type": "integer",
+      "udt_name": "int4",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "version",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "description",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "type",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "script",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "checksum",
+      "data_type": "integer",
+      "udt_name": "int4",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "installed_by",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "installed_on",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "execution_time",
+      "data_type": "integer",
+      "udt_name": "int4",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "column_name": "success",
+      "data_type": "boolean",
+      "udt_name": "bool",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "iam_login_sessions",
+      "column_name": "sid",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "iam_login_sessions",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "iam_login_sessions",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "NO",
+      "column_default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table_name": "iam_login_sessions",
+      "column_name": "expires_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "iam_login_sessions",
+      "column_name": "revoked_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "workspace_id",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "user_id",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "tenant_id",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "canonical_root",
+      "data_type": "text",
+      "udt_name": "text",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "root_identity",
+      "data_type": "text",
+      "udt_name": "text",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "resource_id",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "grant_id",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "selected",
+      "data_type": "boolean",
+      "udt_name": "bool",
+      "is_nullable": "NO",
+      "column_default": "false"
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "revoked",
+      "data_type": "boolean",
+      "udt_name": "bool",
+      "is_nullable": "NO",
+      "column_default": "false"
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "udt_name": "timestamptz",
+      "is_nullable": "NO",
+      "column_default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "column_name": "revoked_at",
+      "data_type": "timestamp with time zone",
+      "udt_name": "timestamptz",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "messages",
+      "column_name": "id",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "NO",
+      "column_default": "gen_random_uuid()"
+    },
+    {
+      "table_name": "messages",
+      "column_name": "conversation_id",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "messages",
+      "column_name": "role",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "messages",
+      "column_name": "content",
+      "data_type": "text",
+      "udt_name": "text",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "messages",
+      "column_name": "message_type",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "YES",
+      "column_default": "'TEXT'::character varying"
+    },
+    {
+      "table_name": "messages",
+      "column_name": "metadata",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "messages",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "NO",
+      "column_default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table_name": "messages",
+      "column_name": "file_url",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "roles",
+      "column_name": "id",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "NO",
+      "column_default": "gen_random_uuid()"
+    },
+    {
+      "table_name": "roles",
+      "column_name": "name",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "roles",
+      "column_name": "description",
+      "data_type": "text",
+      "udt_name": "text",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "roles",
+      "column_name": "role_type",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "roles",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "roles",
+      "column_name": "system_prompt",
+      "data_type": "text",
+      "udt_name": "text",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "roles",
+      "column_name": "dialogue_style",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "roles",
+      "column_name": "personality",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "roles",
+      "column_name": "avatar_config",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "roles",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "NO",
+      "column_default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table_name": "roles",
+      "column_name": "updated_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "YES",
+      "column_default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table_name": "roles",
+      "column_name": "stable_key",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "users",
+      "column_name": "id",
+      "data_type": "uuid",
+      "udt_name": "uuid",
+      "is_nullable": "NO",
+      "column_default": "gen_random_uuid()"
+    },
+    {
+      "table_name": "users",
+      "column_name": "username",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "users",
+      "column_name": "email",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "users",
+      "column_name": "password_hash",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "users",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "NO",
+      "column_default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table_name": "users",
+      "column_name": "updated_at",
+      "data_type": "timestamp without time zone",
+      "udt_name": "timestamp",
+      "is_nullable": "YES",
+      "column_default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table_name": "users",
+      "column_name": "avatar_url",
+      "data_type": "character varying",
+      "udt_name": "varchar",
+      "is_nullable": "YES",
+      "column_default": null
+    }
+  ],
+  "indexes": [
+    {
+      "tablename": "conversations",
+      "indexname": "conversations_context_id_key",
+      "indexdef": "CREATE UNIQUE INDEX conversations_context_id_key ON public.conversations USING btree (context_id)"
+    },
+    {
+      "tablename": "conversations",
+      "indexname": "conversations_pkey",
+      "indexdef": "CREATE UNIQUE INDEX conversations_pkey ON public.conversations USING btree (id)"
+    },
+    {
+      "tablename": "conversations",
+      "indexname": "idx_conversations_context",
+      "indexdef": "CREATE INDEX idx_conversations_context ON public.conversations USING btree (context_id)"
+    },
+    {
+      "tablename": "conversations",
+      "indexname": "idx_conversations_role",
+      "indexdef": "CREATE INDEX idx_conversations_role ON public.conversations USING btree (role_id)"
+    },
+    {
+      "tablename": "conversations",
+      "indexname": "idx_conversations_updated",
+      "indexdef": "CREATE INDEX idx_conversations_updated ON public.conversations USING btree (updated_at)"
+    },
+    {
+      "tablename": "conversations",
+      "indexname": "idx_conversations_user",
+      "indexdef": "CREATE INDEX idx_conversations_user ON public.conversations USING btree (user_id)"
+    },
+    {
+      "tablename": "conversations",
+      "indexname": "idx_conversations_user_role",
+      "indexdef": "CREATE INDEX idx_conversations_user_role ON public.conversations USING btree (user_id, role_id)"
+    },
+    {
+      "tablename": "conversations",
+      "indexname": "idx_conversations_user_updated",
+      "indexdef": "CREATE INDEX idx_conversations_user_updated ON public.conversations USING btree (user_id, updated_at DESC)"
+    },
+    {
+      "tablename": "conversations",
+      "indexname": "idx_conversations_user_workspace_updated",
+      "indexdef": "CREATE INDEX idx_conversations_user_workspace_updated ON public.conversations USING btree (user_id, workspace_mode, updated_at DESC)"
+    },
+    {
+      "tablename": "flyway_schema_history",
+      "indexname": "flyway_schema_history_pk",
+      "indexdef": "CREATE UNIQUE INDEX flyway_schema_history_pk ON public.flyway_schema_history USING btree (installed_rank)"
+    },
+    {
+      "tablename": "flyway_schema_history",
+      "indexname": "flyway_schema_history_s_idx",
+      "indexdef": "CREATE INDEX flyway_schema_history_s_idx ON public.flyway_schema_history USING btree (success)"
+    },
+    {
+      "tablename": "iam_login_sessions",
+      "indexname": "iam_login_sessions_pkey",
+      "indexdef": "CREATE UNIQUE INDEX iam_login_sessions_pkey ON public.iam_login_sessions USING btree (sid)"
+    },
+    {
+      "tablename": "iam_login_sessions",
+      "indexname": "idx_iam_login_sessions_expires",
+      "indexdef": "CREATE INDEX idx_iam_login_sessions_expires ON public.iam_login_sessions USING btree (expires_at)"
+    },
+    {
+      "tablename": "iam_login_sessions",
+      "indexname": "idx_iam_login_sessions_user",
+      "indexdef": "CREATE INDEX idx_iam_login_sessions_user ON public.iam_login_sessions USING btree (user_id)"
+    },
+    {
+      "tablename": "local_workspace_authorizations",
+      "indexname": "local_workspace_authorization_user_id_tenant_id_canonical_r_key",
+      "indexdef": "CREATE UNIQUE INDEX local_workspace_authorization_user_id_tenant_id_canonical_r_key ON public.local_workspace_authorizations USING btree (user_id, tenant_id, canonical_root, grant_id)"
+    },
+    {
+      "tablename": "local_workspace_authorizations",
+      "indexname": "local_workspace_authorizations_grant_id_key",
+      "indexdef": "CREATE UNIQUE INDEX local_workspace_authorizations_grant_id_key ON public.local_workspace_authorizations USING btree (grant_id)"
+    },
+    {
+      "tablename": "local_workspace_authorizations",
+      "indexname": "local_workspace_authorizations_pkey",
+      "indexdef": "CREATE UNIQUE INDEX local_workspace_authorizations_pkey ON public.local_workspace_authorizations USING btree (workspace_id)"
+    },
+    {
+      "tablename": "local_workspace_authorizations",
+      "indexname": "local_workspace_one_selected",
+      "indexdef": "CREATE UNIQUE INDEX local_workspace_one_selected ON public.local_workspace_authorizations USING btree (user_id, tenant_id) WHERE (selected AND (NOT revoked))"
+    },
+    {
+      "tablename": "messages",
+      "indexname": "idx_messages_conversation",
+      "indexdef": "CREATE INDEX idx_messages_conversation ON public.messages USING btree (conversation_id)"
+    },
+    {
+      "tablename": "messages",
+      "indexname": "idx_messages_conversation_created",
+      "indexdef": "CREATE INDEX idx_messages_conversation_created ON public.messages USING btree (conversation_id, created_at)"
+    },
+    {
+      "tablename": "messages",
+      "indexname": "idx_messages_conversation_role_created",
+      "indexdef": "CREATE INDEX idx_messages_conversation_role_created ON public.messages USING btree (conversation_id, role, created_at, id)"
+    },
+    {
+      "tablename": "messages",
+      "indexname": "idx_messages_created",
+      "indexdef": "CREATE INDEX idx_messages_created ON public.messages USING btree (created_at)"
+    },
+    {
+      "tablename": "messages",
+      "indexname": "idx_messages_role",
+      "indexdef": "CREATE INDEX idx_messages_role ON public.messages USING btree (role)"
+    },
+    {
+      "tablename": "messages",
+      "indexname": "idx_messages_type",
+      "indexdef": "CREATE INDEX idx_messages_type ON public.messages USING btree (message_type)"
+    },
+    {
+      "tablename": "messages",
+      "indexname": "messages_pkey",
+      "indexdef": "CREATE UNIQUE INDEX messages_pkey ON public.messages USING btree (id)"
+    },
+    {
+      "tablename": "roles",
+      "indexname": "idx_roles_created",
+      "indexdef": "CREATE INDEX idx_roles_created ON public.roles USING btree (created_at)"
+    },
+    {
+      "tablename": "roles",
+      "indexname": "idx_roles_name",
+      "indexdef": "CREATE INDEX idx_roles_name ON public.roles USING btree (name)"
+    },
+    {
+      "tablename": "roles",
+      "indexname": "idx_roles_type",
+      "indexdef": "CREATE INDEX idx_roles_type ON public.roles USING btree (role_type)"
+    },
+    {
+      "tablename": "roles",
+      "indexname": "idx_roles_user",
+      "indexdef": "CREATE INDEX idx_roles_user ON public.roles USING btree (user_id)"
+    },
+    {
+      "tablename": "roles",
+      "indexname": "roles_pkey",
+      "indexdef": "CREATE UNIQUE INDEX roles_pkey ON public.roles USING btree (id)"
+    },
+    {
+      "tablename": "roles",
+      "indexname": "uk_roles_stable_key",
+      "indexdef": "CREATE UNIQUE INDEX uk_roles_stable_key ON public.roles USING btree (stable_key)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "idx_users_created",
+      "indexdef": "CREATE INDEX idx_users_created ON public.users USING btree (created_at)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "idx_users_email",
+      "indexdef": "CREATE INDEX idx_users_email ON public.users USING btree (email)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "idx_users_username",
+      "indexdef": "CREATE INDEX idx_users_username ON public.users USING btree (username)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "users_email_key",
+      "indexdef": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "users_pkey",
+      "indexdef": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "users_username_key",
+      "indexdef": "CREATE UNIQUE INDEX users_username_key ON public.users USING btree (username)"
+    }
+  ],
+  "constraints": [
+    {
+      "table_name": "conversations",
+      "conname": "chk_conversations_workspace_mode",
+      "contype": "c",
+      "definition": "CHECK (((workspace_mode)::text = ANY ((ARRAY['agent'::character varying, 'chat'::character varying])::text[])))"
+    },
+    {
+      "table_name": "conversations",
+      "conname": "conversations_context_id_key",
+      "contype": "u",
+      "definition": "UNIQUE (context_id)"
+    },
+    {
+      "table_name": "conversations",
+      "conname": "conversations_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "flyway_schema_history",
+      "conname": "flyway_schema_history_pk",
+      "contype": "p",
+      "definition": "PRIMARY KEY (installed_rank)"
+    },
+    {
+      "table_name": "iam_login_sessions",
+      "conname": "iam_login_sessions_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (sid)"
+    },
+    {
+      "table_name": "iam_login_sessions",
+      "conname": "iam_login_sessions_user_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "conname": "local_workspace_authorization_user_id_tenant_id_canonical_r_key",
+      "contype": "u",
+      "definition": "UNIQUE (user_id, tenant_id, canonical_root, grant_id)"
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "conname": "local_workspace_authorizations_grant_id_key",
+      "contype": "u",
+      "definition": "UNIQUE (grant_id)"
+    },
+    {
+      "table_name": "local_workspace_authorizations",
+      "conname": "local_workspace_authorizations_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (workspace_id)"
+    },
+    {
+      "table_name": "messages",
+      "conname": "messages_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "roles",
+      "conname": "roles_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "roles",
+      "conname": "uk_roles_stable_key",
+      "contype": "u",
+      "definition": "UNIQUE (stable_key)"
+    },
+    {
+      "table_name": "users",
+      "conname": "users_email_key",
+      "contype": "u",
+      "definition": "UNIQUE (email)"
+    },
+    {
+      "table_name": "users",
+      "conname": "users_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "users",
+      "conname": "users_username_key",
+      "contype": "u",
+      "definition": "UNIQUE (username)"
+    }
+  ],
+  "table_counts": [
+    {
+      "table": "users",
+      "n": 1
+    },
+    {
+      "table": "roles",
+      "n": 0
+    },
+    {
+      "table": "conversations",
+      "n": 4
+    },
+    {
+      "table": "messages",
+      "n": 24
+    },
+    {
+      "table": "iam_login_sessions",
+      "n": 2
+    },
+    {
+      "table": "local_workspace_authorizations",
+      "n": 2
+    }
+  ],
+  "orphans": [
+    {
+      "finding": "conversation_owner_missing",
+      "n": 0
+    },
+    {
+      "finding": "conversation_owner_null",
+      "n": 0
+    },
+    {
+      "finding": "custom_role_owner_missing",
+      "n": 0
+    },
+    {
+      "finding": "custom_role_owner_null",
+      "n": 0
+    },
+    {
+      "finding": "conversation_role_missing",
+      "n": 0
+    },
+    {
+      "finding": "message_conversation_missing",
+      "n": 0
+    },
+    {
+      "finding": "workspace_owner_missing",
+      "n": 0
+    },
+    {
+      "finding": "cross_owner_custom_role",
+      "n": 0
+    }
+  ],
+  "grant_anomalies": [
+    {
+      "finding": "multiple_selected_live",
+      "n": 0
+    },
+    {
+      "finding": "duplicate_grant_id",
+      "n": 0
+    },
+    {
+      "finding": "roots_multiple_owners",
+      "n": 0
+    },
+    {
+      "finding": "selected_and_revoked",
+      "n": 0
+    }
+  ],
+  "migration_comparison": [
+    {
+      "version": "1",
+      "script": "V1__init_schema.sql",
+      "sha256": "55a4d497ae367083f6b711bf8f23dd45aff417e04cf19debe5c3e0d81b393398",
+      "calculated_flyway_crc32": 172574542,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "2",
+      "script": "V2__optimize_indexes.sql",
+      "sha256": "b8985fae4bee36633d98f8cc93617184e3ccfab78e3dad3155dbf1e5de077183",
+      "calculated_flyway_crc32": -2036900921,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "3",
+      "script": "V3__add_password_hash.sql",
+      "sha256": "90950701eb5c55872aeac106eef23896db37f3a4501e4fe3cdb4fdc031da5ac2",
+      "calculated_flyway_crc32": -666480988,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "4",
+      "script": "V4__create_user_feedback_table.sql",
+      "sha256": "a12359039bf38c5987247fac9ffdc482866d5caf45a3ebd944f6ba2567cf6dbd",
+      "calculated_flyway_crc32": -1613665344,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "5",
+      "script": "V5__reconcile_legacy_schema.sql",
+      "sha256": "af779594269288d9171ae888081d0275408a4555875b178a3b98cdca35ec5f92",
+      "calculated_flyway_crc32": -1846433067,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "6",
+      "script": "V6__upsert_builtin_roles.sql",
+      "sha256": "6b132b67767a3f7564d233cad02b4bdb0567f7e8ff8e6d6717d4e89c65341d22",
+      "calculated_flyway_crc32": -1754184888,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "7",
+      "script": "V7__add_conversation_workspace_mode.sql",
+      "sha256": "9017bd2af290f827d8d240aabc0748a83a85365174b32521c3334f21eff97a94",
+      "calculated_flyway_crc32": 439076636,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "8",
+      "script": "V8__add_user_avatar.sql",
+      "sha256": "2026f5b73862ff306025e7021dff76f1bb2847b7da954f9352f74d9af5175d70",
+      "calculated_flyway_crc32": 35128799,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "9",
+      "script": "V9__optimize_conversation_preview.sql",
+      "sha256": "937b9073963a4c7da0ad68ace7d8f90d339187089cf3b9d10daf00772b68444b",
+      "calculated_flyway_crc32": 938060099,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "10",
+      "script": "V10__delete_builtin_roles.sql",
+      "sha256": "fd4ae91fa92f868503614330b814d4aa99c32d97d5b2d30f4aa5975c39cdacbd",
+      "calculated_flyway_crc32": -872460111,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "11",
+      "script": "V11__create_iam_login_sessions.sql",
+      "sha256": "e977698239afc1ba57361133779f1682aa4bc834e45ded1db5f4f08ce1759e6c",
+      "calculated_flyway_crc32": -866868083,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "12",
+      "script": "V12__local_workspace_authorizations.sql",
+      "sha256": "7b7344835783ec7eb8d2dcf14127f3ad9e4560263bb54d044518307965341b44",
+      "calculated_flyway_crc32": 1189611711,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    },
+    {
+      "version": "13",
+      "script": "V13__drop_user_feedback.sql",
+      "sha256": "452bfc5121b53362577b1ea529c68c3be8c29a881157541b2cd1a8a8fd82fb77",
+      "calculated_flyway_crc32": 1819505150,
+      "history_rows": 1,
+      "script_matches": true,
+      "checksum_matches": true,
+      "success": true
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+﻿original_file,rows,sha256,unchanged_since_PR_TS_00,new_evidence,status
+route-inventory.csv,145,108b8e1db53a39fa610efb2cfb67c269e95b0073ef85bb4bf9c9e9d4cd5ec3de,True,PR-TS-00B-route-supplement.csv;PR-TS-00B-接口与运行合同补证.md,"VERIFIED byte preservation; additive evidence, no original row rewrite"
+migration-inventory.csv,13,0b15902005c6b838ba5323001dde4976f1c60a48cf364d9232281852cdbb5acd,True,PR-TS-00B-database-evidence.json;PR-TS-00B-数据库实际证据.md,"VERIFIED byte preservation; additive evidence, no original row rewrite"
+frontend-callsite-inventory.csv,152,9c716e6753342b970bb1a4c0d62680c9afff3870c6ea425ee8921c20e03d6571,True,PR-TS-00B-route-supplement.csv;PR-TS-00B-接口与运行合同补证.md,"VERIFIED byte preservation; additive evidence, no original row rewrite"
+java-dependency-inventory.csv,299,36003773631220a19ee798bd2bc22fc787ae2504a1fa74d0e6c0ecaa7c6bc3ca,True,PR-TS-00B-LocalIdentity最终设计.md;PR-TS-00B-接口与运行合同补证.md,"VERIFIED byte preservation; additive evidence, no original row rewrite"

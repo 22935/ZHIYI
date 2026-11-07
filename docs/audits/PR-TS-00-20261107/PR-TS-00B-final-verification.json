@@ -1,0 +1,50 @@
+{
+  "result": "CONDITIONAL ACCEPT",
+  "PR_TS_00": "conditional audit close",
+  "PR_TS_01": "GO architecture and isolated scaffold only; no implementation performed",
+  "head": "8775130f22b0440398c876a99206a47054e0b30c",
+  "branch": "master",
+  "git_status": "## master...origin/master\n D benchmark/agentos_benchmark_smoke.py\n D benchmark/agentos_benchmark_smoke_6.py\n D ops/scripts/generate_agentos_acg_master_drawio.py\n D ops/scripts/generate_harness_report.py\n?? docs/audits/PR-TS-00-20261107/",
+  "tracked_diff": "benchmark/agentos_benchmark_smoke.py\nbenchmark/agentos_benchmark_smoke_6.py\nops/scripts/generate_agentos_acg_master_drawio.py\nops/scripts/generate_harness_report.py",
+  "staged_diff": "",
+  "concurrent_unrelated_deletions_preserved": [
+    "benchmark/agentos_benchmark_smoke.py",
+    "benchmark/agentos_benchmark_smoke_6.py",
+    "ops/scripts/generate_agentos_acg_master_drawio.py",
+    "ops/scripts/generate_harness_report.py"
+  ],
+  "initial_worktree": "tracked clean; previous audit directory untracked",
+  "prior_artifact_hash_checks": 34,
+  "prior_artifact_hash_mismatches": [],
+  "source_index_hash_checks": 968,
+  "source_hash_mismatches": [],
+  "original_home_hash_checks": 2533,
+  "original_home_hash_changes": 0,
+  "temporary_pg_stopped": true,
+  "all_managed_ports_absent": true,
+  "flyway_versions_verified": 13,
+  "flyway_checksums_matched": 13,
+  "pg_user_count": 1,
+  "all_nonempty_owner_aliases": [
+    "U01"
+  ],
+  "identity_design_freeze_eligible": true,
+  "source_route_rows": 145,
+  "frontend_rows": 152,
+  "application_tests": "NOT RUN",
+  "application_runtime": "NOT STARTED",
+  "external_workspace_backup": "2 roots excluded by supported Home snapshot; untouched; later write/recovery gate",
+  "privacy_scan": "PASS exact-value scan against raw current owner/run/grant/workspace values and DPAPI plaintext values; no values exported",
+  "no_backend_ts": true,
+  "zip": "C:\\Users\\LZX\\Desktop\\PR-TS-00B-迁移准入审计-20261107.zip",
+  "zip_excludes": [
+    "snapshot",
+    "pg-query-copy",
+    "sqlite-query-copy",
+    "private-evidence",
+    "credentials.dpapi",
+    "private logs",
+    "database binaries/data"
+  ],
+  "zip_checksum": "desktop .sha256 sidecar and post-packaging delivery receipt; excluded from this pre-package file to avoid circular hashes"
+}

@@ -1,0 +1,105 @@
+{
+  "scope": "audit artifact validation only; no application tests executed",
+  "production_java_hash_mismatches": [],
+  "source_index_hash_mismatches": [],
+  "tracked_diff": "",
+  "staged_diff": "",
+  "status": "## master...origin/master\n?? docs/audits/PR-TS-00-20261107/",
+  "head": "8775130f22b0440398c876a99206a47054e0b30c",
+  "route_rows": 145,
+  "migration_rows": 13,
+  "java_rows": 299,
+  "test_file_rows": 115,
+  "frontend_rows": 152,
+  "frontend_rows_ast_verified": 152,
+  "unmatched_ast_http_candidates": [
+    {
+      "file": "apps/frontend/src/workbench/core/documents.ts",
+      "expression": "this.requests.get",
+      "enclosing": "save",
+      "start": 257,
+      "end": 257,
+      "httpCandidate": true
+    },
+    {
+      "file": "apps/frontend/src/workbench/core/documents.ts",
+      "expression": "this.requests.delete",
+      "enclosing": "close",
+      "start": 272,
+      "end": 272,
+      "httpCandidate": true
+    },
+    {
+      "file": "apps/desktop/electron/src/lib/lsp-host.ts",
+      "expression": "session.client.request",
+      "enclosing": "initialize",
+      "start": 138,
+      "end": 146,
+      "httpCandidate": true
+    },
+    {
+      "file": "apps/desktop/electron/src/lib/lsp-host.ts",
+      "expression": "session.client.request",
+      "enclosing": "definition",
+      "start": 195,
+      "end": 198,
+      "httpCandidate": true
+    }
+  ],
+  "business_test_execution": "NOT RUN",
+  "database_queries": "NOT RUN; real service unavailable",
+  "no_backend_ts_directory": true,
+  "ast_exclusions_reviewed": [
+    {
+      "file": "apps/frontend/src/workbench/core/documents.ts",
+      "expression": "this.requests.get",
+      "enclosing": "save",
+      "start": 257,
+      "end": 257,
+      "httpCandidate": true,
+      "decision": "VERIFIED local Map lookup/delete; no HTTP transport"
+    },
+    {
+      "file": "apps/frontend/src/workbench/core/documents.ts",
+      "expression": "this.requests.delete",
+      "enclosing": "close",
+      "start": 272,
+      "end": 272,
+      "httpCandidate": true,
+      "decision": "VERIFIED local Map lookup/delete; no HTTP transport"
+    },
+    {
+      "file": "apps/desktop/electron/src/lib/lsp-host.ts",
+      "expression": "session.client.request",
+      "enclosing": "initialize",
+      "start": 138,
+      "end": 146,
+      "httpCandidate": true,
+      "decision": "VERIFIED LSP JSON-RPC client; not platform HTTP API"
+    },
+    {
+      "file": "apps/desktop/electron/src/lib/lsp-host.ts",
+      "expression": "session.client.request",
+      "enclosing": "definition",
+      "start": 195,
+      "end": 198,
+      "httpCandidate": true,
+      "decision": "VERIFIED LSP JSON-RPC client; not platform HTTP API"
+    }
+  ],
+  "unresolved_ast_http_candidates": 0,
+  "route_unique_method_path": true,
+  "route_annotation_line_checks": 145,
+  "audit_script_syntax_checks": {
+    "audit_inventory.py": "PASS parse only",
+    "capture_environment.py": "PASS parse only",
+    "finalize_audit.py": "PASS parse only",
+    "generate_reports.py": "PASS parse only",
+    "refine_callsites.py": "PASS parse only",
+    "supplement_inventory.py": "PASS parse only",
+    "verify_audit.py": "PASS parse only"
+  },
+  "final_tracked_diff": "",
+  "final_staged_diff": "",
+  "git_diff_check_exit": 0
+}

@@ -1,0 +1,116 @@
+{
+  "chroma_fk_violations": [
+    {
+      "table": "segments",
+      "parent": "collection",
+      "fk_id": 0,
+      "n": 2
+    }
+  ],
+  "chroma_fk_definitions": {
+    "segments": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "collection",
+        "from": "collection",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ]
+  },
+  "chroma_integrity_ok": true,
+  "identity_mission_vs_legacy": {
+    "identity_missions": 1,
+    "missing_legacy_mission": 0,
+    "owner_mismatches": 0,
+    "tenant_mismatches": 0,
+    "raw_tenant_states": {
+      "ABSENT": 1
+    }
+  },
+  "all_projected_workspace_roots": [
+    {
+      "alias": "P01",
+      "inside_home": true,
+      "included_by_home_snapshot": true,
+      "exists": true,
+      "directory": true,
+      "top_level_entries": 0,
+      "top_level_symlinks": 0
+    },
+    {
+      "alias": "P02",
+      "inside_home": false,
+      "included_by_home_snapshot": false,
+      "exists": true,
+      "directory": true,
+      "top_level_entries": 41,
+      "top_level_symlinks": 0
+    },
+    {
+      "alias": "P03",
+      "inside_home": false,
+      "included_by_home_snapshot": false,
+      "exists": true,
+      "directory": true,
+      "top_level_entries": 0,
+      "top_level_symlinks": 0
+    }
+  ],
+  "external_workspaces_not_copied_or_modified": 2,
+  "home_snapshot_scope": "all supported Home payload files, external workspaces excluded by supported tool; no claim of whole-machine/project backup",
+  "hands_ledger": {
+    "file_count": 1,
+    "bytes": 386422,
+    "preserved_by_snapshot_hashes": true,
+    "contents_not_exported": true
+  },
+  "recovery": {
+    "interrupted_cluster_logged": true,
+    "redo_started": true,
+    "redo_completed": true,
+    "ready": true,
+    "clean_shutdown": true,
+    "raw_log_exported": false
+  },
+  "copy_cluster_cleanly_shutdown": true,
+  "previous_manifest_checks": 34,
+  "previous_manifest_hash_mismatches": [],
+  "schema_expectations": {
+    "live_tables": [
+      "conversations",
+      "flyway_schema_history",
+      "iam_login_sessions",
+      "local_workspace_authorizations",
+      "messages",
+      "roles",
+      "users"
+    ],
+    "feedback_table_absent": true,
+    "workspace_partial_unique_present": true,
+    "workspace_grant_unique_present": true,
+    "session_user_foreign_key_present": true,
+    "jsonb_columns": [
+      {
+        "table_name": "messages",
+        "column_name": "metadata"
+      },
+      {
+        "table_name": "roles",
+        "column_name": "dialogue_style"
+      },
+      {
+        "table_name": "roles",
+        "column_name": "personality"
+      },
+      {
+        "table_name": "roles",
+        "column_name": "avatar_config"
+      }
+    ],
+    "v5_v7_v8_columns_present": false
+  }
+}

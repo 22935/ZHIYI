@@ -1,0 +1,1271 @@
+{
+  "status": "VERIFIED copied metadata only",
+  "databases": [
+    {
+      "alias": "S01",
+      "logical_file": "audit.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "acg_audit_decisions",
+          "columns": [
+            "decision_id",
+            "run_id",
+            "step_id",
+            "decision_json",
+            "decision_hash",
+            "created_at"
+          ],
+          "rows": 0
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S02",
+      "logical_file": "checkpoints.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "acg_execution_checkpoints",
+          "columns": [
+            "thread_id",
+            "checkpoint_id",
+            "state_json",
+            "version",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "staged_graph_checkpoints",
+          "columns": [
+            "checkpoint_id",
+            "handoff_id",
+            "run_id",
+            "payload",
+            "checksum"
+          ],
+          "rows": 0
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S03",
+      "logical_file": "communication.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "blackboard_entries",
+          "columns": [
+            "run_id",
+            "partition_id",
+            "entry_key",
+            "version",
+            "artifact_ref",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "communication_messages",
+          "columns": [
+            "message_id",
+            "run_id",
+            "producer_step_id",
+            "consumer_step_id",
+            "artifact_ref",
+            "correlation_id",
+            "causation_id",
+            "sequence",
+            "schema_hash",
+            "payload_hash",
+            "status",
+            "created_at",
+            "acked_at"
+          ],
+          "rows": 0
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S04",
+      "logical_file": "content.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "content_fragments",
+          "columns": [
+            "manifest_id",
+            "sequence",
+            "fragment_id",
+            "checksum",
+            "byte_length",
+            "estimated_tokens",
+            "source_refs",
+            "constraint_refs",
+            "verification_status",
+            "content"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "content_manifests",
+          "columns": [
+            "manifest_id",
+            "kind",
+            "owner_type",
+            "owner_id",
+            "media_type",
+            "checksum",
+            "byte_length",
+            "fragment_count",
+            "estimated_tokens",
+            "chunking_version",
+            "sealed",
+            "created_at"
+          ],
+          "rows": 0
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S05",
+      "logical_file": "evolution.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "evolution_evaluations",
+          "columns": [
+            "trajectory_id",
+            "payload"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "evolution_policy_state",
+          "columns": [
+            "singleton",
+            "active_version"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "evolution_policy_versions",
+          "columns": [
+            "version",
+            "payload"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "evolution_proposals",
+          "columns": [
+            "proposal_id",
+            "payload"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "evolution_trajectories",
+          "columns": [
+            "trajectory_id",
+            "payload"
+          ],
+          "rows": 0
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S06",
+      "logical_file": "health.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "resource_health",
+          "columns": [
+            "resource_id",
+            "reliability",
+            "latency_ms",
+            "last_heartbeat",
+            "forced_health",
+            "updated_at",
+            "version"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "resource_health_events",
+          "columns": [
+            "event_id",
+            "resource_id",
+            "reliability",
+            "latency_ms",
+            "last_heartbeat",
+            "forced_health",
+            "observed_at",
+            "version"
+          ],
+          "rows": 51
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S07",
+      "logical_file": "identity.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "acg_blueprints",
+          "columns": [
+            "blueprint_id",
+            "mission_id",
+            "version",
+            "graph_id",
+            "graph_json",
+            "created_at",
+            "metadata_json"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "artifacts",
+          "columns": [
+            "artifact_id",
+            "mission_id",
+            "origin_run_id",
+            "task_id",
+            "semantic_task_key",
+            "artifact_key",
+            "acg_node_id",
+            "producer_attempt_id",
+            "name",
+            "artifact_type",
+            "media_type",
+            "content_ref",
+            "checksum",
+            "created_at",
+            "metadata_json"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "attempts",
+          "columns": [
+            "attempt_id",
+            "run_id",
+            "task_id",
+            "attempt_number",
+            "status",
+            "started_at",
+            "finished_at",
+            "failure_reason",
+            "resource_binding_json"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "blueprint_node_bindings",
+          "columns": [
+            "binding_id",
+            "blueprint_id",
+            "source_node_id",
+            "target_node_id",
+            "relation_type"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "execution_bindings",
+          "columns": [
+            "binding_id",
+            "attempt_id",
+            "acg_node_id",
+            "resource_id",
+            "agent_id",
+            "model_id",
+            "metadata_json",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "input_attachments",
+          "columns": [
+            "attachment_id",
+            "owner_user_id",
+            "owner_tenant_id",
+            "original_filename",
+            "storage_key",
+            "mime_type",
+            "extension",
+            "size_bytes",
+            "sha256",
+            "status",
+            "extracted_content_ref",
+            "character_count",
+            "parser",
+            "metadata_json",
+            "parse_error",
+            "created_at",
+            "updated_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "lifecycle_inbox",
+          "columns": [
+            "event_id",
+            "event_type",
+            "aggregate_id",
+            "payload_json",
+            "payload_hash",
+            "status",
+            "attempts",
+            "last_error",
+            "created_at",
+            "updated_at"
+          ],
+          "rows": 3
+        },
+        {
+          "table": "lifecycle_projection_events",
+          "columns": [
+            "event_id",
+            "event_type",
+            "aggregate_id",
+            "payload_json",
+            "payload_hash",
+            "status",
+            "attempts",
+            "last_error",
+            "created_at",
+            "updated_at"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "mission_input_attachments",
+          "columns": [
+            "mission_id",
+            "attachment_id",
+            "ordinal",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "missions",
+          "columns": [
+            "mission_id",
+            "user_id",
+            "goal",
+            "description",
+            "status",
+            "metadata_json",
+            "created_at",
+            "updated_at"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "provenance_links",
+          "columns": [
+            "source_id",
+            "target_id",
+            "relation_type",
+            "metadata_json",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "run_artifact_bindings",
+          "columns": [
+            "binding_id",
+            "run_id",
+            "task_id",
+            "semantic_task_key",
+            "artifact_key",
+            "artifact_id",
+            "disposition",
+            "source_run_id",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "run_input_attachments",
+          "columns": [
+            "run_id",
+            "attachment_id",
+            "ordinal",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "semantic_tasks",
+          "columns": [
+            "task_id",
+            "mission_id",
+            "semantic_key",
+            "parent_task_id",
+            "title",
+            "objective",
+            "constraints_json",
+            "status",
+            "metadata_json"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "step_executions",
+          "columns": [
+            "step_execution_id",
+            "attempt_id",
+            "run_id",
+            "task_id",
+            "input_json",
+            "output_json",
+            "status",
+            "started_at",
+            "finished_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "task_bindings",
+          "columns": [
+            "binding_id",
+            "task_id",
+            "blueprint_id",
+            "acg_node_id",
+            "binding_type",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "task_plan_nodes",
+          "columns": [
+            "mission_id",
+            "plan_version",
+            "semantic_key",
+            "task_id",
+            "payload_json"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "task_plan_relations",
+          "columns": [
+            "mission_id",
+            "plan_version",
+            "source_key",
+            "target_key",
+            "relation_type"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "task_plans",
+          "columns": [
+            "mission_id",
+            "plan_version",
+            "payload_json",
+            "content_hash",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "workflow_runs_v2",
+          "columns": [
+            "run_id",
+            "mission_id",
+            "blueprint_id",
+            "status",
+            "graph_version",
+            "checkpoint_json",
+            "started_at",
+            "finished_at",
+            "created_at",
+            "updated_at",
+            "metadata_json"
+          ],
+          "rows": 0
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S08",
+      "logical_file": "memory.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "execution_memory",
+          "columns": [
+            "memory_id",
+            "record_json"
+          ],
+          "rows": 0
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S09",
+      "logical_file": "nodes.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "node_auth_nonces",
+          "columns": [
+            "node_id",
+            "nonce",
+            "expires_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "node_credentials",
+          "columns": [
+            "node_id",
+            "credential_id",
+            "owner_scope",
+            "secret_digest",
+            "encrypted_secret",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "nodes",
+          "columns": [
+            "node_id",
+            "profile_json",
+            "snapshot_json",
+            "version"
+          ],
+          "rows": 1
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S10",
+      "logical_file": "provenance.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "acg_provenance_events",
+          "columns": [
+            "run_id",
+            "event_id",
+            "event_json"
+          ],
+          "rows": 0
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S11",
+      "logical_file": "chroma.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "acquire_write",
+          "columns": [
+            "id",
+            "lock_status"
+          ],
+          "rows": 12
+        },
+        {
+          "table": "collection_metadata",
+          "columns": [
+            "collection_id",
+            "key",
+            "str_value",
+            "int_value",
+            "float_value",
+            "bool_value"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "collections",
+          "columns": [
+            "id",
+            "name",
+            "dimension",
+            "database_id",
+            "config_json_str",
+            "schema_str"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "databases",
+          "columns": [
+            "id",
+            "name",
+            "tenant_id"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "embedding_fulltext_search",
+          "columns": [
+            "string_value"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "embedding_fulltext_search_config",
+          "columns": [
+            "k",
+            "v"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "embedding_fulltext_search_content",
+          "columns": [
+            "id",
+            "c0"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "embedding_fulltext_search_data",
+          "columns": [
+            "id",
+            "block"
+          ],
+          "rows": 2
+        },
+        {
+          "table": "embedding_fulltext_search_docsize",
+          "columns": [
+            "id",
+            "sz"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "embedding_fulltext_search_idx",
+          "columns": [
+            "segid",
+            "term",
+            "pgno"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "embedding_metadata",
+          "columns": [
+            "id",
+            "key",
+            "string_value",
+            "int_value",
+            "float_value",
+            "bool_value"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "embedding_metadata_array",
+          "columns": [
+            "id",
+            "key",
+            "string_value",
+            "int_value",
+            "float_value",
+            "bool_value"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "embeddings",
+          "columns": [
+            "id",
+            "segment_id",
+            "embedding_id",
+            "seq_id",
+            "created_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "embeddings_queue",
+          "columns": [
+            "seq_id",
+            "created_at",
+            "operation",
+            "topic",
+            "id",
+            "vector",
+            "encoding",
+            "metadata"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "embeddings_queue_config",
+          "columns": [
+            "id",
+            "config_json_str"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "maintenance_log",
+          "columns": [
+            "id",
+            "timestamp",
+            "operation"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "max_seq_id",
+          "columns": [
+            "segment_id",
+            "seq_id"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "migrations",
+          "columns": [
+            "dir",
+            "version",
+            "filename",
+            "sql",
+            "hash"
+          ],
+          "rows": 18
+        },
+        {
+          "table": "segment_metadata",
+          "columns": [
+            "segment_id",
+            "key",
+            "str_value",
+            "int_value",
+            "float_value",
+            "bool_value"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "segments",
+          "columns": [
+            "id",
+            "type",
+            "scope",
+            "collection"
+          ],
+          "rows": 2
+        },
+        {
+          "table": "tenants",
+          "columns": [
+            "id"
+          ],
+          "rows": 1
+        }
+      ],
+      "foreign_key_violations": 2
+    },
+    {
+      "alias": "S12",
+      "logical_file": "resources.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "plane_model_endpoints",
+          "columns": [
+            "endpoint_id",
+            "profile_json",
+            "version"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "plane_runtimes",
+          "columns": [
+            "runtime_id",
+            "profile_json",
+            "snapshot_json",
+            "version"
+          ],
+          "rows": 2
+        },
+        {
+          "table": "resource_auth_nonces",
+          "columns": [
+            "resource_id",
+            "nonce",
+            "expires_at"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "resource_credentials",
+          "columns": [
+            "resource_id",
+            "credential_id",
+            "owner_scope",
+            "secret_digest",
+            "encrypted_secret",
+            "created_at"
+          ],
+          "rows": 1
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S13",
+      "logical_file": "values.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "acg_node_commits",
+          "columns": [
+            "commit_id",
+            "run_id",
+            "payload_json",
+            "stage"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "acg_node_executions",
+          "columns": [
+            "operation_id",
+            "run_id",
+            "payload_json",
+            "phase"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "execution_values",
+          "columns": [
+            "reference",
+            "run_id",
+            "step_id",
+            "kind",
+            "payload_json",
+            "created_at",
+            "operation_id"
+          ],
+          "rows": 0
+        }
+      ],
+      "foreign_key_violations": 0
+    },
+    {
+      "alias": "S14",
+      "logical_file": "workflows.sqlite3",
+      "query_only": 1,
+      "integrity_ok": true,
+      "tables": [
+        {
+          "table": "execution_dispatch_commands",
+          "columns": [
+            "run_id",
+            "operation_key",
+            "payload",
+            "checksum"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "execution_dispatch_schema",
+          "columns": [
+            "version"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "graph_activation_heads",
+          "columns": [
+            "run_id",
+            "mission_id",
+            "graph_id",
+            "active_graph_version",
+            "activation_id"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "graph_activation_schema",
+          "columns": [
+            "version"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "graph_activations",
+          "columns": [
+            "activation_id",
+            "idempotency_key",
+            "materialization_id",
+            "run_id",
+            "status",
+            "payload",
+            "checksum"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "graph_execution_permit_schema",
+          "columns": [
+            "version"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "graph_execution_permits",
+          "columns": [
+            "permit_id",
+            "idempotency_key",
+            "handoff_id",
+            "activation_id",
+            "run_id",
+            "status",
+            "payload",
+            "checksum"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "graph_handoffs",
+          "columns": [
+            "handoff_id",
+            "idempotency_key",
+            "activation_id",
+            "run_id",
+            "status",
+            "payload",
+            "checksum"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "graph_materialization_schema",
+          "columns": [
+            "version"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "graph_materializations",
+          "columns": [
+            "materialization_id",
+            "idempotency_key",
+            "source_commit_id",
+            "payload",
+            "checksum"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "lifecycle_outbox",
+          "columns": [
+            "event_id",
+            "event_type",
+            "aggregate_id",
+            "payload",
+            "status",
+            "attempts",
+            "last_error",
+            "created_at"
+          ],
+          "rows": 3
+        },
+        {
+          "table": "mission_revision_decisions",
+          "columns": [
+            "mission_id",
+            "run_id",
+            "operation_id",
+            "payload"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "mission_semantic_commits",
+          "columns": [
+            "commit_id",
+            "mission_id",
+            "revision",
+            "operation_id",
+            "payload"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "mission_semantic_outbox",
+          "columns": [
+            "event_id",
+            "mission_id",
+            "revision",
+            "payload",
+            "status"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "mission_semantic_receipts",
+          "columns": [
+            "mission_id",
+            "operation_id",
+            "payload"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "mission_semantic_schema",
+          "columns": [
+            "version"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "mission_semantic_state",
+          "columns": [
+            "mission_id",
+            "revision",
+            "payload"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "planning_commit_outbox",
+          "columns": [
+            "commit_id",
+            "payload"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "planning_commit_records",
+          "columns": [
+            "commit_id",
+            "mission_id",
+            "revision",
+            "idempotency_key",
+            "payload"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "planning_commit_schema",
+          "columns": [
+            "version"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "run_copilot_exchanges",
+          "columns": [
+            "sequence",
+            "run_id",
+            "operation_id",
+            "payload"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "run_planning_inputs",
+          "columns": [
+            "sequence",
+            "run_id",
+            "operation_id",
+            "payload"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "runs",
+          "columns": [
+            "run_id",
+            "mission_id",
+            "payload",
+            "updated_at",
+            "status",
+            "owner_user_id",
+            "owner_tenant_id",
+            "domain",
+            "workflow_id",
+            "lifecycle_phase",
+            "lifecycle_message",
+            "source",
+            "current_step_id",
+            "started_at",
+            "created_at",
+            "runtime_revision",
+            "record_state"
+          ],
+          "rows": 1
+        },
+        {
+          "table": "task_copilot_permissions",
+          "columns": [
+            "mission_id",
+            "permission"
+          ],
+          "rows": 0
+        },
+        {
+          "table": "tasks",
+          "columns": [
+            "mission_id",
+            "payload",
+            "updated_at"
+          ],
+          "rows": 1
+        }
+      ],
+      "foreign_key_violations": 0
+    }
+  ],
+  "identity_registry_scope": "single cross-store alias registry for this audit; U labels reveal no UUID; no raw mapping exported",
+  "pg_user_count": 1,
+  "distinct_owner_count": 1,
+  "pg_actors": [
+    "U01"
+  ],
+  "owners_not_in_pg_users": [],
+  "conversation_owners": [
+    {
+      "actor": "U01",
+      "n": 4
+    }
+  ],
+  "role_owners": [],
+  "sqlite_direct_owner_groups": [
+    {
+      "database": "S07",
+      "table": "missions",
+      "actor": "U01",
+      "tenant": "NULL",
+      "n": 1
+    },
+    {
+      "database": "S14",
+      "table": "runs",
+      "actor": "U01",
+      "tenant": "NULL",
+      "n": 1
+    }
+  ],
+  "workspace_roots": [
+    {
+      "workspace": "W01",
+      "inside_original_home": false,
+      "exists": true,
+      "is_directory": true,
+      "included_in_snapshot": false
+    },
+    {
+      "workspace": "W02",
+      "inside_original_home": false,
+      "exists": true,
+      "is_directory": true,
+      "included_in_snapshot": false
+    }
+  ],
+  "grant_owner_tenant_groups": [
+    {
+      "actor": "U01",
+      "tenant": "UNSCOPED_SENTINEL",
+      "selected": false,
+      "revoked": false,
+      "n": 1
+    },
+    {
+      "actor": "U01",
+      "tenant": "UNSCOPED_SENTINEL",
+      "selected": true,
+      "revoked": false,
+      "n": 1
+    }
+  ],
+  "run_count": 1,
+  "task_count": 1,
+  "runs": [
+    {
+      "run": "R01",
+      "actor": "U01",
+      "raw_tenant": "NULL",
+      "tenant_presence": "ABSENT",
+      "grant_query_tenant": "UNSCOPED_SENTINEL",
+      "indexed_owner_matches": true,
+      "indexed_tenant_matches": true,
+      "mission_exists": true,
+      "task_owner_matches": true,
+      "binding_status": [
+        "MATCH_CURRENT_GRANT"
+      ]
+    }
+  ],
+  "binding_summary": {
+    "MATCH_CURRENT_GRANT": 1
+  },
+  "checkpoint_summary": {
+    "rows": 0,
+    "thread_groups": 0,
+    "rows_with_unknown_run": 0
+  },
+  "artifact_summary": {
+    "content_manifests": 0,
+    "identity_artifacts": 0,
+    "identity_runs": 0,
+    "identity_missions": 1,
+    "identity_missions_unknown_pg_owner": 0,
+    "identity_artifact_missing_origin_run": 0,
+    "identity_artifact_missing_mission": 0,
+    "input_attachments": 0,
+    "manifest_owner_reference_missing": 0
+  },
+  "manifest_owner_groups": [],
+  "grant_projections": [
+    {
+      "logical_file": "hands-grants.json",
+      "grants": 3,
+      "dynamic_grants": 2,
+      "operator_grants": 1,
+      "missing_or_different_dynamic_grants": 0,
+      "extra_dynamic_grants": 0
+    }
+  ],
+  "single_identity_candidate": false,
+  "no_identity_merge_performed": true
+}

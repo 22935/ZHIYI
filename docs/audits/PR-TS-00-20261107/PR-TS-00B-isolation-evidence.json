@@ -1,0 +1,50 @@
+{
+  "started": "2026-11-07T15:23:29.144174+08:00",
+  "base": "E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01",
+  "home_alias": "N03_HOME",
+  "authorization": "User explicitly approved backup/isolated inspection; no destructive source action needed",
+  "original_cluster_state": "in production/offline; recovery only in copy",
+  "status": "BLOCKED",
+  "snapshot": {
+    "status": "PASS",
+    "files": 2276,
+    "bytes": 109592569,
+    "sha256_verified": true,
+    "source_file_set_matches": true,
+    "receipt_sha256": "9aa346a2141f5881405079eef436f1eab834aa3d6f056eb1a298904244230841",
+    "excluded": [
+      "lifecycle.lock",
+      "logs",
+      "temp",
+      "webview"
+    ],
+    "postgres_major": "15",
+    "external_workspace_included": false
+  },
+  "postgres_start_exit": 1,
+  "error_type": "RuntimeError",
+  "error_code": "ISOLATED_POSTGRES_START_FAILED",
+  "original_home_files_checked": 2533,
+  "original_home_hash_changes": 0,
+  "prior_audit_hash_changes": 0,
+  "finished": "2026-11-07T15:24:49.470026+08:00",
+  "commands": [
+    {
+      "operation": "start_isolated_postgres",
+      "argv": [
+        "C:\\Users\\LZX\\AppData\\Local\\ZhiyiNative\\dependencies\\postgresql-15.19\\pgsql\\bin\\pg_ctl.exe",
+        "-D",
+        "E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy",
+        "-l",
+        "E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\private-evidence\\postgres.log",
+        "-o",
+        "-h 127.0.0.1 -p 25432 -c data_directory=E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy -c hba_file=E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy\\pg_hba.conf -c ident_file=E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy\\pg_ident.conf -c external_pid_file='' -c default_transaction_read_only=on -c autovacuum=off -c archive_mode=off -c archive_command='' -c restore_command='' -c primary_conninfo='' -c shared_preload_libraries='' -c session_preload_libraries='' -c local_preload_libraries='' -c logging_collector=off -c ssl=off",
+        "-w",
+        "-t",
+        "60",
+        "start"
+      ]
+    }
+  ],
+  "temporary_port_released": true
+}

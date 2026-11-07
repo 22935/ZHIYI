@@ -1,0 +1,525 @@
+﻿file,line,category,matched_symbols,decision,evidence
+ops/scripts/infra/windows/native/desktop_runtime.py,1,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,5,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,15,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,19,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,27,ownership_ports,native.identity,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,30,desktop,ELECTRON;desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,35,ownership_ports,native.owned,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,44,backup_restore,RESTORE,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,55,desktop,ELECTRON;desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,60,ownership_ports,native.owned,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,72,ownership_ports,native.owned,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,78,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,81,ownership_ports,native.owned,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_runtime.py,87,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,1,desktop,Desktop;Electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,3,ownership_ports,native.identity,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,5,desktop,Electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,8,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,13,desktop,DESKTOP;electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,22,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,24,desktop,ELECTRON,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,26,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,30,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,31,desktop,DESKTOP;electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,34,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,41,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,47,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,48,desktop,ELECTRON,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,49,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,52,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,55,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,60,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,61,desktop,desktop;electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,63,desktop,Electron;desktop;electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,64,desktop,desktop;electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,67,desktop,desktop;electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,68,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,71,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,72,desktop,Electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,73,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/desktop_shell.py,74,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,1,hands,Hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,21,hands,Hands;hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,27,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,28,hands,Hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,30,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,39,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,40,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,41,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,54,hands,Hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,58,hands,Hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,70,hands,Hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,73,ownership_ports,native.owned,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,75,ownership_ports,native.owned,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,86,hands,Hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,92,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/hands_checks.py,121,ownership_ports,native.owned;native.stop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/native_runtime.py,167,ai,UVICORN,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/native_runtime.py,193,ownership_ports,created,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/native_runtime.py,224,ownership_ports,created,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/native_runtime.py,378,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/native_runtime.py,427,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/native_runtime.py,552,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/native_runtime.py,572,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent.ps1,2,backup_restore,backup;restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent.ps1,5,postgres,Postgres;postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent.ps1,6,redis,Memurai;memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent.ps1,10,java_jar,BackendJar,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent.ps1,13,desktop,Desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent.ps1,18,postgres,Postgres;postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent.ps1,18,redis,Memurai;memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent.ps1,23,java_jar,BackendJar,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent.ps1,25,desktop,Desktop;desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,1,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,3,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,24,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,29,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,30,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,33,redis,Redis;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,34,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,36,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,38,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,71,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,74,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,89,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,112,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,119,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,121,hands,Hands;hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,125,hands,Hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,129,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,139,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,140,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,156,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_checks.py,167,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,24,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,25,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,76,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,76,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,76,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,80,ownership_ports,created,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,119,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,138,redis,REDIS;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,139,redis,REDIS;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,140,redis,REDIS;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,142,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,145,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,146,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,147,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,154,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,156,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,158,redis,REDIS;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,159,redis,REDIS;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,161,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,167,postgres,pg_env,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,169,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,174,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,176,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,179,postgres,pg_env;postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,182,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,186,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,187,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,188,redis,Redis;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,193,ownership_ports,native.owned,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,203,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,204,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,205,postgres,pg_ctl;postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,206,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,214,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,216,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,220,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,220,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,221,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,221,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,222,ownership_ports,created,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,223,redis,Memurai;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,226,java_jar,backendJar;backend_jar,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,241,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,242,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,247,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,248,java_jar,Java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,253,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,257,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,257,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,269,hands,start_hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,270,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,271,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,273,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,275,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,277,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,279,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,280,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,282,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,287,ownership_ports,takeover,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,293,ownership_ports,takeover,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,300,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,307,java_jar,backendJar;backend_jar,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,308,java_jar,backend_jar,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,309,java_jar,Java;mvn,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,314,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,317,ownership_ports,takeover,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,322,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,323,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,326,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,328,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,329,ai,release_file,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,330,ai,release_file,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,340,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,345,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,346,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,347,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,348,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,352,backup_restore,backup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,353,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,354,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,357,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,358,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,359,redis,memurai;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,361,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,362,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,362,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,365,ownership_ports,CREATED,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,368,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,369,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,371,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,371,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,375,java_jar,Java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,375,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,375,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,382,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,383,java_jar,Java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,384,desktop,Electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,386,java_jar,Java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,387,java_jar,backend_jar;java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,388,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,390,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,394,ownership_ports,native.identity,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,397,ai,native_startup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,398,ai,release_file,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,399,ownership_ports,created,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,408,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,410,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,419,hands,start_hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,422,ai,release_file,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,423,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,424,java_jar,Java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,425,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,425,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,427,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,428,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,429,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,430,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,431,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,434,desktop,Electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,435,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,436,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,437,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,439,desktop,Electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,440,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,441,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,473,ai,release_file,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,479,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,486,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,486,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,486,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,489,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,489,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,489,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,491,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,491,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,491,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,499,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,503,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,505,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,507,desktop,Desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,508,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,510,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,514,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,515,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,517,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,518,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,519,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,520,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,521,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,523,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,524,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,532,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,538,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,538,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,538,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,540,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,541,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,546,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,546,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,548,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,549,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,550,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,556,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,556,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,556,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,568,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,568,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,568,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,568,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,575,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,576,desktop,desktop;electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,577,ownership_ports,native.stop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,578,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,579,postgres,pg_ctl;postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,581,postgres,pg_ctl,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,582,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,583,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,588,ownership_ports,native.stop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,589,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,599,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,599,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,605,backup_restore,require_stopped,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,607,backup_restore,backup;restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,611,backup_restore,backup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,612,backup_restore,require_stopped,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,615,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,615,backup_restore,backup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,621,backup_restore,backup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,628,backup_restore,Backup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,634,backup_restore,Backup;backup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,636,backup_restore,backup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,638,ownership_ports,created,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,643,backup_restore,restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,644,backup_restore,require_stopped,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,647,backup_restore,backup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,648,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,648,backup_restore,restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,655,backup_restore,restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,658,backup_restore,restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,667,backup_restore,Restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,673,backup_restore,backup;restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,675,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,676,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,681,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,687,backup_restore,restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,694,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,695,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,701,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,702,backup_restore,backup,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/persistent_runtime.py,703,backup_restore,restore,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,3,redis,Memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,19,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,22,redis,MEMURAI;Memurai;memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,23,redis,MEMURAI,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,106,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,119,redis,MEMURAI;memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,121,redis,MEMURAI;memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,122,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,123,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,124,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,125,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,127,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,128,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,128,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,130,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,131,redis,Memurai;memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/prepare_persistent_dependencies.py,132,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/smoke.py,70,ownership_ports,created,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/smoke.py,169,ai,Uvicorn,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/smoke.py,171,ai,uvicorn,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/terminal_service.py,1,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/terminal_service.py,10,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/terminal_service.py,13,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/terminal_service.py,24,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/terminal_service.py,26,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/terminal_service.py,42,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/infra/windows/native/terminal_service.py,53,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,6,java_jar,JRE;jlink,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,7,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,36,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,37,java_jar,JRE,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,38,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,39,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,39,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,40,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,47,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,116,java_jar,jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,117,java_jar,jlink,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,118,java_jar,jlink,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,119,java_jar,jlink,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,120,java_jar,jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,123,java_jar,JRE;jlink,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,124,java_jar,JRE;jlink,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,128,java_jar,jlink,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,129,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,130,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,132,java_jar,JRE,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,135,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,136,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,137,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,141,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,142,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,143,postgres,PostgreS;postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,146,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,147,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,148,redis,Memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,149,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,151,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,152,redis,Memurai;memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,168,java_jar,backend_jar,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,170,java_jar,mvn,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,219,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,242,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,261,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,265,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,268,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,274,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,281,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,284,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,294,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,336,desktop,ELECTRON,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,351,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,366,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,370,redis,Memurai;Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,375,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,432,java_jar,jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,432,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,441,java_jar,java;jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,443,java_jar,java;jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,444,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,501,desktop,Electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,504,java_jar,java;jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,506,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,508,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,512,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,530,desktop,desktop;electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,561,java_jar,jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,562,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,563,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/assemble_portable.py,566,java_jar,backend_jar,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,4,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,6,ownership_ports,takeover,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,11,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,33,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,41,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,48,desktop,Electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,55,java_jar,java;jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,57,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,58,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,74,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,77,java_jar,jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,77,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,80,desktop,Electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,82,desktop,ELECTRON,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,102,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,113,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,151,ownership_ports,occupied_ports,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,156,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,156,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,156,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,163,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,163,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,163,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,183,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,184,postgres,pg_ctl;postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,186,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,191,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,197,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,207,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,208,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,211,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,211,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,212,ownership_ports,created,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,213,redis,Memurai;redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,216,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,217,java_jar,backendJar,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,245,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,248,identity,ensure_local_account,remove login bootstrap,VERIFIED static reference
+ops/scripts/release/product_runtime.py,256,identity,auth/register,remove login bootstrap,VERIFIED static reference
+ops/scripts/release/product_runtime.py,263,identity,auth/register,remove login bootstrap,VERIFIED static reference
+ops/scripts/release/product_runtime.py,272,identity,auth/login,remove login bootstrap,VERIFIED static reference
+ops/scripts/release/product_runtime.py,287,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,288,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,296,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,302,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,303,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,306,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,307,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,309,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,310,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,319,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,322,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,323,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,324,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,326,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,327,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,328,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,330,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,331,redis,memurai,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,333,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,334,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,340,hands,start_hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,341,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,342,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,344,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,347,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,349,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,353,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,354,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,355,hands,hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,357,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,377,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,383,desktop,electron,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,388,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,389,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,394,ownership_ports,native.owned,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,395,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,396,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,398,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,402,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,410,ownership_ports,occupied_ports,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,422,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,425,ownership_ports,CREATED,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,430,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,434,hands,start_hands,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,436,ai,uvicorn,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,438,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,442,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,443,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,444,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,445,java_jar,backendJar;java;jre,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,446,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,447,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,448,java_jar,java,replace JVM adapter,VERIFIED static reference
+ops/scripts/release/product_runtime.py,450,identity,ensure_local_account,remove login bootstrap,VERIFIED static reference
+ops/scripts/release/product_runtime.py,461,ownership_ports,native.stop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,467,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,491,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,493,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,495,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+ops/scripts/release/product_runtime.py,497,identity,ensure_local_account,remove login bootstrap,VERIFIED static reference
+ops/scripts/release/product_runtime.py,499,desktop,desktop,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,27,java_jar,java,replace JVM adapter,VERIFIED static reference
+.github/workflows/backend-ci.yml,28,java_jar,Java,replace JVM adapter,VERIFIED static reference
+.github/workflows/backend-ci.yml,30,java_jar,java,replace JVM adapter,VERIFIED static reference
+.github/workflows/backend-ci.yml,33,java_jar,java,replace JVM adapter,VERIFIED static reference
+.github/workflows/backend-ci.yml,34,java_jar,maven,replace JVM adapter,VERIFIED static reference
+.github/workflows/backend-ci.yml,36,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,36,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,38,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,38,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,40,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,41,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,42,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,43,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,45,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,45,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,46,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,48,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,49,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,51,postgres,pg_ctl;postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,52,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,54,postgres,postgres,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,54,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,55,redis,redis,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,57,postgres,PostgreS,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,57,redis,Redis,preserve contract; adapt service descriptor,VERIFIED static reference
+.github/workflows/backend-ci.yml,60,java_jar,mvn,replace JVM adapter,VERIFIED static reference
+.github/workflows/backend-ci.yml,62,java_jar,mvn,replace JVM adapter,VERIFIED static reference
+.github/workflows/backend-ci.yml,66,java_jar,mvn,replace JVM adapter,VERIFIED static reference

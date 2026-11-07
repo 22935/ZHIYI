@@ -1,0 +1,58 @@
+{
+  "schema_column_checks": [
+    {
+      "table": "conversations",
+      "column": "title",
+      "present": true
+    },
+    {
+      "table": "messages",
+      "column": "file_url",
+      "present": true
+    },
+    {
+      "table": "roles",
+      "column": "stable_key",
+      "present": true
+    },
+    {
+      "table": "conversations",
+      "column": "workspace_mode",
+      "present": true
+    },
+    {
+      "table": "users",
+      "column": "avatar_url",
+      "present": true
+    }
+  ],
+  "all_v5_v7_v8_columns_match": true,
+  "correction": "Earlier auxiliary predicate used avatar_path; actual V8 column is avatar_url. No live-schema mismatch exists.",
+  "chroma": {
+    "segments": 2,
+    "segments_without_actual_collection": 0,
+    "referenced_singular_collection_table_exists": false,
+    "actual_plural_collections_exists": true,
+    "pragma_fk_violation_count": 2
+  },
+  "installed_vendor_source": [
+    {
+      "installed_source": "chromadb/migrations/sysdb/00002-segments.sqlite.sql",
+      "sha256": "3221357667374942498b250b3c72d641d7c0e5bccefa3dbb8cc0d4afe37361ab",
+      "singular_reference_lines": [
+        6
+      ]
+    },
+    {
+      "installed_source": "chromadb/migrations/sysdb/00009-segment-collection-not-null.sqlite.sql",
+      "sha256": "8ac0babe0dbc6990e9a712d811134805c96ec888b08cab31271f9c006c47df8b",
+      "singular_reference_lines": [
+        6
+      ]
+    }
+  ],
+  "chroma_classification": "VERIFIED vendor schema refers to singular collection while actual table is collections; no segment missing its actual collection. Existing vendor schema compatibility issue; not cross-store actor inconsistency.",
+  "identity_critical_stores_integrity_ok": true,
+  "single_owner_identity_freeze_eligible": true,
+  "earlier_generic_single_identity_candidate": "false included unrelated Chroma FK diagnostic; specialized identity gate evaluated separately; original evidence retained"
+}

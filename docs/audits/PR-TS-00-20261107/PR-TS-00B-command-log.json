@@ -1,0 +1,51 @@
+[
+  {
+    "stage": "attempt1",
+    "operation": "start_isolated_postgres",
+    "argv": [
+      "C:\\Users\\LZX\\AppData\\Local\\ZhiyiNative\\dependencies\\postgresql-15.19\\pgsql\\bin\\pg_ctl.exe",
+      "-D",
+      "E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy",
+      "-l",
+      "E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\private-evidence\\postgres.log",
+      "-o",
+      "-h 127.0.0.1 -p 25432 -c data_directory=E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy -c hba_file=E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy\\pg_hba.conf -c ident_file=E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy\\pg_ident.conf -c external_pid_file='' -c default_transaction_read_only=on -c autovacuum=off -c archive_mode=off -c archive_command='' -c restore_command='' -c primary_conninfo='' -c shared_preload_libraries='' -c session_preload_libraries='' -c local_preload_libraries='' -c logging_collector=off -c ssl=off",
+      "-w",
+      "-t",
+      "60",
+      "start"
+    ]
+  },
+  {
+    "stage": "attempt2",
+    "operation": "start_owned_copy_retry",
+    "argv": [
+      "C:\\Users\\LZX\\AppData\\Local\\ZhiyiNative\\dependencies\\postgresql-15.19\\pgsql\\bin\\pg_ctl.exe",
+      "-D",
+      "E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy",
+      "-l",
+      "E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\private-evidence\\postgres-retry.log",
+      "-o",
+      "-h 127.0.0.1 -p 25432 -c data_directory=E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy -c hba_file=E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy\\pg_hba.conf -c ident_file=E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy\\pg_ident.conf -c external_pid_file= -c default_transaction_read_only=on -c autovacuum=off -c archive_mode=off -c archive_command= -c restore_command= -c primary_conninfo= -c shared_preload_libraries= -c session_preload_libraries= -c local_preload_libraries= -c logging_collector=off -c ssl=off",
+      "-w",
+      "-t",
+      "60",
+      "start"
+    ]
+  },
+  {
+    "stage": "final",
+    "operation": "stop_verified_owned_copy",
+    "argv": [
+      "C:\\Users\\LZX\\AppData\\Local\\ZhiyiNative\\dependencies\\postgresql-15.19\\pgsql\\bin\\pg_ctl.exe",
+      "-D",
+      "E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy",
+      "-m",
+      "fast",
+      "-w",
+      "-t",
+      "45",
+      "stop"
+    ]
+  }
+]

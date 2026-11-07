@@ -1,0 +1,283 @@
+{
+  "captured_at": "2026-11-07T14:53:20.101918+08:00",
+  "git": {
+    "status": {
+      "exit_code": 0,
+      "output": "## master...origin/master\n?? docs/audits/PR-TS-00-20261107/"
+    },
+    "head": {
+      "exit_code": 0,
+      "output": "8775130f22b0440398c876a99206a47054e0b30c"
+    },
+    "branch": {
+      "exit_code": 0,
+      "output": "master"
+    },
+    "last_commit": {
+      "exit_code": 0,
+      "output": "8775130f (HEAD -> master, origin/master, origin/HEAD) merge: 合并 Gitee 端废弃模块清理（tools/tui 等 52 文件）与开发文档修订"
+    },
+    "tracked_diff": {
+      "exit_code": 0,
+      "output": ""
+    },
+    "staged_diff": {
+      "exit_code": 0,
+      "output": ""
+    },
+    "reference_relation": {
+      "exit_code": 0,
+      "output": "0\t23"
+    },
+    "remote_master": {
+      "exit_code": 0,
+      "output": "8775130f22b0440398c876a99206a47054e0b30c\trefs/heads/master"
+    }
+  },
+  "homes": [
+    {
+      "home": "<LOCALAPPDATA>/ZhiyiNative/default-clean-20261106",
+      "environment_sha256": "e5d3e4b4168f4e28b2d5d9ec56d37accd2d7c4663c2cb622a641e9fd5eb6b45e",
+      "state_sha256": "9702b4982170f0e11f31d98a719d6f720d09b7e104775ac86748567155076e34",
+      "format": "zhiyi-windows-persistent-v1",
+      "initialized": true,
+      "portOffset": 0,
+      "database_name": "zhiyi",
+      "database_role": "zhiyi_app",
+      "processes": [
+        {
+          "service": "postgres",
+          "recorded_pid": 38832,
+          "exists": false,
+          "identity_matches": false
+        },
+        {
+          "service": "redis",
+          "recorded_pid": 20260,
+          "exists": false,
+          "identity_matches": false
+        },
+        {
+          "service": "java",
+          "recorded_pid": 38280,
+          "exists": false,
+          "identity_matches": false
+        },
+        {
+          "service": "frontend",
+          "recorded_pid": 16488,
+          "exists": false,
+          "identity_matches": false
+        },
+        {
+          "service": "ai",
+          "recorded_pid": 38200,
+          "exists": false,
+          "identity_matches": false
+        },
+        {
+          "service": "terminal",
+          "recorded_pid": 17448,
+          "exists": false,
+          "identity_matches": false
+        },
+        {
+          "service": "host",
+          "recorded_pid": 15012,
+          "exists": false,
+          "identity_matches": false
+        },
+        {
+          "service": "desktop",
+          "recorded_pid": 10672,
+          "exists": false,
+          "identity_matches": false
+        }
+      ],
+      "ports": {
+        "postgres": {
+          "port": 15432,
+          "loopback_connectable": false
+        },
+        "redis": {
+          "port": 16379,
+          "loopback_connectable": false
+        },
+        "ai": {
+          "port": 18761,
+          "loopback_connectable": false
+        },
+        "host": {
+          "port": 18765,
+          "loopback_connectable": false
+        },
+        "java": {
+          "port": 18080,
+          "loopback_connectable": false
+        },
+        "frontend": {
+          "port": 15200,
+          "loopback_connectable": false
+        },
+        "terminal": {
+          "port": 18766,
+          "loopback_connectable": false
+        },
+        "debug": {
+          "port": 19222,
+          "loopback_connectable": false
+        }
+      },
+      "log_session_count": 12,
+      "latest_log_metadata": [
+        {
+          "file": "ai.log",
+          "bytes": 4729,
+          "sha256": "253bbe560407de5c1cac1b5505edf3030c5556e70b0eca43e24d0b1226d8daeb",
+          "error_word_count": 0,
+          "warn_word_count": 0
+        },
+        {
+          "file": "desktop.log",
+          "bytes": 102,
+          "sha256": "9d18a623839c3d6385bf0f2189661bb70e9f750afdeee9637f65c2625ad422af",
+          "error_word_count": 0,
+          "warn_word_count": 0
+        },
+        {
+          "file": "frontend.log",
+          "bytes": 272,
+          "sha256": "588797d0036fc6af70f51da097f01306733a21575583f562c9477b0381d7cbe9",
+          "error_word_count": 0,
+          "warn_word_count": 0
+        },
+        {
+          "file": "host.log",
+          "bytes": 40,
+          "sha256": "066ac6a1495fbaed978a4dda80900a1391871df83891009cc8c23ebf92654498",
+          "error_word_count": 0,
+          "warn_word_count": 0
+        },
+        {
+          "file": "java.log",
+          "bytes": 13546,
+          "sha256": "33ec62be59821a280ccea4d4590023db4a9e7e4353bdcb1b71d450bb793203d3",
+          "error_word_count": 2,
+          "warn_word_count": 6
+        },
+        {
+          "file": "postgres.log",
+          "bytes": 714,
+          "sha256": "c6adc8bc4f3b485a88fb7fd9fafd9469d0c8003371d422f40f19ef24682f0e72",
+          "error_word_count": 0,
+          "warn_word_count": 0
+        },
+        {
+          "file": "redis.log",
+          "bytes": 1518,
+          "sha256": "f89efd9b4274f788a66940bcee83c3d91c7b824d9d9e231c2b693795c506aa8b",
+          "error_word_count": 0,
+          "warn_word_count": 0
+        },
+        {
+          "file": "startup-timings.json",
+          "bytes": 1723,
+          "sha256": "79c4adfdb557fc8d6c853b6216b987961901c600c467628a5a7c56304a941045",
+          "error_word_count": 0,
+          "warn_word_count": 0
+        },
+        {
+          "file": "up.json",
+          "bytes": 12442,
+          "sha256": "bc9e245a3243fbf335c08faa2c22e387ff2e3e4a934eac3080f1954552735618",
+          "error_word_count": 0,
+          "warn_word_count": 0
+        }
+      ],
+      "database_audit": "BLOCKED no live PostgreSQL; no credentials decrypted; no query executed"
+    }
+  ],
+  "versions": {
+    "node": {
+      "exit_code": 0,
+      "output": "v24.19.0"
+    },
+    "java": {
+      "exit_code": 0,
+      "output": "openjdk version \"21.0.11\" 2026-04-21 LTS\nOpenJDK Runtime Environment Temurin-21.0.11+10 (build 21.0.11+10-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.11+10 (build 21.0.11+10-LTS, mixed mode, sharing)"
+    },
+    "python": {
+      "exit_code": 0,
+      "output": "Python 3.14.5"
+    },
+    "postgres": {
+      "exit_code": 0,
+      "output": "postgres (PostgreSQL) 15.19"
+    },
+    "apps/frontend": {
+      "scripts": {
+        "dev": "vite --mode web",
+        "build": "npm run build:web",
+        "dev:web": "vite --mode web",
+        "build:web": "vue-tsc -p tsconfig.json && vite build --mode web",
+        "dev:electron": "vite --mode electron",
+        "build:electron": "vue-tsc -p tsconfig.electron.json && vite build --mode electron",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "preview": "vite preview"
+      },
+      "engines": {},
+      "build_dependencies": {
+        "typescript": "5.4.5",
+        "vite": "^5.0.0",
+        "vitest": "^2.1.9"
+      },
+      "typescript_installed": "5.4.5"
+    },
+    "apps/hands": {
+      "scripts": {
+        "demo": "tsx hands/cli.ts demo",
+        "typecheck": "tsc --noEmit -p tsconfig.json",
+        "test": "vitest run",
+        "run:exec": "tsx hands/cli.ts exec",
+        "service": "tsx hands/service-main.ts"
+      },
+      "engines": {
+        "node": ">=24.9.0"
+      },
+      "build_dependencies": {
+        "tsx": "^4.19.0",
+        "typescript": "^5.6.0",
+        "vitest": "^3.0.0"
+      },
+      "typescript_installed": "5.9.3"
+    },
+    "apps/desktop/electron": {
+      "scripts": {
+        "build": "node build.mjs",
+        "typecheck": "tsc -p tsconfig.json",
+        "dev": "node scripts/dev.mjs",
+        "start": "node build.mjs && node scripts/copy-renderer.mjs && electron .",
+        "test": "node --test \"test/*.test.ts\"",
+        "pack": "node build.mjs && node scripts/copy-renderer.mjs && electron-builder --dir",
+        "dist": "node build.mjs && node scripts/copy-renderer.mjs && electron-builder --win nsis"
+      },
+      "engines": {},
+      "build_dependencies": {
+        "electron": "^45.1.0",
+        "electron-builder": "^26.18.0",
+        "typescript": "^5.9.3"
+      },
+      "typescript_installed": "5.9.3",
+      "electron_installed": "45.1.0"
+    },
+    "apps/terminal-host": {
+      "scripts": {
+        "start": "node src/main.mjs",
+        "test": "node --test test/*.test.mjs"
+      },
+      "engines": {},
+      "build_dependencies": {}
+    }
+  }
+}

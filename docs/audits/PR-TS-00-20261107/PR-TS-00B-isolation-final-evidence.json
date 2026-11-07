@@ -1,0 +1,65 @@
+{
+  "started": "2026-11-07T15:28:32.004815+08:00",
+  "status": "EVIDENCE_COLLECTED",
+  "attached_only_to_current_audit_copy": true,
+  "temporary_process": {
+    "pid": 13508,
+    "created": 1794036387.7405996,
+    "executable_verified": true,
+    "copy_cluster_verified": true,
+    "loopback_listener_verified": true
+  },
+  "commands": [
+    {
+      "operation": "stop_verified_owned_copy",
+      "argv": [
+        "C:\\Users\\LZX\\AppData\\Local\\ZhiyiNative\\dependencies\\postgresql-15.19\\pgsql\\bin\\pg_ctl.exe",
+        "-D",
+        "E:\\ZhiyiAudit\\PR-TS-00B-20261107-r01\\pg-query-copy",
+        "-m",
+        "fast",
+        "-w",
+        "-t",
+        "45",
+        "stop"
+      ]
+    }
+  ],
+  "effective_read_only_role_verified": true,
+  "read_only_transaction_verified": true,
+  "write_privilege_tables": 0,
+  "table_counts": [
+    {
+      "table": "users",
+      "n": 1
+    },
+    {
+      "table": "roles",
+      "n": 0
+    },
+    {
+      "table": "conversations",
+      "n": 4
+    },
+    {
+      "table": "messages",
+      "n": 24
+    },
+    {
+      "table": "iam_login_sessions",
+      "n": 2
+    },
+    {
+      "table": "local_workspace_authorizations",
+      "n": 2
+    }
+  ],
+  "migration_checks_all_match": true,
+  "single_identity_candidate": false,
+  "postgres_stop_exit": 0,
+  "temporary_port_released": true,
+  "original_home_hash_changes": 0,
+  "original_home_files_checked": 2533,
+  "snapshot_sha256_verified_after_queries": true,
+  "finished": "2026-11-07T15:28:36.525216+08:00"
+}
