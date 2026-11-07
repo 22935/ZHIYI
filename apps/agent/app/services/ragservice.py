@@ -6,6 +6,8 @@ import logging
 import os
 import json
 import hashlib
+import re
+import tempfile
 from datetime import datetime
 from typing import List, Dict, Optional
 from pathlib import Path
@@ -120,11 +122,24 @@ class RAGService:
     def _save_documents(self):
         """保存文档到文件"""
         doc_file = self.data_dir / "documents.json"
+        temporary = None
         try:
-            with open(doc_file, 'w', encoding='utf-8') as f:
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=self.data_dir,
+                                             prefix='documents-', suffix='.tmp', delete=False) as f:
+                temporary = Path(f.name)
                 json.dump(self.documents, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logger.error(f"保存文档失败: {e}")
+            os.replace(temporary, doc_file)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+
+    def original_document_path(self, doc_id: str) -> Path | None:
+        """Only content-addressed files created by upload_document are eligible."""
+        if doc_id not in self.documents or re.fullmatch(r"[0-9a-f]{32}", doc_id) is None:
+            return None
+        root = (self.data_dir / "originals").resolve()
+        candidate = (root / f"{doc_id}.bin").resolve()
+        return candidate if candidate.parent == root and candidate.is_file() else None
     
     def _extract_text(self, file_data: bytes, filename: str) -> str:
         """
@@ -284,6 +299,18 @@ class RAGService:
             doc_metadata = metadata or {}
             if role_id:
                 doc_metadata["role_id"] = role_id
+
+            # The download action must return the uploaded bytes, including PDF/DOCX.
+            # Historical documents remain readable from their already-persisted text.
+            originals = self.data_dir / "originals"
+            originals.mkdir(exist_ok=True)
+            with tempfile.NamedTemporaryFile(dir=originals, prefix='upload-', delete=False) as original:
+                temporary_original = Path(original.name)
+                original.write(file_data)
+            try:
+                os.replace(temporary_original, originals / f"{doc_id}.bin")
+            finally:
+                temporary_original.unlink(missing_ok=True)
             
             self.documents[doc_id] = {
                 "doc_id": doc_id,

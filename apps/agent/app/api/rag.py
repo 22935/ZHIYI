@@ -2,6 +2,9 @@
 RAG（检索增强生成）API
 """
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse, Response
+from pathlib import Path
+from urllib.parse import quote
 from pydantic import BaseModel
 from typing import List, Optional
 import logging
@@ -174,6 +177,27 @@ async def list_documents(role_id: Optional[str] = None):
         logger.error(f"获取文档列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/documents/{doc_id}/download")
+async def download_document(doc_id: str):
+    document = rag_service.documents.get(doc_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    filename = str(document.get("filename") or "document").replace("\\", "/").rsplit("/", 1)[-1]
+    original = rag_service.original_document_path(doc_id)
+    if original is not None:
+        return FileResponse(original, filename=filename, media_type="application/octet-stream",
+                            headers={"X-RAG-Download-Source": "original"})
+    # Before original files were retained, only the extracted text was persisted.
+    # Return that full text honestly; never manufacture a PDF or DOCX container.
+    text = document.get("text")
+    if not isinstance(text, str):
+        raise HTTPException(status_code=404, detail="文档原始文件与提取文本均不可用")
+    text_filename = filename if Path(filename).suffix.lower() in {".txt", ".md"} else f"{filename}.txt"
+    return Response(text.encode("utf-8"), media_type="text/plain; charset=utf-8",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(text_filename, safe='')}",
+                             "X-RAG-Download-Source": "extracted-text"})
+
+
 @router.delete("/documents/{doc_id}")
 async def delete_document(doc_id: str):
     """
@@ -181,9 +205,12 @@ async def delete_document(doc_id: str):
     """
     try:
         if doc_id in rag_service.documents:
+            original = rag_service.original_document_path(doc_id)
             del rag_service.documents[doc_id]
             rag_service._rebuild_index()
             rag_service._save_documents()
+            if original is not None:
+                original.unlink(missing_ok=True)
             return {"message": "文档删除成功", "doc_id": doc_id}
         else:
             raise HTTPException(status_code=404, detail="文档不存在")
