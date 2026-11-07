@@ -378,7 +378,23 @@
             </button>
           </header>
 
-            <div class="chat-info-card">
+          <!-- 顶部选择栏：与 Workbench RuntimeInspector 同款页签模式 -->
+          <nav class="chat-info-dock__tabs" aria-label="对话信息分区" role="tablist">
+            <button
+              v-for="tab in chatInfoTabs"
+              :key="tab.id"
+              type="button"
+              role="tab"
+              :aria-selected="chatInfoTab === tab.id"
+              :class="{ 'is-active': chatInfoTab === tab.id }"
+              @click="chatInfoTab = tab.id"
+            >{{ tab.label }}<span
+              v-if="tab.id === 'work' && pendingWorkApprovalCount"
+              class="chat-info-dock__tab-badge"
+            >{{ pendingWorkApprovalCount }}</span></button>
+          </nav>
+
+            <div v-show="chatInfoTab === 'info'" class="chat-info-card" role="tabpanel" aria-label="会话信息">
               <strong class="chat-info-card__title" :title="conversationInfo.title">{{ conversationInfo.title }}</strong>
 
               <dl class="chat-info-card__metrics">
@@ -421,14 +437,20 @@
                 </ul>
               </template>
             </div>
+
+            <!-- 命令/文件执行与审批（自主对话区迁入）：有待审批时切到此页签处理 -->
+            <div v-show="chatInfoTab === 'work'" class="chat-info-dock__work" role="tabpanel" aria-label="命令与执行">
+              <ConversationWorkFeed :items="conversationWorkItems" />
+            </div>
         </template>
 
         <div v-else class="chat-info-dock__rail">
           <button
             type="button"
             class="chat-info-dock__expand"
-            aria-label="展开对话信息栏"
-            title="展开对话信息栏"
+            :class="{ 'has-pending': pendingWorkApprovalCount }"
+            :aria-label="pendingWorkApprovalCount ? `展开对话信息栏（${pendingWorkApprovalCount} 项待审批）` : '展开对话信息栏'"
+            :title="pendingWorkApprovalCount ? `展开对话信息栏（${pendingWorkApprovalCount} 项待审批）` : '展开对话信息栏'"
             @click="setChatInfoCollapsed(false)"
           >
             <el-icon><DArrowLeft /></el-icon>
@@ -468,6 +490,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import MessageBubble from '@/components/MessageBubble.vue'
+import ConversationWorkFeed from '@/components/ConversationWorkFeed.vue'
 import ModelRuntimeControls from '@/components/ModelRuntimeControls.vue'
 import PermissionSelector from '@/components/PermissionSelector.vue'
 import NativeWorkspacePicker from '@/components/platform/NativeWorkspacePicker.vue'
@@ -1218,6 +1241,28 @@ const contextUsage = computed(() => {
 const latestAssistantMessage = computed(() => [...chatStore.messages]
   .reverse()
   .find(message => message.role === 'assistant'))
+
+// —— 命令/文件执行与审批（自主对话区迁入信息栏）：按消息顺序聚合全对话工作项 ——
+const conversationWorkItems = computed(() => chatStore.messages
+  .flatMap(message => (message.executionSummary || []).map(item => ({ ...item }))))
+const pendingWorkApprovalCount = computed(() => conversationWorkItems.value
+  .filter(item => item.approval?.status === 'pending').length)
+
+// 信息栏顶部选择栏（RuntimeInspector 同款页签）：信息 / 命令与执行
+type ChatInfoTab = 'info' | 'work'
+const chatInfoTabs: Array<{ id: ChatInfoTab; label: string }> = [
+  { id: 'info', label: '信息' },
+  { id: 'work', label: '命令与执行' }
+]
+const chatInfoTab = ref<ChatInfoTab>('info')
+
+// 有待审批而信息栏收起时自动展开并切到「命令与执行」，避免审批被藏住卡住整轮对话
+watch(pendingWorkApprovalCount, (count, previous) => {
+  if (count > previous && (chatInfoCollapsed.value || chatInfoTab.value !== 'work')) {
+    if (chatInfoCollapsed.value) setChatInfoCollapsed(false)
+    chatInfoTab.value = 'work'
+  }
+})
 
 // —— 对话信息栏（Chat 模式右侧）：所有取值都来自当前会话的真实消息与对话元数据 ——
 const conversationMeta = ref<Conversation | null>(null)
@@ -3236,12 +3281,82 @@ const handleHeroLogoPointerUp = () => {
 }
 
 .chat-info-card {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 12px 16px 18px;
+  overflow-y: auto;
+}
+
+/* 顶部选择栏：RuntimeInspector 同款页签（内嵌胶囊条 + 激活态主题色） */
+.chat-info-dock__tabs {
+  display: flex;
+  gap: 2px;
+  min-height: 38px;
+  margin: 4px 10px 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--wb-surface-inset, var(--bg-input));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chat-info-dock__tabs::-webkit-scrollbar { display: none; }
+
+.chat-info-dock__tabs button {
+  position: relative;
+  flex: 1 0 auto;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: color 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.chat-info-dock__tabs button:hover {
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+
+.chat-info-dock__tabs button.is-active {
+  color: var(--primary-color);
+  background: var(--primary-fade);
+  font-weight: 650;
+}
+
+.chat-info-dock__tabs button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -1px;
+}
+
+.chat-info-dock__tab-badge {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+/* 命令与执行时间线：占据页签以下的全部剩余空间，独立滚动 */
+.chat-info-dock__work {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 2px 16px 14px;
   overflow-y: auto;
 }
 
@@ -3365,6 +3480,12 @@ const handleHeroLogoPointerUp = () => {
 .chat-info-dock__expand:hover {
   background: var(--primary-fade);
   color: var(--primary-color);
+}
+
+/* 收起态有待审批：按钮挂警示色，提示先展开处理 */
+.chat-info-dock__expand.has-pending {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: var(--warning);
 }
 
 .template-item {

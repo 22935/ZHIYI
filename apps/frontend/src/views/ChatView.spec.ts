@@ -517,6 +517,12 @@ describe('ChatView ACG progress integration', () => {
     expect(wrapper.findComponent({ name: 'AcgRunInspector' }).exists()).toBe(false)
     expect(bubble.props('message')).toMatchObject({ executionSummary })
     expect(chatStoreMock.startAgentRun).not.toHaveBeenCalled()
+    // 命令/文件工作迁入右侧信息栏「命令与执行」页签：气泡不再渲染工作块
+    expect(wrapper.get('.chat-info-dock__tabs').text()).toContain('命令与执行')
+    const feed = wrapper.findComponent({ name: 'ConversationWorkFeed' })
+    expect(feed.exists()).toBe(true)
+    expect(feed.props('items')).toHaveLength(1)
+    expect(feed.props('items')[0]).toMatchObject({ stage: 'tool:patch_file:call_1' })
     wrapper.unmount()
   })
 
