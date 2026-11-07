@@ -79,6 +79,14 @@
             <section class="execution-panel" aria-label="Execution settings">
             <div class="execution-overview">
             <div class="execution-settings">
+              <div v-if="desktopWorkspaceRequired" class="config-line mission-workspace" aria-label="任务工作区">
+                <div class="config-line__label"><strong>工作区</strong><small>选择本次任务读写文件的目录。</small></div>
+                <div class="mission-workspace__selection">
+                  <NativeWorkspacePicker @state-change="workspaceState = $event" />
+                  <code aria-label="当前工作区目录">{{ workspaceState.pendingPath || workspaceState.workspaceRoot || '尚未选择工作区' }}</code>
+                  <p class="mission-workspace__hint">{{ workspaceIssue || '新任务会由后端绑定当前已信任目录。' }}</p>
+                </div>
+              </div>
               <div class="config-line config-line--top">
                 <div class="config-line__label"><strong>Capabilities</strong><small>基础能力始终启用，可选择一个能力包。</small></div>
                 <div class="capability-choice">
@@ -114,58 +122,52 @@
 
             <details class="advanced-config" @toggle="syncAdvancedConfigState">
               <summary>
-                <span><strong>Advanced Runtime Settings</strong><small>{{ advancedSettingsSummary }}</small></span>
+                <span class="advanced-config__summary"><strong>高级运行设置</strong><small>{{ advancedSettingsSummary }}</small></span>
                 <span class="advanced-config__hint">{{ advancedConfigOpen ? '收起' : '展开' }}</span>
               </summary>
               <div class="advanced-config__body">
                 <div class="advanced-config__presets">
-                  <span class="config-line__label">Quick preset</span>
+                  <span class="config-line__label">快捷预设</span>
                   <div class="config-options">
-                    <button class="config-option" :class="{ 'is-selected': advancedPreset === 'fast' }" type="button" @click="applyAdvancedPreset('fast')">Fast</button>
-                    <button class="config-option" :class="{ 'is-selected': advancedPreset === 'balanced' }" type="button" @click="applyAdvancedPreset('balanced')">Balanced</button>
-                    <button class="config-option" :class="{ 'is-selected': advancedPreset === 'deep' }" type="button" @click="applyAdvancedPreset('deep')">Deep</button>
+                    <button class="config-option" :class="{ 'is-selected': advancedPreset === 'fast' }" type="button" @click="applyAdvancedPreset('fast')">快速</button>
+                    <button class="config-option" :class="{ 'is-selected': advancedPreset === 'balanced' }" type="button" @click="applyAdvancedPreset('balanced')">均衡</button>
+                    <button class="config-option" :class="{ 'is-selected': advancedPreset === 'deep' }" type="button" @click="applyAdvancedPreset('deep')">深入</button>
                   </div>
                 </div>
+                <p class="advanced-config__description">预设会同时调整推理强度、联网检索、规划多样性与能力覆盖范围；各项仍可单独修改。</p>
                 <div class="advanced-config__grid">
                   <label class="advanced-field">
-                    <span>{{ usesEffortOptions ? 'reasoning_effort' : 'Thinking strength' }}<small v-if="usesEffortOptions">{{ activeModel }} · {{ effortOptions.join(' / ') }}</small></span>
+                    <span>推理强度<small>{{ activeModel }}<template v-if="usesEffortOptions"> · {{ effortOptions.join(' / ') }}</template></small></span>
                     <select v-model="thinkingSelection" aria-label="Thinking strength">
                       <option v-for="option in reasoningOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                     </select>
                   </label>
                   <label class="advanced-field">
-                    <span>Planning diversity</span>
+                    <span>规划多样性<small>决定规划时优先稳定，还是探索更多候选。</small></span>
                     <select v-model="draft.planningDiversity" aria-label="Planning diversity">
-                      <option value="stable">Stable</option>
-                      <option value="balanced">Balanced</option>
-                      <option value="exploratory">Exploratory</option>
+                      <option value="stable">稳定</option>
+                      <option value="balanced">均衡</option>
+                      <option value="exploratory">探索</option>
                     </select>
                   </label>
                   <label class="advanced-field">
-                    <span>Capability profile</span>
+                    <span>能力覆盖范围<small>在当前已启用的能力内，按任务复杂度选择覆盖范围。</small></span>
                     <select v-model="draft.capabilityProfile" aria-label="Capability profile">
-                      <option value="auto">Auto</option>
-                      <option value="standard">Standard</option>
-                      <option value="full">Full</option>
+                      <option value="auto">自动选择</option>
+                      <option value="standard">标准</option>
+                      <option value="full">完整</option>
                     </select>
                   </label>
                   <label class="advanced-field">
-                    <span>Planning seed </span>
-                    <input v-model.number="draft.planningSeed" aria-label="Planning seed" type="number" min="0" max="2147483647" placeholder="Auto" />
+                    <span>规划随机种子<small>留空自动选择；固定种子便于对比规划，模型生成仍可能不同。</small></span>
+                    <input v-model.number="draft.planningSeed" aria-label="Planning seed" type="number" min="0" max="9007199254740991" step="1" placeholder="自动" />
                   </label>
                   <label class="advanced-toggle">
-                    <span><strong>Web search</strong><small>按模型隔离：GLM → 智谱原生 · DeepSeek → Tavily</small></span>
+                    <span><strong>联网检索</strong><small>允许执行时按需检索外部资料，实际可用性取决于已配置工具。</small></span>
                     <input v-model="draft.webSearchEnabled" type="checkbox" />
                   </label>
-                  <label class="advanced-toggle">
-                    <span><strong>Debug trace</strong><small>记录更详细的执行诊断</small></span>
-                    <input v-model="debugTraceEnabled" type="checkbox" />
-                  </label>
-                  <label class="advanced-toggle">
-                    <span><strong>Provenance</strong><small>保留通信来源与去向</small></span>
-                    <input v-model="provenanceEnabled" type="checkbox" />
-                  </label>
                 </div>
+                <p class="advanced-config__managed-note">运行诊断与来源追踪由运行服务管理，可在任务的运行详情中查看。</p>
               </div>
             </details>
 
@@ -202,6 +204,9 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import WorkbenchLayout from '@/components/workbench/WorkbenchLayout.vue'
+import NativeWorkspacePicker from '@/components/platform/NativeWorkspacePicker.vue'
+import type { NativeWorkspaceState } from '@/components/platform/workspaceState'
+import { presetReasoningOption, type RuntimePreset } from '@/features/mission/runtimePresets'
 import PluginExtensionHost from '@/features/acg/PluginExtensionHost.vue'
 import { workflowApi } from '@/services/api/workflow'
 import type { InputAttachment } from '@/services/api/agentos'
@@ -209,7 +214,7 @@ import { createNativeWorkbenchDraft, restoreWorkbenchDraft, type WorkbenchDraft 
 import { workbenchLaunchCommand } from '@/features/mission/command'
 import { createMissionLaunchAttempt } from '@/features/mission/launchAttempt'
 import { pluginUiExtensions } from '@/plugins'
-import { apiUrl } from '@/platform'
+import { apiUrl, platform } from '@/platform'
 import { renderMarkdown } from '@/utils/markdown'
 import { plainMissionTitle } from '@/utils/missionTitle'
 import {
@@ -237,8 +242,21 @@ const attachments = ref<AttachmentDraft[]>([])
 const attachmentDragging = ref(false)
 const attachmentsCommitted = ref(false)
 const attachmentsPending = computed(() => attachments.value.some(item => item.status !== 'READY'))
-const debugTraceEnabled = ref(false)
-const provenanceEnabled = ref(true)
+const desktopWorkspaceRequired = platform.platform === 'desktop'
+const workspaceState = ref<NativeWorkspaceState>({ loading: true, trusted: false,
+  workspaceId: '', workspaceRoot: '', pendingPath: '', error: '' })
+const workspaceIssue = computed(() => {
+  if (!desktopWorkspaceRequired) return ''
+  if (workspaceState.value.loading) return '正在确认工作区授权状态'
+  if (workspaceState.value.pendingPath) return '请先信任所选工作区'
+  if (!workspaceState.value.trusted) return workspaceState.value.error || '请选择并信任工作区后再创建任务'
+  return ''
+})
+const runtimeSettingsIssue = computed(() => {
+  const seed: unknown = draft.value.planningSeed
+  return seed !== null && seed !== '' && (typeof seed !== 'number' || !Number.isSafeInteger(seed) || seed < 0)
+    ? '规划种子需为 0 到 9007199254740991 之间的整数' : ''
+})
 let controller: AbortController | null = null
 const modelSettings = ref<ModelSettings>(loadModelSettings())
 const serverSystemModel = ref('')
@@ -255,7 +273,7 @@ const effortOptions = computed(() => effortValuesFromOptions(reasoningOptions.va
 const thinkingSelection = computed<ReasoningEffort | ThinkingMode>({
   get: () => {
     if (usesEffortOptions.value) {
-      const stored = draft.value.reasoningEffort || modelSettings.value.reasoningEffort
+      const stored = draft.value.reasoningEffort
       if (stored && effortOptions.value.includes(stored)) return stored as ReasoningEffort
       if (draft.value.thinkingMode === 'disabled' && reasoningOptions.value.some(option => option.value === 'disabled')) {
         return 'disabled'
@@ -279,21 +297,13 @@ const thinkingSelection = computed<ReasoningEffort | ThinkingMode>({
   }
 })
 
-type AdvancedPreset = 'fast' | 'balanced' | 'deep' | 'custom'
+type AdvancedPreset = RuntimePreset | 'custom'
 const advancedPreset = computed<AdvancedPreset>(() => {
-  if (usesEffortOptions.value) {
-    const effort = draft.value.reasoningEffort
-      || modelSettings.value.reasoningEffort
-      || defaultReasoningEffortFromCapability(modelCapability.value, reasoningOptions.value)
-    if (effort === 'low' && !draft.value.webSearchEnabled && draft.value.planningDiversity === 'stable') return 'fast'
-    if (effort === 'high' && draft.value.webSearchEnabled && draft.value.planningDiversity === 'balanced') return 'balanced'
-    if (effort === 'max' && draft.value.webSearchEnabled && draft.value.planningDiversity === 'exploratory') return 'deep'
-    return 'custom'
-  }
-  if (draft.value.thinkingMode === 'disabled' && !draft.value.webSearchEnabled && draft.value.planningDiversity === 'stable') return 'fast'
-  if (draft.value.thinkingMode === 'standard' && draft.value.webSearchEnabled && draft.value.planningDiversity === 'balanced') return 'balanced'
-  if (draft.value.thinkingMode === 'deep' && draft.value.webSearchEnabled && draft.value.planningDiversity === 'exploratory') return 'deep'
-  return 'custom'
+  return (['fast', 'balanced', 'deep'] as const).find(preset =>
+    thinkingSelection.value === presetReasoningOption(reasoningOptions.value, preset, modelCapability.value)?.value
+    && draft.value.webSearchEnabled === (preset !== 'fast')
+    && draft.value.capabilityProfile === (preset === 'fast' ? 'standard' : preset === 'deep' ? 'full' : 'auto')
+    && draft.value.planningDiversity === (preset === 'fast' ? 'stable' : preset === 'balanced' ? 'balanced' : 'exploratory')) || 'custom'
 })
 const advancedConfigOpen = ref(false)
 const planningModeLabel = computed(() => draft.value.planningMode === 'dynamic' ? '动态规划' : '模板优先')
@@ -301,14 +311,8 @@ const planningModeDescription = computed(() => draft.value.planningMode === 'dyn
   ? '根据任务目标动态拆解，并选择当前可用能力。'
   : '优先复用已验证模板，未命中时自动切换动态规划。')
 const advancedSettingsSummary = computed(() => [
-  usesEffortOptions.value
-    ? draft.value.reasoningEffort || modelSettings.value.reasoningEffort
-      ? `reasoning_effort: ${draft.value.reasoningEffort || modelSettings.value.reasoningEffort}`
-      : draft.value.thinkingMode === 'disabled'
-        ? 'Thinking: disabled'
-        : `reasoning_effort: ${defaultReasoningEffortFromCapability(modelCapability.value, reasoningOptions.value) || effortOptions.value[effortOptions.value.length - 1]}`
-    : draft.value.thinkingMode === 'disabled' ? '关闭思考' : draft.value.thinkingMode === 'standard' ? '标准思考' : '深度思考',
-  draft.value.webSearchEnabled ? '联网' : '仅本地',
+  reasoningOptions.value.find(option => option.value === thinkingSelection.value)?.label || '模型默认',
+  draft.value.webSearchEnabled ? '联网检索' : '不检索网络',
   draft.value.planningDiversity === 'stable' ? '稳定规划' : draft.value.planningDiversity === 'balanced' ? '均衡规划' : '探索规划'
 ].join(' · '))
 const plugins = computed(() => pluginUiExtensions.all())
@@ -347,6 +351,8 @@ const runSummaryIssues = computed(() => {
   if (processingCount) issues.push(`${processingCount} 个 Context 文件仍在处理中`)
   if (failedCount) issues.push(`${failedCount} 个 Context 文件失败，请重试或移除`)
   if (extensionValidationMessage.value) issues.push(extensionValidationMessage.value)
+  if (workspaceIssue.value) issues.push(workspaceIssue.value)
+  if (runtimeSettingsIssue.value) issues.push(runtimeSettingsIssue.value)
   return issues
 })
 const isReadyToRun = computed(() => !submitting.value && runSummaryIssues.value.length === 0)
@@ -357,35 +363,12 @@ const objectiveMode = ref<'write' | 'preview'>('write')
 const hasObjectiveContent = computed(() => Boolean(draft.value.taskGoal.trim()))
 const objectivePreviewHtml = computed(() => renderMarkdown(draft.value.taskGoal || ''))
 
-const applyAdvancedPreset = (preset: AdvancedPreset) => {
+const applyAdvancedPreset = (preset: RuntimePreset) => {
   draft.value.capabilityProfile = preset === 'fast' ? 'standard' : preset === 'deep' ? 'full' : 'auto'
-  if (usesEffortOptions.value) {
-    // 档位集合来自服务端能力元数据：预设值不在集合内时收敛到最近可用档。
-    const pick = (preferred: string) => effortOptions.value.includes(preferred)
-      ? preferred
-      : effortOptions.value[effortOptions.value.length - 1]
-    const effort: ReasoningEffort = (preset === 'fast' ? pick('low') : preset === 'balanced' ? pick('high') : pick('max')) as ReasoningEffort
-    draft.value.reasoningEffort = effort
-    draft.value.thinkingMode = effort === 'low' ? 'standard' : 'deep'
-    draft.value.webSearchEnabled = preset !== 'fast'
-    draft.value.planningDiversity = preset === 'fast' ? 'stable' : preset === 'balanced' ? 'balanced' : 'exploratory'
-    return
-  }
-  if (preset === 'fast') {
-    draft.value.thinkingMode = 'disabled'
-    draft.value.webSearchEnabled = false
-    draft.value.planningDiversity = 'stable'
-    return
-  }
-  if (preset === 'balanced') {
-    draft.value.thinkingMode = 'standard'
-    draft.value.webSearchEnabled = true
-    draft.value.planningDiversity = 'balanced'
-    return
-  }
-  draft.value.thinkingMode = 'deep'
-  draft.value.webSearchEnabled = true
-  draft.value.planningDiversity = 'exploratory'
+  const option = presetReasoningOption(reasoningOptions.value, preset, modelCapability.value)
+  if (option) thinkingSelection.value = option.value
+  draft.value.webSearchEnabled = preset !== 'fast'
+  draft.value.planningDiversity = preset === 'fast' ? 'stable' : preset === 'balanced' ? 'balanced' : 'exploratory'
 }
 
 const syncAdvancedConfigState = (event: Event) => {
@@ -401,7 +384,8 @@ const syncDraftRuntimeSelection = () => {
       draft.value.reasoningEffort = undefined
       return
     }
-    const effort = (storedEffort || defaultReasoningEffortFromCapability(modelCapability.value, reasoningOptions.value)) as ReasoningEffort
+    const effort = (storedEffort && effortOptions.value.includes(storedEffort) ? storedEffort
+      : defaultReasoningEffortFromCapability(modelCapability.value, reasoningOptions.value)) as ReasoningEffort
     draft.value.reasoningEffort = effort
     draft.value.thinkingMode = effort === 'low' ? 'standard' : 'deep'
   } else if (draft.value.reasoningEffort) {
@@ -444,16 +428,23 @@ const syncModelSettings = (event: Event) => {
     ? { ...detail, models: [...detail.models] }
     : loadModelSettings()
   serverSystemModel.value = ''
+  modelCapability.value = null
   syncDraftRuntimeSelection()
   if (modelSettings.value.provider === 'system') void loadSystemModel()
 }
 
-watch(activeModel, (model, previous) => {
+let capabilityRequest = 0
+watch([activeModel, () => modelSettings.value.provider, () => modelSettings.value.baseUrl], ([model, provider, baseUrl]) => {
+  const requestId = ++capabilityRequest
+  if (provider !== 'system') modelCapability.value = null
   syncDraftRuntimeSelection()
-  if (model && model !== previous && modelSettings.value.provider !== 'system') {
+  if (model && provider !== 'system') {
     // 非系统供应商：按需单查模型能力（system 由 loadSystemModel 的目录带回）。
-    void fetchModelCapability(model, modelSettings.value.baseUrl).then(capability => {
-      if (activeModel.value === model) modelCapability.value = capability
+    void fetchModelCapability(model, baseUrl).then(capability => {
+      if (requestId === capabilityRequest) {
+        modelCapability.value = capability
+        syncDraftRuntimeSelection()
+      }
     })
   }
 }, { immediate: true })
@@ -550,6 +541,10 @@ const resumePendingLaunch = async () => {
 const submit = async () => {
   if (submitting.value) return
   if (!draft.value.taskGoal.trim()) { errorMessage.value = '请输入 Objective'; return }
+  if (workspaceIssue.value || runtimeSettingsIssue.value) {
+    errorMessage.value = workspaceIssue.value || runtimeSettingsIssue.value
+    return
+  }
   if (attachmentsPending.value) { errorMessage.value = '请等待所有附件解析完成，或移除失败的附件。'; return }
   for (const extension of draftExtensions.value) {
     const validation = extension.validateDraft?.(draft.value)
@@ -563,12 +558,25 @@ const submit = async () => {
   controller?.abort()
   controller = new AbortController()
   try {
+    if (desktopWorkspaceRequired) {
+      const expected = { ...workspaceState.value }
+      const response = await fetch(apiUrl('/api/agentos/v2/workspaces/current'), {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        signal: controller.signal, cache: 'no-store'
+      })
+      if (!response.ok) throw new Error('无法复核工作区授权，请重新选择并信任工作区。')
+      const current = await response.json()
+      if (current.revoked || current.selected === false || !current.workspaceId
+        || current.workspaceId !== expected.workspaceId || current.workspaceRoot !== expected.workspaceRoot) {
+        window.dispatchEvent(new Event('workspace-authorization-changed'))
+        throw new Error('工作区授权已变化，请确认当前目录后重新创建任务。')
+      }
+    }
     const command = workbenchLaunchCommand(
       { ...draft.value, title: draft.value.title.trim() || automaticMissionTitle(draft.value.taskGoal) },
       draftExtensions.value,
       {
         attachmentIds: [...(restoredLaunch?.commandSnapshot.attachmentIds || []), ...attachments.value.map(item => item.attachment?.attachmentId).filter((item): item is string => Boolean(item))],
-        input: { debugTrace: debugTraceEnabled.value, lowEntropyOptions: provenanceEnabled.value ? ['trace_provenance'] : [] }
       }
     )
     // Once sent, a failed response can still mean the Mission owns these files.
@@ -787,19 +795,27 @@ onBeforeUnmount(() => {
 .planning-choice__hint strong { color: var(--text-secondary); font-size: 11px; font-weight: 650; }
 
 .advanced-config { margin-top: 18px; border-top: 1px solid color-mix(in srgb, var(--border-light) 72%, transparent); }
-.advanced-config summary { padding: 14px 0 8px; }
-.advanced-config summary strong { font-size: 11px; font-weight: 650; }
+.advanced-config summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0 10px; cursor: pointer; }
+.advanced-config__summary { display: grid; gap: 6px; min-width: 0; }
+.advanced-config summary strong { font-size: 14px; font-weight: 650; }
+.advanced-config__summary small { color: var(--text-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.advanced-config__hint { flex: 0 0 auto; color: var(--text-muted); font-size: 12px; }
+.advanced-config__description,
+.advanced-config__managed-note,
+.mission-workspace__hint { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.mission-workspace__selection { display: grid; justify-items: start; gap: 9px; min-width: 0; }
+.mission-workspace__selection > code { max-width: 100%; color: var(--text-secondary); overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
 .advanced-config__body { display: grid; gap: 16px; padding: 4px 0 2px; }
 .advanced-config__presets { display: grid; grid-template-columns: minmax(105px, .72fr) minmax(0, 1.28fr); align-items: center; gap: 16px; }
 .advanced-config__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .advanced-field,
 .advanced-toggle { display: grid !important; gap: 7px; min-width: 0; margin: 0 !important; }
 .advanced-field > span,
-.advanced-toggle strong { color: var(--text-primary); font-size: 11px; font-weight: 650; }
+.advanced-toggle strong { color: var(--text-primary); font-size: 13px; font-weight: 650; }
 .advanced-field > span small,
-.advanced-toggle small { display: block; margin-top: 2px; color: var(--text-muted); font-size: 10px; font-weight: 400; line-height: 1.35; }
+.advanced-toggle small { display: block; margin-top: 5px; color: var(--text-muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
 .advanced-field select,
-.advanced-field input { height: 36px; padding: 0 10px; border-radius: 7px; font-size: 11px; }
+.advanced-field input { height: 42px; padding: 0 12px; border-radius: 8px; font-size: 14px; }
 .advanced-toggle { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .advanced-toggle span { display: grid; gap: 2px; }
 .advanced-toggle input { width: 32px; height: 18px; margin: 0; accent-color: var(--primary-color); cursor: pointer; }

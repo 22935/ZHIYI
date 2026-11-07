@@ -165,6 +165,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { apiUrl, platform } from '@/platform'
+import type { NativeWorkspaceState } from './workspaceState'
+
+const emit = defineEmits<{ 'state-change': [state: NativeWorkspaceState] }>()
 
 type Binding = {
   workspaceRoot: string
@@ -218,6 +221,15 @@ const triggerTitle = computed(() => {
   if (path) return `工作区：${path}\n点击管理本机工作区授权`
   return '尚未信任本机工作区；点击选择并信任一个目录'
 })
+
+watch([binding, candidate, loading, busy, loadError, error], () => {
+  emit('state-change', {
+    loading: loading.value || busy.value,
+    trusted: isTrusted.value && !candidate.value && !loadError.value,
+    workspaceId: binding.value?.workspaceId || '', workspaceRoot: workspaceRoot.value,
+    pendingPath: candidate.value, error: loadError.value || error.value
+  })
+}, { immediate: true })
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
@@ -396,6 +408,10 @@ function onDocumentKeydown(event: KeyboardEvent) {
   close(true)
 }
 
+function onWorkspaceAuthorizationChanged() {
+  if (!busy.value) void load()
+}
+
 function addWindowListeners() {
   document.addEventListener('pointerdown', onDocumentPointerDown)
   document.addEventListener('keydown', onDocumentKeydown)
@@ -422,10 +438,12 @@ watch(open, async (value) => {
 })
 
 onMounted(() => {
+  window.addEventListener('workspace-authorization-changed', onWorkspaceAuthorizationChanged)
   void load()
 })
 
 onUnmounted(() => {
+  window.removeEventListener('workspace-authorization-changed', onWorkspaceAuthorizationChanged)
   removeWindowListeners()
 })
 </script>
@@ -445,9 +463,9 @@ onUnmounted(() => {
   max-width: 100%;
   height: 30px;
   padding: 0 9px;
-  border: 1px solid color-mix(in srgb, var(--text-primary) 11%, var(--border-light));
+  border: 1px solid color-mix(in srgb, var(--text-primary) 18%, var(--border-light));
   border-radius: 9px;
-  background: color-mix(in srgb, var(--text-secondary) 5%, transparent);
+  background: color-mix(in srgb, var(--text-secondary) 12%, transparent);
   color: var(--text-secondary);
   font: inherit;
   font-size: 12px;
@@ -458,7 +476,7 @@ onUnmounted(() => {
 
 .workspace-trust__trigger:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--accent-color) 40%, var(--border-hover));
-  background: color-mix(in srgb, var(--text-secondary) 9%, transparent);
+  background: color-mix(in srgb, var(--text-secondary) 17%, transparent);
   color: var(--text-primary);
 }
 
@@ -504,7 +522,7 @@ onUnmounted(() => {
   flex: 0 0 10px;
   width: 10px;
   height: 10px;
-  color: var(--text-disabled);
+  color: var(--text-secondary);
   transition: transform 0.16s ease;
 }
 

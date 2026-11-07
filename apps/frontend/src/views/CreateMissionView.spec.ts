@@ -125,7 +125,7 @@ describe('CreateMissionView', () => {
     expect(wrapper.find('#mission-files').exists()).toBe(true)
     expect(wrapper.find('#mission-goal').exists()).toBe(true)
     expect(wrapper.text()).toContain('Execution')
-    expect(wrapper.text()).toContain('Advanced Runtime Settings')
+    expect(wrapper.text()).toContain('高级运行设置')
     expect(wrapper.find('.create-mission__submit').text()).toContain('创建并运行')
     expect(wrapper.find('.create-mission__back').text()).toContain('返回项目')
     expect(wrapper.find('.create-mission__workspace').exists()).toBe(true)
@@ -280,8 +280,6 @@ describe('CreateMissionView', () => {
           planningDiversity: 'exploratory',
           planningSeed: 42,
           usePlanner: true,
-          debugTrace: false,
-          lowEntropyOptions: ['trace_provenance']
         })
       }),
       expect.objectContaining({ signal: expect.any(AbortSignal) })
