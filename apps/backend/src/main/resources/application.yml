@@ -67,7 +67,8 @@ ai:
     health-timeout: ${AI_SERVICE_HEALTH_TIMEOUT:3000}
   sse:
     idle-timeout-ms: ${SSE_IDLE_TIMEOUT:240000}
-    max-duration-ms: ${SSE_MAX_DURATION:1800000}
+    # 0 = 不限制单条流的总时长；空闲超时仍然生效，避免死连接一直挂着。
+    max-duration-ms: ${SSE_MAX_DURATION:0}
     # INT-2F-4B 会话复核合同：周期 3s / 单次查询订阅级超时 1s / 有效观测租期 5s
     # （租期从查询开始时刻起算，撤销后取消上界 = 周期+查询 = 4s ≤ 5s）
     session-recheck-period-ms: ${SSE_SESSION_RECHECK_PERIOD:3000}

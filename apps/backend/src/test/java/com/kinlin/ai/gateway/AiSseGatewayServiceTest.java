@@ -138,6 +138,29 @@ class AiSseGatewayServiceTest {
     }
 
     @Test
+    void zeroMaximumDurationDisablesTheAbsoluteCap() {
+        VirtualTimeScheduler clock = VirtualTimeScheduler.create();
+        try {
+            StepVerifier.withVirtualTime(() -> service(80, 0).withTimeouts(
+                            Flux.interval(Duration.ofMillis(25), clock)
+                                    .map(i -> ServerSentEvent.<String>builder().comment("heartbeat").build()), clock),
+                            () -> clock, Long.MAX_VALUE)
+                    .expectSubscription().expectNoEvent(Duration.ofMillis(24))
+                    .thenAwait(Duration.ofMillis(1))
+                    .expectNextMatches(e -> "heartbeat".equals(e.comment()))
+                    .expectNoEvent(Duration.ofMillis(24)).thenAwait(Duration.ofMillis(1))
+                    .expectNextMatches(e -> "heartbeat".equals(e.comment()))
+                    // 70ms was the old absolute cap; with 0 the stream keeps producing.
+                    .expectNoEvent(Duration.ofMillis(24)).thenAwait(Duration.ofMillis(1))
+                    .expectNextMatches(e -> "heartbeat".equals(e.comment()))
+                    .thenCancel()
+                    .verify();
+        } finally {
+            clock.dispose();
+        }
+    }
+
+    @Test
     void mapsPreStreamUpstreamErrorsBeforeResponseStarts() {
         ResponseEntity<Flux<ServerSentEvent<String>>> rejected = service(100, 1_000)
                 .openPost("/ai/rejected", java.util.Map.of()).block(Duration.ofSeconds(1));

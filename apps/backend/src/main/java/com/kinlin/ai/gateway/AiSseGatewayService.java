@@ -26,6 +26,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Non-buffering SSE bridge with separate inactivity and total-duration limits.
+ * Setting {@code ai.sse.max-duration-ms} to 0 disables the absolute cap; the
+ * inactivity limit still reclaims streams that stop producing events.
  *
  * <p>INT-2F-4B：每条流套 {@link SessionRecheckGate}——建连即校验会话，
  * 周期（默认 3s，含空闲流）按同一 IAM 会话权威复核；撤销/过期/无法确认
@@ -63,7 +65,7 @@ public class AiSseGatewayService {
     public AiSseGatewayService(
             WebClient pythonTransport,
             @Value("${ai.sse.idle-timeout-ms:240000}") long idleTimeoutMs,
-            @Value("${ai.sse.max-duration-ms:1800000}") long maximumDurationMs,
+            @Value("${ai.sse.max-duration-ms:0}") long maximumDurationMs,
             @Value("${ai.sse.session-recheck-period-ms:3000}") long recheckPeriodMs,
             @Value("${ai.sse.session-query-timeout-ms:1000}") long queryTimeoutMs,
             @Value("${ai.sse.session-lease-ms:5000}") long leaseMs,
@@ -71,13 +73,14 @@ public class AiSseGatewayService {
             SessionActivityProbe sessionActivityProbe,
             MeterRegistry meterRegistry
     ) {
-        if (idleTimeoutMs <= 0 || maximumDurationMs <= 0
+        if (idleTimeoutMs <= 0 || maximumDurationMs < 0
                 || recheckPeriodMs <= 0 || queryTimeoutMs <= 0 || leaseMs <= 0) {
-            throw new IllegalArgumentException("SSE timeouts must be positive");
+            throw new IllegalArgumentException("SSE timeouts must be positive, except max-duration-ms where 0 disables the cap");
         }
         this.webClient = pythonTransport;
         this.idleTimeout = Duration.ofMillis(idleTimeoutMs);
-        this.maximumDuration = Duration.ofMillis(maximumDurationMs);
+        // 0 disables the absolute cap; the idle timeout still terminates dead streams.
+        this.maximumDuration = maximumDurationMs > 0 ? Duration.ofMillis(maximumDurationMs) : null;
         this.sessionRecheckPeriod = Duration.ofMillis(recheckPeriodMs);
         this.sessionQueryTimeout = Duration.ofMillis(queryTimeoutMs);
         this.sessionLease = Duration.ofMillis(leaseMs);
@@ -157,10 +160,13 @@ public class AiSseGatewayService {
     // Both clocks share an explicit scheduler. Production retains Reactor's
     // parallel clock; tests can advance time without loopback/CPU jitter.
     Flux<ServerSentEvent<String>> withTimeouts(Flux<ServerSentEvent<String>> body, Scheduler clock) {
-        return body
-                    .timeout(idleTimeout, Flux.error(new SseIdleTimeoutException()), clock)
-                    .takeUntilOther(Mono.delay(maximumDuration, clock)
-                            .flatMap(ignored -> Mono.<Void>error(new SseMaximumDurationException())))
+        Flux<ServerSentEvent<String>> bounded = body
+                    .timeout(idleTimeout, Flux.error(new SseIdleTimeoutException()), clock);
+        if (maximumDuration != null) {
+            bounded = bounded.takeUntilOther(Mono.delay(maximumDuration, clock)
+                            .flatMap(ignored -> Mono.<Void>error(new SseMaximumDurationException())));
+        }
+        return bounded
                     .onErrorResume(SseIdleTimeoutException.class,
                             ignored -> Flux.just(terminalErrorEvent("SSE_IDLE_TIMEOUT",
                                     "kinlin.sse.streams.idle_timeout")))
