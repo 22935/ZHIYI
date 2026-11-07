@@ -5,11 +5,9 @@
 *.swp
 *.swo
 
-# 后端
-apps/backend/target/
-apps/backend/.mvn/
-apps/backend/mvnw
-apps/backend/mvnw.cmd
+# TypeScript 后端
+apps/backend-ts/dist/
+apps/backend-ts/node_modules/
 
 # 前端
 apps/frontend/node_modules/

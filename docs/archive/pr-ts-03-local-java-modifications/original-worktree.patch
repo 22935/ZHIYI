@@ -1,0 +1,115 @@
+diff --git a/apps/backend/src/main/java/com/kinlin/ai/projection/message/dto/MessageMetadataQuery.java b/apps/backend/src/main/java/com/kinlin/ai/projection/message/dto/MessageMetadataQuery.java
+index f230c5c0..a9e78dc3 100644
+--- a/apps/backend/src/main/java/com/kinlin/ai/projection/message/dto/MessageMetadataQuery.java
++++ b/apps/backend/src/main/java/com/kinlin/ai/projection/message/dto/MessageMetadataQuery.java
+@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
+ import com.fasterxml.jackson.annotation.JsonProperty;
+ 
+ import java.util.List;
+-import java.util.Map;
+ 
+ /**
+  * Whitelisted public slice of the persisted message metadata JSON.
+@@ -40,7 +39,34 @@ public record MessageMetadataQuery(
+             String status,
+             String description,
+             Long durationMs,
+-            Map<String, Object> terminal,
+-            Map<String, Object> activity
++            TerminalQuery terminal,
++            ActivityQuery activity
++    ) { }
++
++    /** Closed public slice of a persisted command terminal payload. */
++    @JsonInclude(JsonInclude.Include.NON_NULL)
++    public record TerminalQuery(
++            String command,
++            String cwd,
++            Long exitCode,
++            String stdout,
++            String stderr,
++            Boolean timedOut,
++            Boolean truncated,
++            Long durationMs
++    ) { }
++
++    /** Closed public slice of a persisted tool activity payload. */
++    @JsonInclude(JsonInclude.Include.NON_NULL)
++    public record ActivityQuery(
++            String kind,
++            String status,
++            String capabilityId,
++            String relativePath,
++            String summary,
++            Long addedLines,
++            Long removedLines,
++            Long entryCount,
++            String errorCode
+     ) { }
+ }
+diff --git a/apps/backend/src/main/java/com/kinlin/ai/projection/message/mapper/MessageProjectionMapper.java b/apps/backend/src/main/java/com/kinlin/ai/projection/message/mapper/MessageProjectionMapper.java
+index ff9a374d..71fe518f 100644
+--- a/apps/backend/src/main/java/com/kinlin/ai/projection/message/mapper/MessageProjectionMapper.java
++++ b/apps/backend/src/main/java/com/kinlin/ai/projection/message/mapper/MessageProjectionMapper.java
+@@ -9,7 +9,6 @@ import com.kinlin.ai.projection.message.dto.MessageTypeQuery;
+ import java.math.BigDecimal;
+ import java.math.BigInteger;
+ import java.util.ArrayList;
+-import java.util.LinkedHashMap;
+ import java.util.List;
+ import java.util.Map;
+ 
+@@ -132,24 +131,43 @@ public final class MessageProjectionMapper {
+                         status,
+                         description,
+                         whole(stage.get("durationMs")),
+-                        mapSlice(stage.get("terminal")),
+-                        mapSlice(stage.get("activity"))));
++                        terminal(stage.get("terminal")),
++                        activity(stage.get("activity"))));
+             }
+         }
+         return stages.isEmpty() ? null : stages;
+     }
+ 
+-    /** Terminal/activity payloads are opaque JSON objects passed through verbatim. */
+-    private static Map<String, Object> mapSlice(Object value) {
++    /** Closed public slice of a persisted terminal payload; unexpected JSON types drop to null. */
++    private static MessageMetadataQuery.TerminalQuery terminal(Object value) {
+         if (!(value instanceof Map<?, ?> raw)) {
+             return null;
+         }
+-        Map<String, Object> copy = new LinkedHashMap<>();
+-        for (Map.Entry<?, ?> entry : raw.entrySet()) {
+-            if (entry.getKey() instanceof String key) {
+-                copy.put(key, entry.getValue());
+-            }
++        return new MessageMetadataQuery.TerminalQuery(
++                text(raw.get("command")),
++                text(raw.get("cwd")),
++                whole(raw.get("exitCode")),
++                text(raw.get("stdout")),
++                text(raw.get("stderr")),
++                flag(raw.get("timedOut")),
++                flag(raw.get("truncated")),
++                whole(raw.get("durationMs")));
++    }
++
++    /** Closed public slice of a persisted activity payload; unexpected JSON types drop to null. */
++    private static MessageMetadataQuery.ActivityQuery activity(Object value) {
++        if (!(value instanceof Map<?, ?> raw)) {
++            return null;
+         }
+-        return copy;
++        return new MessageMetadataQuery.ActivityQuery(
++                text(raw.get("kind")),
++                text(raw.get("status")),
++                text(raw.get("capabilityId")),
++                text(raw.get("relativePath")),
++                text(raw.get("summary")),
++                whole(raw.get("addedLines")),
++                whole(raw.get("removedLines")),
++                whole(raw.get("entryCount")),
++                text(raw.get("errorCode")));
+     }
+ }
