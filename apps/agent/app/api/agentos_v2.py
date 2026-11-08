@@ -45,6 +45,16 @@ from contracts.resource import (
 from components.mission_manager.state_machine import InvalidStateTransition
 from components.resource.store import StaleResourceObservation
 from app.tools.permissions import normalize_relative_path
+
+
+class WorkspaceBinaryFallbackNeeded(Exception):
+    """文本编辑链拒绝（FS_NOT_TEXT/FS_TOO_LARGE）：读取端点改走二进制读 + 预览提取。
+
+    只在读取链内做控制流；保存/列表调用方各自映射回 409/413/415。
+    """
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
 from runtime import ExecutionRuntime
 from runtime.planning_interaction import RuntimePlanningInteraction, CopilotMessageRequest, PlannerAnswerRequest, CopilotPermissionRequest
 from runtime.planning_operations import TaskOperationPreviewRequest, TaskOperationApplyRequest
@@ -2128,10 +2138,10 @@ def create_router(
             if isinstance(exc, PermissionDeniedError):
                 raise HTTPException(status_code=403, detail="workspace access denied") from exc
             if isinstance(exc, LocalRuntimeToolError):
-                if exc.code == "FS_NOT_TEXT":
-                    raise HTTPException(status_code=415, detail="Only UTF-8 text files can be opened") from exc
-                if exc.code == "FS_TOO_LARGE":
-                    raise HTTPException(status_code=413, detail="File exceeds the 1 MiB editor limit") from exc
+                if exc.code in {"FS_NOT_TEXT", "FS_TOO_LARGE"}:
+                    # 文本编辑链（1 MiB/严格 UTF-8）拒绝：读取端点改以二进制读走
+                    # 预览提取；保存/列表调用方直接映射回各自状态码。
+                    raise WorkspaceBinaryFallbackNeeded(exc.code) from exc
                 if exc.code in {"FS_STALE_VERSION", "FS_NOT_OBSERVED"}:
                     raise HTTPException(status_code=409, detail="File changed on disk; reload before saving") from exc
                 if exc.code in {"PATH_INVALID", "DIRECTORY_REQUIRED", "LIST_LIMIT_EXCEEDED"}:
@@ -2183,8 +2193,11 @@ def create_router(
 
     @router.get("/missions/{mission_id}/workspace/file")
     async def read_workspace_file(mission_id: str, path: str = Query(min_length=1)):
-        workspace_root, relative_path, result = await workspace_file_read(
-            mission_id, path, "read_file", {"versioned": True})
+        try:
+            workspace_root, relative_path, result = await workspace_file_read(
+                mission_id, path, "read_file", {"versioned": True})
+        except WorkspaceBinaryFallbackNeeded:
+            return await read_workspace_file_binary(mission_id, path)
         content = result.get("content", result.get("text"))
         if (not isinstance(content, str) or result.get("binary") or result.get("isBinary")
                 or result.get("encoding") == "base64" or "\x00" in content):
@@ -2193,6 +2206,27 @@ def create_router(
             raise HTTPException(status_code=413, detail="File exceeds the 1 MiB preview limit")
         return {"workspaceRoot": workspace_root, "path": relative_path, "content": content,
                 "version": result.get("version")}
+
+    async def read_workspace_file_binary(mission_id: str, path: str) -> dict:
+        """二进制重读：交给 workspace_preview 生成只读载荷（与桌面链同一合同）。"""
+        try:
+            workspace_root, relative_path, result = await workspace_file_read(
+                mission_id, path, "read_file", {"binary": True})
+        except WorkspaceBinaryFallbackNeeded as exc:
+            # 旧执行器不支持二进制读取，或文件超出 32 MiB 预览上限：保留原状态码。
+            if exc.code == "FS_TOO_LARGE":
+                raise HTTPException(status_code=413, detail="File exceeds the 32 MiB preview limit") from exc
+            raise HTTPException(status_code=415, detail="Only UTF-8 text files can be opened") from exc
+        if result.get("binary") is not True or result.get("encoding") != "base64" or not isinstance(result.get("content"), str):
+            raise HTTPException(status_code=502, detail="workspace response is invalid")
+        import base64
+        from app.services import workspace_preview
+        try:
+            raw = base64.b64decode(result["content"], validate=True)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="workspace response is invalid") from exc
+        payload = workspace_preview.extract_preview(relative_path, raw)
+        return {"workspaceRoot": workspace_root, "path": relative_path, "version": None, **payload}
 
     @router.post("/missions/{mission_id}/workspace/file")
     async def save_workspace_file(mission_id: str, body: WorkspaceFileSaveRequest):

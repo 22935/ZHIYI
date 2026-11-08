@@ -2435,3 +2435,132 @@ async def test_v2_delete_endpoint_rejects_active_run_as_conflict(tmp_path) -> No
         assert response.status_code == 409
         assert response.json()["detail"] == "run is not terminal"
         assert runtime.workflow_store.get_run(run.run_id).record_state.value == "active"
+
+
+async def test_workspace_file_read_falls_back_to_binary_preview(tmp_path, monkeypatch):
+    """文本链拒绝后改走二进制读 + 预览提取：docx/xlsx/pdf/图片/GBK 与不支持的二进制各归各位。"""
+    import base64 as base64lib
+    import io as _io
+    from types import SimpleNamespace
+    import app.tools
+    from app.tools.chat_catalog import ChatToolCatalog
+    from app.tools.contracts import ToolPayload
+    from app.tools.local_runtime import LocalRuntimeToolError
+    from app.tools.permissions import ChatPermissionService
+
+    runtime = _runtime(tmp_path, with_identity=True)
+    mission = runtime.create_mission("Preview file")
+
+    import docx as docx_module
+    document = docx_module.Document()
+    document.add_paragraph("你好 工作台预览")
+    document.add_paragraph("第二段")
+    docx_buffer = _io.BytesIO()
+    document.save(docx_buffer)
+
+    import openpyxl
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "清单"
+    sheet.append(["名称", "数量"])
+    sheet.append(["扳手", 3])
+    xlsx_buffer = _io.BytesIO()
+    workbook.save(xlsx_buffer)
+
+    import fitz
+    pdf = fitz.open()
+    pdf.new_page().insert_text((72, 72), "hello preview")
+    pdf_bytes = pdf.tobytes()
+    pdf.close()
+
+    png = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+           b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+           b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
+    files = {
+        "gbk.txt": "中文工作台".encode("gb18030"),
+        "报告.docx": docx_buffer.getvalue(),
+        "表.xlsx": xlsx_buffer.getvalue(),
+        "文.pdf": pdf_bytes,
+        "图.png": png,
+        "app.exe": b"MZ\x00\x01\x02",
+    }
+    calls = []
+
+    class Client:
+        async def workspace_root(self, authorization): return "C:/authorized"
+
+    class Executor:
+        authorization = SimpleNamespace(workspace_id="workspace")
+        binary_supported = True
+        async def execute(self, name, arguments, **kwargs):
+            assert name == "read_file"
+            calls.append(dict(arguments))
+            if not arguments.get("binary"):
+                raise LocalRuntimeToolError("FS_NOT_TEXT", "binary file")
+            if not self.binary_supported:
+                raise LocalRuntimeToolError("FS_NOT_TEXT", "binary unsupported")
+            raw = files[arguments["path"]]
+            return ToolPayload(summary="read", data={"result": {
+                "binary": True, "encoding": "base64",
+                "content": base64lib.b64encode(raw).decode("ascii"),
+                "bytes": len(raw), "version": "vbin"}})
+
+    executor = Executor()
+    catalog = ChatToolCatalog(local_runtime_executor=executor, permission_service=ChatPermissionService())
+    runtime.local_runtime_client = Client()
+    runtime.local_runtime_authorization = executor.authorization
+    monkeypatch.setattr(app.tools, "get_chat_tool_runtime", lambda: SimpleNamespace(catalog=catalog))
+    app = FastAPI()
+    app.include_router(create_router(runtime, RunExecutionCoordinator(runtime)))
+    base = f"/agentos/v2/missions/{mission.mission_id}/workspace/file"
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            gbk = await client.get(base, params={"path": "gbk.txt"})
+            assert gbk.status_code == 200, gbk.text
+            assert gbk.json()["kind"] == "text"
+            assert gbk.json()["encoding"] == "gb18030"
+            assert gbk.json()["content"] == "中文工作台"
+            assert gbk.json()["version"] is None
+
+            docx_read = await client.get(base, params={"path": "报告.docx"})
+            assert docx_read.status_code == 200, docx_read.text
+            assert docx_read.json()["kind"] == "extracted"
+            assert docx_read.json()["format"] == "docx"
+            assert "你好 工作台预览" in docx_read.json()["content"]
+            assert "第二段" in docx_read.json()["content"]
+
+            xlsx_read = await client.get(base, params={"path": "表.xlsx"})
+            assert xlsx_read.json()["kind"] == "extracted"
+            assert "## Sheet: 清单" in xlsx_read.json()["content"]
+            assert "扳手,3" in xlsx_read.json()["content"]
+
+            pdf_read = await client.get(base, params={"path": "文.pdf"})
+            assert pdf_read.json()["kind"] == "extracted"
+            assert "hello preview" in pdf_read.json()["content"]
+
+            image_read = await client.get(base, params={"path": "图.png"})
+            assert image_read.json()["kind"] == "image"
+            assert image_read.json()["mime"] == "image/png"
+            assert image_read.json()["content"].startswith("data:image/png;base64,")
+
+            exe_read = await client.get(base, params={"path": "app.exe"})
+            assert exe_read.status_code == 200, exe_read.text
+            assert exe_read.json()["kind"] == "unsupported"
+            assert "Windows 可执行程序" in exe_read.json()["reason"]
+
+            # 所有调用都是两次读取：versioned 拒绝 → binary 重读。
+            assert len(calls) == 12
+            assert all(call.get("binary") is True for call in calls[1::2])
+
+            # 二进制文件不可保存：预览载荷 version 为空 → 保存链 409 只读。
+            save = await client.post(base, json={
+                "path": "报告.docx", "content": "overwrite", "expectedVersion": "v1",
+                "operationId": "save-preview-001"})
+            assert save.status_code == 409, save.text
+
+            # 旧执行器不支持 binary 读取：保留 415 原语义。
+            executor.binary_supported = False
+            legacy = await client.get(base, params={"path": "报告.docx"})
+            assert legacy.status_code == 415, legacy.text
+    finally:
+        runtime.identity_lifecycle.lifecycle_service.close()
