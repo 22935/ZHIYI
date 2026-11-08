@@ -5,6 +5,7 @@ import { createDatabase } from './db.js';
 import { registerPlatform } from './platform.js';
 import { registerChat } from './chat.js';
 import { PythonGateway, registerGateway } from './gateway.js';
+import { trackRequestCompletion } from './lifecycle.js';
 
 declare module 'fastify' {
   interface FastifyRequest { localIdentity: Readonly<LocalIdentity> | null }
@@ -44,6 +45,7 @@ export async function createApp(config: Config) {
     forceCloseConnections: 'idle',
     return503OnClosing: true,
   });
+  trackRequestCompletion(app);
   app.decorateRequest('localIdentity', null);
   app.setErrorHandler((error, request, reply) => {
     const failure = error as { statusCode?: number; code?: string; message?: string };

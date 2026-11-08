@@ -6,6 +6,25 @@ Node.js 24 + Fastify 5 + pg。平台负责 PostgreSQL 会话/消息/角色/Profi
 npm ci
 npm run typecheck
 npm test
+npm run dev
+```
+
+`npm run dev` 监控 `src/**/*.ts` 和 TypeScript 配置，完成类型检查后自动重载后端。编译失败时继续运行上一次成功版本，修复错误后自动恢复更新。每次成功构建写入独立的 `.cache/backend-dev/` 临时目录，运行中的请求不会读取到混合版本的模块。关闭时仅清理本监控进程创建的构建目录。
+
+热更新期间若有 SSE/下载等请求，等待处理及清理完成后再切换；聊天客户端断开后仍会等待回复保存完成。长期不断开的流会延迟更新。首次监听到下次监听之间有短暂的服务切换窗口，下一版使用同一个端口。监控进程 PID 保持稳定，子进程 PID 会变化。停止监控进程会关闭子进程及文件监听。
+
+原生开发启动器默认使用该监控入口。已启动的旧环境可以只切换 TS 后端：
+
+```powershell
+.\ops\scripts\start-local-desktop.ps1 -HomeDir "$env:LOCALAPPDATA\ZhiyiNative\default-clean-20261106" -WatchBackend -NoPause
+```
+
+此操作核验既有进程所有权、Home 和 LocalIdentity；首次只停止旧 TS 后端并启动监控进程，启动失败会回退旧入口。Python、数据库、Hands 和 Electron 不随此操作重启。`watch-backend` 操作可重复执行，已启用且健康时不再重启。
+
+发行包仍运行编译后的固定入口，不启用源码监听：
+
+```powershell
+npm run build
 npm start
 ```
 
@@ -32,3 +51,5 @@ LocalIdentity 沿用 `zhiyi-local-identity-v1` 格式，保留 actorId/legacyUse
 测试自动创建随机端口和独立临时 PostgreSQL cluster（发现本机二进制后运行）。可用 `ZHIYI_TEST_POSTGRES_BIN`、`ZHIYI_TEST_PYTHON` 指定测试工具；测试不读取用户 Home 或数据库凭据。Gateway 单测的本地 HTTP 服务仅验证传输合同，跨进程 Runtime SSE 验收另见 `ops/scripts/runtime_streaming_combined_acceptance.py`。
 
 Ctrl+C/SIGTERM 或父进程 Node IPC `shutdown` 均关闭上游流、完成消息落库并关闭数据库连接。Windows supervisor 保留进程所有权核验；端口占用时拒绝启动，不接管陌生进程。
+
+平台 TS 后端的自动重载不替代 Python AI/AgentOS 服务重载。前端由 Vite 更新；压缩 TS worker 是请求级进程，下一次请求会读取最新源码。

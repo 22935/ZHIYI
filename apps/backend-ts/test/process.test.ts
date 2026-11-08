@@ -18,7 +18,8 @@ async function start(env: NodeJS.ProcessEnv) {
   child.stdout!.resume();
   const exited = new Promise<number | null>(resolve => child.once('exit', code => resolve(code)));
   const ready = new Promise<string>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Child did not become ready')), 4000);
+    // The watch integration test also runs a real compiler in parallel.
+    const timer = setTimeout(() => reject(new Error('Child did not become ready')), 10000);
     child.once('error', error => { clearTimeout(timer); reject(error); });
     child.once('exit', () => { clearTimeout(timer); reject(new Error(diagnostics || 'Child exited before listen')); });
     child.on('message', message => {
@@ -54,12 +55,12 @@ it('runs compiled Node entry twice with the same read-only identity and exits cl
           get(address + '/health/ready', response => { response.resume(); resolve(response.statusCode); }).on('error', reject);
         });
         expect(status).toBe(503); // identity is valid, but this isolated process has no database
-      } finally { expect(await stop(running.child, running.exited)).toBe(0); }
+      } finally { expect(await stop(running.child, running.exited), running.diagnostics()).toBe(0); }
       expect(running.diagnostics()).toBe('');
       expect(await readFile(f.file)).toEqual(original);
     }
   } finally { await f.cleanup(); }
-}, 15000);
+}, 30000);
 
 it('exits on an occupied isolated port without stopping its existing owner or leaking IPC', async () => {
   const owner = createServer(); const f = await fixture();
