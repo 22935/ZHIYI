@@ -312,18 +312,19 @@
                 <el-tooltip v-if="contextUsage.visible" placement="top" :show-after="200">
                   <template #content>
                     <div class="context-usage-tip">
-                      <div>上下文窗口</div>
-                      <div>{{ contextUsage.percent }}% 已用</div>
-                      <div>已用 {{ contextUsage.usedLabel }}，共 {{ contextUsage.windowLabel }}</div>
+                      <div>{{ contextUsage.label }}</div>
+                      <div>{{ contextUsage.estimated ? '≈ ' : '' }}{{ contextUsage.percent }}%</div>
+                      <div>{{ contextUsage.usedLabel }} / {{ contextUsage.windowLabel }} Token</div>
+                      <div v-if="contextUsage.estimated">新消息会在此基础上追加。</div>
                     </div>
                   </template>
                   <button
                     class="context-usage"
                     :class="contextUsage.level"
                     type="button"
-                    title="上下文窗口用量"
+                    :title="contextUsage.label"
                   >
-                    {{ contextUsage.percent }}%
+                    {{ contextUsage.estimated ? '≈ ' : '' }}{{ contextUsage.percent }}%
                   </button>
                 </el-tooltip>
               </div>
@@ -420,9 +421,9 @@
                   <dd>{{ conversationInfo.messageLabel }}</dd>
                 </div>
                 <div v-if="contextUsage.visible" class="chat-info-card__row">
-                  <dt>上下文</dt>
-                  <dd :title="`已用 ${contextUsage.usedLabel}，共 ${contextUsage.windowLabel}`">
-                    {{ contextUsage.percent }}% · {{ contextUsage.usedLabel }} / {{ contextUsage.windowLabel }}
+                  <dt>{{ contextUsage.label }}</dt>
+                  <dd :title="`${contextUsage.label} ${contextUsage.usedLabel}，窗口 ${contextUsage.windowLabel}`">
+                    {{ contextUsage.estimated ? '≈ ' : '' }}{{ contextUsage.percent }}% · {{ contextUsage.usedLabel }} / {{ contextUsage.windowLabel }}
                   </dd>
                 </div>
                 <div class="chat-info-card__row">
@@ -1234,16 +1235,20 @@ const formatContextTokens = (value: number): string => {
 }
 
 const contextUsage = computed(() => {
-  const used = chatStore.contextUsedTokens
+  const estimated = typeof chatStore.nextContextTokens === 'number'
+  const used = estimated ? chatStore.nextContextTokens : chatStore.contextUsedTokens
+  const label = estimated ? '下次上下文估算' : '上次调用用量'
   const windowTokens = chatStore.contextWindowTokens
   if (typeof used !== 'number' || typeof windowTokens !== 'number' || windowTokens <= 0) {
-    return { visible: false, percent: 0, level: 'normal', usedLabel: '', windowLabel: '' }
+    return { visible: false, percent: 0, level: 'normal', usedLabel: '', windowLabel: '', estimated, label }
   }
   const ratio = Math.min(1, used / windowTokens)
   const percent = Math.round(ratio * 100)
   const level = ratio >= 0.9 ? 'danger' : ratio >= 0.7 ? 'warning' : 'normal'
   return {
     visible: true,
+    estimated,
+    label,
     percent,
     level,
     usedLabel: formatContextTokens(used),

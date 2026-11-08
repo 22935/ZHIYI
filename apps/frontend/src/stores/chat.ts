@@ -1,17 +1,17 @@
 import { localFetch } from '@/platform/api'
 import type { ChatApprovalMode } from '@/config/chatApproval'
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { chatStreamErrorMessage, parseChatStreamFrame, type ChatStreamEvent } from '@/utils/sse'
 import { apiUrl } from '@/platform'
 import type { AsyncWorkflowStartResponse } from '@/services/api/workflow'
 import type { ConversationLaunchContext } from '@/features/mission/request'
-import { conversationInput, projectedInput, type ContextCheckpoint } from '@/features/chat/compaction'
+import { compactionFailureMessage, conversationInput, estimateContextInput, projectedInput, type ContextCheckpoint } from '@/features/chat/compaction'
 import { conversationLaunchCommand, matchesConversationLaunchContext } from '@/features/mission/command'
 import { createMissionLaunchAttempt, MissionLaunchStateError } from '@/features/mission/launchAttempt'
 import type { MissionLaunchResult } from '@/features/mission/launch'
 import { chatApi, type ChatRequest } from '@/services/api/chat'
-import { loadModelSettings, toModelRequestSettings, type ModelSettings } from '@/config/modelSettings'
+import { loadModelSettings, MODEL_SETTINGS_EVENT, toModelRequestSettings, type ModelSettings } from '@/config/modelSettings'
 import { useWorkflowRunsStore } from '@/stores/workflowRuns'
 import { conversationApi } from '@/services/api/conversation'
 import { getConversationWorkspace, setConversationWorkspace, type ConversationWorkspaceMode } from '@/utils/conversationWorkspace'
@@ -81,6 +81,8 @@ export interface Message {
   sources?: any[]
   reasoningPath?: any[]
   modelInfo?: string
+  contextFixedTokens?: number
+  contextTokenMethod?: string
   thinkingState?: 'thinking' | 'complete' | 'error'
   streamError?: string
   streamActivity?: 'receiving' | 'waiting' | 'complete'
@@ -187,13 +189,18 @@ export const useChatStore = defineStore('chat', () => {
     compactionNotice.value = ''
     loading.value = false
   }
-  // Context window usage for the composer indicator: tokens consumed by the
-  // latest exchange (input + output ≈ what the next request will carry) and
-  // the resolved model context window.
+  // Provider usage belongs to the last execution, including its tool loop.
+  // The next input estimate below measures the actual text-history projection.
   const contextUsedTokens = ref<number | null>(null)
   const contextWindowTokens = ref<number | null>(null)
   const contextModel = ref<string | null>(null)
   const contextModels = ref<Record<string, number>>({})
+  const contextEstimateBasis = ref<{
+    owner: string; roleId: string | null; modelKey: string; fixedTokens: number
+  } | null>(null)
+  const invalidateContextEstimate = () => { contextEstimateBasis.value = null }
+  window.addEventListener(MODEL_SETTINGS_EVENT, invalidateContextEstimate)
+  onScopeDispose(() => window.removeEventListener(MODEL_SETTINGS_EVENT, invalidateContextEstimate))
 
   const applyContextUsage = (used: number | null, model?: string | null, windowTokens?: number | null) => {
     if (model) contextModel.value = model
@@ -326,8 +333,34 @@ export const useChatStore = defineStore('chat', () => {
     const checkpoint = contextCheckpoints.get(contextId.value)
     const projected = projectedInput(checkpoint, conversationInput(messages.value), compactionModelKey(settings))
     if (checkpoint && !projected) contextCheckpoints.delete(contextId.value)
+    if (contextEstimateBasis.value?.modelKey !== compactionModelKey(settings)) invalidateContextEstimate()
     return projected
   }
+
+  const setContextEstimate = (fixedTokens: unknown, method: unknown, settings: ModelSettings) => {
+    // Older running services may omit allowance metadata. A manual projection
+    // already calibrated this same conversation/model; do not replace it with
+    // the execution's unrelated Provider usage on the next turn.
+    const basis = contextEstimateBasis.value
+    if (fixedTokens === undefined && method === undefined && basis
+      && basis.owner === contextId.value && basis.roleId === currentRoleId.value
+      && basis.modelKey === compactionModelKey(settings)) return
+    if (!contextId.value || method !== 'utf8-upper-bound'
+      || typeof fixedTokens !== 'number' || !Number.isSafeInteger(fixedTokens) || fixedTokens < 0) {
+      invalidateContextEstimate()
+      return
+    }
+    contextEstimateBasis.value = { owner: contextId.value, roleId: currentRoleId.value,
+      modelKey: compactionModelKey(settings), fixedTokens }
+  }
+
+  const nextContextTokens = computed(() => {
+    const basis = contextEstimateBasis.value
+    if (!basis || basis.owner !== contextId.value || basis.roleId !== currentRoleId.value) return null
+    const source = conversationInput(messages.value)
+    const projected = projectedInput(contextCheckpoints.get(basis.owner), source, basis.modelKey)
+    return estimateContextInput(projected || source, basis.fixedTokens)
+  })
 
   const compactContext = async (settings: ModelSettings = loadModelSettings()) => {
     if (loading.value || isLoadingConversation.value) return
@@ -365,17 +398,23 @@ export const useChatStore = defineStore('chat', () => {
         }
         contextCheckpoints.set(owner, { source, projected: response.messages, modelKey })
         const before = Number(response.metrics.inputTokens), after = Number(response.metrics.outputTokens)
-        applyContextUsage(after, response.model, response.contextWindowTokens)
         compactionNotice.value = `上下文已压缩：估算 ${before.toLocaleString()} → ${after.toLocaleString()} Token。本页后续对话使用摘要，完整记录保留。`
       } else if (response.status === 'failed_passthrough') {
-        compactionNotice.value = '本次摘要未通过压缩校验，继续使用原上下文。可以稍后重试。'
+        compactionNotice.value = compactionFailureMessage(response.metrics.failureCode)
+      } else if (response.metrics.reasonCode === 'INSUFFICIENT_SAVINGS') {
+        compactionNotice.value = '当前历史较短，摘要及必要引用的开销接近原文，无需压缩。原上下文已保留。'
       } else {
-        compactionNotice.value = '暂无可压缩的历史内容，近期对话已保留。'
+        compactionNotice.value = '暂无可安全摘要的已完成历史；当前请求、未完成工具组及附件内容会保留。'
       }
+      if (response.model) contextModel.value = response.model
+      if (response.contextWindowTokens > 0) contextWindowTokens.value = response.contextWindowTokens
+      setContextEstimate(response.contextFixedTokens ?? response.metrics.fixedTokens,
+        response.contextTokenMethod ?? response.metrics.tokenMethod, settings)
       return response
-    } catch (error) {
+    } catch (error: any) {
       if (isCurrent()) {
-        compactionNotice.value = '上下文压缩未完成，原上下文已保留。'
+        compactionNotice.value = error.response?.data?.detail?.message
+          || error.response?.data?.message || '上下文压缩未完成，原上下文已保留。'
         throw error
       }
     } finally {
@@ -428,6 +467,8 @@ export const useChatStore = defineStore('chat', () => {
         sources: response.sources,
         reasoningPath: response.reasoningPath,
         modelInfo: response.modelInfo,
+        contextFixedTokens: response.metadata?.contextFixedTokens,
+        contextTokenMethod: response.metadata?.contextTokenMethod,
         requestedThinkingMode: response.metadata?.requestedThinkingMode,
         effectiveThinkingMode: response.metadata?.effectiveThinkingMode,
         effectiveReasoningEffort: response.metadata?.effectiveReasoningEffort,
@@ -439,6 +480,7 @@ export const useChatStore = defineStore('chat', () => {
         agentMode: 'default'
       }
       messages.value.push(assistantMessage)
+      setContextEstimate(response.metadata?.contextFixedTokens, response.metadata?.contextTokenMethod, settings)
       emitHistoryRefresh()
 
       return response
@@ -664,6 +706,9 @@ export const useChatStore = defineStore('chat', () => {
           message.tokensUsed = data.total_tokens ?? data.totalTokens
           message.latencyMs = data.latencyMs
           message.modelInfo = data.effectiveModel || message.modelInfo
+          message.contextFixedTokens = data.contextFixedTokens
+          message.contextTokenMethod = data.contextTokenMethod
+          setContextEstimate(data.contextFixedTokens, data.contextTokenMethod, runtimeSettings)
           message.requestedThinkingMode = data.requestedThinkingMode || message.requestedThinkingMode
           message.effectiveThinkingMode = data.effectiveThinkingMode || message.effectiveThinkingMode
           message.effectiveReasoningEffort = data.effectiveReasoningEffort || message.effectiveReasoningEffort
@@ -955,6 +1000,8 @@ export const useChatStore = defineStore('chat', () => {
         confidence: msg.metadata?.confidence,
         tokensUsed: msg.metadata?.totalTokens ?? msg.metadata?.tokens_used,
         modelInfo: msg.metadata?.effectiveModel ?? msg.metadata?.model_info,
+        contextFixedTokens: msg.metadata?.contextFixedTokens,
+        contextTokenMethod: msg.metadata?.contextTokenMethod,
         requestedThinkingMode: msg.metadata?.requestedThinkingMode,
         effectiveThinkingMode: msg.metadata?.effectiveThinkingMode,
         effectiveReasoningEffort: msg.metadata?.effectiveReasoningEffort,
@@ -989,8 +1036,14 @@ export const useChatStore = defineStore('chat', () => {
           ? lastWithUsage.inputTokens + (typeof lastWithUsage.outputTokens === 'number' ? lastWithUsage.outputTokens : 0)
           : (lastWithUsage.tokensUsed ?? null)
         applyContextUsage(used, lastWithUsage.modelInfo || null)
+        const settings = loadModelSettings()
+        if (!settings.selectedModel || settings.selectedModel === '系统默认'
+          || settings.selectedModel === lastWithUsage.modelInfo) {
+          setContextEstimate(lastWithUsage.contextFixedTokens, lastWithUsage.contextTokenMethod, settings)
+        } else invalidateContextEstimate()
       } else {
         contextUsedTokens.value = null
+        invalidateContextEstimate()
       }
     } catch (error: any) {
       if (generation !== historyGeneration || contextId.value !== targetContextId) return
@@ -1070,6 +1123,7 @@ export const useChatStore = defineStore('chat', () => {
     historyError,
     migrateDraftBindings,
     contextUsedTokens,
+    nextContextTokens,
     contextWindowTokens,
     contextModel,
     contextModels,

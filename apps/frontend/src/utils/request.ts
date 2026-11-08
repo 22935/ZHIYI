@@ -43,7 +43,9 @@ request.interceptors.response.use(
 
     if (error.response) {
       const status = error.response.status
-      const backendMessage = (error.response.data as any)?.message as string | undefined
+      const payload = error.response.data as any
+      const message = payload?.message ?? payload?.detail?.message
+      const backendMessage = typeof message === 'string' ? message : undefined
 
       switch (status) {
         case 400:
@@ -64,7 +66,7 @@ request.interceptors.response.use(
         case 502:
         case 503:
         case 504:
-          notifyError('服务暂时不可用，请稍后重试')
+          notifyError(backendMessage || '服务暂时不可用，请稍后重试')
           break
         default:
           notifyError(backendMessage || `请求失败: ${status}`)

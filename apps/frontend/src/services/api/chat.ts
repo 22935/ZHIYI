@@ -8,6 +8,8 @@ export interface CompactResponse {
   messages: ContextMessage[]
   model: string
   contextWindowTokens: number
+  contextFixedTokens?: number
+  contextTokenMethod?: string
   metrics: Record<string, string | number | boolean>
 }
 

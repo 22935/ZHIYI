@@ -89,4 +89,12 @@ describe('request error notifications', () => {
     expect(errorMessage).toHaveBeenCalledWith('role access denied')
   })
 
+  it.each([422, 503])('shows structured Python error details for HTTP %s', async status => {
+    await request.request({ url: '/ai/chat/compact', method: 'post',
+      adapter: async config => Promise.reject({ config, response: { status,
+        data: { detail: { code: 'COMPACTION_CONFIG_REQUIRED', message: '请检查模型窗口配置及 Node 运行环境' } } } })
+    }).catch(() => undefined)
+    expect(errorMessage).toHaveBeenCalledWith('请检查模型窗口配置及 Node 运行环境')
+  })
+
 })

@@ -59,6 +59,7 @@ function createChatStoreMock() {
     conversationWorkspaceMode: null as 'agent' | 'chat' | null,
     migrateDraftBindings: vi.fn(),
     contextUsedTokens: null as number | null,
+    nextContextTokens: null as number | null,
     contextWindowTokens: null as number | null,
     contextModel: null as string | null,
     contextModels: {} as Record<string, number>,
@@ -475,7 +476,7 @@ describe('ChatView ACG progress integration', () => {
       expect(metrics).toContain('deepseek-flash')
       expect(metrics).toContain('2 条 · 1 轮')
       expect(metrics).toContain('460')
-      expect(metrics).toContain('上下文')
+      expect(metrics).toContain('上次调用用量')
       expect(wrapper.get('.chat-info-card__sources').text()).toContain('产品白皮书')
 
       // 停靠宽度可调整并持久化：键盘 ±8 步进写回 localStorage 与行内样式
@@ -553,6 +554,17 @@ describe('ChatView ACG progress integration', () => {
     expect(chatStoreMock.sendMessageStream).not.toHaveBeenCalled()
     expect(chatStoreMock.startAgentRun).not.toHaveBeenCalled()
     expect((wrapper.get('.composer-card textarea').element as HTMLTextAreaElement).value).toBe('')
+    wrapper.unmount()
+  })
+
+  it('shows the next input estimate separately from accumulated tool-loop usage', async () => {
+    chatStoreMock.contextUsedTokens = 93146
+    chatStoreMock.nextContextTokens = 11381
+    chatStoreMock.contextWindowTokens = 1_000_000
+    const { wrapper } = await mountPage('?workspace=chat')
+    const metrics = wrapper.get('.chat-info-card__metrics').text()
+    expect(metrics).toContain('下次上下文估算')
+    expect(metrics).toContain('≈ 1% · 11k / 1m')
     wrapper.unmount()
   })
 
