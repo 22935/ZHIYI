@@ -39,21 +39,19 @@ describe('CompanionHost', () => {
     expect(query('[data-testid="companion-root"]')).toBeNull()
   })
 
-  it('expands, answers locally and shows a task intent card without submitting', async () => {
+  it('is voice-first: no text input, but quick commands still create a task intent card', async () => {
     const wrapper = mount(CompanionHost)
     await flushPromises()
 
     query('[data-testid="companion-avatar"]')?.click()
     await flushPromises()
     expect(query('[data-testid="companion-dialogue"]')).not.toBeNull()
+    // 用户要求不用打字：面板里不再有文字输入框，改用麦克风与指令按钮。
+    expect(query('[data-testid="companion-input"]')).toBeNull()
+    expect(query('[data-testid="companion-mic"]')).not.toBeNull()
 
-    const input = query('[data-testid="companion-input"]') as HTMLInputElement
-    input.value = '帮我新建一个合同审查任务'
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-    await flushPromises()
-
-    const form = query('.companion-input-row') as HTMLFormElement
-    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    const quick = query('[data-testid="companion-quick-task"]') as HTMLButtonElement
+    quick.click()
     await flushPromises()
 
     const messages = query('[data-testid="companion-messages"]')?.textContent || ''

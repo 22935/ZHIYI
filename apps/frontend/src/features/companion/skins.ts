@@ -1,8 +1,10 @@
+import { buildDiySkin, DEFAULT_CUSTOMIZATION } from './customization'
 import type { SkinManifest } from './types'
 
 /**
  * 内置皮肤清单。资源与逻辑分离：
  * 业务层只发 8 个语义状态，具体形象状态由 skin.stateMap 声明。
+ * DIY 皮肤是占位清单，运行时由 SkinRegistry.upsert() 换成用户配置。
  */
 export const BUILTIN_SKINS: SkinManifest[] = [
   {
@@ -38,7 +40,8 @@ export const BUILTIN_SKINS: SkinManifest[] = [
       sleeping: 'sleeping',
       error: 'sad'
     }
-  }
+  },
+  buildDiySkin(DEFAULT_CUSTOMIZATION)
 ]
 
 export class SkinRegistry {
@@ -50,10 +53,20 @@ export class SkinRegistry {
 
   register(skin: SkinManifest): void {
     if (this.skins.has(skin.id)) throw new Error(`Duplicate companion skin: ${skin.id}`)
+    this.validate(skin)
+    this.skins.set(skin.id, skin)
+  }
+
+  /** DIY 皮肤每次编辑都会重建 manifest，因此允许覆盖；其余皮肤仍禁止重名。 */
+  upsert(skin: SkinManifest): void {
+    this.validate(skin)
+    this.skins.set(skin.id, skin)
+  }
+
+  private validate(skin: SkinManifest): void {
     if (!skin.stateMap || Object.keys(skin.stateMap).length !== 8) {
       throw new Error(`Incomplete companion stateMap: ${skin.id}`)
     }
-    this.skins.set(skin.id, skin)
   }
 
   resolve(skinId: string | null): SkinManifest {

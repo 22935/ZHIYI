@@ -23,20 +23,48 @@ export type SceneId =
   | 'system_control'
   | 'unknown'
 
+export type DiyShape = 'circle' | 'squircle' | 'drop' | 'star' | 'blob'
+
+/** 用户可自定义的形象配置。全部只存本地，不上送后端。 */
+export interface CompanionCustomization {
+  version: 1
+  name: string
+  shape: DiyShape
+  primary: string
+  accent: string
+  background: string
+  /** 用户上传并压到 256px 的 dataURL；null 表示用矢量身体。 */
+  image: string | null
+  voice: {
+    rate: number
+    pitch: number
+    volume: number
+    muted: boolean
+  }
+  /** 自定义闲聊台词，逐条轮播；为空时回落到内置话术池。 */
+  lines: string[]
+  motion: boolean
+}
+
 export interface SkinManifest {
   id: string
   version: string
   label: string
-  rendererType: 'inline-svg' | 'grok-svg'
+  rendererType: 'inline-svg' | 'grok-svg' | 'diy-svg'
   /** 业务只发 CompanionState，由皮肤自己声明如何映射到具体形象状态。 */
   stateMap: Record<CompanionState, string>
   fallbackSkinId: string | null
+  /** 仅 diy-svg 携带：渲染器据此决定形状、配色、图片与动效。 */
+  custom?: CompanionCustomization
 }
 
 export interface AvatarRenderer {
   /** 动效皮肤需要异步加载引擎，因此允许返回 Promise。 */
   mount(el: HTMLElement, skin: SkinManifest): void | Promise<void>
   setState(state: CompanionState): void
+  /** 朗读 / 收音时的口型与光晕动效；不支持的渲染器可忽略。 */
+  setSpeaking?(speaking: boolean): void
+  setListening?(listening: boolean): void
   destroy(): void
 }
 

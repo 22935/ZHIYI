@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>知宝 · 本地预览入口</title>
+  <style>
+    body { margin: 0; background: #0f1115; color: #d8dee9; font: 14px/1.7 system-ui, sans-serif;
+           display: grid; place-items: center; min-height: 100vh; }
+    main { max-width: 520px; padding: 28px; }
+    code { color: #8ab4f8; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>正在打开知宝…</h1>
+    <p>这是<strong>本地开发预览入口</strong>：只在浏览器写入一个占位会话令牌，
+       让前端路由进入认证态，从而挂载右下角的虚拟伙伴。</p>
+    <p>进入后点右下角小脸展开面板：<strong>点麦克风说话</strong>（首次会请求麦克风权限），
+       角色会用语音回答；点 <code>DIY</code> 可自定义名字、轮廓、配色、头像图与专属台词。
+       养成互动（摸头 / 喂点心 / 玩一会儿）保持不变。</p>
+    <p>它不调用后端、不参与生产构建（Vite 只打包 <code>index.html</code>），
+       正式使用请走正常登录流程。若没有自动跳转，请手动打开 <code>/chat</code>。</p>
+  </main>
+  <script>
+    // 仅用于无后端时的本地预览：真实鉴权仍由 Java 网关负责，这里不会授予任何权限。
+    try {
+      if (!localStorage.getItem('token')) localStorage.setItem('token', 'companion-preview-token');
+      if (!localStorage.getItem('userId')) localStorage.setItem('userId', 'companion-preview-user');
+    } catch (e) { /* storage 不可用时交给路由守卫处理 */ }
+    location.replace('/chat');
+  </script>
+</body>
+</html>

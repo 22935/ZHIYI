@@ -44,7 +44,13 @@ export const IPC = {
   openExternal: 'kinlin:open-external',
   appInfo: 'kinlin:app/info',
   /** 同步读取后端 origin：product 模式下端口可能被启动器改过，不能只信构建期常量。 */
-  appApiOrigin: 'kinlin:app/api-origin'
+  appApiOrigin: 'kinlin:app/api-origin',
+  /** 虚拟伙伴桌面能力：Renderer → Main 的状态快照，用于托盘 tooltip 与免打扰勾选。 */
+  companionState: 'kinlin:companion/state',
+  /** Renderer → Main：仅在窗口未聚焦时弹原生通知，避免用户正看着屏幕还被打扰。 */
+  companionNotify: 'kinlin:companion/notify',
+  /** Main → Renderer 事件：托盘菜单/图标动作，载荷只允许 TRAY_ACTION 白名单。 */
+  companionTrayAction: 'kinlin:companion/tray-action'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

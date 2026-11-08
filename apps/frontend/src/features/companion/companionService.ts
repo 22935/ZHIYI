@@ -6,9 +6,9 @@ import type {
 } from './types'
 
 /** 默认端口装配：本地话术 + 既有只读进度投影，零新增后端接口。 */
-export function createDefaultPorts(): CompanionPorts {
+export function createDefaultPorts(customSmallTalk: string[] = []): CompanionPorts {
   return {
-    chat: new LocalChatPort(),
+    chat: new LocalChatPort(customSmallTalk),
     progress: new WorkflowProgressPort()
   }
 }

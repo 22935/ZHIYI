@@ -29,3 +29,5 @@ for (const entry of entries) {
 // electron-builder 的 files 白名单已含 dist/**，打包后同样可用。
 mkdirSync('dist/icons', { recursive: true })
 copyFileSync('icons/icon.ico', 'dist/icons/icon.ico')
+// 虚拟伙伴托盘图标：与窗口图标同目录，运行时按 dist/icons 相对路径解析。
+copyFileSync('icons/companion-tray.png', 'dist/icons/companion-tray.png')
