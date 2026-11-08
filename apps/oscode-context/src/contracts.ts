@@ -43,7 +43,14 @@ export interface Projection {
   metrics: Record<string, number | string | boolean>
   snapshot?: Record<string, unknown>
 }
-export class CompactionError extends Error {}
+export class CompactionError extends Error {
+  readonly code: string
+  constructor(message: string, options?: ErrorOptions & { code?: string }) {
+    super(message, options)
+    this.name = 'CompactionError'
+    this.code = options?.code || 'COMPACTION_VALIDATION_FAILED'
+  }
+}
 
 /** DSH model-window/output-reserve budgeting, with a separate safety margin. */
 export function inputLimit(budget: Budget): number {

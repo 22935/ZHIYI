@@ -42,6 +42,22 @@ export function selectRange(messages: Message[], meter: TokenMeter, retainTurns:
   while (keep > 0 && accumulated < retainTokens) accumulated += meter.message(messages[--keep])
   // Round toward the older head to preserve a complete turn and tool cycle.
   while (keep > 0 && (!cuts[keep] || messages[keep].role !== 'user')) keep--
+  return unprotectedRange(messages, keep, cuts)
+}
+
+/** Explicit compaction may replace completed turns, including the latest one.
+ * A trailing user request/tool cycle still belongs to the active turn.
+ */
+export function selectCompletedRange(messages: Message[]): [number, number] | undefined {
+  const cuts = balancedCuts(messages), last = messages.at(-1)
+  const completed = last?.role === 'assistant' && (last.type || 'message') === 'message'
+    && toolCalls(last).length === 0 && cuts[messages.length]
+  const lastUser = messages.findLastIndex(item => item.role === 'user')
+  const keep = completed ? messages.length : Math.max(0, lastUser)
+  return unprotectedRange(messages, keep, cuts)
+}
+
+function unprotectedRange(messages: Message[], keep: number, cuts: boolean[]): [number, number] | undefined {
   let start = 0
   while (start < keep && protectedItem(messages[start])) start++
   let end = keep

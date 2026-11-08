@@ -26,12 +26,88 @@ test('explicit compact summarizes below automatic threshold and preserves protec
   assert.deepEqual(input.messages, original.messages)
 })
 
-test('explicit compact does not consume recent-only conversations', async () => {
+test('explicit compact skips short completed history without a Provider call', async () => {
   const input = request([{ role: 'user', content: 'recent request' }, { role: 'assistant', content: 'recent answer' }])
   const result = await make().project({ ...input, force: true })
-  assert.equal(result.status, 'no_safe_range')
+  assert.equal(result.status, 'unchanged')
+  assert.equal(result.metrics.reasonCode, 'INSUFFICIENT_SAVINGS')
   assert.equal(result.metrics.summaryCalls, 0)
   assert.deepEqual(result.messages, input.messages)
+})
+
+for (const rounds of [1, 2]) {
+  test(`explicit compact summarizes ${rounds} completed turns with a source-relative budget`, async () => {
+    const messages = history(rounds, 1500).slice(0, -1), input = request(messages)
+    input.instructions = 'fixed system '.repeat(1000)
+    input.budget.contextWindow = 1_000_000
+    const original = structuredClone(messages)
+    let cap = 0
+    const result = await make(async (text, maxTokens, instruction) => {
+      cap = maxTokens
+      return invoke(text, maxTokens, instruction)
+    }).project({ ...input, force: true })
+    assert.equal(result.status, 'summarized')
+    assert.equal(result.messages.length, 1)
+    assert.ok(cap < new TokenMeter().messages(messages) * .65)
+    assert.ok(Number(result.metrics.outputTokens) < Number(result.metrics.inputTokens))
+    assert.deepEqual(messages, original)
+  })
+}
+
+test('manual compaction preserves the current request and its unfinished tool group', async () => {
+  const tail = [{ role: 'user', content: 'current' },
+    { type: 'function_call', call_id: 'pending', name: 'read_file', arguments: '{}' }]
+  const input = request([...history(2, 1500).slice(0, -1), ...tail])
+  input.budget.contextWindow = 1_000_000
+  const result = await make().project({ ...input, force: true })
+  assert.equal(result.status, 'summarized')
+  assert.deepEqual(result.messages.slice(-2), tail)
+  const activeOnly = await make().project({ ...request(tail), force: true })
+  assert.equal(activeOnly.status, 'no_safe_range')
+  assert.equal(activeOnly.metrics.reasonCode, 'NO_COMPLETED_HISTORY')
+  assert.deepEqual(activeOnly.messages, tail)
+})
+
+test('manual compaction preserves system instructions and multimodal boundaries', async () => {
+  const fixed = { role: 'system', content: 'immutable policy' }
+  const attachment = { role: 'user', content: [{ type: 'image_url', image_url: { url: 'attachment:ref' } }] }
+  const input = request([fixed, ...history(2, 1500).slice(0, -1), attachment,
+    { role: 'assistant', content: 'image observed' }])
+  input.budget.contextWindow = 1_000_000
+  const result = await make().project({ ...input, force: true })
+  assert.equal(result.status, 'summarized')
+  assert.deepEqual(result.messages[0], fixed)
+  assert.deepEqual(result.messages.slice(-2), input.messages.slice(-2))
+})
+
+test('oversized multilingual summaries get one measured rewrite and account for both calls', async () => {
+  const caps: number[] = [], instructions: string[] = []
+  const engine = make(async (_text, cap, instruction) => {
+    caps.push(cap); instructions.push(instruction)
+    return { text: JSON.stringify(summary(caps.length === 1 ? '保留原始接口'.repeat(600) : '保持 REST')), totalTokens: 50 }
+  })
+  const result = await engine.project({ ...request(history(2, 1500).slice(0, -1)), force: true })
+  assert.equal(result.status, 'summarized')
+  assert.equal(caps.length, 2)
+  assert.ok(caps[1] < caps[0])
+  assert.match(instructions[0], /UTF-8 bytes/)
+  assert.match(instructions[1], /previous response measured/)
+  assert.equal(result.metrics.summaryCostTokens, 100)
+})
+
+test('an oversized rewrite still fails atomically after two calls', async () => {
+  const input = { ...request(history(2, 1500).slice(0, -1)), force: true }
+  const original = structuredClone(input.messages)
+  let calls = 0
+  const result = await make(async () => {
+    calls++
+    return { text: JSON.stringify(summary('中文'.repeat(2000))), totalTokens: 50 }
+  }).project(input)
+  assert.equal(calls, 2)
+  assert.equal(result.status, 'failed_passthrough')
+  assert.equal(result.metrics.failureCode, 'SUMMARY_TOO_LARGE')
+  assert.equal(result.metrics.summaryCostTokens, 100)
+  assert.deepEqual(result.messages, original)
 })
 
 test('short conversation preserves exact input, system instruction budget and no LLM call', async () => {

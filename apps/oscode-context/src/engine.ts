@@ -4,9 +4,9 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { performance } from 'node:perf_hooks'
-import { CompactionError, inputLimit, resolveConfig, VERSION } from './contracts.ts'
+import { CompactionError, inputLimit, resolveConfig, SUMMARY_FIELDS, VERSION } from './contracts.ts'
 import type { Config, Projection, ProjectionRequest, Summarize, Summary } from './contracts.ts'
-import { balancedCuts, selectRange } from './history-segmenter.ts'
+import { balancedCuts, selectRange, selectCompletedRange } from './history-segmenter.ts'
 import { pruneResults } from './tool-result-pruner.ts'
 import { TokenMeter, wire } from './token-meter.ts'
 import { LLMSummarizer, validateSummary } from './summarizer.ts'
@@ -64,18 +64,29 @@ export class ContextCompactionEngine {
       const pruned = pruneResults(original, this.config, safeEnd)
       metrics.prunedChars = pruned.removedChars
       if (!request.force && fixed + this.meter.messages(pruned.messages) < threshold) return finish(pruned.messages, 'pruned')
-      // Manual compaction may run far below the window threshold: retaining a
-      // fraction of the full window would otherwise protect the entire history.
-      const retentionBase = request.force ? Math.max(0, before - fixed) : limit - fixed
-      const selected = selectRange(pruned.messages, this.meter, this.config.retainTurns,
-        Math.floor(retentionBase * this.config.retainRatio))
-      if (!selected) return finish(pruned.messages, pruned.removedChars > 0 ? 'pruned' : 'no_safe_range')
+      const selected = request.force ? selectCompletedRange(pruned.messages)
+        : selectRange(pruned.messages, this.meter, this.config.retainTurns,
+          Math.floor((limit - fixed) * this.config.retainRatio))
+      if (!selected) {
+        metrics.reasonCode = request.force ? 'NO_COMPLETED_HISTORY' : 'PROTECTED_HISTORY'
+        return finish(pruned.messages, pruned.removedChars > 0 ? 'pruned' : 'no_safe_range')
+      }
       const [start, end] = selected
       const old = pruned.messages.slice(start, end), prefix = pruned.messages.slice(0, start), tail = pruned.messages.slice(end)
       const refs = sourceReferences(old)
-      const target = Math.floor(limit * this.config.targetRatio)
+      const protectedTokens = fixed + this.meter.messages([...prefix, ...tail])
+      // The manual target is relative to replaceable history, not the model's
+      // potentially million-token window. Fixed instructions cannot shrink.
+      const target = Math.min(Math.floor(limit * this.config.targetRatio), request.force
+        ? protectedTokens + Math.floor(this.meter.messages(old) * this.config.targetRatio)
+        : limit)
       const overhead = this.meter.message({ role: 'user', content: FRAME + wire({ summary: {}, source_references: refs }) }) + 64
-      const maxSummary = Math.min(this.config.summaryMaxTokens, target - fixed - this.meter.messages([...prefix, ...tail]) - overhead)
+      const maxSummary = Math.min(this.config.summaryMaxTokens, target - protectedTokens - overhead)
+      const minimumSummary = this.meter.value(Object.fromEntries(SUMMARY_FIELDS.map(key => [key, []]))) + 64
+      if (request.force && maxSummary < minimumSummary) {
+        metrics.reasonCode = 'INSUFFICIENT_SAVINGS'
+        return finish(pruned.messages, pruned.removedChars > 0 ? 'pruned' : 'unchanged')
+      }
       if (maxSummary < 64) throw new CompactionError('Protected tail leaves no useful summary budget')
       const key = checksum([request.contextId, request.provider, request.model, VERSION, old, maxSummary, request.instructions, request.tools])
       let summary = this.cache.get(key)
@@ -101,6 +112,8 @@ export class ContextCompactionEngine {
       return result
     } catch (error) {
       metrics.failed = true; metrics.failureType = error instanceof Error ? error.name : 'unknown'
+      metrics.failureCode = error instanceof CompactionError ? error.code
+        : error instanceof SyntaxError ? 'SUMMARY_INVALID_JSON' : 'SUMMARY_FAILED'
       metrics.summaryCalls = summarizer.calls; metrics.summaryCostTokens = summarizer.usageTokens
       metrics.summaryLatencyMs = performance.now() - started
       if (before <= limit) return { messages: original, status: 'failed_passthrough', metrics }

@@ -17,11 +17,11 @@ export const SUMMARY_INSTRUCTION =
 
 export function validateSummary(value: unknown, meter: TokenMeter, maxTokens: number): asserts value is Summary {
   if (!value || typeof value !== 'object' || Array.isArray(value)
-    || Object.keys(value).sort().join() !== [...SUMMARY_FIELDS].sort().join()) throw new CompactionError('Summary schema mismatch')
+    || Object.keys(value).sort().join() !== [...SUMMARY_FIELDS].sort().join()) throw new CompactionError('Summary schema mismatch', { code: 'SUMMARY_INVALID_SCHEMA' })
   const fields = Object.values(value)
-  if (fields.some(v => !Array.isArray(v) || v.some(s => typeof s !== 'string'))) throw new CompactionError('Summary fields must be string arrays')
-  if (!fields.some(v => v.some((s: string) => s.trim()))) throw new CompactionError('Empty summary')
-  if (meter.value(value) > maxTokens) throw new CompactionError('Summary exceeds output budget')
+  if (fields.some(v => !Array.isArray(v) || v.some(s => typeof s !== 'string'))) throw new CompactionError('Summary fields must be string arrays', { code: 'SUMMARY_INVALID_SCHEMA' })
+  if (!fields.some(v => v.some((s: string) => s.trim()))) throw new CompactionError('Empty summary', { code: 'SUMMARY_EMPTY' })
+  if (meter.value(value) > maxTokens) throw new CompactionError('Summary exceeds output budget', { code: 'SUMMARY_TOO_LARGE' })
 }
 export class LLMSummarizer {
   calls = 0
@@ -36,7 +36,11 @@ export class LLMSummarizer {
   async summarize(messages: Message[], maxTokens: number): Promise<Summary> {
     const initialCalls = this.calls
     let text = wire({ historical_messages: messages })
-    const instruction = SUMMARY_INSTRUCTION + ` Keep the JSON within ${maxTokens} tokens under ${this.meter.method}; be concise.`
+    const unit = this.meter.method.includes('utf8-upper-bound')
+      ? 'UTF-8 bytes, including JSON keys and punctuation (a Chinese character usually uses 3 bytes)'
+      : `tokens under ${this.meter.method}`
+    const instruction = SUMMARY_INSTRUCTION + ` Keep the COMPLETE JSON within ${maxTokens} ${unit}. ` +
+      'Use short phrases, omit repetition, and prioritize facts needed to continue the task.'
     const available = this.budget.contextWindow - this.budget.safetyMargin - maxTokens - this.meter.fixed(instruction, []) - 256
     if (available < 128) throw new CompactionError('No summarizer input budget')
     for (let level = 0; level < 8; level++) {
@@ -57,13 +61,28 @@ export class LLMSummarizer {
       }
       const partials: Summary[] = []
       for (const chunk of chunks) {
-        if (this.calls - initialCalls >= this.maxCalls) throw new CompactionError('Summary call budget exceeded')
-        this.calls++
-        const result = await this.invoke(chunk, maxTokens, instruction)
-        const summary: unknown = JSON.parse(result.text)
-        validateSummary(summary, this.meter, maxTokens)
-        this.usageTokens += result.totalTokens || 0
-        partials.push(summary)
+        let outputCap = maxTokens, feedback = ''
+        // A Provider's output cap uses its own tokens, whereas the admission
+        // meter may use UTF-8 bytes. Re-measure and allow one bounded rewrite;
+        // never truncate JSON or silently discard summary fields.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          if (this.calls - initialCalls >= this.maxCalls) throw new CompactionError('Summary call budget exceeded')
+          this.calls++
+          const result = await this.invoke(chunk, outputCap, instruction + feedback)
+          this.usageTokens += result.totalTokens || 0
+          const summary: unknown = JSON.parse(result.text)
+          try {
+            validateSummary(summary, this.meter, maxTokens)
+            partials.push(summary)
+            break
+          } catch (error) {
+            if (attempt !== 0 || !(error instanceof CompactionError) || error.code !== 'SUMMARY_TOO_LARGE') throw error
+            const measured = this.meter.value(summary)
+            outputCap = Math.max(1, Math.floor(outputCap * maxTokens / measured * .8))
+            feedback = ` The previous response measured ${measured}, exceeding the limit ${maxTokens}. ` +
+              'Rewrite much more concisely using fewer and shorter strings. Keep all required JSON keys.'
+          }
+        }
       }
       if (partials.length === 1) return partials[0]
       const next = wire({ partial_checkpoints: partials })

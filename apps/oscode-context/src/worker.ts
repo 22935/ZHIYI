@@ -5,6 +5,7 @@ import { createInterface } from 'node:readline'
 import { ContextCompactionEngine } from './engine.ts'
 import { modelMeter, wire } from './token-meter.ts'
 import type { ProjectionRequest, Config } from './contracts.ts'
+import { CompactionError } from './contracts.ts'
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity })
 const send = (value: unknown) => process.stdout.write(wire(value) + '\n')
@@ -22,7 +23,7 @@ lines.on('line', line => {
     const waiting = pending.get(command.id)
     if (!waiting) { send({ type: 'error', code: 'UNEXPECTED_SUMMARY' }); return }
     pending.delete(command.id)
-    if (command.error) waiting.reject(new Error('Summary Provider failed'))
+    if (command.error) waiting.reject(new CompactionError('Summary Provider failed', { code: 'SUMMARY_PROVIDER_FAILED' }))
     else waiting.resolve(command.result)
     return
   }
