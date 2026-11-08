@@ -180,6 +180,13 @@
             </div>
             <el-switch v-model="settings.showStatusBar" aria-label="显示底部状态栏" />
           </div>
+          <div class="setting-row">
+            <div>
+              <strong>知宝悬浮助手</strong>
+              <p>在界面右下角显示知宝悬浮球与快捷面板，可查进度、聊两句或记任务。开关即时生效，无需保存。</p>
+            </div>
+            <el-switch v-model="settings.companionEnabled" aria-label="知宝悬浮助手" @change="handleCompanionToggle" />
+          </div>
         </div>
       </section>
 
@@ -408,6 +415,7 @@ import { ArrowLeft, Brush, ChatDotRound, Check, Cpu, InfoFilled, Key, Lock, Micr
 import { useTheme } from '@/composables/useTheme'
 import { UI_ZOOM_BASE, UI_ZOOM_MAX_LEVEL, UI_ZOOM_MIN_LEVEL, UI_ZOOM_STORAGE_KEY, setUiZoomLevel, uiZoomPercentage, uiZoomState } from '@/composables/useUiZoom'
 import { colorSchemes, type ColorSchemeId } from '@/themes/presets'
+import { APP_SETTINGS_SAVED_EVENT, applyCompanionEnabled } from '@/features/companion/enabled'
 import {
   applyProviderPreset,
   getDefaultModelSettings,
@@ -434,6 +442,7 @@ interface AppSettings {
   workspaceFolder: string
   compactSidebar: boolean
   showStatusBar: boolean
+  companionEnabled: boolean
   storageLocation: 'local' | 'cloud'
   autoDelete: 'never' | '7' | '30'
   autoSend: boolean
@@ -516,6 +525,7 @@ const defaultSettings = (): AppSettings => ({
   workspaceFolder: '',
   compactSidebar: false,
   showStatusBar: true,
+  companionEnabled: true,
   storageLocation: 'local',
   autoDelete: 'never',
   autoSend: false,
@@ -580,6 +590,12 @@ function handleLanguageChange(newLang: 'zh-CN' | 'en'): void {
   inlineHint.value = `语言已切换为 ${newLang === 'zh-CN' ? '简体中文' : 'English'}，记得保存设置。`
 }
 
+// 知宝开关即时生效：翻转即写盘并广播（v-model 已先更新草稿，change 时读草稿即新值），
+// 不等「保存设置」；其余设置项仍走统一的保存口径。
+function handleCompanionToggle(): void {
+  applyCompanionEnabled(settings.value.companionEnabled)
+}
+
 function goBack(): void {
   if (window.history.length > 1) {
     router.back()
@@ -636,6 +652,7 @@ function saveSettings(): void {
     }
   }
   localStorage.setItem('appSettings', JSON.stringify(settings.value))
+  window.dispatchEvent(new CustomEvent(APP_SETTINGS_SAVED_EVENT))
   saveModelSettings(modelSettings.value)
   applyTheme()
   lastSaved.value = new Date()
@@ -647,6 +664,7 @@ function resetSettings(): void {
   modelSettings.value = getDefaultModelSettings()
   locale.value = 'zh-CN'
   localStorage.removeItem('appSettings')
+  window.dispatchEvent(new CustomEvent(APP_SETTINGS_SAVED_EVENT))
   localStorage.removeItem(UI_ZOOM_STORAGE_KEY)
   setUiZoomLevel(0)
   saveModelSettings(modelSettings.value)

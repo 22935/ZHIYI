@@ -9,7 +9,7 @@
 
       <AppShell />
       <ZoomIndicator />
-      <CompanionHost />
+      <CompanionHost v-if="companionEnabled" />
     </div>
   </ErrorBoundary>
 </template>
@@ -19,6 +19,7 @@ import { defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import ZoomIndicator from '@/components/desktop/ZoomIndicator.vue'
 import { initUiZoom } from '@ui-zoom'
+import { useCompanionEnabled } from '@/features/companion/enabled'
 
 const AppShell = defineAsyncComponent(
   () => import('@/components/app/AppShell.vue')
@@ -27,6 +28,8 @@ const AppShell = defineAsyncComponent(
 const CompanionHost = defineAsyncComponent(
   () => import('@/components/companion/CompanionHost.vue')
 )
+// 显隐开关由设置页（外观→界面）控制，缺省开启。
+const companionEnabled = useCompanionEnabled()
 
 const globalError = ref('')
 
