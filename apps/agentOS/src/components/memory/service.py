@@ -203,7 +203,10 @@ class MemoryService:
             if isinstance(decision, str) and decision:
                 decisions.append(decision)
                 if decision in {"review", "deny"}:
-                    risks.append(f"{record.tags[-1]}:{decision}")
+                    # 来源记录不一定带标签（通用 remember 路径允许空 tags），
+                    # 缺失时退化到记忆类别，禁止用 tags[-1] 直接下标。
+                    label = record.tags[-1] if record.tags else record.memory_type.value
+                    risks.append(f"{label}:{decision}")
         capsule = PhaseCapsule(
             capsuleId=f"capsule:{run_id}:{phase_id}",
             runId=run_id,
@@ -273,11 +276,8 @@ class MemoryService:
             ),
             token_budget=token_budget,
         )
-        live_records = records
         self.last_retrieval_event = event
-        if token_budget is None:
-            return live_records
-        return live_records
+        return records
 
     def assert_step_ref(self, *, run_id: str, step_id: str, memory_ref: str) -> None:
         """确认 ``memory_ref`` 指向当前运行和当前来源步骤的真实执行记忆。

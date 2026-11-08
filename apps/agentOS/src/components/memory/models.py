@@ -52,6 +52,33 @@ class WorkingMemory:
             observations=observations,
         )
 
+    def record(self, step_id: str, output: Mapping[str, Any]) -> None:
+        """以 ``step_id`` 写入一份浅复制的步骤输出观察。
+
+        同标识会覆盖先前观察，调用者随后增删顶层键不会影响已存值；嵌套可变值
+        仍按引用共享。写入是唯一副作用，复杂度 O(k)，k 为输出顶层字段数。
+        """
+        self.observations[str(step_id)] = dict(output)
+
+    @classmethod
+    def from_context_pack(cls, run: object, pack: object) -> "WorkingMemory":
+        """从通信器已过滤的 ``source_data`` 构建一份工作记忆。
+
+        仅采纳映射类型的来源数据，禁止从上游全量输出旁路读取；返回新对象且不
+        修改 ``run`` 或 ``pack``。来源数为 n、字段数为 m 时复杂度 O(n + m)。
+        """
+        source_data = _read(pack, "source_data", None) or _read(pack, "sourceData", {}) or {}
+        observations = {
+            str(source_id): dict(data)
+            for source_id, data in source_data.items()
+            if isinstance(data, Mapping)
+        }
+        return cls(
+            run_id=str(_read(run, "run_id", None) or _read(run, "runId", _read(pack, "run_id", ""))),
+            task_input=dict(_read(run, "input", {}) or _read(run, "task_input", {}) or {}),
+            observations=observations,
+        )
+
 
 class HybridMemoryHit(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid", frozen=True)
@@ -106,33 +133,6 @@ class PhaseCapsule(BaseModel):
     decisions: list[str] = Field(default_factory=list)
     token_count: int = Field(alias="tokenCount", ge=0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="createdAt")
-
-    def record(self, step_id: str, output: Mapping[str, Any]) -> None:
-        """以 ``step_id`` 写入一份浅复制的步骤输出观察。
-
-        同标识会覆盖先前观察，调用者随后增删顶层键不会影响已存值；嵌套可变值
-        仍按引用共享。写入是唯一副作用，复杂度 O(k)，k 为输出顶层字段数。
-        """
-        self.observations[str(step_id)] = dict(output)
-
-    @classmethod
-    def from_context_pack(cls, run: object, pack: object) -> "WorkingMemory":
-        """从通信器已过滤的 ``source_data`` 构建一份工作记忆。
-
-        仅采纳映射类型的来源数据，禁止从上游全量输出旁路读取；返回新对象且不
-        修改 ``run`` 或 ``pack``。来源数为 n、字段数为 m 时复杂度 O(n + m)。
-        """
-        source_data = _read(pack, "source_data", None) or _read(pack, "sourceData", {}) or {}
-        observations = {
-            str(source_id): dict(data)
-            for source_id, data in source_data.items()
-            if isinstance(data, Mapping)
-        }
-        return cls(
-            run_id=str(_read(run, "run_id", None) or _read(run, "runId", _read(pack, "run_id", ""))),
-            task_input=dict(_read(run, "input", {}) or _read(run, "task_input", {}) or {}),
-            observations=observations,
-        )
 
 
 __all__ = ["HybridMemoryHit", "MemoryPolicy", "MemoryQuery", "MemoryRecord", "MemoryRetrievalEvent", "MemoryType", "MemoryWriteBatch", "PhaseCapsule", "StructuredMemoryEvent", "WorkingMemory"]

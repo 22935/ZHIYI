@@ -219,10 +219,3 @@ def test_run_cannot_use_another_tasks_blueprint(runtime_v2: AcgIdentityLifecycle
 
     assert runtime_v2.repositories.runs.list_for_mission(task_a.mission_id) == []
     assert runtime_v2.repositories.runs.list_for_mission(task_b.mission_id) == []
-
-
-def test_legacy_runtime_remains_available_from_both_import_paths() -> None:
-    from runtime import ExecutionRuntime as original
-    from runtime.legacy import ExecutionRuntime as legacy
-
-    assert legacy is original

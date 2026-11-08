@@ -11,7 +11,11 @@ import pytest
 from components.resource.node_store import InMemoryNodeStore, SQLiteNodeStore
 from components.resource.service import ResourcePlane
 from components.resource.errors import ResourceObservationTimeInvalidError
-from components.resource.store import ResourceCredentialRecord, SQLiteResourceStore
+from components.resource.store import (
+    ResourceCredentialRecord,
+    SQLiteResourceStore,
+    StaleResourceObservation,
+)
 from contracts.resource import (
     NodeHealthStatus,
     NodeProfile,
@@ -237,3 +241,23 @@ def test_bootstrap_does_not_adopt_conflicting_local_node(conflict: str) -> None:
     with pytest.raises(ValueError, match="non-bootstrap"):
         ResourcePlane(node_store=store).ensure_node(node_id, display_name="本机设备节点")
     assert store.get_profile(node_id) == profile
+
+
+def test_store_rejects_non_increasing_observation_sequence(tmp_path: Path) -> None:
+    """存储边界自身必须拒绝等序/退序观察，而不只依赖 Service 的前置检查。"""
+    path = tmp_path / "nodes.sqlite3"
+    store = SQLiteNodeStore(path)
+    node_id = "node:device:local"
+    store.register(
+        NodeProfile(nodeId=node_id, placement=Placement.DEVICE,
+                    trust=TrustLevel.HOST_TRUSTED, displayName="本机设备节点"),
+        _snapshot(node_id, seq=3),
+    )
+
+    for seq in (3, 2):
+        with pytest.raises(StaleResourceObservation):
+            store.update_snapshot(_snapshot(node_id, seq=seq))
+
+    assert store.get_snapshot(node_id).snapshot.observation_sequence == 3
+    assert store.update_snapshot(_snapshot(node_id, seq=4)).version == 2
+    store.close()

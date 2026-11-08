@@ -366,7 +366,7 @@ class SQLiteNodeStore:
                     f"snapshot version conflict for {snapshot.node_id}: "
                     f"expected {expected_version}, current {current_version}"
                 )
-            if snapshot.observation_sequence < current_snapshot.observation_sequence:
+            if snapshot.observation_sequence <= current_snapshot.observation_sequence:
                 raise StaleResourceObservation(
                     f"stale observation for {snapshot.node_id}: "
                     f"received {snapshot.observation_sequence}, "
