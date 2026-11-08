@@ -1,5 +1,5 @@
 ﻿param(
-    [Parameter(Mandatory=$true)][ValidateSet('init','up','status','down','recover','backup','restore')][string]$Action,
+    [Parameter(Mandatory=$true)][ValidateSet('init','up','status','down','recover','watch-backend','backup','restore')][string]$Action,
     [string]$HomeDir = "$env:LOCALAPPDATA\ZhiyiNative\default",
     [string]$Python = "$env:LOCALAPPDATA\ZhiyiNative\python\Scripts\python.exe",
     [string]$PostgresBin = "$env:LOCALAPPDATA\ZhiyiNative\dependencies\postgresql-15.19\pgsql\bin",

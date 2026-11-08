@@ -3,6 +3,7 @@ param(
   [string]$HomeDir = "$env:LOCALAPPDATA\ZhiyiNative\default",
   [switch]$CheckOnly,
   [switch]$NoPause,
+  [switch]$WatchBackend,
   # "open" only adds the terminal service and never restarts healthy services, so a
   # crashed frontend dev server or a closed desktop window leaves the stack partially
   # running and refuses to start. Use -Recover to stop the recorded stack and start it
@@ -34,7 +35,11 @@ try {
   Write-Host 'Starting local services and Electron. Please wait...' -ForegroundColor Cyan
   Write-Host "Home: $HomeDir"
   $startupTimer = [System.Diagnostics.Stopwatch]::StartNew()
-  if ($Recover) {
+  if ($Recover -and $WatchBackend) { throw 'Use either -Recover or -WatchBackend, not both.' }
+  if ($WatchBackend) {
+    Write-Host 'Enabling TypeScript backend source watching (only the backend is switched)...' -ForegroundColor Cyan
+    & $python -u $runtime watch-backend --home $HomeDir
+  } elseif ($Recover) {
     Write-Host 'Recovering: stopping the recorded stack first (all data is preserved)...' -ForegroundColor Yellow
     & $python -u $runtime recover --home $HomeDir --desktop
   } else {

@@ -16,9 +16,12 @@ def configure_startup(monkeypatch, tmp_path, fail_at=None):
     for name in ('postgres', 'redis', 'temp', 'logs', 'workspace', 'data'):
         (tmp_path / name).mkdir()
     (tmp_path / 'postgres/PG_VERSION').write_text('15')
-    entry = tmp_path / 'apps/backend-ts/dist/main.js'
+    entry = tmp_path / 'apps/backend-ts/scripts/dev.mjs'
     entry.parent.mkdir(parents=True)
     entry.touch()
+    compiler = tmp_path / 'apps/backend-ts/node_modules/typescript/lib/typescript.js'
+    compiler.parent.mkdir(parents=True)
+    compiler.touch()
     monkeypatch.setattr(runtime, 'ROOT', tmp_path)
     info = {'workspace': str((tmp_path / 'workspace').resolve()), 'backendEntry': str(entry),
             'postgresBin': str(tmp_path), 'memurai': 'memurai', 'initialized': True}
@@ -91,6 +94,7 @@ def test_frontend_preparation_overlaps_backends_but_desktop_waits_for_all_gates(
     assert events.index(('grants', 'project')) < events.index(('ready', 'ai'))
     assert events.index(('ready', 'ai')) < events.index(('ready', 'frontend')) < events.index(('spawn', 'desktop'))
     assert state['commands']['ai'][2] == 'app.native_startup'
+    assert Path(state['commands']['backend'][1]).name == 'dev.mjs'
     assert not list((tmp_path / 'temp').glob('ai-start-*'))
     assert 'AI_INTERNAL_TOKEN' not in environments['frontend']
     assert environments['frontend']['DEV_BACKEND_PROXY_TARGET'] == 'http://127.0.0.1:18080'

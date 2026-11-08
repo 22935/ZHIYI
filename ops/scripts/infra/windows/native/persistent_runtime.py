@@ -312,9 +312,10 @@ def up(home, use_desktop):
         raise RuntimeError('Startup-issued workspace root changed; refusing to reissue authority')
     if any(alive(record) for record in state['processes'].values()):
         raise RuntimeError('This persistent environment already owns running processes; use status or recover')
-    backend_entry = ROOT/'apps/backend-ts/dist/main.js'
-    if not backend_entry.is_file():
-        raise RuntimeError('Build the TypeScript backend first: cd apps/backend-ts && npm run build')
+    backend_entry = ROOT/'apps/backend-ts/scripts/dev.mjs'
+    if (not backend_entry.is_file()
+            or not (ROOT/'apps/backend-ts/node_modules/typescript/lib/typescript.js').is_file()):
+        raise RuntimeError('Install backend development dependencies first: cd apps/backend-ts && npm ci')
     # Never take over an unrelated process, even in the development launcher.
     target_ports = list(ports(info).values()) if use_desktop else list(ports(info).values())[:-1]
     for port in target_ports:
@@ -482,6 +483,52 @@ def up(home, use_desktop):
         release_next.unlink(missing_ok=True)
         passwordfile.unlink(missing_ok=True)
         authconfig.unlink(missing_ok=True)
+
+
+def watch_backend(home):
+    """Switch only the identity-verified platform process to its stable watcher."""
+    info, state = manifest(home), state_for(home)
+    entry = ROOT/'apps/backend-ts/scripts/dev.mjs'
+    compiler = ROOT/'apps/backend-ts/node_modules/typescript/lib/typescript.js'
+    node = shutil.which('node')
+    if not node or not entry.is_file() or not compiler.is_file():
+        raise RuntimeError('Install backend development dependencies first: cd apps/backend-ts && npm ci')
+    record = state['processes'].get('backend')
+    if not record or not alive(record):
+        raise RuntimeError('The recorded backend is not running; inspect status before starting it')
+    command = record.get('command', [])
+    if (len(command) != 2 or Path(command[0]) != Path(node)
+            or Path(command[1]) not in {entry, ROOT/'apps/backend-ts/dist/main.js'}):
+        raise RuntimeError('The recorded backend is not a recognized repository entry')
+    if Path(command[1]) == entry:
+        if native.health(ports(info)['backend'], '/health/ready').get('status') != 'UP':
+            raise RuntimeError('Backend watcher is running but its service is not ready; inspect its log')
+        return {'status': 'UP', 'backendWatch': True, 'changed': False}
+    # Validate existing identity/schema before touching the live process.
+    env = prepare_platform(home, info, native.credentials(home))
+    session = state.get('session', 'backend')
+    log = 'logs/'+session+'/backend-watch-'+secrets.token_hex(3)
+    native.stop(record, allow_terminate=False)
+    state['processes'].pop('backend')
+    save(home, state)
+    replacement = None
+    try:
+        replacement = native.spawn(home, log, [node, str(entry)], env)
+        state['processes']['backend'] = replacement
+        save(home, state)
+        desktop.wait_until(lambda: native.health(ports(info)['backend'], '/health/ready')['status'] == 'UP',
+                           replacement, 60)
+    except BaseException:
+        if replacement is not None:
+            native.stop(replacement, allow_terminate=False)
+        restored = native.spawn(home, log+'-rollback', command, env)
+        state['processes']['backend'] = restored
+        save(home, state)
+        desktop.wait_until(lambda: native.health(ports(info)['backend'], '/health/ready')['status'] == 'UP',
+                           restored, 30)
+        raise RuntimeError('Backend watcher activation failed; restored the previous backend entry') from None
+    return {'status': 'UP', 'backendWatch': True, 'changed': True,
+            'backendPid': replacement['pid'], 'log': str(home/(log+'.log'))}
 
 
 def open_desktop(home):
@@ -679,7 +726,7 @@ def restore(home, source):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init','up','open','status','down','recover','backup','restore'])
+    parser.add_argument('action', choices=['init','up','open','status','down','recover','watch-backend','backup','restore'])
     parser.add_argument('--home', type=Path, required=True)
     parser.add_argument('--postgres-bin', type=Path)
     parser.add_argument('--memurai', type=Path)
@@ -701,6 +748,7 @@ def main():
         if args.action == 'init': result = init(home,args)
         elif args.action == 'up': result = up(home,args.desktop)
         elif args.action == 'open': result = open_desktop(home)
+        elif args.action == 'watch-backend': result = watch_backend(home)
         elif args.action == 'down': result = down(home)
         elif args.action == 'status': result = status(home)
         elif args.action == 'recover':
