@@ -3,12 +3,9 @@
     <div class="identity-overview">
       <div class="identity-overview__row">
         <span>角色</span>
-        <strong>{{ entry.logicalRole || '未定义' }}</strong>
+        <strong>{{ inspectorLabel(entry.logicalRole || '未定义') }}</strong>
       </div>
-      <div class="identity-overview__row identity-overview__row--key">
-        <span>任务键</span>
-        <code :title="entry.semanticTaskKey || undefined">{{ entry.semanticTaskKey || '未定义' }}</code>
-      </div>
+
     </div>
     <button
       type="button"
@@ -16,11 +13,12 @@
       :aria-expanded="idsExpanded"
       @click="idsExpanded = !idsExpanded"
     >
-      <span>Technical IDs</span>
+      <span>任务技术编号</span>
       <span class="inspector-disclosure__action">{{ idsExpanded ? '收起' : '展开' }}</span>
     </button>
     <div v-if="idsExpanded" class="identity-details">
       <InspectorPropertyList :rows="[
+        { label: '任务标识', value: entry.semanticTaskKey, code: true },
         { label: 'Task ID', value: entry.taskId, code: true },
         { label: 'ACG Node', value: entry.acgNodeId, code: true }
       ]" />
@@ -32,6 +30,7 @@
 import { ref } from 'vue'
 import type { WorkspaceEntry } from '@/services/api/agentos'
 import InspectorPropertyList from '@/components/workbench/InspectorPropertyList.vue'
+import { inspectorLabel } from '@/workbench/runtime/inspectorPresentation'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
 
 defineProps<{ entry: WorkspaceEntry }>()

@@ -10,7 +10,7 @@
         <span class="related-files__arrow" aria-hidden="true">↗</span>
       </button>
     </div>
-    <p v-else class="related-files__empty">当前 Task 尚无可打开的相关文件。</p>
+    <p v-else class="related-files__empty">当前步骤没有可打开的相关产物。</p>
   </InspectorSection>
 </template>
 

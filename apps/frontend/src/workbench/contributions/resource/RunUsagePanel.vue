@@ -1,5 +1,5 @@
 <template>
-  <InspectorSection title="任务用量" :badge="loading ? '更新中' : usage ? '当前 Run' : '未观测'">
+  <InspectorSection title="任务用量" :badge="loading ? '更新中' : usage ? '当前运行' : '未观测'">
     <div class="usage-panel" aria-label="当前任务资源统计" :aria-busy="loading">
       <p v-if="error" class="usage-note" role="status">{{ error }}</p>
       <div class="usage-summary">

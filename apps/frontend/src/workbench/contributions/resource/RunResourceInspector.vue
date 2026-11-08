@@ -11,13 +11,13 @@
       <article v-for="resource in boundResources" :key="resource.resourceId" class="resource-binding-row">
         <div class="resource-binding-row__heading">
           <strong>{{ resource.resourceId }}</strong>
-          <span>{{ tierLabel(resource.deploymentTier) }} · {{ healthLabel(resource.health) }}</span>
+          <span>{{ tierLabel(resource.deploymentTier) }} · {{ inspectorValue(healthLabel(resource.health)) }}</span>
         </div>
         <div class="resource-binding-row__meta">
-          <span>Agent {{ resource.agentId }}</span>
-          <span>Model {{ resource.modelId }}</span>
-          <span>{{ resource.attemptCount }} attempts</span>
-          <span>Latency {{ formatMetric(resource.latencyMs, 'ms') }}</span>
+          <span>智能体 {{ resource.agentId }}</span>
+          <span>模型 {{ resource.modelId }}</span>
+          <span>{{ resource.attemptCount }} 次执行</span>
+          <span>延迟 {{ formatMetric(resource.latencyMs, 'ms') }}</span>
         </div>
       </article>
     </div>
@@ -28,7 +28,7 @@
         <p>{{ failoverSummary(event) }}</p>
       </article>
     </div>
-    <p v-if="!resourceObservation?.bindings.length" class="resource-empty">{{ resourceObservation ? '当前 Run 没有可证明的资源绑定。' : '未观测到 Run Resource。' }}</p>
+    <p v-if="!resourceObservation?.bindings.length" class="resource-empty">{{ resourceObservation ? '当前快照没有资源绑定记录。' : '资源数据尚未获取。' }}</p>
   </InspectorSection>
 </template>
 
@@ -36,6 +36,7 @@
 import { computed } from 'vue'
 import type { ResourceObservation } from '@/services/api/agentos'
 import InspectorPropertyList from '@/components/workbench/InspectorPropertyList.vue'
+import { inspectorValue } from '@/workbench/runtime/inspectorPresentation'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
 import { failoverSummary, formatDate, formatMetric, healthLabel, tierLabel } from '@/utils/resourceFormat'
 

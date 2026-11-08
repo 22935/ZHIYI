@@ -1,5 +1,6 @@
 <template>
   <aside class="runtime-inspector" aria-label="Workspace Secondary Sidebar">
+    <RuntimeObservationNotice :observation="workbenchContext.runtimeObservation" :run-id="runId" />
     <SecondarySidebar
       v-if="secondarySidebarViews.length && !isTaskInspector"
       :registry="registry"
@@ -9,6 +10,7 @@
       :fullscreen="fullscreen"
       :component-props="baseProps"
       @locate-graph="emit('locateGraph')"
+      @open-artifact="emit('openArtifact', $event)"
       @toggle-fullscreen="emit('toggleFullscreen')"
       @close="emit('close')"
     />
@@ -28,33 +30,31 @@
               <i aria-hidden="true"></i>{{ inspectorSummary.status }}
             </span>
             <span class="runtime-inspector__artifact">
-              {{ inspectorSummary.artifactCount ? `${inspectorSummary.artifactCount} 个 Artifact` : '无 Artifact' }}
+              {{ inspectorSummary.artifactCount ? `${inspectorSummary.artifactCount} 个产物` : '暂无产物' }}
             </span>
           </div>
-          <code v-if="inspectorSummary.key" class="runtime-inspector__key">{{ inspectorSummary.key }}</code>
+
         </div>
       </template>
       <template v-if="isTaskInspector">
-        <nav class="runtime-inspector__tabs" aria-label="Inspector tabs" role="tablist">
+        <nav class="runtime-inspector__tabs" aria-label="任务详情视角" role="tablist" @keydown="handleInspectorTabKeydown">
           <button
             v-for="tab in taskInspectorTabs"
             :key="tab.id"
             type="button"
             role="tab"
             :aria-selected="activeTaskTab === tab.id"
+            :tabindex="activeTaskTab === tab.id ? 0 : -1"
+            :id="'task-inspector-tab-' + tab.id"
+            :aria-controls="'task-inspector-panel-' + tab.id"
             :class="{ 'is-active': activeTaskTab === tab.id }"
             @click="activeTaskTab = tab.id"
           >{{ tab.label }}</button>
         </nav>
 
-        <div v-if="activeTaskTab === 'task-info'" class="runtime-inspector__tab-panel" role="tabpanel">
-          <InspectorSection title="任务 / Run" :badge="runStatus || '未观测'">
-            <div class="runtime-inspector__task-run">
-              <div><span>Task</span><strong>{{ entry?.title || entry?.name || '未定义' }}</strong></div>
-              <div><span>Run ID</span><code>{{ runId || '未观测' }}</code></div>
-              <div><span>Status</span><strong>{{ entry?.status || runStatus || '未观测' }}</strong></div>
-              <div><span>Attempt</span><code>{{ entry?.attemptCount ?? 0 }}</code></div>
-            </div>
+        <div v-if="activeTaskTab === 'task-info'" class="runtime-inspector__tab-panel" role="tabpanel" id="task-inspector-panel-task-info" aria-labelledby="task-inspector-tab-task-info">
+          <InspectorSection v-if="entry?.objective" title="步骤目标">
+            <p class="runtime-inspector__objective">{{ entry.objective }}</p>
           </InspectorSection>
           <component
             v-for="section in taskInfoSections"
@@ -63,51 +63,51 @@
             v-bind="sectionProps(section)"
             @locate-graph="emit('locateGraph')"
           />
+          <InspectorDetails v-if="inspectorContext.lifecycle" title="整次运行与最终交付物">
+            <LifecycleEvidence :lifecycle="inspectorContext.lifecycle" :observation="workbenchContext.runtimeObservation" @open-artifact="emit('openArtifact', $event)" />
+          </InspectorDetails>
         </div>
-        <div v-else-if="activeTaskTab === 'evidence'" class="runtime-inspector__tab-panel" role="tabpanel">
-          <InspectorSection title="Artifact Projection" :badge="artifactDocument?.kindLabel || 'projection'">
+        <div v-else-if="activeTaskTab === 'evidence'" class="runtime-inspector__tab-panel" role="tabpanel" id="task-inspector-panel-evidence" aria-labelledby="task-inspector-tab-evidence">
+          <InspectorSection title="证据概览" :badge="artifactDocument?.kindLabel || '状态快照'">
+            <p class="runtime-inspector__hint">用于追溯当前步骤采用的输入和生成的输出；引用存在不代表结论已通过实际测试。</p>
             <div v-if="artifactDocument" class="runtime-inspector__projection-meta">
-              <div><span>Artifact kind</span><code>{{ artifactDocument.artifactKind }}</code></div>
-              <div v-if="evidenceSummary.confidence"><span>Confidence</span><strong>{{ evidenceSummary.confidence }}</strong></div>
+              <div><span>产物类型</span><code>{{ artifactDocument.artifactKind }}</code></div>
+              <div v-if="evidenceSummary.confidence"><span>置信信息</span><strong>{{ evidenceSummary.confidence }}</strong></div>
             </div>
-            <div v-if="evidenceSummary.evidenceRefs.length" class="runtime-inspector__reference-group">
-              <span>Evidence refs</span>
+            <InspectorDetails v-if="evidenceSummary.evidenceRefs.length" title="证据引用" :count="evidenceSummary.evidenceRefs.length">
               <div class="runtime-inspector__reference-list">
                 <code v-for="reference in evidenceSummary.evidenceRefs" :key="reference">{{ reference }}</code>
               </div>
-            </div>
-            <div v-if="evidenceSummary.upstreamInputs.length" class="runtime-inspector__reference-group">
-              <span>Upstream inputs</span>
+            </InspectorDetails>
+            <InspectorDetails v-if="evidenceSummary.upstreamInputs.length" title="上游输入" :count="evidenceSummary.upstreamInputs.length">
               <div class="runtime-inspector__reference-list">
                 <code v-for="input in evidenceSummary.upstreamInputs" :key="input">{{ input }}</code>
               </div>
-            </div>
+            </InspectorDetails>
             <div v-if="evidenceSummary.provenance.length" class="runtime-inspector__reference-group">
-              <span>Provenance</span>
+              <span>来源关联</span>
               <dl class="runtime-inspector__provenance">
                 <div v-for="item in evidenceSummary.provenance" :key="item.label">
-                  <dt>{{ item.label }}</dt>
-                  <dd :class="{ 'is-code': item.code }">{{ item.value }}</dd>
+                  <dt>{{ inspectorLabel(item.label) }}</dt>
+                  <dd :class="{ 'is-code': item.code }">{{ item.code ? item.value : inspectorValue(item.value) }}</dd>
                 </div>
               </dl>
             </div>
-            <div v-if="evidenceSummary.traceLinks.length" class="runtime-inspector__reference-group">
-              <span>Trace links</span>
+            <InspectorDetails v-if="evidenceSummary.traceLinks.length" title="追踪记录" :count="evidenceSummary.traceLinks.length">
               <div class="runtime-inspector__reference-list">
                 <code v-for="trace in evidenceSummary.traceLinks" :key="trace">{{ trace }}</code>
               </div>
-            </div>
+            </InspectorDetails>
           </InspectorSection>
           <InspectorSection title="运行证据" badge="projection">
             <div class="runtime-inspector__evidence-list">
-              <div><span>Output reference</span><code>{{ evidenceSummary.outputRef }}</code></div>
-              <div><span>Trace events</span><strong>{{ evidenceSummary.traceCount }}</strong></div>
-              <div><span>Communications</span><strong>{{ evidenceSummary.communicationCount }}</strong></div>
+              <div><span>追踪事件</span><strong>{{ evidenceSummary.traceCount }}</strong></div>
+              <div><span>通信记录</span><strong>{{ evidenceSummary.communicationCount }}</strong></div>
             </div>
-            <p class="runtime-inspector__hint">来源引用会随当前运行投影更新；选中文档中的结构化条目可查看完整引用内容。</p>
+            <InspectorDetails title="输出技术引用"><code class="runtime-inspector__raw-ref">{{ evidenceSummary.outputRef }}</code></InspectorDetails>
           </InspectorSection>
-          <InspectorSection v-if="graphNode && safeLiveOutput" title="结构化输出" :badge="liveNode?.phase || 'safe projection'">
-            <pre class="runtime-output" data-testid="formal-live-output">{{ safeLiveOutput }}</pre>
+          <InspectorSection v-if="graphNode && safeLiveOutput" title="结构化输出" :badge="liveNode?.phase || '经筛选的输出'">
+            <InspectorDetails title="结构化输出原文"><pre class="runtime-output" data-testid="formal-live-output">{{ safeLiveOutput }}</pre></InspectorDetails>
           </InspectorSection>
           <component
             v-for="section in taskEvidenceSections"
@@ -117,22 +117,22 @@
             @locate-graph="emit('locateGraph')"
           />
         </div>
-        <div v-else-if="activeTaskTab === 'files'" class="runtime-inspector__tab-panel" role="tabpanel">
+        <div v-else-if="activeTaskTab === 'files'" class="runtime-inspector__tab-panel" role="tabpanel" id="task-inspector-panel-files" aria-labelledby="task-inspector-tab-files">
           <TaskRelatedFilesInspector
             :entry="entry as WorkspaceEntry"
             :entries="entries"
             @open-artifact="emit('openArtifact', $event)"
           />
         </div>
-        <div v-else class="runtime-inspector__tab-panel" role="tabpanel">
+        <div v-else class="runtime-inspector__tab-panel" role="tabpanel" id="task-inspector-panel-discussion" aria-labelledby="task-inspector-tab-discussion">
           <InspectorSection title="讨论" badge="empty">
-            <p class="runtime-inspector__discussion-empty">暂无讨论记录。讨论数据接入后会显示在此处，不会占用文档正文空间。</p>
+            <p class="runtime-inspector__discussion-empty">当前还没有讨论记录。</p>
           </InspectorSection>
         </div>
       </template>
       <template v-else>
-        <InspectorSection v-if="graphNode && safeLiveOutput" title="Structured Output" :badge="liveNode?.phase || 'safe projection'">
-          <pre class="runtime-output" data-testid="formal-live-output">{{ safeLiveOutput }}</pre>
+        <InspectorSection v-if="graphNode && safeLiveOutput" title="结构化输出" :badge="liveNode?.phase || '经筛选的输出'">
+          <InspectorDetails title="结构化输出原文"><pre class="runtime-output" data-testid="formal-live-output">{{ safeLiveOutput }}</pre></InspectorDetails>
         </InspectorSection>
         <component
           v-for="section in inspectorSections"
@@ -149,7 +149,7 @@
         />
       </template>
     </InspectorFrame>
-    <div v-else class="runtime-inspector__empty">选择一个 Workspace Symbol 查看属性。</div>
+    <div v-else class="runtime-inspector__empty">选择任务步骤、交付物或执行图，查看详细信息。</div>
   </aside>
 </template>
 
@@ -163,7 +163,11 @@ import type { WorkbenchContext, WorkbenchInspectorContext } from '@/workbench/ty
 import type { RunDocumentSymbol } from '@/workbench/runtime/runDocument'
 import { safeStructuredOutput } from '@/workbench/runtime/runDocument'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
+import InspectorDetails from '@/components/workbench/InspectorDetails.vue'
+import LifecycleEvidence from '@/workbench/contributions/project/LifecycleEvidence.vue'
+import { handleInspectorTabKeydown, inspectorLabel, inspectorValue } from '@/workbench/runtime/inspectorPresentation'
 import TaskRelatedFilesInspector from './TaskRelatedFilesInspector.vue'
+import RuntimeObservationNotice from './RuntimeObservationNotice.vue'
 import {
   RunRuntimeStore,
   acquireRunRuntimeStore,
@@ -254,7 +258,7 @@ const taskInspectorTabs = [
 type TaskInspectorTab = typeof taskInspectorTabs[number]['id']
 const activeTaskTab = ref<TaskInspectorTab>('task-info')
 const taskInfoSections = computed(() => inspectorSections.value.filter(section => (
-  section.id === 'project.task-identity-section' || section.id === 'project.task-execution-section' || section.id === 'project.lifecycle-evidence-section'
+  section.id === 'project.task-identity-section' || section.id === 'project.task-execution-section'
 )))
 const taskEvidenceSections = computed(() => inspectorSections.value.filter(section => section.id === 'project.task-result-section'))
 const evidenceSummary = computed(() => {
@@ -321,13 +325,13 @@ const inspectorTitle = computed(() => (
   props.selectedSymbol?.title
   || props.graphNode?.name
   || props.entry?.name
-  || (props.entry?.kind === 'graph' ? 'graph.acg' : 'Mission')
+  || (props.entry?.kind === 'graph' ? '执行图' : '任务详情')
 ))
 const inspectorSummary = computed(() => {
   const taskLike = props.entry?.kind === 'task' || Boolean(props.graphNode)
   if (!taskLike) return null
   const status = props.graphNode?.status || props.entry?.status || props.selectedSymbol?.status || null
-  const role = props.entry?.logicalRole || null
+  const role = props.entry?.logicalRole ? inspectorLabel(props.entry.logicalRole) : null
   const key = props.graphNode?.semanticTaskKey || props.entry?.semanticTaskKey || props.selectedSymbol?.semanticTaskKey || props.selectedSymbol?.subtitle || null
   const artifactCount = props.graphNode?.artifactCount ?? props.entry?.artifactCount ?? 0
   const tone = statusSemanticTone(status)
@@ -381,8 +385,8 @@ const sectionProps = (section: { getProps?: (context: WorkbenchInspectorContext)
 .runtime-inspector { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; background: var(--wb-surface-pane); color: var(--wb-text); }
 .runtime-inspector__empty { padding: 22px 15px; color: var(--wb-text-muted); font-size: 12px; line-height: 1.6; }
 .runtime-inspector__summary { display: grid; gap: 4px; min-width: 0; padding-top: 1px; }
-.runtime-inspector__summary-line { display: flex; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 5px; min-width: 0; }
-.runtime-inspector__role, .runtime-inspector__status, .runtime-inspector__artifact { display: inline-flex; align-items: center; min-height: 19px; padding: 2px 6px; border: 1px solid var(--wb-border-soft); border-radius: var(--wb-radius-sm); font-size: 9px; line-height: 1.2; white-space: nowrap; }
+.runtime-inspector__summary-line { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.runtime-inspector__role, .runtime-inspector__status, .runtime-inspector__artifact { display: inline-flex; align-items: center; min-height: 19px; padding: 2px 6px; border: 1px solid var(--wb-border-soft); border-radius: var(--wb-radius-sm); font-size: 11px; line-height: 1.4; white-space: nowrap; }
 .runtime-inspector__role { color: var(--wb-text-secondary); background: var(--wb-surface-inset); }
 .runtime-inspector__status { gap: 5px; color: var(--wb-text-secondary); }
 .runtime-inspector__status i { width: 6px; height: 6px; border-radius: 50%; background: var(--wb-text-muted); }
@@ -405,6 +409,8 @@ const sectionProps = (section: { getProps?: (context: WorkbenchInspectorContext)
 .runtime-inspector__tabs button.is-active { color: var(--wb-accent); background: color-mix(in srgb, var(--wb-accent) 10%, var(--wb-surface-section)); box-shadow: none; font-weight: 650; }
 .runtime-inspector__tabs button:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: -1px; }
 .runtime-inspector__tab-panel { min-width: 0; }
+.runtime-inspector__raw-ref { overflow-wrap: anywhere; font: 11px/1.65 var(--font-mono, monospace); color: var(--wb-text-secondary); }
+.runtime-inspector__objective { margin: 0; color: var(--wb-text-secondary); font-size: 13px; line-height: 1.75; }
 .runtime-inspector__task-run { display: grid; gap: 7px; }
 .runtime-inspector__task-run > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); gap: 10px; align-items: baseline; }
 .runtime-inspector__task-run span { color: var(--wb-text-muted); font-size: 11px; }

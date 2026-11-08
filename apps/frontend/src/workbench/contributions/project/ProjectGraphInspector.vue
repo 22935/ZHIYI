@@ -3,7 +3,7 @@
     <InspectorSection title="运行状态" :badge="runStatus || '未观测'">
       <div class="inspector-status">
         <span class="inspector-status__dot" :class="`is-${runStatus || 'unobserved'}`" aria-hidden="true"></span>
-        <strong>{{ runStatus || '未观测' }}</strong>
+        <strong>{{ inspectorValue(runStatus) }}</strong>
       </div>
       <InspectorPropertyList :rows="[
         { label: 'Run', value: runId, code: true }
@@ -28,6 +28,7 @@
 import { computed } from 'vue'
 import type { GraphProjection, WorkspaceEntry, WorkspaceGraphNode } from '@/services/api/agentos'
 import InspectorPropertyList from '@/components/workbench/InspectorPropertyList.vue'
+import { inspectorValue } from '@/workbench/runtime/inspectorPresentation'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
 
 const props = defineProps<{
@@ -58,7 +59,7 @@ const graphIdentity = computed(() => {
 <style scoped>
 .inspector-section-stack { display: contents; }
 .inspector-status { display: flex; align-items: center; gap: 8px; min-height: 30px; margin-bottom: 4px; color: var(--wb-text); }
-.inspector-status strong { font-size: 13px; font-weight: 650; }
+.inspector-status strong { font-size: 13px; line-height: 1.6; font-weight: 650; }
 .inspector-status__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wb-text-muted); }
 .inspector-status__dot.is-succeeded,
 .inspector-status__dot.is-completed { background: var(--wb-success); }

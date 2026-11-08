@@ -3,11 +3,11 @@
     <div class="artifact-summary" :class="{ 'is-empty': !artifacts }">
       <div class="artifact-summary__count">
         <strong>{{ artifacts }}</strong>
-        <span>个 Artifact</span>
+        <span>个产物</span>
       </div>
       <div class="artifact-summary__message">
         <strong>{{ artifacts ? '已生成任务产物' : '暂无任务产物' }}</strong>
-        <span>{{ artifacts ? '请在 TaskEditor 中打开真实 Artifact' : '该节点尚未生成可查看的 Artifact' }}</span>
+        <span>{{ artifacts ? '在“相关文件”中打开并查看内容' : '当前快照没有可查看的产物' }}</span>
       </div>
     </div>
   </InspectorSection>

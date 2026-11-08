@@ -1,124 +1,80 @@
 <template>
   <div class="sidebar-view-stack">
-    <LifecycleEvidence v-if="context?.lifecycle" :lifecycle="context.lifecycle" :observation="runtimeObservation" />
-    <InspectorSection title="运行状态" :badge="statusLabel" badge-tone="status">
-      <div class="sidebar-status">
-        <span class="sidebar-status__dot" :style="{ background: statusDotColor }" aria-hidden="true"></span>
-        <strong>{{ statusLabel }}</strong>
-      </div>
-      <InspectorPropertyList :rows="[
-        { label: 'Run', value: runId, code: true },
-        { label: '对象', value: objectLabel },
-        { label: '模式', value: historical ? 'Historical / Read-only' : 'Read-only' }
-      ]" />
+    <LifecycleEvidence v-if="context?.lifecycle" :lifecycle="context.lifecycle" :observation="runtimeObservation" @open-artifact="emit('openArtifact', $event)" />
+    <InspectorSection v-else title="运行状态" :badge="statusLabel" badge-tone="status">
+      <p>{{ inspectorValue(statusLabel) }}</p>
+      <InspectorPropertyList :rows="[{ label: '当前对象', value: objectLabel }]" />
+      <InspectorDetails title="运行技术详情"><InspectorPropertyList :rows="[{ label: '运行编号', value: runId, code: true }, { label: '查看模式', value: historical ? '历史记录 · 只读' : '只读' }]" /></InspectorDetails>
     </InspectorSection>
-
-    <InspectorSection v-if="liveNode" title="Live Output" :badge="liveNode.phase">
-      <InspectorPropertyList :rows="[
-        { label: 'Node', value: objectLabel },
-        { label: 'Phase', value: liveNode.phase },
-        { label: 'Attempt', value: liveNode.currentAttemptId, code: true },
-        { label: 'Duration', value: liveDuration }
-      ]" />
-      <pre class="live-output" data-testid="formal-live-output">{{ liveNode.outputBuffer || 'Waiting for model output...' }}</pre>
+    <InspectorSection v-if="liveNode" title="实时输出" :badge="liveNode.phase">
+      <InspectorPropertyList :rows="[{ label: '当前节点', value: objectLabel }, { label: '耗时', value: liveDuration }]" />
+      <pre class="live-output" data-testid="formal-live-output">{{ liveNode.outputBuffer || '正在等待模型输出…' }}</pre>
     </InspectorSection>
-
-    <InspectorSection v-if="showGraphSummary" title="图信息" :badge="graphIdentity" :badge-tone="graphIdentityTone">
+    <InspectorSection v-if="showGraphSummary" title="执行图概览" :badge="graphIdentity" :badge-tone="graphIdentityTone">
       <div class="sidebar-metrics" aria-label="图统计">
-        <div><strong>{{ nodeCount ?? '—' }}</strong><span>{{ nodeCount == null ? '节点待编译' : '节点' }}</span></div>
-        <div><strong>{{ edgeCount ?? '—' }}</strong><span>{{ edgeCount == null ? '边待编译' : '边' }}</span></div>
-        <div><strong>{{ graphVersion ?? '—' }}</strong><span>版本</span></div>
+        <div><strong>{{ nodeCount ?? '—' }}</strong><span>{{ nodeCount == null ? '待编译节点' : '执行节点' }}</span></div>
+        <div><strong>{{ edgeCount ?? '—' }}</strong><span>{{ edgeCount == null ? '待编译连线' : '依赖连线' }}</span></div>
+        <div><strong>{{ graphVersion ?? '—' }}</strong><span>执行图版本</span></div>
       </div>
-      <InspectorPropertyList :rows="[
-        { label: 'Graph ID', value: graph?.graphId || entry?.graphId, code: true },
-        { label: 'Task plan', value: entry?.metadata?.taskPlanVersion == null ? '—' : String(entry.metadata.taskPlanVersion), code: true }
-      ]" />
+      <InspectorDetails title="执行图技术详情">
+        <InspectorPropertyList :rows="[{ label: 'Graph ID', value: graph?.graphId || entry?.graphId, code: true }, { label: 'Task plan', value: entry?.metadata?.taskPlanVersion == null ? null : String(entry.metadata.taskPlanVersion) }]" />
+      </InspectorDetails>
     </InspectorSection>
-
-    <InspectorSection v-if="showTaskSummary" title="执行摘要" :badge="`${artifactCount} artifacts`">
+    <InspectorSection v-if="showTaskSummary" title="当前步骤" :badge="statusLabel">
+      <p>{{ objectLabel }}</p>
       <div class="sidebar-metrics sidebar-metrics--two" aria-label="任务执行统计">
-        <div><strong>{{ attemptCount }}</strong><span>Attempts</span></div>
-        <div><strong>{{ artifactCount }}</strong><span>Artifacts</span></div>
+        <div><strong>{{ attemptCount }}</strong><span>执行次数</span></div>
+        <div><strong>{{ artifactCount }}</strong><span>任务产物</span></div>
       </div>
-      <InspectorPropertyList :rows="[
-        { label: 'semanticTaskKey', value: taskKey, code: true },
-        { label: 'taskId', value: props.graphNode?.taskId || props.entry?.taskId, code: true },
-        { label: 'status', value: statusLabel },
-        { label: 'latest attempt', value: latestAttemptId, code: true }
-      ]" />
+      <InspectorDetails title="步骤技术详情">
+        <InspectorPropertyList :rows="[{ label: 'semanticTaskKey', value: taskKey, code: true }, { label: 'taskId', value: graphNode?.taskId || entry?.taskId, code: true }, { label: 'latest attempt', value: latestAttemptId, code: true }]" />
+      </InspectorDetails>
     </InspectorSection>
-
-    <InspectorSection v-if="showArtifactSummary" title="Artifact 身份" :badge="entry?.identityQuality || 'unproven'" badge-tone="artifact">
-      <InspectorPropertyList :rows="[
-        { label: 'artifactId', value: entry?.artifactId, code: true },
-        { label: 'artifactKey', value: entry?.artifactKey, code: true },
-        { label: 'producerAttemptId', value: entry?.attemptId, code: true },
-        { label: 'semanticTaskKey', value: entry?.semanticTaskKey, code: true },
-        { label: 'runId', value: entry?.runId || runId, code: true }
-      ]" />
-    </InspectorSection>
-
-    <InspectorSection v-if="runtimeObservation" title="低熵通信" :badge="lowEntropyBadge" :badge-tone="lowEntropyBadge === 'Provenance' ? 'flow' : 'muted'">
+    <ProjectArtifactInspector v-if="showArtifactSummary && entry" :entry="entry" :run-id="runId" :entries="entries" :available="available ?? true" @locate-graph="emit('locateGraph')" />
+    <InspectorSection v-if="runtimeObservation" title="上下文传递" :badge="lowEntropy?.observed ? '已获取统计' : '暂未获取'">
       <div class="low-entropy-hero">
-        <div>
-          <strong>{{ savingRatioLabel }}</strong>
-          <span>有效 Token 节省率</span>
-        </div>
-        <div class="low-entropy-hero__saved">
-          <span>累计节省</span>
-          <strong>{{ tokenLabel(lowEntropy?.tokensSaved) }}</strong>
-          <small v-if="lowEntropy?.tokensSaved != null">Token</small>
-        </div>
+        <div><strong>{{ savingRatioLabel }}</strong><span>有效 Token 节省率</span></div>
+        <div class="low-entropy-hero__saved"><span>累计节省</span><strong>{{ tokenLabel(lowEntropy?.tokensSaved) }}</strong><small v-if="lowEntropy?.tokensSaved != null">Token</small></div>
       </div>
-      <InspectorPropertyList :rows="[{
-        label: '投递 / 可获取',
-        value: `${tokenLabel(lowEntropy?.tokensDelivered)} / ${tokenLabel(lowEntropy?.tokensAvailable)}`
-      }]" />
-      <div class="sidebar-metrics low-entropy-signals" aria-label="低熵通信信号">
-        <div><strong>{{ lowEntropy?.interactionCount || '—' }}</strong><span>运行交互</span></div>
-        <div><strong :class="{ 'is-retry': (lowEntropy?.recoveryCount ?? 0) > 0 }">{{ lowEntropy?.recoveryCount || '—' }}</strong><span>自愈恢复</span></div>
-        <div><strong :class="{ 'is-danger': (lowEntropy?.contractViolationCount ?? 0) > 0 }">{{ lowEntropy?.contractViolationCount || '—' }}</strong><span>契约异常</span></div>
+      <InspectorPropertyList :rows="[{ label: '实际投递 / 可获取', value: tokenLabel(lowEntropy?.tokensDelivered) + ' / ' + tokenLabel(lowEntropy?.tokensAvailable) }]" />
+      <p class="sidebar-empty">反映步骤之间传递上下文的节省情况，不代表模型调用账单。</p>
+      <div class="sidebar-metrics low-entropy-signals" aria-label="上下文传递统计">
+        <div><strong>{{ lowEntropy?.interactionCount ?? '—' }}</strong><span>运行交互</span></div>
+        <div><strong :class="{ 'is-retry': (lowEntropy?.recoveryCount ?? 0) > 0 }">{{ lowEntropy?.recoveryCount ?? '—' }}</strong><span>恢复次数</span></div>
+        <div><strong :class="{ 'is-danger': (lowEntropy?.contractViolationCount ?? 0) > 0 }">{{ lowEntropy?.contractViolationCount ?? '—' }}</strong><span>合同异常</span></div>
       </div>
-      <p v-if="!lowEntropy?.observed" class="sidebar-empty">未观测到低熵通信指标。</p>
-      <div v-else class="low-entropy-footer">
-        <span>来源 {{ lowEntropy?.source || '未观测' }}</span>
-        <strong>{{ integrityLabel }}</strong>
-      </div>
+      <div v-if="lowEntropy?.observed" class="low-entropy-footer"><span>统计来源：执行来源记录</span><strong>{{ integrityLabel }}</strong></div>
+      <p v-else class="sidebar-empty">当前快照尚未提供上下文传递指标。</p>
     </InspectorSection>
-
-    <InspectorSection v-if="runtimeObservation" title="运行内容" :badge="`${runtimeObservation.traces.length} traces`">
+    <InspectorSection v-if="runtimeObservation" title="执行记录" :badge="runtimeObservation.traces.length + ' 条追踪'">
       <div class="sidebar-metrics sidebar-metrics--four" aria-label="运行观测统计">
-        <div><strong>{{ runtimeObservation.traces.length }}</strong><span>Trace</span></div>
-        <div><strong>{{ runtimeObservation.events.length }}</strong><span>Events</span></div>
-        <div><strong>{{ runtimeObservation.communication.length }}</strong><span>通信</span></div>
-        <div><strong>{{ runtimeObservation.toolCalls.length }}</strong><span>Tool Calls</span></div>
+        <div><strong>{{ runtimeObservation.traces.length }}</strong><span>执行追踪</span></div>
+        <div><strong>{{ runtimeObservation.events.length }}</strong><span>运行事件</span></div>
+        <div><strong>{{ runtimeObservation.communication.length }}</strong><span>通信记录</span></div>
+        <div><strong>{{ runtimeObservation.toolCalls.length }}</strong><span>工具调用</span></div>
       </div>
-      <div v-if="recentTraces.length" class="recent-traces" aria-label="最近运行记录">
-        <div v-for="item in recentTraces" :key="item.eventId" class="recent-traces__item">
-          <div>
-            <strong>{{ item.eventType }}</strong>
-            <time>{{ formatTraceTime(item.timestamp) }}</time>
+      <InspectorDetails title="最近执行记录" :count="recentTraces.length">
+        <div v-if="recentTraces.length" class="recent-traces" aria-label="最近运行记录">
+          <div v-for="item in recentTraces" :key="item.eventId" class="recent-traces__item">
+            <div><strong>{{ inspectorEventLabel(item.eventType) }}</strong><time>{{ formatTraceTime(item.timestamp) }}</time></div>
+            <span>{{ item.stepId ? stepLabel(item.stepId) : '整次运行' }}</span>
+            <span v-if="item.observation">{{ item.observation }}</span>
           </div>
-          <span>{{ item.observation || item.stepId || 'Run' }}</span>
         </div>
-      </div>
-      <p v-else class="sidebar-empty">未观测到运行内容。</p>
-    </InspectorSection>
-
-    <InspectorSection v-if="runtimeObservation?.operational" title="节点生命周期" :badge="String(nodeExecutions.length)">
-      <div v-if="nodeExecutions.length" class="record-list" aria-label="节点生命周期记录">
-        <article v-for="record in nodeExecutions" :key="record.executionInstanceId" class="record-list__item">
-          <div class="record-list__heading">
-            <strong>{{ record.stepId }}</strong>
-            <span class="phase" :class="phaseToneClass(record.phase)">{{ phaseLabel(record.phase) }}</span>
-          </div>
-          <code :title="record.executionInstanceId">{{ shortId(record.executionInstanceId) }}</code>
-          <small>Attempt {{ shortId(record.attemptId) }}<template v-if="record.loopPath.length"> · Loop {{ record.loopPath.join('.') }}</template></small>
-          <small v-if="record.commitId">Commit {{ shortId(record.commitId) }}</small>
-          <small v-if="record.failureCode" class="record-list__failure">{{ record.failureCode }}</small>
-        </article>
-      </div>
-      <p v-else class="sidebar-empty">暂无 Identity 节点执行记录。</p>
+        <p v-else class="sidebar-empty">当前快照没有执行追踪记录。</p>
+      </InspectorDetails>
+      <InspectorDetails v-if="runtimeObservation?.operational" title="节点执行记录" :count="nodeExecutions.length">
+        <div v-if="nodeExecutions.length" class="record-list" aria-label="节点生命周期记录">
+          <article v-for="record in nodeExecutions" :key="record.executionInstanceId" class="record-list__item">
+            <div class="record-list__heading"><strong>{{ stepLabel(record.stepId) }}</strong><span class="phase" :class="phaseToneClass(record.phase)">{{ phaseLabel(record.phase) }}</span></div>
+            <code :title="record.executionInstanceId">{{ shortId(record.executionInstanceId) }}</code>
+            <small>执行编号 {{ shortId(record.attemptId) }}<template v-if="record.loopPath.length"> · 循环 {{ record.loopPath.join('.') }}</template></small>
+            <small v-if="record.commitId">提交 {{ shortId(record.commitId) }}</small>
+            <small v-if="record.failureCode" class="record-list__failure">{{ record.failureCode }}</small>
+          </article>
+        </div>
+        <p v-else class="sidebar-empty">当前快照没有节点执行记录。</p>
+      </InspectorDetails>
     </InspectorSection>
   </div>
 </template>
@@ -129,11 +85,14 @@ import type { GraphProjection, WorkspaceEntry, WorkspaceGraphNode } from '@/serv
 import type { NodeExecutionPhase } from '@/services/api/agentos'
 import InspectorPropertyList from '@/components/workbench/InspectorPropertyList.vue'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
+import InspectorDetails from '@/components/workbench/InspectorDetails.vue'
+import { inspectorValue, inspectorEventLabel } from '@/workbench/runtime/inspectorPresentation'
 import LifecycleEvidence from './LifecycleEvidence.vue'
+import ProjectArtifactInspector from './ProjectArtifactInspector.vue'
 import type { RuntimeObservation } from '@/workbench/runtime/observation'
 import type { WorkbenchInspectorContext } from '@/workbench/types'
 import type { RuntimeEventStore } from '@/workbench/runtime/runtimeEvents'
-import { statusSemanticColor, statusToneClass, type SemanticTone } from '@/utils/statusSemantic'
+import type { SemanticTone } from '@/utils/statusSemantic'
 
 const props = defineProps<{
   entry: WorkspaceEntry | null
@@ -146,7 +105,12 @@ const props = defineProps<{
   context?: WorkbenchInspectorContext
   runtimeObservation?: RuntimeObservation | null
   runtimeStore?: RuntimeEventStore | null
+  available?: boolean
+  entries?: WorkspaceEntry[]
 }>()
+
+const emit = defineEmits<{ openArtifact: [entry: WorkspaceEntry]; locateGraph: [] }>()
+const stepLabel = (id: string) => props.graphNodes.find(node => node.acgNodeId === id)?.name || id
 
 const liveNode = computed(() => (
   props.graphNode?.acgNodeId ? props.runtimeStore?.nodes[props.graphNode.acgNodeId] || null : null
@@ -159,8 +123,7 @@ const liveDuration = computed(() => {
 })
 
 const statusValue = computed(() => props.graphNode?.status || props.entry?.status || props.runStatus || null)
-const statusLabel = computed(() => statusValue.value || '未观测')
-const statusDotColor = computed(() => statusSemanticColor(statusValue.value))
+const statusLabel = computed(() => String(inspectorValue(statusValue.value || '未观测')))
 const graphIdentityTone = computed(() => {
   const identity = graphIdentity.value
   if (identity === 'canonical') return 'artifact' as const
@@ -194,7 +157,6 @@ const graphIdentity = computed(() => {
 const runtimeObservation = computed(() => props.runtimeObservation || props.context?.runtimeObservation || null)
 const nodeExecutions = computed(() => runtimeObservation.value?.operational?.nodeExecutions || [])
 const lowEntropy = computed(() => runtimeObservation.value?.lowEntropy || null)
-const lowEntropyBadge = computed(() => lowEntropy.value?.observed ? 'Provenance' : '未观测')
 const savingRatioLabel = computed(() => {
   const ratio = lowEntropy.value?.effectiveSavingRatio ?? lowEntropy.value?.averageSavingRatio
   return ratio == null ? '未观测' : `${(ratio * 100).toFixed(1)}%`
@@ -202,7 +164,7 @@ const savingRatioLabel = computed(() => {
 const integrityLabel = computed(() => {
   const status = lowEntropy.value?.integrityStatus
   if (!status) return '完整性未观测'
-  if (['verified', 'valid'].includes(status.toLowerCase())) return '校验通过'
+  if (['verified', 'valid'].includes(status.toLowerCase())) return '来源关联有效'
   return status
 })
 const recentTraces = computed(() => runtimeObservation.value?.traces.slice(-3).reverse() || [])

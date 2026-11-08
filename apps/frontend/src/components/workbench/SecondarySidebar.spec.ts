@@ -11,6 +11,8 @@ import RuntimeCommunicationSidebarView from '@/workbench/contributions/runtime/R
 import RuntimeContextSidebarView from '@/workbench/contributions/runtime/RuntimeContextSidebarView.vue'
 import type { WorkbenchContext } from '@/workbench/types'
 import type { WorkspaceEntry, WorkspaceGraphNode } from '@/services/api/agentos'
+import { projectLifecycle } from '@/workbench/runtime/lifecycleProjection'
+import { capabilitiesFixture } from '@/test/fixtures/runCapabilities'
 
 const graphEntry: WorkspaceEntry = {
   entryId: 'overview:graph.acg',
@@ -202,7 +204,7 @@ describe('SecondarySidebar', () => {
     expect(registry.resolveSecondarySidebarViews(context).map(view => view.title)).toEqual(['运行', '资源', '通信', '审计', '上下文'])
     const wrapper = mountSidebar()
     expect(wrapper.find('.secondary-sidebar__tabs button.is-active').text()).toBe('运行')
-    expect(wrapper.text()).toContain('图信息')
+    expect(wrapper.text()).toContain('执行图概览')
   })
 
   it('restores low-entropy metrics and runtime content in the Run view', () => {
@@ -278,12 +280,12 @@ describe('SecondarySidebar', () => {
     })
     const wrapper = mountSidebar({ context })
 
-    expect(wrapper.text()).toContain('低熵通信')
+    expect(wrapper.text()).toContain('上下文传递')
     expect(wrapper.text()).toContain('60.0%')
     expect(wrapper.text()).toContain('600')
-    expect(wrapper.text()).toContain('运行内容')
+    expect(wrapper.text()).toContain('执行记录')
     expect(wrapper.text()).toContain('运行内容已记录')
-    expect(wrapper.text()).toContain('Tool Calls')
+    expect(wrapper.text()).toContain('工具调用')
   })
 
   it('switches views and persists only the selected view id', async () => {
@@ -295,6 +297,35 @@ describe('SecondarySidebar', () => {
     }
     expect(localStorage.getItem('zhiyi.mission.workspace.secondary-sidebar.view.v1')).toBe('runtime.context-view')
     expect(localStorage.getItem('zhiyi.mission.workspace.secondary-sidebar.view.v1')).not.toContain('run_1')
+  })
+
+  it('forwards the verified final delivery from the run view to the workspace', async () => {
+    const delivery = { ...artifactEntry, artifactKey: 'final', artifactType: 'run_deliverable' }
+    const summary = { runId: 'run_1', status: 'completed', createdAt: '2026-11-08',
+      actionCapabilities: capabilitiesFixture('run_1', 'mission_1', 'completed', 38) }
+    const lifecycle = projectLifecycle({ selectedRunId: 'run_1', workspace: {
+      mission: { missionId: 'mission_1' }, activeRun: summary, runs: [summary], entries: [delivery],
+      graphNodes: [], diagnostics: []
+    } as any })
+    const context = createWorkbenchContext({ ...baseContext(), lifecycle })
+    const wrapper = mountSidebar({ context, entry: delivery })
+    await wrapper.get('.lifecycle-delivery button').trigger('click')
+    expect(wrapper.emitted('openArtifact')).toEqual([[delivery]])
+    wrapper.unmount()
+  })
+
+  it('supports keyboard tab navigation with one focusable tab and a labelled panel', async () => {
+    const wrapper = mountSidebar()
+    const tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs.filter(tab => tab.attributes('tabindex') === '0')).toHaveLength(1)
+    await tabs[0].trigger('keydown', { key: 'ArrowRight' })
+    expect(wrapper.get('[aria-selected="true"]').text()).toBe('资源')
+    expect(wrapper.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe('inspector-tab-resource.view')
+    await wrapper.get('[aria-selected="true"]').trigger('keydown', { key: 'End' })
+    expect(wrapper.get('[aria-selected="true"]').text()).toBe('上下文')
+    await wrapper.get('[aria-selected="true"]').trigger('keydown', { key: 'Home' })
+    expect(wrapper.get('[aria-selected="true"]').text()).toBe('运行')
+    wrapper.unmount()
   })
 
   it('migrates all seven legacy panel data groups into the current sidebar views', async () => {
@@ -344,7 +375,7 @@ describe('SecondarySidebar', () => {
     expect(wrapper.text()).toContain('memory_ref_1')
 
     await wrapper.findAll('.secondary-sidebar__tabs button').find(button => button.text() === '通信')!.trigger('click')
-    expect(wrapper.text()).toContain('数据血缘')
+    expect(wrapper.text()).toContain('数据流转')
     expect(wrapper.text()).toContain('production_1')
     expect(wrapper.text()).toContain('consumption_1')
     expect(wrapper.text()).toContain('运行交互')
@@ -353,7 +384,7 @@ describe('SecondarySidebar', () => {
     await wrapper.findAll('.secondary-sidebar__tabs button').find(button => button.text() === '审计')!.trigger('click')
     expect(wrapper.text()).toContain('恢复审计')
     expect(wrapper.text()).toContain('patch_1')
-    expect(wrapper.text()).toContain('恢复轨迹')
+    expect(wrapper.text()).toContain('恢复与调度记录')
     expect(wrapper.text()).toContain('recovery_1')
   })
 
@@ -413,7 +444,7 @@ describe('SecondarySidebar', () => {
     })
     expect(wrapper.text()).toContain('run_2')
     expect(wrapper.text()).not.toContain('run_1')
-    expect(wrapper.text()).toContain('Historical')
+    expect(wrapper.text()).toContain('历史记录 · 只读')
     expect(wrapper.find('.secondary-sidebar__body').exists()).toBe(true)
   })
 })

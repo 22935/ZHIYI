@@ -2,16 +2,16 @@
   <InspectorSection title="Resource" :badge="binding ? tierLabel(binding.deploymentTier) : '未观测'">
     <div class="resource-overview">
       <div class="resource-overview__row">
-        <span>Agent</span>
+        <span>智能体</span>
         <code :title="binding?.agentId || undefined">{{ binding?.agentId || '未观测' }}</code>
       </div>
       <div class="resource-overview__row">
-        <span>Model</span>
+        <span>模型</span>
         <code :title="binding?.modelId || undefined">{{ modelLabel }}</code>
       </div>
       <div class="resource-overview__row">
-        <span>Health</span>
-        <strong class="resource-health" :class="`is-${resourceHealth}`">{{ binding ? healthLabel(resourceHealth) : '未观测' }}</strong>
+        <span>健康状态</span>
+        <strong class="resource-health" :class="`is-${resourceHealth}`">{{ binding ? inspectorValue(healthLabel(resourceHealth)) : '暂未获取' }}</strong>
       </div>
     </div>
     <button
@@ -20,7 +20,7 @@
       :aria-expanded="detailsExpanded"
       @click="detailsExpanded = !detailsExpanded"
     >
-      <span>Resource Details</span>
+      <span>资源技术详情</span>
       <span class="inspector-disclosure__action">{{ detailsExpanded ? '收起' : '展开' }}</span>
     </button>
     <div v-if="detailsExpanded" class="resource-details">
@@ -30,7 +30,7 @@
         { label: 'Deployment Tier', value: tierLabel(binding?.deploymentTier) }
       ]" />
     </div>
-    <p v-if="!binding" class="resource-empty">当前节点没有可证明的 资源使用记录。</p>
+    <p v-if="!binding" class="resource-empty">当前快照没有此节点的资源使用记录。</p>
   </InspectorSection>
 </template>
 
@@ -38,6 +38,7 @@
 import { computed, ref } from 'vue'
 import type { ResourceBindingObservation, ResourceObservation, WorkspaceGraphNode } from '@/services/api/agentos'
 import InspectorPropertyList from '@/components/workbench/InspectorPropertyList.vue'
+import { inspectorValue } from '@/workbench/runtime/inspectorPresentation'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
 import { healthLabel, tierLabel } from '@/utils/resourceFormat'
 
@@ -60,7 +61,7 @@ const resourceHealth = computed(() => {
   const resourceId = binding.value?.resourceId
   return props.resourceObservation?.items.find(item => item.profile.resourceId === resourceId)?.snapshot.healthStatus || 'unknown'
 })
-const modelLabel = computed(() => binding.value?.modelId === 'runtime-default' ? 'Runtime Default' : (binding.value?.modelId || '未观测'))
+const modelLabel = computed(() => binding.value?.modelId === 'runtime-default' ? '运行时默认模型' : (binding.value?.modelId || '未观测'))
 
 </script>
 

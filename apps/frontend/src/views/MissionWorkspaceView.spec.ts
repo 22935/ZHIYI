@@ -403,7 +403,7 @@ describe('MissionWorkspaceView', () => {
     push('model.first_token', event(3, 'model.first_token', { elapsedMs: 12 }))
     push('model.output.delta', event(4, 'model.output.delta', { delta: 'A' }))
     await vi.waitFor(() => expect(wrapper.find('[data-testid="formal-live-output"]').text()).toBe('A'))
-    expect(wrapper.text()).toContain('STREAMING')
+    expect(wrapper.text()).toContain('输出中')
 
     push('model.output.delta', event(5, 'model.output.delta', { delta: 'B' }))
     await vi.waitFor(() => expect(wrapper.find('[data-testid="formal-live-output"]').text()).toBe('AB'))
@@ -433,7 +433,7 @@ describe('MissionWorkspaceView', () => {
     expect(wrapper.findAll('.runtime-inspector__tabs button').map(button => button.text())).toEqual([
       '任务信息', '证据与引用', '相关文件', '讨论'
     ])
-    expect(wrapper.find('.runtime-inspector__tab-panel').text()).toContain('Execution')
+    expect(wrapper.find('.runtime-inspector__tab-panel').text()).toContain('执行情况')
 
     await wrapper.findAll('.runtime-inspector__tabs button')[2].trigger('click')
     expect(wrapper.find('.related-files').text()).toContain('primary.md')
@@ -502,7 +502,7 @@ describe('MissionWorkspaceView', () => {
     expect(getWorkspace).toHaveBeenLastCalledWith('mission_1', expect.objectContaining({ runId: 'run_1' }))
     expect(wrapper.find('.editor-tab.is-active').text()).toContain('运行进度')
     expect(wrapper.find('.progress-editor-stub').text()).toContain('run_1')
-    expect(wrapper.text()).toContain('Historical / Read-only')
+    expect(wrapper.text()).toContain('你正在查看历史运行')
   })
 
   it('switches historical back to the current Run explicitly', async () => {
@@ -515,7 +515,7 @@ describe('MissionWorkspaceView', () => {
     await wrapper.findAll('.workbench-status-bar__run-item').find(item => item.text().includes('run_2'))?.trigger('click')
     await flushPromises()
     expect(agentosApi.getMissionWorkspace).toHaveBeenLastCalledWith('mission_1', expect.objectContaining({ runId: 'run_2' }))
-    expect(wrapper.text()).not.toContain('Historical / Read-only')
+    expect(wrapper.text()).not.toContain('你正在查看历史运行')
   })
 
   it('creates a successor from the selected terminal Run and switches to it', async () => {
@@ -543,7 +543,7 @@ describe('MissionWorkspaceView', () => {
     }))
     expect(router.currentRoute.value.query.runId).toBe('run_3')
     expect(agentosApi.getMissionWorkspace).toHaveBeenLastCalledWith('mission_1', expect.objectContaining({ runId: 'run_3' }))
-    expect(wrapper.text()).not.toContain('Historical / Read-only')
+    expect(wrapper.text()).not.toContain('你正在查看历史运行')
   })
 
   it('continues a failed Run from its failed step instead of replaying completed work', async () => {
@@ -623,13 +623,13 @@ describe('MissionWorkspaceView', () => {
         .mockResolvedValue(second)
       const { wrapper } = await mountWorkspace()
       await wrapper.findAll('.workspace-tree__entry').find(item => item.text().includes('Capacity'))?.trigger('click')
-      expect(wrapper.find('.task-editor__status').text()).toBe('Running')
+      expect(wrapper.find('.task-editor__status').text()).toBe('执行中')
 
       await vi.advanceTimersByTimeAsync(8000)
       await flushPromises()
 
       expect(getWorkspace).toHaveBeenCalledTimes(2)
-      expect(wrapper.find('.task-editor__status').text()).toBe('Completed')
+      expect(wrapper.find('.task-editor__status').text()).toBe('已完成')
       expect(wrapper.find('.task-editor__section--artifacts .task-editor__section-meta').text()).toBe('1')
       wrapper.unmount()
     } finally {

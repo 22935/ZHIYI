@@ -9,8 +9,8 @@
       <button v-if="selectedSymbol?.type === 'acg'" type="button" class="inspector-link" @click="emit('locateGraph')">打开 graph.acg</button>
     </InspectorSection>
 
-    <InspectorSection v-if="selectedSymbol?.type === 'model' && selectedSymbol.children.length" title="Output" badge="collapsed by default">
-      <span class="inspector-hint">Structured Output 已保留在 Run Document 中，展开对应 Symbol 查看。</span>
+    <InspectorSection v-if="selectedSymbol?.type === 'model' && selectedSymbol.children.length" title="输出内容" badge="按需展开">
+      <span class="inspector-hint">完整输出保存在运行文档中，展开对应条目即可查看。</span>
     </InspectorSection>
   </div>
 </template>
@@ -19,6 +19,7 @@
 import { computed } from 'vue'
 import type { WorkspaceEntry, WorkspaceGraphNode } from '@/services/api/agentos'
 import InspectorPropertyList, { type InspectorProperty } from '@/components/workbench/InspectorPropertyList.vue'
+import { inspectorLabel, inspectorValue } from '@/workbench/runtime/inspectorPresentation'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
 import type { RuntimeObservation } from '@/workbench/runtime/observation'
 import type { RuntimeEventStore } from '@/workbench/runtime/runtimeEvents'
@@ -39,15 +40,15 @@ const props = defineProps<{
 const emit = defineEmits<{ locateGraph: [] }>()
 
 const statusValue = computed(() => props.selectedSymbol?.status || props.graphNode?.status || props.entry?.status || props.runStatus || 'pending')
-const statusLabel = computed(() => props.selectedSymbol?.status || props.graphNode?.status || props.entry?.status || props.runStatus || '未观测')
+const statusLabel = computed(() => String(inspectorValue(statusValue.value)))
 const statusMark = computed(() => ({ running: '●', completed: '✓', warning: '!', failed: '×', pending: '○' }[statusValue.value] || '○'))
 const sectionTitle = computed(() => {
   if (props.selectedSymbol) {
-    if (props.selectedSymbol.type === 'runtime') return 'STRUCTURED OUTPUT'
-    if (props.selectedSymbol.type === 'planner') return 'PLANNING'
-    return props.selectedSymbol.type.toUpperCase()
+    if (props.selectedSymbol.type === 'runtime') return '结构化输出'
+    if (props.selectedSymbol.type === 'planner') return '任务规划'
+    return inspectorLabel(props.selectedSymbol.type.toUpperCase())
   }
-  return 'RUN'
+  return '运行详情'
 })
 
 const symbolMetric = (key: string) => props.selectedSymbol?.metrics?.[key]

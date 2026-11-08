@@ -1,12 +1,12 @@
 <template>
-  <InspectorSection title="Execution" :badge="statusBadge">
+  <InspectorSection title="Execution">
     <div class="execution-summary">
       <div class="execution-summary__status">
         <span class="execution-summary__dot" :class="`is-${statusTone}`" aria-hidden="true"></span>
         <strong>{{ statusLabel }}</strong>
       </div>
       <div class="execution-summary__count">
-        <strong>{{ entry.attemptCount ?? 0 }}</strong>
+        <strong>{{ entry.attemptCount ?? (attempts.length || '—') }}</strong>
         <span>执行次数</span>
       </div>
     </div>
@@ -16,8 +16,8 @@
       :aria-expanded="detailsExpanded"
       @click="detailsExpanded = !detailsExpanded"
     >
-      <span>Latest Attempt</span>
-      <code :title="latestAttemptId || undefined">{{ latestAttemptId || '未观测' }}</code>
+      <span>最近一次执行详情</span>
+      <span>{{ detailsExpanded ? '收起' : '展开' }}</span>
     </button>
     <div v-if="detailsExpanded" class="execution-details">
       <InspectorPropertyList :rows="[
@@ -26,15 +26,16 @@
       ]" />
     </div>
     <details v-for="item in attempts" :key="item.attempt.attemptId" class="execution-details">
-      <summary>Attempt {{ item.attempt.attemptNumber }} · {{ item.attempt.status }} · {{ item.attempt.attemptId }}</summary>
+      <summary>第 {{ item.attempt.attemptNumber }} 次执行 · {{ inspectorValue(item.attempt.status) }}</summary>
       <InspectorPropertyList :rows="[
+        { label: '执行编号', value: item.attempt.attemptId, code: true },
         { label: 'Run', value: item.attempt.runId, code: true },
         { label: 'Task', value: item.attempt.taskId, code: true },
         { label: 'Failure', value: item.attempt.failureReason || 'NOT_OBSERVED' },
         { label: 'Executions', value: item.executions.map(execution => `${execution.stepExecutionId}: ${execution.status}`).join(', ') || 'NOT_OBSERVED' }
       ]" />
     </details>
-    <p v-if="!attempts.length">Attempt history NOT_OBSERVED。Task 状态保留 Workspace 的语义投影，不由某一次 Attempt 推断。</p>
+    <p v-if="!attempts.length">当前快照没有此步骤的执行历史。步骤状态以任务记录为准。</p>
   </InspectorSection>
 </template>
 
@@ -42,6 +43,7 @@
 import { computed, ref } from 'vue'
 import type { WorkspaceEntry } from '@/services/api/agentos'
 import InspectorPropertyList from '@/components/workbench/InspectorPropertyList.vue'
+import { inspectorValue } from '@/workbench/runtime/inspectorPresentation'
 import InspectorSection from '@/components/workbench/InspectorSection.vue'
 import { statusSemanticTone } from '@/utils/statusSemantic'
 import type { RuntimeObservation } from '@/workbench/runtime/observation'
@@ -59,8 +61,7 @@ const attempts = computed(() => {
 })
 const detailsExpanded = ref(false)
 const latestAttemptId = computed(() => props.entry.latestAttemptId || props.entry.attemptId || null)
-const statusValue = computed(() => props.entry.status || 'pending')
-const statusBadge = computed(() => statusValue.value.toUpperCase())
+const statusValue = computed(() => props.entry.status || 'unobserved')
 const statusLabel = computed(() => ({
   completed: '已完成',
   succeeded: '已完成',
@@ -70,7 +71,7 @@ const statusLabel = computed(() => ({
   planning: '规划中',
   executing: '执行中',
   pending: '待执行'
-}[statusValue.value] || statusValue.value))
+}[statusValue.value] || String(inspectorValue(statusValue.value))))
 const statusTone = computed(() => {
   const tone = statusSemanticTone(statusValue.value)
   if (tone === 'success') return 'success'
@@ -99,5 +100,6 @@ const runtimeStatus = computed(() => String(props.entry.metadata?.runtimeStatus 
 .inspector-disclosure { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 10px; padding: 8px 0; border: 0; border-top: 1px solid var(--wb-border-soft); color: var(--wb-text-secondary); background: transparent; cursor: pointer; font-size: 11px; text-align: left; }
 .inspector-disclosure:hover { color: var(--wb-text); }
 .inspector-disclosure code { max-width: 62%; overflow: hidden; color: var(--wb-text-muted); font: 10px var(--font-mono, monospace); text-overflow: ellipsis; white-space: nowrap; }
-.execution-details { padding-top: 1px; }
+.execution-details { padding-top: 1px; margin-top: 10px; }
+.execution-details > summary { padding: 7px 0; color: var(--wb-text-secondary); cursor: pointer; font: 500 12px/1.6 var(--font-sans, sans-serif); }
 </style>

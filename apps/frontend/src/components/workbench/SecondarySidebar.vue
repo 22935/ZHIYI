@@ -2,7 +2,7 @@
   <aside class="secondary-sidebar" aria-label="Secondary Sidebar">
     <header class="secondary-sidebar__header">
       <div class="secondary-sidebar__heading">
-        <span>INSPECTOR</span>
+        <span>详情</span>
       </div>
       <InspectorHeaderActions
         :fullscreen="fullscreen"
@@ -11,13 +11,16 @@
       />
     </header>
 
-    <nav class="secondary-sidebar__tabs" aria-label="Inspector views" role="tablist">
+    <nav class="secondary-sidebar__tabs" aria-label="详情视角" role="tablist" @keydown="handleInspectorTabKeydown">
       <button
         v-for="view in views"
         :key="view.id"
         type="button"
         role="tab"
         :aria-selected="activeView?.id === view.id"
+        :tabindex="activeView?.id === view.id ? 0 : -1"
+        :id="'inspector-tab-' + view.id"
+        :aria-controls="'inspector-panel-' + view.id"
         :class="{ 'is-active': activeView?.id === view.id }"
         @click="selectView(view.id)"
       >
@@ -25,13 +28,14 @@
       </button>
     </nav>
 
-    <div class="secondary-sidebar__body">
+    <div class="secondary-sidebar__body" role="tabpanel" :id="'inspector-panel-' + activeView?.id" :aria-labelledby="'inspector-tab-' + activeView?.id">
       <component
         v-if="activeView"
         :is="activeViewComponent"
         :key="`${activeView.id}:${contextKey}`"
         v-bind="activeViewProps"
         @locate-graph="emit('locateGraph')"
+        @open-artifact="emit('openArtifact', $event)"
       />
       <div v-else class="secondary-sidebar__empty">没有可用的观察视角。</div>
     </div>
@@ -43,6 +47,8 @@ import { computed, markRaw, ref, toRaw, watch } from 'vue'
 import type { WorkbenchInspectorContext, SecondarySidebarViewContribution } from '@/workbench/types'
 import type { WorkbenchContributionRegistry } from '@/workbench/registry'
 import InspectorHeaderActions from './InspectorHeaderActions.vue'
+import type { WorkspaceEntry } from '@/services/api/agentos'
+import { handleInspectorTabKeydown } from '@/workbench/runtime/inspectorPresentation'
 
 const props = withDefaults(defineProps<{
   registry: WorkbenchContributionRegistry
@@ -60,6 +66,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   locateGraph: []
+  openArtifact: [entry: WorkspaceEntry]
   close: []
   toggleFullscreen: []
 }>()
@@ -127,7 +134,8 @@ watch(views, nextViews => {
 .secondary-sidebar__tabs button:hover { color: var(--wb-text-secondary); background: var(--wb-hover); }
 .secondary-sidebar__tabs button.is-active { color: var(--wb-accent); background: var(--wb-surface-2); box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.04); font-weight: 650; }
 .secondary-sidebar__tabs button:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: -1px; }
-.secondary-sidebar__body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 14px 18px; background: var(--wb-surface-1); scrollbar-gutter: stable; overscroll-behavior: contain; }
+.secondary-sidebar__body { container-type: inline-size; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; padding: 4px 18px 24px; background: var(--wb-surface-1); scrollbar-gutter: stable; overscroll-behavior: contain; }
+.secondary-sidebar__body :deep(.inspector-section + .inspector-section) { border-top: 1px solid var(--wb-border-soft); }
 .secondary-sidebar__body :deep(.inspector-section) { margin-bottom: 10px; }
 .secondary-sidebar__body :deep(.inspector-section:last-child) { margin-bottom: 0; }
 .secondary-sidebar__empty { display: grid; place-items: center; min-height: 160px; padding: 22px 14px; color: var(--wb-text-muted); font-size: 12px; text-align: center; }
