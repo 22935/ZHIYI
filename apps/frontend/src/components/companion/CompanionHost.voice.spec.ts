@@ -136,4 +136,16 @@ describe('CompanionHost voice-first interaction', () => {
       .toBe('companion-diy')
     wrapper.unmount()
   })
+
+  it('wires workshop audition to the voice engine and admits when it cannot speak', async () => {
+    const wrapper = await open()
+    query('[data-testid="companion-diy-open"]')?.click()
+    await flushPromises()
+    // 工坊只负责发意图，真正开口的是宿主持有的 VoiceEngine。
+    query('[data-testid="companion-diy-audition"]')?.click()
+    await flushPromises()
+    // jsdom 没有 speechSynthesis：接线通了，但绝不能假装试听成功。
+    expect(query('[data-testid="companion-bubble"]')?.textContent).toContain('不能试听')
+    wrapper.unmount()
+  })
 })

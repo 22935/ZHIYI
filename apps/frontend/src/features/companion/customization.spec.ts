@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   CUSTOMIZATION_STORAGE_KEY, DEFAULT_CUSTOMIZATION, DIY_PRESETS, DIY_SKIN_ID,
-  MAX_LINES, buildDiySkin, exportCustomization, importCustomization,
+  MAX_LINES, MAX_VOICE_URI_LENGTH, buildDiySkin, exportCustomization, importCustomization,
   loadCustomization, parseLines, sanitizeCustomization, saveCustomization,
-  isValidImage, sanitizeName
+  isValidImage, sanitizeName, sanitizeVoiceURI
 } from './customization'
 
 const fakeStorage = () => {
@@ -35,7 +35,7 @@ describe('customization sanitization', () => {
     expect(result.name).toBe('小知')
     expect(result.shape).toBe('star')
     expect(result.primary).toBe('#aabbcc')
-    expect(result.voice).toEqual({ rate: 2, pitch: 0, volume: 1, muted: true })
+    expect(result.voice).toEqual({ rate: 2, pitch: 0, volume: 1, muted: true, voiceURI: null })
     expect(result.lines).toHaveLength(2)
     expect(result.lines[1]).toHaveLength(60)
     expect(result.motion).toBe(false)
@@ -64,6 +64,25 @@ describe('customization sanitization', () => {
       expect(cleaned.shape).toBe(preset.value.shape)
       expect(cleaned.primary).toBe(preset.value.primary)
     }
+  })
+
+  it('keeps a usable voice selection and drops unusable ones', () => {
+    expect(sanitizeCustomization({ voice: { voiceURI: '  zh-cn-xiaoxiao  ' } }).voice.voiceURI)
+      .toBe('zh-cn-xiaoxiao')
+    // 空串是下拉框里的「自动」，归一成 null。
+    expect(sanitizeCustomization({ voice: { voiceURI: '   ' } }).voice.voiceURI).toBeNull()
+    // 超长不截断：截断后的 voiceURI 必然匹配不到声线，不如当作未指定。
+    expect(sanitizeCustomization({
+      voice: { voiceURI: 'x'.repeat(MAX_VOICE_URI_LENGTH + 1) }
+    }).voice.voiceURI).toBeNull()
+    expect(sanitizeCustomization({ voice: { voiceURI: 42 } }).voice.voiceURI).toBeNull()
+    expect(sanitizeVoiceURI('坏\u0000声线')).toBe('坏声线')
+  })
+
+  it('round-trips the chosen voice through export / import', () => {
+    const custom = sanitizeCustomization({ voice: { voiceURI: 'zh-cn-yunxi' } })
+    expect(custom.voice.voiceURI).toBe('zh-cn-yunxi')
+    expect(importCustomization(exportCustomization(custom))?.voice.voiceURI).toBe('zh-cn-yunxi')
   })
 })
 

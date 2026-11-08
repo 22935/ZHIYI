@@ -3,9 +3,18 @@ import { nextTick } from 'vue'
 import { describe, expect, it } from 'vitest'
 import CompanionCustomizer from './CompanionCustomizer.vue'
 import { DEFAULT_CUSTOMIZATION, DIY_PRESETS } from '@/features/companion/customization'
+import type { VoiceOption } from '@/features/companion/voice'
 
-const build = () => mount(CompanionCustomizer, {
-  props: { value: { ...DEFAULT_CUSTOMIZATION, voice: { ...DEFAULT_CUSTOMIZATION.voice }, lines: [] } }
+const VOICES: VoiceOption[] = [
+  { uri: 'zh-cn-xiaoxiao', name: '晓晓', lang: 'zh-CN', local: true },
+  { uri: 'zh-cn-yunxi', name: '云希', lang: 'zh-CN', local: false }
+]
+
+const build = (voices: VoiceOption[] = VOICES) => mount(CompanionCustomizer, {
+  props: {
+    value: { ...DEFAULT_CUSTOMIZATION, voice: { ...DEFAULT_CUSTOMIZATION.voice }, lines: [] },
+    voices
+  }
 })
 
 describe('CompanionCustomizer', () => {
@@ -14,13 +23,46 @@ describe('CompanionCustomizer', () => {
     for (const id of [
       'companion-diy-name', 'companion-diy-shape', 'companion-diy-primary',
       'companion-diy-accent', 'companion-diy-background', 'companion-diy-image',
-      'companion-diy-lines', 'companion-diy-rate', 'companion-diy-pitch',
+      'companion-diy-lines', 'companion-diy-voice', 'companion-diy-audition',
+      'companion-diy-rate', 'companion-diy-pitch',
       'companion-diy-volume', 'companion-diy-motion', 'companion-diy-share',
       'companion-diy-save', 'companion-diy-reset'
     ]) {
       expect(wrapper.find(`[data-testid="${id}"]`).exists(), id).toBe(true)
     }
     expect(wrapper.findAll(`[data-testid^="companion-diy-preset-"]`)).toHaveLength(DIY_PRESETS.length)
+    wrapper.unmount()
+  })
+
+  it('lists system voices, previews the pick and auditions it', async () => {
+    const wrapper = build()
+    const select = wrapper.find('[data-testid="companion-diy-voice"]')
+    // 「自动」+ 两条系统声线；在线声线要标出来，用户才知道断网会掉。
+    expect(select.findAll('option')).toHaveLength(VOICES.length + 1)
+    expect(select.text()).toContain('云希')
+    expect(select.text()).toContain('· 在线')
+
+    await select.setValue('zh-cn-yunxi')
+    await nextTick()
+    const previews = wrapper.emitted('preview') ?? []
+    expect((previews[previews.length - 1] as unknown[])[0])
+      .toMatchObject({ voice: { voiceURI: 'zh-cn-yunxi' } })
+
+    await wrapper.find('[data-testid="companion-diy-audition"]').trigger('click')
+    const auditions = wrapper.emitted('audition') ?? []
+    expect(auditions).toHaveLength(1)
+    expect((auditions[0] as unknown[])[0]).toMatchObject({ voiceURI: 'zh-cn-yunxi' })
+    wrapper.unmount()
+  })
+
+  it('stores「自动」as null and admits when the host offers no voices', async () => {
+    const wrapper = build([])
+    expect(wrapper.find('[data-testid="companion-diy-voice-empty"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="companion-diy-voice"]').setValue('')
+    await nextTick()
+    await wrapper.find('[data-testid="companion-diy-save"]').trigger('click')
+    const value = (wrapper.emitted('apply')?.[0] as unknown[])[0] as Record<string, unknown>
+    expect((value.voice as { voiceURI: string | null }).voiceURI).toBeNull()
     wrapper.unmount()
   })
 

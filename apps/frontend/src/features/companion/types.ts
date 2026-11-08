@@ -40,6 +40,12 @@ export interface CompanionCustomization {
     pitch: number
     volume: number
     muted: boolean
+    /**
+     * 用户选定的系统声线（SpeechSynthesisVoice.voiceURI）。
+     * null 表示不指定，由宿主按语言自动挑一个中文声线。
+     * voiceURI 由操作系统提供，换设备后可能失效，因此一律在读取时净化。
+     */
+    voiceURI: string | null
   }
   /** 自定义闲聊台词，逐条轮播；为空时回落到内置话术池。 */
   lines: string[]

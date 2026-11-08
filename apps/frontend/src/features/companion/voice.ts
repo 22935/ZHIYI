@@ -26,13 +26,28 @@ export interface VoiceSettings {
   /** 0 ~ 1 */
   volume: number
   muted: boolean
+  /**
+   * 选定的系统声线（SpeechSynthesisVoice.voiceURI）。
+   * 缺省或失效时按语言自动挑一个中文声线，而不是拒绝对话。
+   */
+  voiceURI?: string | null
+}
+
+/** 可切换的声线。只暴露展示与匹配需要的字段，不泄漏宿主对象。 */
+export interface VoiceOption {
+  uri: string
+  name: string
+  lang: string
+  /** 本地合成（离线可用）；在线声线在断网或换网络时会失效。 */
+  local: boolean
 }
 
 export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   rate: 1,
   pitch: 1.12,
   volume: 0.9,
-  muted: false
+  muted: false,
+  voiceURI: null
 }
 
 export interface VoiceCapabilities {
@@ -73,6 +88,10 @@ export interface VoiceHost {
   hasRecognition(): boolean
   createRecognition(): RecognitionLike | null
   hasSynthesis(): boolean
+  /** 当前宿主的可用声线；不支持枚举时返回空数组。 */
+  listVoices(): VoiceOption[]
+  /** 浏览器首次 getVoices() 往往为空，需要等 voiceschanged 再取。 */
+  onVoicesChanged?(callback: () => void): () => void
   speak(text: string, settings: VoiceSettings, onDone: () => void): void
   cancelSpeak(): void
 }
@@ -82,6 +101,7 @@ export const NOOP_VOICE_HOST: VoiceHost = {
   hasRecognition: () => false,
   createRecognition: () => null,
   hasSynthesis: () => false,
+  listVoices: () => [],
   speak: (_text, _settings, onDone) => onDone(),
   cancelSpeak: () => undefined
 }
@@ -134,8 +154,26 @@ export function sanitizeVoiceSettings(raw: unknown): VoiceSettings {
     rate: clamp(data.rate, 0.5, 2, DEFAULT_VOICE_SETTINGS.rate),
     pitch: clamp(data.pitch, 0, 2, DEFAULT_VOICE_SETTINGS.pitch),
     volume: clamp(data.volume, 0, 1, DEFAULT_VOICE_SETTINGS.volume),
-    muted: data.muted === true
+    muted: data.muted === true,
+    voiceURI: typeof data.voiceURI === 'string' && data.voiceURI.trim()
+      ? data.voiceURI.trim() : null
   }
+}
+
+/**
+ * 声线优先级：用户显式选定的 voiceURI → 第一个中文声线 → null（交给宿主默认）。
+ * 换设备、换浏览器或系统更新都可能让原 voiceURI 消失，此时静默回落，
+ * 而不是让用户面对一个哑巴伙伴。
+ */
+export function pickVoice<T extends { uri: string; lang: string }>(
+  voices: readonly T[],
+  voiceURI: string | null | undefined
+): T | null {
+  if (voiceURI) {
+    const chosen = voices.find(voice => voice.uri === voiceURI)
+    if (chosen) return chosen
+  }
+  return voices.find(voice => /^(zh|cmn)/i.test(voice.lang)) ?? null
 }
 
 /** 错误码转成人话；不同浏览器/宿主的 error 字符串不统一，统一收敛成四类。 */
@@ -181,6 +219,19 @@ export function createBrowserVoiceHost(win: Window | null = typeof window === 'u
     | (new (text: string) => SpeechSynthesisUtterance)
     | undefined
 
+  // getVoices() 在部分宿主首次调用返回空数组，甚至可能直接抛错，统一收敛。
+  const readVoices = (): SpeechSynthesisVoice[] => {
+    if (!synth || typeof synth.getVoices !== 'function') return []
+    try { return synth.getVoices() } catch { return [] }
+  }
+
+  const toOption = (voice: SpeechSynthesisVoice): VoiceOption => ({
+    uri: voice.voiceURI,
+    name: voice.name,
+    lang: voice.lang,
+    local: voice.localService !== false
+  })
+
   return {
     hasRecognition() {
       return typeof Ctor === 'function'
@@ -200,6 +251,20 @@ export function createBrowserVoiceHost(win: Window | null = typeof window === 'u
     hasSynthesis() {
       return Boolean(synth && typeof UtteranceCtor === 'function')
     },
+    listVoices() {
+      return readVoices().map(toOption)
+    },
+    onVoicesChanged(callback) {
+      if (!synth || typeof synth.addEventListener !== 'function') return () => undefined
+      try {
+        synth.addEventListener('voiceschanged', callback)
+        return () => {
+          try { synth.removeEventListener('voiceschanged', callback) } catch { /* detached */ }
+        }
+      } catch {
+        return () => undefined
+      }
+    },
     speak(text, settings, onDone) {
       if (!synth || typeof UtteranceCtor !== 'function') { onDone(); return }
       try {
@@ -209,9 +274,10 @@ export function createBrowserVoiceHost(win: Window | null = typeof window === 'u
         utterance.rate = settings.rate
         utterance.pitch = settings.pitch
         utterance.volume = settings.volume
-        const voices = typeof synth.getVoices === 'function' ? synth.getVoices() : []
-        const chinese = voices.find(voice => /^(zh|cmn)/i.test(voice.lang))
-        if (chinese) utterance.voice = chinese
+        const voices = readVoices()
+        const chosen = pickVoice(voices.map(toOption), settings.voiceURI)
+        const match = chosen ? voices.find(voice => voice.voiceURI === chosen.uri) : undefined
+        if (match) utterance.voice = match
         let settled = false
         const done = (): void => {
           if (settled) return
@@ -251,6 +317,18 @@ export class VoiceEngine {
       recognition: !this.disposed && this.host.hasRecognition(),
       synthesis: !this.disposed && this.host.hasSynthesis()
     }
+  }
+
+  /** 当前可选声线。宿主不支持枚举时返回空数组，UI 显示「自动」。 */
+  listVoices(): VoiceOption[] {
+    if (this.disposed) return []
+    return this.host.listVoices()
+  }
+
+  /** 订阅系统声线变化（首次加载完成、插入耳机等）；返回取消订阅函数。 */
+  onVoicesChanged(callback: () => void): () => void {
+    if (this.disposed) return () => undefined
+    return this.host.onVoicesChanged?.(callback) ?? (() => undefined)
   }
 
   private setPhase(phase: VoicePhase): void {

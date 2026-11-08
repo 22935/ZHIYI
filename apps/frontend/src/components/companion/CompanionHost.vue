@@ -51,8 +51,10 @@
         <CompanionCustomizer
           v-else
           :value="customization"
+          :voices="voiceOptions"
           @preview="onCustomizationPreview"
           @apply="onCustomizationApply"
+          @audition="onAudition"
           @close="closeCustomizer"
         />
 
@@ -138,10 +140,12 @@ import {
 } from '@/features/companion/position'
 import { createRenderer } from '@/features/companion/renderers'
 import { COMPANION_SKIN_STORAGE_KEY, defaultSkinRegistry } from '@/features/companion/skins'
+import { createSwitchGuard } from '@/features/companion/switchGuard'
 import { matchCompanionCommand, type CommandMatch } from '@/features/companion/speechCommands'
-import { VoiceEngine, voiceHint, type VoicePhase } from '@/features/companion/voice'
+import { VoiceEngine, voiceHint, type VoiceOption, type VoicePhase } from '@/features/companion/voice'
 import type {
-  AvatarRenderer, CompanionCustomization, CompanionMessage, CompanionState, TaskIntentCard
+  AvatarRenderer, CompanionCustomization, CompanionMessage, CompanionState, SkinManifest,
+  TaskIntentCard
 } from '@/features/companion/types'
 
 const EXPANDED_KEY = 'companion.expanded.v1'
@@ -207,6 +211,8 @@ skins.value = defaultSkinRegistry.list()
 
 const voice = new VoiceEngine()
 const voiceCaps = ref(voice.capabilities)
+/** 系统声线列表：首次往往是空的，等 voiceschanged 再填。 */
+const voiceOptions = ref<VoiceOption[]>(voice.listVoices())
 const personaName = computed(() => customization.value.name)
 const stateLabel = computed(() => STATE_LABEL[state.value])
 const level = computed(() => levelOf(pet.value.affinity))
@@ -252,6 +258,7 @@ let idleTimer: ReturnType<typeof setInterval> | null = null
 let previewTimer: ReturnType<typeof setTimeout> | null = null
 let hiddenAt = 0
 let unsubscribeTray: (() => void) | null = null
+let unsubscribeVoices: (() => void) | null = null
 let skinBeforeDiy: string | null = null
 let diyCommitted = false
 const effectTimers = new Set<ReturnType<typeof setTimeout>>()
@@ -301,21 +308,38 @@ const setListening = (on: boolean): void => {
   renderer?.setListening?.(on)
 }
 
+/**
+ * 打断朗读是切换声线、静音、免打扰共用的收尾动作：
+ * 取消合成之外还要复位口型与语音相位，否则脸会停在「正在说」。
+ */
+const stopSpeaking = (): void => {
+  voice.cancelSpeak()
+  setSpeaking(false)
+  if (voicePhase.value === 'speaking') voicePhase.value = 'idle'
+}
+
 /** 朗读只发生在用户主动互动后；闲时搭话与免打扰状态一律不出声。 */
-const speakReply = (text: string): void => {
-  if (quiet.value || muted.value || !voiceCaps.value.synthesis) return
-  voice.speak(text, {
-    rate: customization.value.voice.rate,
-    pitch: customization.value.voice.pitch,
-    volume: customization.value.voice.volume,
-    muted: false
-  }, () => {
+const speakText = (text: string, settings: CompanionCustomization['voice']): boolean => {
+  if (quiet.value || muted.value || !voiceCaps.value.synthesis) return false
+  return voice.speak(text, { ...settings, muted: false }, () => {
     voicePhase.value = 'speaking'
     setSpeaking(true)
   }, () => {
     setSpeaking(false)
     if (voicePhase.value === 'speaking') voicePhase.value = 'idle'
   })
+}
+
+const speakReply = (text: string): void => {
+  speakText(text, customization.value.voice)
+}
+
+/** 试听用工坊里的草稿声线说话，不写入配置；保存后才成为默认声音。 */
+const onAudition = (settings: CompanionCustomization['voice']): void => {
+  stopSpeaking()
+  if (!speakText(`你好，我是${personaName.value}，这是我现在的声音。`, settings)) {
+    showBubble('这个环境暂时不能试听声音。')
+  }
 }
 
 const trayVoicePhase = (): 'idle' | 'listening' | 'speaking' =>
@@ -425,29 +449,53 @@ const handleRuntimeEvent = (event: Event): void => {
   if (!quiet.value) desktop.notifyIfBackground(`${personaName.value} · ${STATE_LABEL[mapped]}`, notice.text)
 }
 
+/**
+ * 切换形象是一次事务，而不是两步赋值。
+ *
+ * 1. 先挂载新渲染器，成功之后才销毁旧的：grok 皮肤要等动态 import，
+ *    期间旧形象仍在屏幕上，不会闪白，也不会出现 renderer 为 null 的空窗。
+ * 2. 用 SwitchGuard 丢弃过期结果：连续切换（下拉连点、语音命令、工坊预览）
+ *    时只认最后一次，避免慢的旧挂载覆盖快的新挂载。
+ * 3. 新渲染器就位后重放当前 8 态与口型/收音状态，说话中换皮不会「僵脸」。
+ * 4. 失败走同一套流程降级到 companion-static，并把降级结果写回持久化，
+ *    否则刷新后会再次尝试那个注定失败的形象。
+ */
+const skinSwitch = createSwitchGuard()
+
 const applySkin = async (id: string): Promise<void> => {
-  if (!stageRef.value || disposed) return
-  renderer?.destroy()
-  renderer = null
-  const skin = defaultSkinRegistry.resolve(id)
-  const next = createRenderer(skin)
-  try {
-    await next.mount(stageRef.value, skin)
-    if (disposed) { next.destroy(); return }
-    renderer = next
+  const stage = stageRef.value
+  if (!stage || disposed) return
+  const isLatest = skinSwitch.begin()
+
+  const commit = (candidate: AvatarRenderer, manifest: SkinManifest): void => {
+    const previous = renderer
+    renderer = candidate
     renderer.setState(state.value)
     renderer.setSpeaking?.(speaking.value)
     renderer.setListening?.(listening.value)
-    if (skin.id !== skinId.value) skinId.value = skin.id
-    try { localStorage.setItem(COMPANION_SKIN_STORAGE_KEY, skin.id) } catch { /* optional */ }
+    previous?.destroy()
+    if (manifest.id !== skinId.value) skinId.value = manifest.id
+    try { localStorage.setItem(COMPANION_SKIN_STORAGE_KEY, manifest.id) } catch { /* optional */ }
+  }
+
+  const skin = defaultSkinRegistry.resolve(id)
+  const next = createRenderer(skin)
+  try {
+    await next.mount(stage, skin)
+    if (disposed || !isLatest()) { next.destroy(); return }
+    commit(next, skin)
   } catch {
     next.destroy()
+    if (disposed || !isLatest()) return
     const fallback = defaultSkinRegistry.resolve(null)
-    skinId.value = fallback.id
     const plain = createRenderer(fallback)
-    plain.mount(stageRef.value, fallback)
-    renderer = plain
-    renderer.setState(state.value)
+    try {
+      await plain.mount(stage, fallback)
+      if (disposed || !isLatest()) { plain.destroy(); return }
+      commit(plain, fallback)
+    } catch {
+      plain.destroy()
+    }
   }
 }
 
@@ -529,7 +577,10 @@ const closeCustomizer = (): void => {
 }
 
 const onCustomizationPreview = (value: CompanionCustomization): void => {
+  const voiceChanged = value.voice.voiceURI !== customization.value.voice.voiceURI
   customization.value = value
+  // 声线一换，正在念的那句会变成前后两种嗓子：立刻打断，下一次开口直接用新声线。
+  if (voiceChanged) stopSpeaking()
   defaultSkinRegistry.upsert(buildDiySkin(value))
   skins.value = defaultSkinRegistry.list()
   service = new CompanionService(createDefaultPorts(value.lines))
@@ -558,9 +609,7 @@ const onQuietChange = (): void => {
   showBubble(quiet.value ? '好，我先安静待着。' : '我回来啦，有事叫我。')
   if (quiet.value) {
     choreographer.reset()
-    voice.cancelSpeak()
-    setSpeaking(false)
-    if (voicePhase.value === 'speaking') voicePhase.value = 'idle'
+    stopSpeaking()
   }
   publishDesktopState()
 }
@@ -572,11 +621,7 @@ const toggleMute = (): void => {
     voice: { ...customization.value.voice, muted: muted.value }
   }
   saveCustomization(storage, customization.value)
-  if (muted.value) {
-    voice.cancelSpeak()
-    setSpeaking(false)
-    if (voicePhase.value === 'speaking') voicePhase.value = 'idle'
-  }
+  if (muted.value) stopSpeaking()
   showBubble(muted.value ? '好，我只用气泡回答你。' : '声音打开啦。')
 }
 
@@ -607,9 +652,7 @@ const onModelToggle = async (): Promise<void> => {
 
 const toggleVoice = (): void => {
   if (voicePhase.value === 'speaking') {
-    voice.cancelSpeak()
-    setSpeaking(false)
-    voicePhase.value = 'idle'
+    stopSpeaking()
     showBubble('好，我不说啦。')
     return
   }
@@ -662,9 +705,7 @@ const runCommand = (match: CommandMatch): void => {
     case 'mute-on': toggleVoiceMuteFromCommand(true); break
     case 'mute-off': toggleVoiceMuteFromCommand(false); break
     case 'stop-speaking':
-      voice.cancelSpeak()
-      setSpeaking(false)
-      voicePhase.value = 'idle'
+      stopSpeaking()
       break
     case 'reset-position': resetPosition(); break
     case 'open-customizer': openCustomizer(); break
@@ -871,6 +912,11 @@ onMounted(() => {
   window.addEventListener('resize', handleResize)
   document.addEventListener('visibilitychange', handleVisibility)
   unsubscribeTray = desktop.onTrayAction(handleTrayAction)
+  // 声线列表是异步就绪的（Chrome 首次返回空数组），补齐后工坊才有得选。
+  unsubscribeVoices = voice.onVoicesChanged(() => {
+    voiceOptions.value = voice.listVoices()
+  })
+  voiceOptions.value = voice.listVoices()
   void applySkin(skinId.value)
   // 刷新后若记住的是「展开态 + 靠左位置」，watch 不会触发，这里补一次避让。
   if (expanded.value) ensurePanelVisible()
@@ -889,6 +935,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', handleVisibility)
   unsubscribeTray?.()
   unsubscribeTray = null
+  unsubscribeVoices?.()
+  unsubscribeVoices = null
   idleFallback.clear()
   choreographer.reset()
   queue.reset()

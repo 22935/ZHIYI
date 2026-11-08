@@ -14,6 +14,8 @@ export const MAX_LINES = 6
 export const MAX_LINE_LENGTH = 60
 /** 压缩后的 256px 位图约 100~300KB，留足余量但防止 localStorage 配额被吃光。 */
 export const MAX_IMAGE_CHARS = 700_000
+/** 系统 voiceURI 一般不超过 80 字符；超长视为脏数据直接丢弃，截断反而永远匹配不到声线。 */
+export const MAX_VOICE_URI_LENGTH = 160
 
 const SHAPES: DiyShape[] = ['circle', 'squircle', 'drop', 'star', 'blob']
 
@@ -33,7 +35,7 @@ export const DEFAULT_CUSTOMIZATION: CompanionCustomization = {
   accent: '#b9d4ff',
   background: '#12233f',
   image: null,
-  voice: { rate: 1, pitch: 1.12, volume: 0.9, muted: false },
+  voice: { rate: 1, pitch: 1.12, volume: 0.9, muted: false, voiceURI: null },
   lines: [],
   motion: true
 }
@@ -75,6 +77,17 @@ export function isValidImage(raw: unknown): raw is string {
   return typeof raw === 'string' && raw.length <= MAX_IMAGE_CHARS && IMAGE_DATA_URL.test(raw)
 }
 
+/**
+ * 声线标识净化：去掉控制字符与首尾空白，空串归为「自动」（null）。
+ * 超长不截断——被截断的 voiceURI 必然匹配不到任何系统声线，只会静默回落，
+ * 不如直接当成未指定。
+ */
+export function sanitizeVoiceURI(raw: unknown): string | null {
+  if (typeof raw !== 'string' || raw.length > MAX_VOICE_URI_LENGTH) return null
+  const cleaned = raw.replace(/[\u0000-\u001f\u007f]/g, '').trim()
+  return cleaned || null
+}
+
 export function sanitizeCustomization(raw: unknown): CompanionCustomization {
   const data = asRecord(raw)
   const voice = asRecord(data.voice)
@@ -100,7 +113,8 @@ export function sanitizeCustomization(raw: unknown): CompanionCustomization {
       rate: clamp(finiteOr(voice.rate, DEFAULT_CUSTOMIZATION.voice.rate), 0.5, 2),
       pitch: clamp(finiteOr(voice.pitch, DEFAULT_CUSTOMIZATION.voice.pitch), 0, 2),
       volume: clamp(finiteOr(voice.volume, DEFAULT_CUSTOMIZATION.voice.volume), 0, 1),
-      muted: voice.muted === true
+      muted: voice.muted === true,
+      voiceURI: sanitizeVoiceURI(voice.voiceURI)
     },
     lines,
     motion: data.motion !== false

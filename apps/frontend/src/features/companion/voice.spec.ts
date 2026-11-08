@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_VOICE_SETTINGS, NOOP_VOICE_HOST, VoiceEngine, describeVoiceError,
-  sanitizeVoiceSettings, splitTranscript, toSpokenText, voiceHint,
-  type RecognitionEventLike, type RecognitionLike, type VoiceHost, type VoiceSettings
+  pickVoice, sanitizeVoiceSettings, splitTranscript, toSpokenText, voiceHint,
+  type RecognitionEventLike, type RecognitionLike, type VoiceHost, type VoiceOption,
+  type VoiceSettings
 } from './voice'
 
 class FakeRecognition implements RecognitionLike {
@@ -26,7 +27,11 @@ interface Harness {
   cancel: ReturnType<typeof vi.fn>
 }
 
-const build = (options: { recognition?: boolean; synthesis?: boolean } = {}): Harness => {
+const build = (options: {
+  recognition?: boolean
+  synthesis?: boolean
+  voices?: VoiceOption[]
+} = {}): Harness => {
   const recognition = new FakeRecognition()
   const spoken: { text: string; settings: VoiceSettings }[] = []
   const cancel = vi.fn()
@@ -40,6 +45,7 @@ const build = (options: { recognition?: boolean; synthesis?: boolean } = {}): Ha
       return recognition
     },
     hasSynthesis: () => options.synthesis !== false,
+    listVoices: () => options.voices ?? [],
     speak: (text, settings, onDone) => {
       spoken.push({ text, settings })
       onDone()
@@ -73,8 +79,25 @@ describe('voice helpers', () => {
 
   it('clamps voice settings and ignores wrong types', () => {
     expect(sanitizeVoiceSettings({ rate: 99, pitch: -3, volume: 0.4, muted: 'yes' }))
-      .toEqual({ rate: 2, pitch: 0, volume: 0.4, muted: false })
+      .toEqual({ rate: 2, pitch: 0, volume: 0.4, muted: false, voiceURI: null })
     expect(sanitizeVoiceSettings(null)).toEqual(DEFAULT_VOICE_SETTINGS)
+    expect(sanitizeVoiceSettings({ voiceURI: '  zh-cn-xiaoxiao  ' }).voiceURI).toBe('zh-cn-xiaoxiao')
+    expect(sanitizeVoiceSettings({ voiceURI: 42 }).voiceURI).toBeNull()
+  })
+
+  it('prefers the chosen voice, then Chinese, then the host default', () => {
+    const voices: VoiceOption[] = [
+      { uri: 'en-us-aria', name: 'Aria', lang: 'en-US', local: true },
+      { uri: 'zh-cn-xiaoxiao', name: '晓晓', lang: 'zh-CN', local: true },
+      { uri: 'zh-cn-yunxi', name: '云希', lang: 'zh-CN', local: false }
+    ]
+    expect(pickVoice(voices, 'zh-cn-yunxi')?.name).toBe('云希')
+    // 换设备后原 voiceURI 消失：静默回落中文声线，而不是变成哑巴。
+    expect(pickVoice(voices, 'gone-after-os-update')?.name).toBe('晓晓')
+    expect(pickVoice(voices, null)?.name).toBe('晓晓')
+    expect(pickVoice(voices, undefined)?.name).toBe('晓晓')
+    expect(pickVoice([voices[0]], 'zh-cn-yunxi')).toBeNull()
+    expect(pickVoice([], null)).toBeNull()
   })
 
   it('explains permission denial in plain Chinese', () => {
@@ -163,14 +186,28 @@ describe('VoiceEngine', () => {
     const onStart = vi.fn()
     const onEnd = vi.fn()
     expect(engine.speak('我暂时读不到状态（去工作台看看）', {
-      rate: 1.2, pitch: 1.4, volume: 0.5, muted: false
+      rate: 1.2, pitch: 1.4, volume: 0.5, muted: false, voiceURI: 'zh-cn-yunxi'
     }, onStart, onEnd)).toBe(true)
     expect(spoken[0].text).toBe('我暂时读不到状态，去工作台看看')
     expect(spoken[0].settings.rate).toBe(1.2)
+    expect(spoken[0].settings.voiceURI).toBe('zh-cn-yunxi')
     expect(onStart).toHaveBeenCalledOnce()
     expect(onEnd).toHaveBeenCalledOnce()
     expect(engine.currentPhase).toBe('idle')
     engine.dispose()
+  })
+
+  it('lists host voices and degrades to an empty list when unsupported', () => {
+    const voices: VoiceOption[] = [
+      { uri: 'zh-cn-xiaoxiao', name: '晓晓', lang: 'zh-CN', local: true }
+    ]
+    const engine = new VoiceEngine(build({ voices }).host)
+    expect(engine.listVoices()).toEqual(voices)
+    engine.dispose()
+    // 卸载后不再向宿主索取任何东西，避免异步回调把已销毁的引擎唤醒。
+    expect(engine.listVoices()).toEqual([])
+    expect(new VoiceEngine(NOOP_VOICE_HOST).listVoices()).toEqual([])
+    expect(new VoiceEngine(NOOP_VOICE_HOST).onVoicesChanged(() => undefined)()).toBeUndefined()
   })
 
   it('stays silent when muted, when synthesis is missing or after cancel', () => {

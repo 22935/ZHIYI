@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CompanionHost from './CompanionHost.vue'
+import { COMPANION_SKIN_STORAGE_KEY } from '@/features/companion/skins'
 
 vi.mock('@/services/api/workflow', () => ({
   workflowApi: {
@@ -83,6 +84,30 @@ describe('CompanionHost', () => {
     }))
     await flushPromises()
     expect((query('[data-testid="companion-messages"]')?.textContent || '').split('Trace')).toHaveLength(2)
+
+    wrapper.unmount()
+  })
+
+  it('settles on the last selected skin without leaving an extra renderer behind', async () => {
+    const wrapper = mount(CompanionHost)
+    await flushPromises()
+    query('[data-testid="companion-avatar"]')?.click()
+    await flushPromises()
+
+    const select = query('[data-testid="companion-skin"]') as HTMLSelectElement
+    // 连切三次：中间那次要动态 import 动效引擎，是最慢的一枪。
+    // 「最后者胜」的时序语义由 switchGuard.spec 单独锁定，这里只验真实链路
+    // 不会把过期渲染器留在舞台上。
+    for (const id of ['companion-diy', 'companion-grok', 'companion-static']) {
+      select.value = id
+      select.dispatchEvent(new Event('change'))
+    }
+    await flushPromises()
+    await flushPromises()
+
+    expect(select.value).toBe('companion-static')
+    expect(query('[data-testid="companion-avatar"]')?.querySelectorAll('svg')).toHaveLength(1)
+    expect(localStorage.getItem(COMPANION_SKIN_STORAGE_KEY)).toBe('companion-static')
 
     wrapper.unmount()
   })

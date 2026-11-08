@@ -76,6 +76,20 @@
       ></textarea>
     </div>
 
+    <div class="diy-row">
+      <label class="diy-label" for="diy-voice">声线</label>
+      <select id="diy-voice" v-model="voiceSelection" class="diy-input" data-testid="companion-diy-voice">
+        <option value="">自动（跟随系统中文）</option>
+        <option v-for="option in voices" :key="option.uri" :value="option.uri">
+          {{ option.name }}{{ option.local ? '' : ' · 在线' }}
+        </option>
+      </select>
+      <button type="button" data-testid="companion-diy-audition" @click="audition">试听</button>
+    </div>
+    <p v-if="voices.length === 0" class="diy-hint" data-testid="companion-diy-voice-empty">
+      这台设备还没返回可选声线，先用「自动」。
+    </p>
+
     <div class="diy-sliders">
       <label>语速 <input v-model.number="draft.voice.rate" type="range" min="0.5" max="2" step="0.05" data-testid="companion-diy-rate" /></label>
       <label>音调 <input v-model.number="draft.voice.pitch" type="range" min="0" max="2" step="0.05" data-testid="companion-diy-pitch" /></label>
@@ -110,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 // 注意：这里刻意不 watch props.value。工坊打开时会以当前配置初始化 draft，
 // 之后 draft 的每次改动都会 emit('preview') 让父级更新 customization；
 // 若再回写 draft 就会形成「预览 → 同步 → 预览」的无限循环。
@@ -118,14 +132,20 @@ import { ref, watch } from 'vue'
 import {
   DEFAULT_CUSTOMIZATION, DIY_PRESETS, MAX_IMAGE_CHARS, SHAPE_LABEL,
   exportCustomization, importCustomization, parseLines, sanitizeCustomization,
-  type DiyPreset
+  sanitizeVoiceURI, type DiyPreset
 } from '@/features/companion/customization'
+import type { VoiceOption } from '@/features/companion/voice'
 import type { CompanionCustomization, DiyShape } from '@/features/companion/types'
 
-const props = defineProps<{ value: CompanionCustomization }>()
+const props = withDefaults(defineProps<{
+  value: CompanionCustomization
+  /** 宿主枚举到的系统声线；空数组时只保留「自动」。 */
+  voices?: VoiceOption[]
+}>(), { voices: () => [] })
 const emit = defineEmits<{
   (event: 'preview', value: CompanionCustomization): void
   (event: 'apply', value: CompanionCustomization): void
+  (event: 'audition', settings: CompanionCustomization['voice']): void
   (event: 'close'): void
 }>()
 
@@ -139,6 +159,23 @@ const draft = ref<CompanionCustomization>(clone(props.value))
 const linesText = ref(props.value.lines.join('\n'))
 const shareText = ref('')
 const imageHint = ref('')
+
+/**
+ * 下拉框只认字符串：内部用 null 表示「自动」，option 用空串。
+ * 两者在这里互相翻译，避免 select 找不到匹配项时渲染成空白。
+ */
+const voiceSelection = computed<string>({
+  get: () => draft.value.voice.voiceURI ?? '',
+  set: (value: string) => {
+    draft.value = {
+      ...draft.value,
+      voice: { ...draft.value.voice, voiceURI: sanitizeVoiceURI(value) }
+    }
+  }
+})
+
+/** 试听交给父级：只有它持有 VoiceEngine，工坊这里不产生任何播放副作用。 */
+const audition = (): void => { emit('audition', { ...draft.value.voice }) }
 
 const current = (): CompanionCustomization => sanitizeCustomization({
   ...draft.value,
