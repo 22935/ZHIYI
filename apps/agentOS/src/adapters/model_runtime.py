@@ -17,6 +17,7 @@ from adapters.model_adapter import (
 from adapters.model_compatibility import ModelCompatibilityRegistry
 from adapters.openai_runtime import ModelInvocationError, decode_json_object
 from adapters.prompt_runtime import canonical_hash, prompt_instance_metadata, trust_summary
+from adapters.execution_prefix import execution_messages
 from contracts.capability import (
     ModelCapabilityEnvelope,
     ModelOutputPolicy,
@@ -157,9 +158,9 @@ class RegisteredModelRuntime:
         selected_reason = "provider_default"
         selected_prompt_identity: dict[str, str] = {}
         last_prompt_audit: dict[str, Any] = {}
-        messages = ([{"role": "system", "content": system_prompt}] if system_prompt else []) + [
-            {"role": "user", "content": prompt}
-        ]
+        messages, schema_message_index = execution_messages(
+            prompt=prompt, system_prompt=system_prompt, provider=self.provider, prompt_metadata=prompt_metadata,
+        )
         if continuation is not None:
             if not isinstance(continuation, list) or not continuation or any(
                 not isinstance(item, dict) or set(item) != {"role", "content"} or item["role"] not in {"assistant", "user"}
@@ -174,6 +175,8 @@ class RegisteredModelRuntime:
             system_prompt=system_prompt,
             prompt_version=prompt_version,
         )
+        if schema_message_index is not None:
+            safe_prompt_metadata["stablePrefixHash"] = canonical_hash(messages[:schema_message_index])
         for index, adapter in enumerate(candidates):
             # ``timeout_seconds`` 是整个模型选择动作的上限，而不是每个候选各自的
             # 上限。剩余时间在尚未尝试的候选之间均分：主实现慢超时时备实现仍有机会
@@ -254,6 +257,7 @@ class RegisteredModelRuntime:
                 messages=messages,
                 responseSchema=dict(schema),
                 prefixResponseSchema=prefix_schema,
+                schemaMessageIndex=schema_message_index,
                 options=options,
                 commitId=commit_id,
             )
@@ -443,14 +447,16 @@ class RegisteredModelRuntime:
         if temperature is not None:
             options["temperature"] = float(temperature)
         request_id = commit_id or f"model:{uuid4().hex}"
-        messages = ([{"role": "system", "content": system_prompt}] if system_prompt else []) + [
-            {"role": "user", "content": prompt}
-        ]
+        messages, schema_message_index = execution_messages(
+            prompt=prompt, system_prompt=system_prompt, provider=self.provider, prompt_metadata=prompt_metadata,
+        )
         safe_prompt_metadata = self._prompt_metadata(
             prompt_metadata=prompt_metadata,
             system_prompt=system_prompt,
             prompt_version=prompt_version,
         )
+        if schema_message_index is not None:
+            safe_prompt_metadata["stablePrefixHash"] = canonical_hash(messages[:schema_message_index])
         invocation_identity = prompt_instance_metadata(
             messages=messages,
             response_schema=dict(schema),
@@ -474,6 +480,7 @@ class RegisteredModelRuntime:
             model=self.model,
             messages=messages,
             responseSchema=dict(schema),
+            schemaMessageIndex=schema_message_index,
             options=options,
             commitId=commit_id,
         )

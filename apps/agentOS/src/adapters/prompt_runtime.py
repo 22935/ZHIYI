@@ -14,7 +14,7 @@ PLANNER_PRESET_PROMPT_VERSION = "planner-preset.v1"
 EXECUTOR_PRESET_PROMPT_VERSION = "executor-preset.v1"
 VERIFIER_PRESET_PROMPT_VERSION = "verifier-preset.v1"
 SYNTHESIZER_PRESET_PROMPT_VERSION = "synthesizer-preset.v1"
-PROMPT_RENDERER_VERSION = "prompt-runtime-renderer.v3"
+PROMPT_RENDERER_VERSION = "prompt-runtime-renderer.v4"
 PLANNING_REQUEST_PROTOCOL_VERSION = "planning-request.v1"
 EXECUTION_REQUEST_PROTOCOL_VERSION = "execution-request.v2"
 STRUCTURED_OUTPUT_PROTOCOL_VERSION = "structured-json.v1"
@@ -217,7 +217,7 @@ def prompt_instance_metadata(
     normalized_provider = provider_family.strip().lower()
     structured_output_mode = (
         "json_object_schema_instruction"
-        if normalized_provider in {"glm", "zhipu"}
+        if normalized_provider in {"glm", "zhipu", "deepseek"}
         else "json_schema_strict"
     )
     identity = {

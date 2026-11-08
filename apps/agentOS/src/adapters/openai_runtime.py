@@ -176,7 +176,7 @@ class OpenAICompatibleRuntime:
     """
 
     _PATH = "/chat/completions"
-    _RESERVED_OPTIONS = frozenset({"model", "messages", "response_format", "stream"})
+    _RESERVED_OPTIONS = frozenset({"model", "messages", "response_format", "stream", "schemaMessageIndex", "schema_message_index"})
 
     def __init__(self, *, manifest: CapabilityManifest, transport: JsonTransport) -> None:
         """保存模型声明和应用层传输，并在启动期验证声明边界。"""
@@ -468,9 +468,14 @@ class OpenAICompatibleRuntime:
                         ensure_ascii=False, separators=(",", ":"),
                     )
                 )
-                if payload["messages"] and payload["messages"][0].get("role") == "system":
-                    payload["messages"][0]["content"] = (
-                        str(payload["messages"][0].get("content") or "")
+                schema_index = request.schema_message_index if request.schema_message_index is not None else 0
+                if request.schema_message_index is not None and (
+                    schema_index >= len(payload["messages"]) or payload["messages"][schema_index].get("role") != "system"
+                ):
+                    raise ModelInvocationError("MODEL_REQUEST_INVALID", "schema target must be an existing system message")
+                if payload["messages"] and payload["messages"][schema_index].get("role") == "system":
+                    payload["messages"][schema_index]["content"] = (
+                        str(payload["messages"][schema_index].get("content") or "")
                         + "\n\nTRANSPORT OUTPUT CONTRACT:\n"
                         + schema_instruction
                     )
