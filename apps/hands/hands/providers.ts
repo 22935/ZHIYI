@@ -54,6 +54,8 @@ export interface HandsFilesystemProvider {
   readonly workspaceRoot: string
   readText(path: string, signal?: AbortSignal): Promise<string>
   readVersionedText?(path: string, signal?: AbortSignal): Promise<{ text: string; version: string }>
+  /** 只读预览用：带前后版本围栏的原始字节读取，返回 base64。缺失时 fs.read 保持纯文本语义。 */
+  readVersionedBinary?(path: string, maxBytes: number, signal?: AbortSignal): Promise<{ base64: string; bytes: number; version: string }>
   listDir(path: string, signal?: AbortSignal): Promise<HandsDirEntry[]>
   writeText(path: string, content: string, guard: HandsWriteGuard | undefined, signal?: AbortSignal): Promise<HandsWriteOutcome>
   editText(path: string, edit: HandsEditRequest, guard: HandsWriteGuard | undefined, signal?: AbortSignal): Promise<HandsEditOutcome>

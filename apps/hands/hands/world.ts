@@ -179,6 +179,21 @@ class DshFilesystemProvider implements HandsFilesystemProvider {
     return { text, version: after.version }
   }
 
+  /**
+   * 只读预览的原始字节读取（docx/pdf/图片等）：与 readVersionedText 相同的
+   * 前后版本围栏，上限由调用方传入（编辑器预览用 32 MiB）。
+   */
+  async readVersionedBinary(path: string, maxBytes: number, signal?: AbortSignal): Promise<{ base64: string; bytes: number; version: string }> {
+    const target = await this.#resolve(path, signal, true)
+    const before = await this.ctx.fs.lstat(target.displayPath, undefined, signal)
+    if (!before || before.type !== 'file') throw new Error('HANDS_FILE_NOT_FOUND')
+    if ((before.size ?? 0) > maxBytes) throw Object.assign(new Error(`File exceeds ${maxBytes} bytes`), { code: 'FS_TOO_LARGE' })
+    const bytes = await this.ctx.fs.readBytes(target, signal, maxBytes)
+    const after = await this.ctx.fs.lstat(target.displayPath, undefined, signal)
+    if (!after || before.version !== after.version) throw Object.assign(new Error('File changed during read'), { code: 'FS_STALE_VERSION' })
+    return { base64: Buffer.from(bytes).toString('base64'), bytes: bytes.byteLength, version: after.version }
+  }
+
   async listDir(path: string, signal?: AbortSignal): Promise<HandsDirEntry[]> {
     const target = await this.#resolve(path, signal, true)
     const entries = await this.ctx.fs.listDir(target, signal)

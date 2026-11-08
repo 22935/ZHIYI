@@ -35,7 +35,12 @@ export interface HandsEngineOptions {
 
 interface FsReadInput {
   path: string
+  /** true 时走 readVersionedBinary，返回 base64 载荷供上层做文档预览提取。 */
+  binary?: boolean
 }
+
+/** 编辑器预览的原始字节上限（docx/pdf/图片等压缩容器本身偏大，文本编辑链仍是 1 MiB）。 */
+const WORKSPACE_BINARY_READ_MAX_BYTES = 32 * 1024 * 1024
 interface FsListInput {
   path: string
 }
@@ -185,6 +190,10 @@ export class HandsEngine {
     switch (capabilityId) {
       case 'fs.read': {
         const { path } = requireInput<FsReadInput>(input, ['path'])
+        if (input.binary === true && fs.readVersionedBinary) {
+          const snapshot = await fs.readVersionedBinary(path, WORKSPACE_BINARY_READ_MAX_BYTES, signal)
+          return { path, binary: true, encoding: 'base64', content: snapshot.base64, bytes: snapshot.bytes, version: snapshot.version }
+        }
         if (input.versioned === true && fs.readVersionedText) {
           const snapshot = await fs.readVersionedText(path, signal)
           return { path, ...snapshot, bytes: Buffer.byteLength(snapshot.text, 'utf8') }

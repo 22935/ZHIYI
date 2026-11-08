@@ -11,7 +11,7 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -98,6 +98,33 @@ describe('P0-1/4/5 fs capabilities, workspace fence, receipts', () => {
     // identity echo
     expect(write.identity).toEqual({ runId: 'run_test', stepId: expect.any(String), attemptId: 'atm_1', commitId: expect.any(String) })
     expect(write.protocolVersion).toBe('1')
+  })
+
+  it('reads raw bytes as base64 with the versioned fence (editor preview path)', async () => {
+    const { hands, workspace } = await makeHands()
+    const grant = fullGrant(hands, workspace)
+    // zip 容器（docx 等）首部即含 NUL 字节：纯文本链必须拒绝，二进制链必须原样返回。
+    const payload = Buffer.from([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00, 0xFF, 0xD8, 0xFF, 0x00])
+    writeFileSync(join(workspace, 'report.docx'), payload)
+
+    const read = await hands.engine.execute(requestOf(hands, grant, 'fs.read', { path: 'report.docx', binary: true }))
+    expect(read.status).toBe('completed')
+    expect(read.output?.binary).toBe(true)
+    expect(read.output?.encoding).toBe('base64')
+    expect(Buffer.from(read.output?.content as string, 'base64').equals(payload)).toBe(true)
+    expect(typeof read.output?.version).toBe('string')
+    expect(read.output?.bytes).toBe(payload.length)
+
+    // 普通文本读对二进制保持既有拒绝语义（FS_NOT_TEXT）。
+    const textRead = await hands.engine.execute(requestOf(hands, grant, 'fs.read', { path: 'report.docx' }))
+    expect(textRead.status).toBe('failed')
+    expect(textRead.error?.code).toBe('FS_NOT_TEXT')
+
+    // 预览上限：readWholeBytes 在 stat 阶段短路，超限立即 FS_TOO_LARGE。
+    writeFileSync(join(workspace, 'huge.bin'), Buffer.alloc(33 * 1024 * 1024 + 1, 1))
+    const oversized = await hands.engine.execute(requestOf(hands, grant, 'fs.read', { path: 'huge.bin', binary: true }))
+    expect(oversized.status).toBe('failed')
+    expect(oversized.error?.code).toBe('FS_TOO_LARGE')
   })
 
   it('patches (literal edit) and lists directories', async () => {
