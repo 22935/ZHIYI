@@ -163,7 +163,7 @@ describe('WorkbenchStatusBar', () => {
 
   it('renders the active file editor meta as VS Code style segments on the right', () => {
     const wrapper = mount(WorkbenchStatusBar, {
-      props: { tabs, modelValue: 'communication', collapsed: false, editorStatus: { editable: true, language: 'JS', lines: 2, cursor: '行 1，列 1' } }
+      props: { tabs, modelValue: 'communication', collapsed: false, editorStatus: { editable: true, language: 'JS', encoding: 'UTF-8', lines: 2, cursor: '行 1，列 1' } }
     })
 
     const segments = wrapper.findAll('.workbench-status-bar__editor-segment')
@@ -176,7 +176,7 @@ describe('WorkbenchStatusBar', () => {
 
   it('marks readonly editors and hides the editor block when no file is active', () => {
     const readonly = mount(WorkbenchStatusBar, {
-      props: { tabs, modelValue: 'communication', collapsed: false, editorStatus: { editable: false, language: 'MD', lines: 1, cursor: '行 1，列 1' } }
+      props: { tabs, modelValue: 'communication', collapsed: false, editorStatus: { editable: false, language: 'MD', encoding: 'GB18030', lines: 1, cursor: '行 1，列 1' } }
     })
 
     const tag = readonly.find('.workbench-status-bar__editor-segment')

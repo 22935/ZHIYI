@@ -31,10 +31,20 @@ export interface DocumentChange {
   origin?: unknown
 }
 
+/** 读取载荷的渲染元信息：kind 决定编辑器分支，encoding/format/reason 上报状态栏。 */
+export interface DocumentMeta {
+  kind: 'text' | 'extracted' | 'image' | 'unsupported'
+  encoding?: string
+  mime?: string
+  format?: string
+  reason?: string
+}
+
 export interface LoadedFile {
   content: string
   /** 后端版本令牌；null 表示不支持版本保护保存（只读） */
   version: string | null
+  meta?: DocumentMeta
 }
 
 export interface DocumentSource {
@@ -185,7 +195,12 @@ export const createPlatformDocumentSource = (): DocumentSource => ({
     const file = request.desktopWorkspaceId && native
       ? await native.read(request.desktopWorkspaceId, request.relativePath)
       : await agentosApi.readWorkspaceFile(request.missionId, request.relativePath, { signal })
-    return { content: file.content, version: file.version || null }
+    return {
+      content: file.content,
+      version: file.version || null,
+      // 旧后端不回 kind：默认按纯文本处理，保持既有行为。
+      meta: { kind: file.kind ?? 'text', encoding: file.encoding, mime: file.mime, format: file.format, reason: file.reason }
+    }
   },
   async save(request, content, expectedVersion) {
     const native = getElectronBridge()?.workspace
@@ -214,6 +229,7 @@ const documentKey = (request: WorkspaceFileOpenRequest): string => (
 export class WorkspaceDocumentService {
   private readonly documents = new Map<string, TextDocument>()
   private readonly requests = new Map<string, WorkspaceFileOpenRequest>()
+  private readonly metas = new Map<string, DocumentMeta>()
 
   constructor(private readonly source: DocumentSource = createPlatformDocumentSource()) {}
 
@@ -225,6 +241,17 @@ export class WorkspaceDocumentService {
     return this.documents.get(uri)
   }
 
+  /** 最近一次 load 的载荷元信息（kind/编码/格式），编辑器据此选择渲染分支。 */
+  meta(uri: string): DocumentMeta | undefined {
+    return this.metas.get(uri)
+  }
+
+  private record(uri: string, file: LoadedFile, document: TextDocument): TextDocument {
+    this.metas.set(uri, file.meta ?? { kind: 'text' })
+    this.documents.set(uri, document)
+    return document
+  }
+
   /** 打开文档：已存在直接复用（保留编辑状态），否则从数据源读取。 */
   async open(request: WorkspaceFileOpenRequest, signal?: AbortSignal): Promise<TextDocument> {
     const uri = documentKey(request)
@@ -232,9 +259,7 @@ export class WorkspaceDocumentService {
     const existing = this.documents.get(uri)
     if (existing) return existing
     const file = await this.source.load(request, signal)
-    const document = new TextDocument(uri, file.content, file.version)
-    this.documents.set(uri, document)
-    return document
+    return this.record(uri, file, new TextDocument(uri, file.content, file.version))
   }
 
   /** 重新读取：丢弃本地修改并刷新令牌，保留文档实例让订阅者继续有效。 */
@@ -244,12 +269,11 @@ export class WorkspaceDocumentService {
     const file = await this.source.load(request, signal)
     const existing = this.documents.get(uri)
     if (existing) {
+      this.metas.set(uri, file.meta ?? { kind: 'text' })
       existing.reset(file.content, file.version)
       return existing
     }
-    const document = new TextDocument(uri, file.content, file.version)
-    this.documents.set(uri, document)
-    return document
+    return this.record(uri, file, new TextDocument(uri, file.content, file.version))
   }
 
   /** 保存当前文本；没有版本令牌时抛错（只读文件不允许保存）。 */
@@ -270,12 +294,14 @@ export class WorkspaceDocumentService {
   close(uri: string): void {
     this.documents.delete(uri)
     this.requests.delete(uri)
+    this.metas.delete(uri)
   }
 
   /** 测试与本机工作区重置时清空全部缓存。 */
   reset(): void {
     this.documents.clear()
     this.requests.clear()
+    this.metas.clear()
   }
 }
 

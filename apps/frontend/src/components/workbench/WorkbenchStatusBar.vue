@@ -84,7 +84,7 @@
           :title="editorStatus.editable ? '本地文件，支持版本保护保存' : '只读 · 当前执行后端不支持版本保护保存'"
         >{{ editorStatus.editable ? '本地文件' : '只读' }}</span>
         <span class="workbench-status-bar__editor-segment" :title="`语言 ${editorStatus.language}`">{{ editorStatus.language }}</span>
-        <span class="workbench-status-bar__editor-segment" title="文件编码 UTF-8">UTF-8</span>
+        <span class="workbench-status-bar__editor-segment" :title="`文件编码 ${editorStatus.encoding}`">{{ editorStatus.encoding }}</span>
         <span class="workbench-status-bar__editor-segment" :title="`共 ${editorStatus.lines} 行`">{{ editorStatus.lines }} 行</span>
         <span class="workbench-status-bar__editor-segment" :title="`光标位置 ${editorStatus.cursor}`">{{ editorStatus.cursor }}</span>
       </div>

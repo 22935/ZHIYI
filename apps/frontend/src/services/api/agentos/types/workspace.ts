@@ -149,3 +149,20 @@ export interface WorkspaceFileOpenRequest {
   /** 打开后直接进入行内 diff（对比 HEAD 与当前内容）。 */
   diff?: boolean
 }
+
+/**
+ * 统一读取载荷：桌面 IPC 与 AgentOS HTTP 双链共用，kind 决定编辑器渲染分支。
+ * version 为 null = 只读预览（提取文本/图片/非 UTF-8 编码）；仅可编辑 UTF-8 文本携带版本令牌。
+ */
+export interface WorkspaceFilePayload {
+  kind: 'text' | 'extracted' | 'image' | 'unsupported'
+  content: string
+  version: string | null
+  encoding?: string
+  mime?: string
+  format?: string
+  reason?: string
+}
+
+/** HTTP 读取响应：kind/编码等字段可选（旧后端只回 content/version）。 */
+export type WorkspaceFileReadResponse = { workspaceRoot: string; path: string } & { content: string; version?: string | null } & Partial<WorkspaceFilePayload>

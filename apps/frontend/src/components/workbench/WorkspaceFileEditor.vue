@@ -3,16 +3,22 @@
     <header class="file-editor__toolbar">
       <span class="file-editor__path" :title="request.workspaceRoot + '/' + request.relativePath">{{ request.relativePath }}</span>
       <span v-if="dirty" class="file-editor__dirty">未保存</span>
-      <button type="button" :disabled="!doc || diffLoading" :title="diffMode ? '返回编辑' : '与 HEAD 对比（行内 diff）'" @click="toggleDiff">{{ diffLoading ? '对比中…' : diffMode ? '编辑' : '对比' }}</button>
+      <button v-if="isTextKind" type="button" :disabled="!doc || diffLoading" :title="diffMode ? '返回编辑' : '与 HEAD 对比（行内 diff）'" @click="toggleDiff">{{ diffLoading ? '对比中…' : diffMode ? '编辑' : '对比' }}</button>
       <button type="button" :disabled="loading || saving" @click="reload">重新读取</button>
-      <button type="button" :disabled="!dirty || !version || loading || saving" title="保存到工作区（Ctrl+S）" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
+      <button v-if="isTextKind" type="button" :disabled="!dirty || !version || loading || saving" title="保存到工作区（Ctrl+S）" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
     </header>
     <p v-if="loading" role="status">正在读取文件…</p>
     <div v-if="error" class="file-editor__error" role="alert">{{ error }} <button v-if="!doc" type="button" @click="load">重试</button></div>
+    <p v-if="notice" class="file-editor__notice">{{ notice }}</p>
     <p v-if="diffError" class="file-editor__error">{{ diffError }}</p>
-    <div v-if="doc" class="file-editor__body">
+    <div v-if="previewKind === 'unsupported'" class="file-editor__unsupported" role="alert">
+      <p>{{ meta?.reason || '该文件类型暂不支持预览' }}</p>
+      <button type="button" @click="reload">重新读取</button>
+    </div>
+    <div v-else-if="doc" class="file-editor__body">
+      <img v-if="previewKind === 'image'" class="file-editor__image" :src="currentText" :alt="request.name">
       <WorkspaceDiffView
-        v-if="diffMode"
+        v-else-if="diffMode"
         :base="baseText"
         :current="currentText"
         :file-name="request.name"
@@ -34,7 +40,7 @@
 </template>
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { DocumentConflictError, workspaceDocuments, type TextDocument } from '@/workbench/core/documents'
+import { DocumentConflictError, workspaceDocuments, type DocumentMeta, type TextDocument } from '@/workbench/core/documents'
 import { workspaceDiagnostics } from '@/workbench/core/diagnostics'
 import { registerDiff } from '@/workbench/core/diffRequest'
 import { requestOpenFile } from '@/workbench/core/openFileRequest'
@@ -47,6 +53,8 @@ export interface WorkspaceFileEditorStatus {
   /** 后端是否支持版本保护保存；false 时状态栏展示只读标记。 */
   editable: boolean
   language: string
+  /** 真实解码编码（UTF-8/GB18030/UTF-16LE…），状态栏展示。 */
+  encoding: string
   lines: number
   cursor: string
 }
@@ -58,6 +66,7 @@ const WorkspaceDiffView = defineAsyncComponent(() => import('./WorkspaceDiffView
 const props = defineProps<{request: WorkspaceFileOpenRequest}>()
 const emit = defineEmits<{'dirty-change': [dirty: boolean], 'status-change': [status: WorkspaceFileEditorStatus]}>()
 const doc = shallowRef<TextDocument | null>(null)
+const meta = ref<DocumentMeta | null>(null)
 const error = ref(''), loading = ref(false), saving = ref(false)
 const cursor = ref({ line: 1, column: 1 })
 const revision = ref(0)
@@ -82,9 +91,20 @@ const lines = computed(() => {
   return doc.value?.lineCount ?? 0
 })
 const language = computed(() => props.request.name.split('.').pop()?.toUpperCase() || 'TEXT')
+const previewKind = computed(() => meta.value?.kind ?? 'text')
+const isTextKind = computed(() => previewKind.value === 'text')
+const formatLabel = computed(() => (meta.value?.format || props.request.name.split('.').pop() || '文档').toUpperCase())
+const notice = computed(() => {
+  const value = meta.value
+  if (!value) return ''
+  if (value.kind === 'extracted') return `${formatLabel.value} 文本提取预览（只读）${value.reason ? '：' + value.reason : ''}`
+  if (value.kind === 'text' && value.reason) return value.reason
+  return ''
+})
 const status = computed<WorkspaceFileEditorStatus>(() => ({
   editable: Boolean(version.value),
   language: language.value,
+  encoding: meta.value?.encoding ? meta.value.encoding.toUpperCase() : 'UTF-8',
   lines: lines.value,
   cursor: `行 ${cursor.value.line}，列 ${cursor.value.column}`
 }))
@@ -101,6 +121,7 @@ const message = (cause: any) => cause?.response?.data?.detail || cause?.response
 function attach(next: TextDocument): void {
   unsubscribe?.()
   doc.value = next
+  meta.value = workspaceDocuments.meta(next.uri) ?? { kind: 'text' }
   unsubscribe = next.onDidChange(() => { revision.value += 1 })
 }
 
@@ -177,7 +198,7 @@ async function loadBase(): Promise<void> {
 }
 
 function toggleDiff(): void {
-  if (!doc.value) return
+  if (!doc.value || !isTextKind.value) return
   diffMode.value = !diffMode.value
   if (diffMode.value) void loadBase()
 }
@@ -198,6 +219,7 @@ function openDefinition(location: { path: string; line: number }): void {
 let unregisterDiff: (() => void) | null = null
 onMounted(() => {
   unregisterDiff = registerDiff(props.request.relativePath, () => {
+    if (!isTextKind.value) return
     diffMode.value = true
     void loadBase()
   })
@@ -223,4 +245,7 @@ onBeforeUnmount(() => {
 .file-editor__dirty { color:var(--wb-warning); }
 .file-editor__body { flex:1; min-height:0; display:flex; overflow:hidden; }
 .file-editor__error { padding:10px 16px; color:var(--wb-danger); }
+.file-editor__notice { margin:0; padding:6px 16px; font-size:12px; color:var(--wb-text-secondary); background:var(--wb-surface-1); border-top:1px solid var(--wb-border); border-bottom:1px solid var(--wb-border); }
+.file-editor__unsupported { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--wb-text-secondary); }
+.file-editor__image { flex:1; min-width:0; height:100%; object-fit:contain; background:var(--wb-surface-1); }
 </style>

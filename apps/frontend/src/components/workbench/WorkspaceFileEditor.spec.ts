@@ -124,7 +124,7 @@ it('reports file meta to the window status bar instead of an internal footer', a
   const wrapper = await mountEditor()
   expect(wrapper.find('.file-editor__status').exists()).toBe(false)
   expect(wrapper.emitted('status-change')?.at(-1)).toEqual([
-    { editable: true, language: 'MD', lines: 1, cursor: '行 1，列 1' }
+    { editable: true, language: 'MD', encoding: 'UTF-8', lines: 1, cursor: '行 1，列 1' }
   ])
 
   const stub = editorStub(wrapper)
@@ -132,13 +132,13 @@ it('reports file meta to the window status bar instead of an internal footer', a
   doc.applyEdits([{ from: 0, to: 0, insert: 'one\ntwo\n' }])
   await flushPromises()
   expect(wrapper.emitted('status-change')?.at(-1)).toEqual([
-    { editable: true, language: 'MD', lines: 3, cursor: '行 1，列 1' }
+    { editable: true, language: 'MD', encoding: 'UTF-8', lines: 3, cursor: '行 1，列 1' }
   ])
 
   stub.vm.$emit('cursor', { line: 3, column: 7 })
   await flushPromises()
   expect(wrapper.emitted('status-change')?.at(-1)).toEqual([
-    { editable: true, language: 'MD', lines: 3, cursor: '行 3，列 7' }
+    { editable: true, language: 'MD', encoding: 'UTF-8', lines: 3, cursor: '行 3，列 7' }
   ])
   wrapper.unmount()
 })
@@ -147,7 +147,7 @@ it('flags readonly in the reported status when no version token is available', a
   vi.mocked(agentosApi.readWorkspaceFile).mockResolvedValue({ workspaceRoot: 'C:/authorized', path: 'note.md', content: 'legacy' })
   const wrapper = await mountEditor()
   expect(wrapper.emitted('status-change')?.at(-1)).toEqual([
-    { editable: false, language: 'MD', lines: 1, cursor: '行 1，列 1' }
+    { editable: false, language: 'MD', encoding: 'UTF-8', lines: 1, cursor: '行 1，列 1' }
   ])
   wrapper.unmount()
 })
@@ -193,5 +193,53 @@ it('falls back to the editor and reports the reason when the base version cannot
 
   expect(wrapper.text()).toContain('不是 Git 仓库')
   expect(wrapper.findComponent({ name: 'DiffStub' }).exists()).toBe(false)
+  wrapper.unmount()
+})
+
+it('renders an extracted document as a read-only preview with a notice banner', async () => {
+  vi.mocked(agentosApi.readWorkspaceFile).mockResolvedValue({
+    workspaceRoot: 'C:/authorized', path: '报告.docx', content: '提取的正文',
+    version: null, kind: 'extracted', format: 'docx'
+  })
+  const wrapper = await mountEditor({ relativePath: '报告.docx', name: '报告.docx' })
+
+  expect(wrapper.find('.file-editor__notice').text()).toBe('DOCX 文本提取预览（只读）')
+  expect(wrapper.find('img.file-editor__image').exists()).toBe(false)
+  expect(editorStub(wrapper).props('readOnly')).toBe(true)
+  const labels = wrapper.findAll('button').map(button => button.text())
+  expect(labels).toContain('重新读取')
+  expect(labels).not.toContain('保存')
+  expect(labels).not.toContain('对比')
+  wrapper.unmount()
+})
+
+it('renders an image payload without mounting the code editor', async () => {
+  const dataUrl = 'data:image/png;base64,aGVsbG8='
+  vi.mocked(agentosApi.readWorkspaceFile).mockResolvedValue({
+    workspaceRoot: 'C:/authorized', path: '图.png', content: dataUrl,
+    version: null, kind: 'image', mime: 'image/png'
+  })
+  const wrapper = await mountEditor({ relativePath: '图.png', name: '图.png' })
+
+  const image = wrapper.get('img.file-editor__image')
+  expect(image.attributes('src')).toBe(dataUrl)
+  expect(wrapper.findComponent({ name: 'CodeEditorStub' }).exists()).toBe(false)
+  const labels = wrapper.findAll('button').map(button => button.text())
+  expect(labels).not.toContain('保存')
+  expect(labels).not.toContain('对比')
+  wrapper.unmount()
+})
+
+it('shows a friendly unsupported card instead of a bare error code', async () => {
+  vi.mocked(agentosApi.readWorkspaceFile).mockResolvedValue({
+    workspaceRoot: 'C:/authorized', path: 'app.exe', content: '',
+    version: null, kind: 'unsupported', format: 'exe', reason: 'Windows 可执行程序（EXE，1024 字节）暂不支持预览'
+  })
+  const wrapper = await mountEditor({ relativePath: 'app.exe', name: 'app.exe' })
+
+  const card = wrapper.get('.file-editor__unsupported')
+  expect(card.text()).toContain('Windows 可执行程序')
+  expect(card.find('button').text()).toBe('重新读取')
+  expect(wrapper.findComponent({ name: 'CodeEditorStub' }).exists()).toBe(false)
   wrapper.unmount()
 })

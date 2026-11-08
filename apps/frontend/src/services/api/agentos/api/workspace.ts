@@ -1,5 +1,5 @@
 import { agentosRequest } from '../client'
-import type { MissionWorkspaceProjection, WorkspaceFileListing } from '../types'
+import type { MissionWorkspaceProjection, WorkspaceFileListing, WorkspaceFileReadResponse } from '../types'
 
 export const createWorkspaceApi = () => ({
   async getMissionWorkspace(
@@ -17,7 +17,7 @@ export const createWorkspaceApi = () => ({
   },
 
   async readWorkspaceFile(missionId: string, path: string, options: { signal?: AbortSignal } = {}) {
-    const response = await agentosRequest.get<{workspaceRoot: string; path: string; content: string; version?: string | null}>(
+    const response = await agentosRequest.get<WorkspaceFileReadResponse>(
       `/missions/${encodeURIComponent(missionId)}/workspace/file`,
       { params: { path }, signal: options.signal }
     )
