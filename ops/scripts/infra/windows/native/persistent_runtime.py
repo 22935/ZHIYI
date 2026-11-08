@@ -285,7 +285,7 @@ def start_hands(home, info, creds, state, env, start):
     node_env = dict(env, TSX_TSCONFIG_PATH=str(ROOT/'apps/agentOS/src/hands/tsconfig.json'))
     try:
         record = start('host',[shutil.which('node'),str(ROOT/'apps/agentOS/src/hands/node_modules/tsx/dist/cli.mjs'),
-            '--tsconfig',str(ROOT/'apps/agentOS/src/hands/tsconfig.json'),str(ROOT/'apps/agentOS/src/hands/hands/service-main.ts'),
+            '--tsconfig',str(ROOT/'apps/agentOS/src/hands/tsconfig.json'),(ROOT/'apps/agentOS/src/hands/hands/service-main.ts').as_posix(),
             '--config',str(config)],node_env)
         desktop.wait_until(lambda:native.health(ports(info)['host'],'/v1/health').get('ok'),record,60)
     finally:
