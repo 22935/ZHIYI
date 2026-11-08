@@ -9,7 +9,7 @@ describe('BrandEmpty', () => {
     })
 
     const mark = wrapper.find('.brand-empty__mark')
-    expect(mark.attributes('src')).toBe('/logo.webp')
+    expect(mark.attributes('src')).toBe('/logo-mark.svg')
     expect(mark.attributes('style')).toContain('width: 96px')
     expect(wrapper.find('.brand-empty__text').text()).toBe('Empty / 未观测通信记录。')
   })

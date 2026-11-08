@@ -115,7 +115,7 @@
         @semantics-saved="emit('semanticsSaved')"
       />
       <div v-else-if="activeOpened?.entry.kind !== 'local_file'" class="editor-group__empty">
-        <img class="editor-group__empty-watermark" src="/logo.webp" alt="" aria-hidden="true" />
+        <img class="editor-group__empty-watermark" src="/logo-mark.svg" alt="" aria-hidden="true" />
       </div>
     </section>
   </main>

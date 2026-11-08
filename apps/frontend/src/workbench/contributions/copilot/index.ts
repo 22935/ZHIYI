@@ -8,7 +8,7 @@ export const copilotContribution: WorkbenchContribution = {
       id: 'acg-copilot.sidebar',
       title: 'ACG Copilot',
       order: 100,
-      iconImage: '/logo.webp',
+      iconImage: '/logo-mark.svg',
       component: AcgCopilotPanel,
       when: () => true
     }

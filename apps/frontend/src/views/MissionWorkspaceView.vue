@@ -38,7 +38,7 @@
           />
         </KeepAlive>
         <section v-if="!projection" class="workspace-loading-pane" aria-label="Workspace loading status">
-          <img class="workspace-loading-pane__watermark" src="/logo.webp" alt="" aria-hidden="true" />
+          <img class="workspace-loading-pane__watermark" src="/logo-mark.svg" alt="" aria-hidden="true" />
           <span class="workspace-loading-pane__mark">MISSION</span>
           <strong>{{ loading ? 'Loading workspace…' : 'Workspace unavailable' }}</strong>
           <span>{{ loadError || '等待 Mission 投影。' }}</span>
@@ -93,7 +93,7 @@
           @semantics-saved="loadWorkspace(selectedRunId || undefined)"
         />
         <section v-else class="workspace-main-state" role="status">
-          <img class="workspace-main-state__watermark" src="/logo.webp" alt="" aria-hidden="true" />
+          <img class="workspace-main-state__watermark" src="/logo-mark.svg" alt="" aria-hidden="true" />
           <strong>{{ loading ? 'Loading Mission Workspace…' : 'Mission Workspace unavailable' }}</strong>
           <span>{{ loadError || '请从 Mission 导航进入一个 Project Workspace。' }}</span>
           <button v-if="loadError" type="button" @click="loadWorkspace()">重新加载</button>

@@ -200,6 +200,15 @@
   --app-topbar-input-border: rgba(71, 79, 116, 0.12);
   --app-topbar-kbd-bg: #eceef7;
   --app-topbar-logo-bg: #f5f6fb;
+
+  /* 品牌方章是深色实底 + 浅色线条；浅色主题由 useTheme 统一反相。 */
+  --brand-logo-filter: none;
+}
+
+/* 品牌矢量资产随主题反相，保证 5 套配色下对比度一致。
+   ACG 子系统专用标 (/acglogo.*) 是独立品牌资产，不参与主标适配。 */
+img[src^="/logo"] {
+  filter: var(--brand-logo-filter, none);
 }
 
 /* Base Reset */

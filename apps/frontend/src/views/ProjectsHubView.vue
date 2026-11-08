@@ -1,6 +1,6 @@
 <template>
   <main class="projects-hub" aria-label="项目预加载">
-    <img class="projects-hub__emblem" src="/logo.webp" alt="" aria-hidden="true" />
+    <img class="projects-hub__emblem" src="/logo-mark.svg" alt="" aria-hidden="true" />
   </main>
 </template>
 

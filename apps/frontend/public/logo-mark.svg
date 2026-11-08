@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="132" height="121" viewBox="0 0 132 121" role="img" aria-labelledby="markTitle">
+  <title id="markTitle">知弈 AgentOS 标识线条</title>
+  <desc>透明底纯线条版，用于水印、空态与低干扰装饰。</desc>
+  <style>
+    .ink { fill: none; stroke: #F3F3F4; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .ink-fine { fill: none; stroke: #F3F3F4; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .tip { fill: #F3F3F4; }
+  </style>
+
+  <path class="ink" d="M66 17 V45" />
+  <path class="tip" d="M63.3 21 L66 12.8 L68.7 21 Z" />
+
+  <path class="ink" d="M66 26 C57 27.5 47.5 30 38 33" />
+  <path class="ink" d="M66 26 C75 27.5 84.5 30 95 33" />
+
+  <path class="ink-fine" d="M59 34 C52 38.5 45 44 39.5 50" />
+  <path class="ink-fine" d="M73 34 C80 38.5 87 44 92.5 50" />
+
+  <path class="ink" d="M66 45 C56 50 44.5 58 38 66" />
+  <path class="ink" d="M66 45 C76 50 87.5 58 94 66" />
+
+  <path class="ink-fine" d="M52 72 C56 68.5 59 67.5 62 69" />
+  <path class="ink-fine" d="M70 69 C73 67.5 76 68.5 80 72" />
+
+  <path class="ink" d="M62 60 C53 58.5 47.5 61.5 47 68 C46.2 78 46.2 88 47 95" />
+  <path class="ink" d="M70 60 C79 58.5 84.5 61.5 85 68 C87 78 88 84 88 89 C91 97 94 100 97 102" />
+</svg>

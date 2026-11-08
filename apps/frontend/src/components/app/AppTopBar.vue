@@ -10,7 +10,7 @@
     <div class="app-topbar__left" v-bind="dragRegionProps">
       <div class="app-topbar__brand-zone" v-bind="dragRegionProps">
         <span class="app-topbar__logo" aria-hidden="true">
-          <img src="/logo.webp" alt="" />
+          <img src="/logo.svg" alt="" />
         </span>
       </div>
 
@@ -678,6 +678,8 @@ onBeforeUnmount(() => {
   outline-offset: 1px;
 }
 
+/* 品牌方章自带深色圆角底，容器不再叠一层底色与边框，
+   避免浅色主题下出现「浅框套深章」的割裂感。 */
 .app-topbar__logo {
   position: relative;
   display: grid;
@@ -686,16 +688,12 @@ onBeforeUnmount(() => {
   width: 24px;
   height: 24px;
   overflow: visible;
-  background: var(--app-topbar-logo-bg);
-  border: 1px solid var(--app-topbar-border);
   border-radius: 7px;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--app-topbar-text) 8%, transparent), 0 0 0 1px color-mix(in srgb, var(--app-topbar-text) 18%, transparent) inset;
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .app-topbar__logo img {
-  width: 18px;
-  height: 18px;
+  width: 23px;
+  height: 21px;
   object-fit: contain;
 }
 

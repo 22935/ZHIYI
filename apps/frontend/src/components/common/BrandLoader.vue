@@ -1,7 +1,7 @@
 <!-- 品牌加载态 — 花环生长环呼吸动画，统一全应用加载视觉 -->
 <template>
   <div class="brand-loader">
-    <img class="brand-loader__mark" src="/logo.webp" alt="" aria-hidden="true" :style="{ width: `${size}px`, height: `${size}px` }" />
+    <img class="brand-loader__mark" src="/logo.svg" alt="" aria-hidden="true" :style="{ width: `${size}px`, height: `${size}px` }" />
     <strong v-if="title">{{ title }}</strong>
     <span v-if="subtitle">{{ subtitle }}</span>
     <slot />

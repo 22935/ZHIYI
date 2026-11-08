@@ -103,6 +103,9 @@ function applySchemeVariables(schemeId: ColorSchemeId): void {
     root.style.setProperty(`--el-color-${status}-light-9`, `color-mix(in srgb, var(--${status}) 12%, var(--bg-card))`)
     root.style.setProperty(`--el-color-${status}-dark-2`, `color-mix(in srgb, var(--${status}) 82%, #000000)`)
   }
+  // 品牌方章为深底浅线；浅色主题统一反相为浅底深线，避免深色块压在浅色界面上。
+  // 反相后再做 180° 色相回正，使底色贴近各浅色方案的 --bg-app 而非发黄。
+  root.style.setProperty('--brand-logo-filter', isDark ? 'none' : 'invert(1) hue-rotate(180deg) saturate(.9)')
   root.dataset.colorScheme = scheme.id
   root.style.colorScheme = isDark ? 'dark' : 'light'
   document.body.style.backgroundImage = scheme.bodyBackground

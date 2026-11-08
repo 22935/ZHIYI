@@ -57,7 +57,7 @@
                   </filter>
                 </defs>
               </svg>
-              <img class="hero-watermark" src="/logo.webp" alt="" />
+              <img class="hero-watermark" src="/logo-mark.svg" alt="" />
             </div>
             <h2 class="hero-greeting">{{ heroGreeting }}</h2>
           </div>
@@ -4177,7 +4177,7 @@ const handleHeroLogoPointerUp = () => {
 .hero-logo-field .hero-watermark {
   width: 100%;
   margin: 0;
-  filter: url('#hero-logo-fluid') saturate(0.9) brightness(0.94);
+  filter: var(--brand-logo-filter, none) url('#hero-logo-fluid') saturate(0.9) brightness(0.94);
   transform-origin: center;
   will-change: transform, filter;
   pointer-events: none;

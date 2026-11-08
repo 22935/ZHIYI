@@ -9,7 +9,7 @@ describe('BrandLoader', () => {
     })
 
     const mark = wrapper.find('.brand-loader__mark')
-    expect(mark.attributes('src')).toBe('/logo.webp')
+    expect(mark.attributes('src')).toBe('/logo.svg')
     expect(mark.attributes('style')).toContain('width: 64px')
     expect(wrapper.find('strong').text()).toBe('正在加载项目')
     expect(wrapper.find('span').text()).toBe('读取 Mission Project 列表…')
