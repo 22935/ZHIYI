@@ -212,9 +212,10 @@ describe('GlassConstellation', () => {
       start: vi.fn(), stop: vi.fn()
     }
     Object.defineProperty(window, 'SpeechRecognition', { configurable: true, value: vi.fn(() => recognition) })
+    // 当前 SSE 契约以空行分帧，帧内是 { event, data } 信封。
     const chunks = [
-      `data: ${JSON.stringify({ event: 'content_delta', data: { delta: '这是后端回复' } })}\n`,
-      `data: ${JSON.stringify({ event: 'done', data: { contextId: 'ctx-justin' } })}\n`
+      `data: ${JSON.stringify({ event: 'content_delta', data: { delta: '这是后端回复' } })}\n\n`,
+      `data: ${JSON.stringify({ event: 'done', data: { contextId: 'ctx-justin', status: 'completed' } })}\n\n`
     ]
     let chunkIndex = 0
     vi.stubGlobal('fetch', vi.fn(async () => ({
