@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import {
   gitCommit,
   gitDiff,
+  gitInit,
   gitShow,
   gitStage,
   gitStatus,
@@ -245,6 +246,28 @@ test('gitStatus gives a readable error outside a Git repository', async t => {
   try {
     await writeFile(path.join(root, 'readme.txt'), 'plain directory\n')
     await assert.rejects(() => gitStatus(root), /不是 Git 仓库|not a git repository/i)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('gitInit turns a plain directory into a working repository', async t => {
+  if (skipWithoutGit(t)) return
+  const root = await mkdtemp(path.join(tmpdir(), 'zhiyi-git-init-'))
+  try {
+    await writeFile(path.join(root, 'readme.txt'), 'plain directory\n')
+    await assert.rejects(() => gitStatus(root), /不是 Git 仓库|not a git repository/i)
+
+    await gitInit(root)
+
+    const status = await gitStatus(root)
+    assert.deepEqual(status.files, [{ path: 'readme.txt', index: '?', worktree: '?' }])
+    assert.equal(status.ahead, 0)
+    assert.equal(status.behind, 0)
+    assert.doesNotMatch(status.branch, /^\s*$/)
+    // 空仓库可继续走暂存链路（无 HEAD 时 unstage 走 rm --cached 兜底）。
+    await gitStage(root, ['readme.txt'])
+    assert.equal((await gitStatus(root)).files[0]?.index, 'A')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

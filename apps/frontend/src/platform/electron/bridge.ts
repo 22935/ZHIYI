@@ -131,6 +131,7 @@ export interface KinlinDesktopBridge {
     gitStage(root: string, paths: string[]): Promise<void>
     gitUnstage(root: string, paths: string[]): Promise<void>
     gitCommit(root: string, message: string): Promise<{ committed: boolean; output: string }>
+    gitInit(root: string): Promise<void>
   }
   notify(title: string, body?: string): void
   openExternal(url: string): Promise<void>

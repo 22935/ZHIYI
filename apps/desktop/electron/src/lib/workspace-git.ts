@@ -231,6 +231,16 @@ export async function gitShow(root: string, filePath: string, ref = 'HEAD'): Pro
   throw commandFailure(root, ['show', ref], result)
 }
 
+/**
+ * 在普通目录初始化 Git 仓库（源代码管理面板「初始化仓库」引导）。
+ * 前提就是该目录还不是仓库，因此不做仓库断言；已 init 的目录重复执行
+ * 属 git 自身的 reinitialize（幂等，退出码 0），无需特判。
+ */
+export async function gitInit(root: string): Promise<void> {
+  assertRepoRoot(root)
+  await runGitChecked(root, ['init'])
+}
+
 export async function gitStage(root: string, paths: string[]): Promise<void> {
   assertRepoRoot(root)
   const safePaths = assertPaths(paths)

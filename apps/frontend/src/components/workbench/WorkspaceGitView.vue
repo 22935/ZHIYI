@@ -9,6 +9,23 @@
     <p v-if="hint" class="workspace-git__hint">{{ hint }}</p>
     <p v-else-if="error" class="workspace-git__error" role="alert">{{ error }}</p>
 
+    <div v-else-if="notRepo" class="workspace-git__init">
+      <svg class="workspace-git__init-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <circle cx="4.5" cy="3.5" r="1.7" />
+        <circle cx="4.5" cy="12.5" r="1.7" />
+        <circle cx="11.5" cy="4.5" r="1.7" />
+        <path d="M4.5 5.2v5.6" />
+        <path d="M11.5 6.2c0 2.3-1.9 3.2-4.2 3.6-1 .18-2 .5-2.8 1" />
+      </svg>
+      <strong>此文件夹还不是 Git 仓库</strong>
+      <span class="workspace-git__init-path" :title="root">{{ root }}</span>
+      <p class="workspace-git__init-copy">初始化后即可在这里查看改动、暂存与提交。</p>
+      <div class="workspace-git__init-actions">
+        <button type="button" class="workspace-git__init-btn" :disabled="initting" @click="initRepo">{{ initting ? '初始化中…' : '初始化仓库' }}</button>
+        <button type="button" class="workspace-git__switch-btn" :disabled="initting" @click="switchFolder">打开其他文件夹</button>
+      </div>
+    </div>
+
     <template v-else>
       <div v-if="!status || !status.files.length" class="workspace-git__clean">工作区干净</div>
       <ul v-else class="workspace-git__files" role="list">
@@ -50,7 +67,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { agentosApi } from '@/services/api/agentos'
-import { gitCommit, gitDiff, gitStage, gitStatus, gitUnstage, type GitFileChange, type GitStatusResult } from '@/services/workspaceGit'
+import { gitCommit, gitDiff, gitInit, gitStage, gitStatus, gitUnstage, isNotRepositoryError, type GitFileChange, type GitStatusResult } from '@/services/workspaceGit'
 import { getElectronBridge } from '@/platform/electron/bridge'
 import { requestDiff } from '@/workbench/core/diffRequest'
 
@@ -68,6 +85,8 @@ const selected = ref<GitFileChange | null>(null)
 const diff = ref<string | null>(null)
 const diffLoading = ref(false)
 const message = ref('')
+const notRepo = ref(false)
+const initting = ref(false)
 
 const bridgeReady = Boolean(getElectronBridge()?.workspace?.gitStatus)
 const hint = computed(() => bridgeReady ? (root.value ? '' : '正在定位工作区…') : 'Git 仅在桌面端可用')
@@ -108,15 +127,60 @@ async function refresh(): Promise<void> {
   error.value = ''
   try {
     status.value = await gitStatus(root.value)
+    notRepo.value = false
     if (selected.value && !status.value.files.some(file => file.path === selected.value?.path)) {
       selected.value = null
       diff.value = null
     }
   } catch (cause) {
-    error.value = messageOf(cause)
     status.value = null
+    selected.value = null
+    diff.value = null
+    if (isNotRepositoryError(cause)) {
+      notRepo.value = true
+      error.value = ''
+      return
+    }
+    notRepo.value = false
+    error.value = messageOf(cause)
   } finally {
     loading.value = false
+  }
+}
+
+/** 引导主操作：在当前工作文件夹执行 git init，成功后回到正常面板。 */
+async function initRepo(): Promise<void> {
+  if (initting.value || !root.value) return
+  initting.value = true
+  error.value = ''
+  try {
+    await gitInit(root.value)
+    notRepo.value = false
+    await refresh()
+  } catch (cause) {
+    error.value = messageOf(cause)
+  } finally {
+    initting.value = false
+  }
+}
+
+/** 引导次操作：换一个工作文件夹；广播事件让文件浏览器同步刷新列表。 */
+async function switchFolder(): Promise<void> {
+  if (initting.value) return
+  error.value = ''
+  try {
+    const folder = await getElectronBridge()?.workspace?.choose()
+    if (!folder) return
+    root.value = folder.root
+    workspaceId.value = folder.id
+    notRepo.value = false
+    status.value = null
+    selected.value = null
+    diff.value = null
+    window.dispatchEvent(new CustomEvent('workspace-folder-changed', { detail: { id: folder.id, root: folder.root } }))
+    await refresh()
+  } catch (cause) {
+    error.value = messageOf(cause)
   }
 }
 
@@ -213,6 +277,17 @@ onMounted(async () => {
 .workspace-git__hint { color:var(--wb-text-muted); }
 .workspace-git__error { color:var(--wb-danger); }
 .workspace-git__clean { padding:14px 12px; color:var(--wb-text-muted); font-size:11px; }
+.workspace-git__init { display:flex; flex-direction:column; align-items:flex-start; gap:5px; margin:12px; padding:14px 12px; border:1px solid var(--wb-border); border-radius:8px; background:var(--wb-surface-inset, transparent); }
+.workspace-git__init-icon { width:18px; height:18px; margin-bottom:2px; fill:none; stroke:var(--wb-accent); stroke-width:1.2; stroke-linecap:round; }
+.workspace-git__init strong { color:var(--wb-text); font-size:12px; }
+.workspace-git__init-path { max-width:100%; overflow:hidden; color:var(--wb-text-secondary); font:10.5px var(--font-mono, monospace); text-overflow:ellipsis; white-space:nowrap; }
+.workspace-git__init-copy { margin:0; color:var(--wb-text-muted); font-size:11px; line-height:1.5; }
+.workspace-git__init-actions { display:flex; gap:6px; margin-top:6px; }
+.workspace-git__init-btn { padding:4px 10px; border:1px solid color-mix(in srgb, var(--wb-accent) 55%, var(--wb-border-strong)); border-radius:4px; background:transparent; color:var(--wb-accent); font-size:11px; cursor:pointer; }
+.workspace-git__init-btn:hover:not(:disabled) { background:var(--wb-hover); }
+.workspace-git__init-btn:disabled { opacity:.5; cursor:default; }
+.workspace-git__switch-btn { padding:4px 10px; border:1px solid var(--wb-border-strong); border-radius:4px; background:transparent; color:var(--wb-text-secondary); font-size:11px; cursor:pointer; }
+.workspace-git__switch-btn:hover:not(:disabled) { color:var(--wb-text); background:var(--wb-hover); }
 .workspace-git__files { flex:1; min-height:0; margin:0; padding:0 0 8px; overflow:auto; list-style:none; }
 .workspace-git__files li { display:flex; flex-direction:column; }
 .workspace-git__file { display:flex; align-items:center; gap:7px; width:100%; padding:4px 12px; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }

@@ -79,7 +79,8 @@ const bridge = {
     gitShow: (root: string, path: string, ref?: string) => invoke(IPC.workspaceGitShow, root, path, ref),
     gitStage: (root: string, paths: string[]) => invoke(IPC.workspaceGitStage, root, paths),
     gitUnstage: (root: string, paths: string[]) => invoke(IPC.workspaceGitUnstage, root, paths),
-    gitCommit: (root: string, message: string) => invoke(IPC.workspaceGitCommit, root, message)
+    gitCommit: (root: string, message: string) => invoke(IPC.workspaceGitCommit, root, message),
+    gitInit: (root: string) => invoke(IPC.workspaceGitInit, root)
   },
   lsp: {
     open: (root: string, relativePath: string, text: string) => invoke(IPC.lspOpen, root, relativePath, text),

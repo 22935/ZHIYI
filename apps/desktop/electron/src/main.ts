@@ -17,7 +17,7 @@ import { WorkspaceFiles } from './lib/workspace-files'
 import { normalizeSearchOptions, searchWorkspace, validateSearchRoot } from './lib/workspace-search'
 import { runDiagnostics, validateDiagnosticsRoot } from './lib/workspace-diagnostics'
 import { LspHost } from './lib/lsp-host'
-import { gitCommit, gitDiff, gitShow, gitStage, gitStatus, gitUnstage, validateGitRoot } from './lib/workspace-git'
+import { gitCommit, gitDiff, gitInit, gitShow, gitStage, gitStatus, gitUnstage, validateGitRoot } from './lib/workspace-git'
 import { APP_INDEX_URL, APP_SCHEME, APP_HOST, handleAppProtocol, registerAppScheme } from './lib/protocol'
 import { createFileLogger, type FileLogger } from './lib/logging'
 import {
@@ -331,6 +331,10 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.workspaceGitCommit, async (event, root, message) => {
     guard(event)
     return gitCommit(await validateGitRoot(root), String(message))
+  })
+  ipcMain.handle(IPC.workspaceGitInit, async (event, root) => {
+    guard(event)
+    return gitInit(await validateGitRoot(root))
   })
 
   ipcMain.handle(IPC.windowMinimize, (event) => {

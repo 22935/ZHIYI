@@ -27,6 +27,7 @@ export const IPC = {
   workspaceGitStage: 'kinlin:workspace/git-stage',
   workspaceGitUnstage: 'kinlin:workspace/git-unstage',
   workspaceGitCommit: 'kinlin:workspace/git-commit',
+  workspaceGitInit: 'kinlin:workspace/git-init',
   lspOpen: 'kinlin:lsp/open',
   lspChange: 'kinlin:lsp/change',
   lspClose: 'kinlin:lsp/close',

@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getElectronBridge } from '@/platform/electron/bridge'
 import { FolderOpened, Refresh, Search } from '@element-plus/icons-vue'
 import { agentosApi, type WorkspaceFileEntry, type WorkspaceFileOpenRequest } from '@/services/api/agentos'
@@ -197,10 +197,27 @@ watch(() => props.missionId, () => {
   void refresh()
 })
 
+// Git 面板「打开其他文件夹」切换目录后广播此事件，两侧面板保持同一工作文件夹。
+const onFolderChanged = (event: Event) => {
+  const detail = (event as CustomEvent<{ id?: string; root?: string }>).detail
+  if (!detail?.root) return
+  desktopWorkspaceId.value = typeof detail.id === 'string' ? detail.id : null
+  workspaceRoot.value = detail.root
+  selectedPath.value = ''
+  filterText.value = ''
+  nodes.value = []
+  void refresh()
+}
+
 onMounted(async () => {
+  window.addEventListener('workspace-folder-changed', onFolderChanged)
   try { const folder = await desktopWorkspace?.current(); if (folder) { desktopWorkspaceId.value = folder.id; workspaceRoot.value = folder.root } }
   catch { /* The native folder picker remains available. */ }
   await refresh()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('workspace-folder-changed', onFolderChanged)
 })
 </script>
 

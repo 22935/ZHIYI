@@ -1,16 +1,22 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import WorkspaceGitView from './WorkspaceGitView.vue'
-import { gitCommit, gitDiff, gitStage, gitStatus, gitUnstage } from '@/services/workspaceGit'
+import { gitCommit, gitDiff, gitInit, gitStage, gitStatus, gitUnstage } from '@/services/workspaceGit'
 import { registerDiff, resetDiff } from '@/workbench/core/diffRequest'
 
-vi.mock('@/services/workspaceGit', () => ({
-  gitStatus: vi.fn(),
-  gitDiff: vi.fn(),
-  gitStage: vi.fn(),
-  gitUnstage: vi.fn(),
-  gitCommit: vi.fn()
-}))
+// 保留真实的 isNotRepositoryError（引导空态依赖它识别「不是 Git 仓库」），其余全部 mock。
+vi.mock('@/services/workspaceGit', async importOriginal => {
+  const actual = await importOriginal<typeof import('@/services/workspaceGit')>()
+  return {
+    ...actual,
+    gitStatus: vi.fn(),
+    gitDiff: vi.fn(),
+    gitStage: vi.fn(),
+    gitUnstage: vi.fn(),
+    gitCommit: vi.fn(),
+    gitInit: vi.fn()
+  }
+})
 vi.mock('@/services/api/agentos', () => ({
   agentosApi: { listWorkspaceFiles: vi.fn(async () => ({ workspaceRoot: 'C:/workspace', path: '.', entries: [] })) }
 }))
@@ -39,6 +45,7 @@ beforeEach(() => {
   vi.mocked(gitStage).mockResolvedValue(undefined)
   vi.mocked(gitUnstage).mockResolvedValue(undefined)
   vi.mocked(gitCommit).mockResolvedValue({ committed: true, output: '' })
+  vi.mocked(gitInit).mockResolvedValue(undefined)
   ;(window as any).kinlinDesktop = {
     window: {}, dialog: {}, zoom: {}, notify: () => {}, openExternal: async () => {},
     appInfo: async () => ({ version: '0', platform: 'win32', packaged: false }),
@@ -122,5 +129,65 @@ it('没有桌面桥时提示仅桌面可用', async () => {
   const wrapper = await mountView()
   expect(wrapper.text()).toContain('Git 仅在桌面端可用')
   expect(gitStatus).not.toHaveBeenCalled()
+  wrapper.unmount()
+})
+
+it('在非 Git 目录渲染初始化引导而不是红字报错', async () => {
+  vi.mocked(gitStatus).mockRejectedValueOnce(
+    new Error("Error invoking remote method 'kinlin:workspace/git-status': Error: 不是 Git 仓库：C:/workspace")
+  )
+  const wrapper = await mountView()
+
+  expect(wrapper.find('.workspace-git__init').exists()).toBe(true)
+  expect(wrapper.text()).toContain('此文件夹还不是 Git 仓库')
+  expect(wrapper.get('.workspace-git__init-path').text()).toBe('C:/workspace')
+  expect(wrapper.text()).toContain('初始化仓库')
+  expect(wrapper.text()).toContain('打开其他文件夹')
+  expect(wrapper.find('.workspace-git__error').exists()).toBe(false)
+  wrapper.unmount()
+})
+
+it('点击初始化仓库走 gitInit 并在成功后回到正常面板', async () => {
+  vi.mocked(gitStatus).mockRejectedValueOnce(new Error('不是 Git 仓库：C:/workspace'))
+  const wrapper = await mountView()
+  expect(wrapper.find('.workspace-git__init').exists()).toBe(true)
+
+  await wrapper.get('.workspace-git__init-btn').trigger('click')
+  await flushPromises()
+
+  expect(gitInit).toHaveBeenCalledWith('C:/workspace')
+  expect(wrapper.find('.workspace-git__init').exists()).toBe(false)
+  expect(wrapper.text()).toContain('main')
+  wrapper.unmount()
+})
+
+it('初始化失败时回退红字报错', async () => {
+  vi.mocked(gitStatus).mockRejectedValue(new Error('不是 Git 仓库：C:/workspace'))
+  vi.mocked(gitInit).mockRejectedValue(new Error('git 未安装或不可用'))
+  const wrapper = await mountView()
+
+  await wrapper.get('.workspace-git__init-btn').trigger('click')
+  await flushPromises()
+
+  expect(wrapper.find('.workspace-git__init').exists()).toBe(false)
+  expect(wrapper.get('.workspace-git__error').text()).toContain('git 未安装或不可用')
+  wrapper.unmount()
+})
+
+it('打开其他文件夹切换 root 并广播目录变更事件', async () => {
+  vi.mocked(gitStatus).mockRejectedValueOnce(new Error('不是 Git 仓库：C:/workspace'))
+  ;(window as any).kinlinDesktop.workspace.choose = async () => ({ id: 'ws-2', root: 'D:/project' })
+  const events: CustomEvent[] = []
+  const listener = (event: Event) => events.push(event as CustomEvent)
+  window.addEventListener('workspace-folder-changed', listener)
+  const wrapper = await mountView()
+
+  await wrapper.get('.workspace-git__switch-btn').trigger('click')
+  await flushPromises()
+  window.removeEventListener('workspace-folder-changed', listener)
+
+  expect(events.length).toBe(1)
+  expect(events[0].detail).toEqual({ id: 'ws-2', root: 'D:/project' })
+  expect(gitStatus).toHaveBeenLastCalledWith('D:/project')
   wrapper.unmount()
 })

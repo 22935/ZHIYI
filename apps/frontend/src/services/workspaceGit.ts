@@ -29,3 +29,19 @@ export const gitShow = (root: string, path: string, ref = 'HEAD'): Promise<strin
 export const gitStage = (root: string, paths: string[]): Promise<void> => bridge().gitStage!(root, paths)
 export const gitUnstage = (root: string, paths: string[]): Promise<void> => bridge().gitUnstage!(root, paths)
 export const gitCommit = (root: string, message: string): Promise<{ committed: boolean; output: string }> => bridge().gitCommit!(root, message)
+export const gitInit = (root: string): Promise<void> => {
+  const git = bridge()
+  if (!git.gitInit) throw new Error('桌面端版本过旧，无法初始化仓库')
+  return git.gitInit(root)
+}
+
+/**
+ * 主进程把「目录不是 Git 仓库」统一包装成 `不是 Git 仓库：<路径>`（跨 IPC 只保留
+ * message），据此让源代码管理面板切换到初始化引导而非红字报错；英文报错留正则兜底。
+ */
+export const isNotRepositoryError = (cause: unknown): boolean => {
+  const message = cause instanceof Error ? cause.message : typeof cause === 'object' && cause !== null
+    ? String((cause as { message?: unknown }).message ?? '')
+    : String(cause ?? '')
+  return message.includes('不是 Git 仓库') || /not a git repo/i.test(message)
+}
