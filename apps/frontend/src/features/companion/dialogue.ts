@@ -47,11 +47,19 @@ const POOL: Record<string, string[]> = {
   unknown: ['我没太听明白，能再说得具体一点吗？']
 }
 
-/** 本地确定性话术 Port：零网络、零模型，离线可用，便于回归测试。 */
+/**
+ * 本地确定性话术 Port：零网络、零模型，离线可用，便于回归测试。
+ * DIY 专属台词只覆盖闲聊场景，其他场景仍用内置话术，避免用户改了几句
+ * 就把「查进度 / 记任务」的明确反馈也改掉。
+ */
 export class LocalChatPort implements ChatPort {
+  constructor(private readonly customSmallTalk: string[] = []) {}
+
   async reply(text: string, context: CompanionContext): Promise<string> {
     const intent = classifyIntent(text).intent
-    const pool = POOL[intent] ?? POOL.unknown
+    const pool = intent === 'small_talk' && this.customSmallTalk.length
+      ? this.customSmallTalk
+      : POOL[intent] ?? POOL.unknown
     const index = context.messages.filter(item => item.role === 'companion').length % pool.length
     return pool[index]
   }

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron'
 import { IPC } from './lib/ipc-contract'
+import { isTrayAction } from './lib/companion-tray'
 import { clampNumber } from './lib/validation'
 
 /**
@@ -104,7 +105,23 @@ const bridge = {
   openExternal: (url: string): Promise<void> =>
     invoke(IPC.openExternal, url).then(() => undefined) as Promise<void>,
   appInfo: (): Promise<{ version: string; platform: string; packaged: boolean }> =>
-    invoke(IPC.appInfo) as Promise<{ version: string; platform: string; packaged: boolean }>
+    invoke(IPC.appInfo) as Promise<{ version: string; platform: string; packaged: boolean }>,
+  // 虚拟伙伴桌面能力：只经固定通道，托盘事件先做白名单收窄。
+  companion: {
+    publishState: (snapshot: unknown): Promise<void> =>
+      invoke(IPC.companionState, snapshot).then(() => undefined) as Promise<void>,
+    notifyIfBackground: (title: string, body: string): Promise<void> =>
+      invoke(IPC.companionNotify, { title, body }).then(() => undefined) as Promise<void>,
+    onTrayAction: (listener: (action: string) => void): (() => void) => {
+      const wrapped = (_event: unknown, value: unknown): void => {
+        if (isTrayAction(value)) listener(value)
+      }
+      ipcRenderer.on(IPC.companionTrayAction, wrapped)
+      return () => {
+        ipcRenderer.removeListener(IPC.companionTrayAction, wrapped)
+      }
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('kinlinDesktop', bridge)

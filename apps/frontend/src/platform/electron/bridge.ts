@@ -135,6 +135,24 @@ export interface KinlinDesktopBridge {
   notify(title: string, body?: string): void
   openExternal(url: string): Promise<void>
   appInfo(): Promise<KinlinAppInfo>
+  /**
+   * 虚拟伙伴桌面能力（可选）：旧版 preload 没有这一节时前端自动降级。
+   * 托盘菜单动作由 preload 做固定白名单收窄后才回调。
+   */
+  companion?: {
+    publishState(snapshot: {
+      state: string
+      label: string
+      level: number
+      affinity: number
+      quiet: boolean
+      /** 可选：自定义名字与语音态，老版本 Main 会忽略。 */
+      name?: string
+      voice?: 'idle' | 'listening' | 'speaking'
+    }): Promise<void>
+    notifyIfBackground(title: string, body: string): Promise<void>
+    onTrayAction(listener: (action: string) => void): () => void
+  }
 }
 
 declare global {

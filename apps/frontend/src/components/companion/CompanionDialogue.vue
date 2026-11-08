@@ -12,7 +12,7 @@
     </div>
 
     <div class="companion-messages" data-testid="companion-messages">
-      <p v-if="!messages.length" class="companion-empty">问我进度、聊两句，或者让我整理一张任务卡。</p>
+      <p v-if="!messages.length" class="companion-empty">点麦克风说一句，或者用上面的指令叫我做事。</p>
       <div
         v-for="message in messages"
         :key="message.id"
@@ -29,63 +29,63 @@
       <button type="button" data-testid="companion-card-close" @click="emit('dismiss-card')">知道了</button>
     </div>
 
-    <form class="companion-input-row" @submit.prevent="submit">
-      <input
-        v-model="draft"
-        type="text"
-        data-testid="companion-input"
-        aria-label="和虚拟伙伴说话"
-        placeholder="说点什么…"
-        :disabled="pending"
-      />
-      <button type="submit" data-testid="companion-send" :disabled="pending || !draft.trim()">发送</button>
-    </form>
+    <CompanionVoiceBar
+      :phase="phase"
+      :interim="interim"
+      :hint="hint"
+      :muted="muted"
+      :level="level"
+      @toggle="emit('toggle-voice')"
+      @toggle-mute="emit('toggle-mute')"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import CompanionVoiceBar from './CompanionVoiceBar.vue'
+import type { VoicePhase } from '@/features/companion/voice'
 import type { CompanionMessage, TaskIntentCard } from '@/features/companion/types'
 
-defineProps<{
+withDefaults(defineProps<{
   messages: CompanionMessage[]
   pending: boolean
   card: TaskIntentCard | null
-}>()
+  phase: VoicePhase
+  hint: string
+  interim?: string
+  muted?: boolean
+  level?: number
+}>(), { interim: '', muted: false, level: 0.35 })
 
 const emit = defineEmits<{
   (event: 'send', text: string): void
   (event: 'dismiss-card'): void
+  (event: 'toggle-voice'): void
+  (event: 'toggle-mute'): void
 }>()
 
-const draft = ref('')
 const quick = [
   { id: 'progress', label: '查进度', text: '现在的任务进度怎么样了？' },
   { id: 'chat', label: '聊两句', text: '你好，在吗？' },
   { id: 'emotion', label: '有点累', text: '今天好累啊' },
   { id: 'task', label: '记个任务', text: '帮我新建一个合同审查任务' }
 ]
-
-const submit = () => {
-  const text = draft.value.trim()
-  if (!text) return
-  draft.value = ''
-  emit('send', text)
-}
 </script>
 
 <style scoped>
 .companion-dialogue { display: flex; flex-direction: column; gap: 8px; }
 .companion-quick { display: flex; flex-wrap: wrap; gap: 4px; }
-.companion-quick-btn, .companion-input-row button, .companion-card button {
+.companion-quick-btn, .companion-card button {
   font: inherit; font-size: 12px; padding: 4px 8px; cursor: pointer;
   color: var(--text-regular, var(--text-primary)); background: var(--bg-panel, var(--bg-card));
   border: 1px solid var(--border-color-base, rgba(128, 128, 128, 0.3)); border-radius: 6px;
-  transition: background-color 180ms ease;
+  transition: background-color 180ms ease, transform 140ms ease;
 }
-.companion-quick-btn:hover, .companion-input-row button:hover { background: var(--surface-hover, var(--bg-panel)); }
+.companion-quick-btn:hover { background: var(--surface-hover, var(--bg-panel)); }
+.companion-quick-btn:active { transform: scale(0.94); }
 .companion-messages {
-  max-height: 208px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+  /* 随视口收缩，避免长对话把整块浮层顶出屏幕；下限保证仍可读。 */
+  max-height: clamp(72px, 18vh, 190px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
   padding: 8px; background: var(--bg-input, var(--bg-app)); border-radius: 8px;
 }
 .companion-empty { margin: 0; font-size: 12px; color: var(--text-muted, var(--text-secondary)); line-height: 1.6; }
@@ -97,12 +97,5 @@ const submit = () => {
 .companion-card-body { font-size: 13px; }
 .companion-card-note { font-size: 11px; color: var(--text-muted, var(--text-secondary)); line-height: 1.5; }
 .companion-card button { align-self: flex-start; }
-.companion-input-row { display: flex; gap: 6px; }
-.companion-input-row input {
-  flex: 1; min-width: 0; font: inherit; font-size: 12px; padding: 6px 8px;
-  color: var(--text-primary); background: var(--bg-input, var(--bg-app));
-  border: 1px solid var(--border-color-base, rgba(128, 128, 128, 0.3)); border-radius: 6px; outline: none;
-}
-.companion-input-row button:disabled, .companion-quick-btn:disabled { opacity: 0.5; cursor: default; }
-@media (prefers-reduced-motion: reduce) { .companion-quick-btn, .companion-input-row button { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .companion-quick-btn { transition: none; } }
 </style>

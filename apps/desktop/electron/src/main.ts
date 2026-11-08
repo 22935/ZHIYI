@@ -4,10 +4,12 @@ import {
   dialog,
   ipcMain,
   Menu,
+  nativeImage,
   Notification,
   screen,
   session,
-  shell
+  shell,
+  Tray
 } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import * as path from 'node:path'
@@ -20,6 +22,16 @@ import { LspHost } from './lib/lsp-host'
 import { gitCommit, gitDiff, gitShow, gitStage, gitStatus, gitUnstage, validateGitRoot } from './lib/workspace-git'
 import { APP_INDEX_URL, APP_SCHEME, APP_HOST, handleAppProtocol, registerAppScheme } from './lib/protocol'
 import { createFileLogger, type FileLogger } from './lib/logging'
+import {
+  DEFAULT_COMPANION_SNAPSHOT,
+  formatTrayTooltip,
+  isTrayAction,
+  parseCompanionSnapshot,
+  parseNotification,
+  shouldDeliverNotification,
+  trayMenuDescriptor,
+  type CompanionSnapshot
+} from './lib/companion-tray'
 import {
   fitsAnyDisplay,
   parseBoolean,
@@ -76,6 +88,9 @@ registerAppScheme() // 必须发生在 app ready 之前
 let mainWindow: BrowserWindow | null = null
 let lspHost: LspHost | null = null
 let logger: FileLogger | null = null
+/** 托盘必须被强引用，否则被 GC 后图标会消失。 */
+let companionTray: Tray | null = null
+let companionSnapshot: CompanionSnapshot = DEFAULT_COMPANION_SNAPSHOT
 const terminalClient = new TerminalClient()
 
 const stateFilePath = (): string => path.join(app.getPath('userData'), 'window-state.json')
@@ -189,6 +204,74 @@ function createWindow(): void {
     app.quit()
   })
   if (openDevtools) win.webContents.openDevTools({ mode: 'detach' })
+}
+
+/**
+ * 虚拟伙伴托盘：只做「显示主窗口 / 快捷意图 / 免打扰」，不创建第二个 BrowserWindow。
+ * 单窗口授权模型（authorized 绑定 mainWindow.mainFrame）与会话权限策略均保持不变。
+ */
+function restoreMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  if (!mainWindow.isVisible()) mainWindow.show()
+  mainWindow.focus()
+}
+
+function emitTrayAction(action: string): void {
+  if (!isTrayAction(action)) return
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC.companionTrayAction, action)
+  }
+}
+
+function refreshCompanionTray(): void {
+  if (!companionTray) return
+  companionTray.setToolTip(formatTrayTooltip(companionSnapshot))
+  const template: Electron.MenuItemConstructorOptions[] = trayMenuDescriptor(companionSnapshot).map((item) => {
+    if (item.kind === 'separator') return { type: 'separator' as const }
+    if (item.kind === 'checkbox') {
+      return {
+        type: 'checkbox' as const,
+        label: item.label,
+        checked: item.checked,
+        click: () => emitTrayAction('quiet')
+      }
+    }
+    return {
+      type: 'normal' as const,
+      label: item.label,
+      click: () => {
+        const action = item.action
+        if (action === 'quit') { app.quit(); return }
+        if (action === 'focus') { restoreMainWindow(); emitTrayAction('focus'); return }
+        if (isTrayAction(action)) {
+          // 语音输入需要用户能看见并操作面板，先恢复主窗口再下发动作。
+          if (action === 'summon' || action === 'progress' || action === 'voice') restoreMainWindow()
+          emitTrayAction(action)
+        }
+      }
+    }
+  })
+  companionTray.setContextMenu(Menu.buildFromTemplate(template))
+}
+
+function createCompanionTray(): void {
+  const iconPath = path.join(__dirname, 'icons', 'companion-tray.png')
+  const image = nativeImage.createFromPath(iconPath)
+  if (image.isEmpty()) {
+    logger?.warn('companion tray icon unavailable; tray disabled', { iconPath })
+    return
+  }
+  try {
+    const tray = new Tray(image)
+    companionTray = tray
+    refreshCompanionTray()
+    tray.on('click', () => { restoreMainWindow(); emitTrayAction('toggle') })
+    tray.on('double-click', () => { restoreMainWindow(); emitTrayAction('summon') })
+  } catch (error) {
+    logger?.warn('companion tray unavailable', { error: String(error) })
+    companionTray = null
+  }
 }
 
 /** 会话级加固：拒绝全部权限请求与检查（media/geolocation/notifications 等）。 */
@@ -416,6 +499,27 @@ function registerIpcHandlers(): void {
     event.returnValue = senderOk ? apiOrigin : ''
   })
 
+  // 虚拟伙伴：状态快照只影响托盘 tooltip 与菜单勾选，不参与任何执行决策。
+  ipcMain.handle(IPC.companionState, (event, raw) => {
+    guard(event)
+    const snapshot = parseCompanionSnapshot(raw)
+    if (!snapshot) throw new Error('Invalid companion state')
+    companionSnapshot = snapshot
+    refreshCompanionTray()
+    return null
+  })
+  // 窗口正被用户看着时不弹系统通知；免打扰由 Main 依据已校验的快照兜底。
+  ipcMain.handle(IPC.companionNotify, (event, raw) => {
+    guard(event)
+    const notice = parseNotification(raw)
+    if (!notice) throw new Error('Invalid companion notification')
+    const alive = Boolean(mainWindow && !mainWindow.isDestroyed())
+    const focused = alive && mainWindow!.isFocused()
+    const minimized = alive && mainWindow!.isMinimized()
+    if (!shouldDeliverNotification(companionSnapshot, focused, minimized)) return null
+    new Notification({ title: notice.title, body: notice.body }).show()
+    return null
+  })
 }
 
 function wireGlobalErrorHandling(): void {
@@ -466,6 +570,8 @@ if (!gotSingleInstanceLock) {
     }
     registerIpcHandlers()
     createWindow()
+    // 托盘在主窗口就绪后创建：图标资源随 dist/icons 一起进 asar，缺失时静默降级。
+    createCompanionTray()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -479,6 +585,8 @@ if (!gotSingleInstanceLock) {
     event.preventDefault()
     lspHost?.dispose()
     lspHost = null
+    companionTray?.destroy()
+    companionTray = null
     void terminalClient.closeAll().catch(() => undefined).finally(() => app.quit())
   })
   app.on('window-all-closed', () => {
