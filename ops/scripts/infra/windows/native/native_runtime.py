@@ -471,8 +471,8 @@ def release_ports(ports_to_free):
 
 def preflight(run, ai_port, host_port):
     import importlib.metadata as metadata
-    if os.name != 'nt' or sys.version_info[:2] != (3, 14):
-        raise RuntimeError('Requires real Windows CPython 3.14')
+    if os.name != 'nt' or sys.version_info[:2] not in ((3, 13), (3, 14)):
+        raise RuntimeError('Requires real Windows CPython 3.13 or 3.14')
     token = windows_token(os.getpid())
     if token['elevated'] or int(token['integritySid'].rsplit('-', 1)[1]) > 8192:
         raise RuntimeError('Native acceptance requires a non-elevated ordinary-user token')

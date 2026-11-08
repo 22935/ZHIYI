@@ -48,7 +48,7 @@ from components.mission_manager.store import WorkflowRegistry
 from runtime import ApplicationSetup, ExecutionRuntime
 from adapters.guarded_model import GuardedModelRuntime
 from adapters.model_runtime import RegisteredModelRuntime
-from runtime.v2 import (
+from runtime import (
     AcgIdentityLifecycleService,
     IdentityProjectionReconciler,
     IdentityProjectionBridge,

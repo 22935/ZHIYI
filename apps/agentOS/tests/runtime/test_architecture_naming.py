@@ -2,7 +2,7 @@
 
 from contracts.workflow import RuntimeMissionRecord, RuntimeRunRecord
 from runtime import ExecutionRuntime
-from runtime.v2 import AcgIdentityLifecycleService, IdentityProjectionBridge
+from runtime import AcgIdentityLifecycleService, IdentityProjectionBridge
 from support.acg import RuntimeBlueprintSpec
 
 

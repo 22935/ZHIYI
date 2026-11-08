@@ -12,7 +12,7 @@ from components.content import SQLiteContentManifestStore
 from contracts.content import ContentKind
 from contracts.planning import PlannedTask, TaskPlan
 from contracts.resource import ExecutionBinding as RuntimeExecutionBinding, RuntimeKind
-from runtime.v2 import (
+from runtime import (
     AcgIdentityLifecycleService,
     IdentityProjectionBridge,
     PlannerIdentityBridge,

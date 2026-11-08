@@ -307,4 +307,4 @@ async def test_list_entries_are_mapped_to_runtime_shape(monkeypatch):
     assert result.output['entries'] == [
         {'path': 'hello.txt', 'name': 'hello.txt', 'type': 'file', 'size': 11},
         {'path': 'sub', 'name': 'sub', 'type': 'directory'},
-    ]\n
+    ]

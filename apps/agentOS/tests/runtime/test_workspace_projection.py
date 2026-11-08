@@ -9,7 +9,7 @@ from contracts.planning import PlannedTask, TaskPlan
 from contracts.resource import ExecutionBinding as RuntimeExecutionBinding, RuntimeKind
 from domain.models import RunStatus
 from domain.repository import IdentityConflictError
-from runtime.v2 import (
+from runtime import (
     AcgIdentityLifecycleService,
     IdentityProjectionBridge,
     IdentityQueryService,

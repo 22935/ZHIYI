@@ -105,7 +105,7 @@ def test_lifecycle_recovery_cannot_recreate_missing_identity_from_paused_graph(r
 
 
 def test_bulk_identity_scan_cannot_adopt_paused_graph(ready_boundary, monkeypatch):
-    from runtime.v2.reconciliation import IdentityProjectionReconciler
+    from runtime.reconciliation import IdentityProjectionReconciler
     runtime, workflow, _, run_id, _, agent, _ = activated(ready_boundary)
     runtime._flush_identity_outbox()
     assert workflow.list_outbox() == []

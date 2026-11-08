@@ -7,15 +7,15 @@
 > [M2B 验收记录](../../../../../docs/开发记录/PR-EX-M1-M2B-执行闭环与工作区授权-合并记录.md)。
 
 沿用 [N03 环境](README-N03.md) 的 PostgreSQL、Memurai、DPAPI、Workflow SQLite、TypeScript Backend 和 Python 服务。
-Hands 是独立 Node.js 服务，源代码仅从本仓 `apps/hands` 加载；不读取原 zhi-xing 仓库。
+Hands 是独立 Node.js 服务，源代码仅从本仓 `apps/agentOS/src/hands` 加载；不读取原 zhi-xing 仓库。
 默认使用 Hands 执行后端与同一 ResourcePlane/HMAC/Grant 选择。
 
 ## 构建
 
 ```powershell
-pnpm --dir apps/hands install --frozen-lockfile
-pnpm --dir apps/hands exec tsc --noEmit
-pnpm --dir apps/hands test
+pnpm --dir apps/agentOS/src/hands install --frozen-lockfile
+pnpm --dir apps/agentOS/src/hands exec tsc --noEmit
+pnpm --dir apps/agentOS/src/hands test
 # 构建 TypeScript Backend，不依赖 JVM。
 Push-Location apps/backend-ts
 npm ci

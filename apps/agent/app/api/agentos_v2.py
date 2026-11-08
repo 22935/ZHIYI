@@ -59,8 +59,8 @@ from runtime import ExecutionRuntime
 from runtime.planning_interaction import RuntimePlanningInteraction, CopilotMessageRequest, PlannerAnswerRequest, CopilotPermissionRequest
 from runtime.planning_operations import TaskOperationPreviewRequest, TaskOperationApplyRequest
 from runtime.review import ReviewConflictError
-from runtime.v2 import IdentityQueryService
-from runtime.v2.workspace import (
+from runtime import IdentityQueryService
+from runtime.workspace import (
     MissionWorkspaceProjection,
     WorkspaceDiagnostic,
     WorkspaceEntryKind,
@@ -853,7 +853,7 @@ def create_router(
             if identity_repositories is not None:
                 identity_run = identity_repositories.runs.get(run.run_id)
                 if identity_run is not None:
-                    from runtime.v2.workspace import artifact_is_public
+                    from runtime.workspace import artifact_is_public
                     for binding in identity_repositories.run_artifact_bindings.list_for_run(run.run_id):
                         artifact = identity_repositories.artifacts.get(binding.artifact_id)
                         if artifact is not None and artifact.content_ref == manifest_id:
@@ -2012,7 +2012,7 @@ def create_router(
                     })
         if semantic_view is not None:
             from contracts.mission_semantic import run_intent_basis
-            from runtime.v2.workspace import with_mission_semantics
+            from runtime.workspace import with_mission_semantics
             selected_id = projection.active_run.run_id if projection.active_run is not None else None
             basis = None
             basis_status = "NO_RUN"

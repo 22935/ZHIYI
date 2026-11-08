@@ -113,15 +113,29 @@ def test_local_runtime_http_transport_keeps_the_low_level_boundary() -> None:
     assert "AgentRunContext" not in attributes
 
 
-def test_local_runtime_process_does_not_introduce_agentos_authorities() -> None:
-    """The host process may supervise native children, but owns no AgentOS authority."""
-    local_root = SRC.parents[1] / "local-runtime"
-    process_sources = []
-    for path in local_root.rglob("*.py"):
-        if "tests" in path.parts:
-            continue
+def test_native_process_execution_stays_in_the_hands_backend() -> None:
+    """原生进程宿主的唯一归属是 Hands；它不內嵌 AgentOS 权威，Python 侧不得复活 Local Runtime。
+
+    ``225d1934`` 退役了 ``apps/local-runtime``（Python 执行宿主），执行改由
+    ``apps/agentOS/src/hands``（TS，逐字复用 DSH 执行基座）承载。门禁随主体迁移，
+    但两条纪律不变：① 退役的 Python 宿主不能悄悄回来；② 原生执行只能待在 Hands 树内。
+    """
+    apps = SRC.parents[1]
+    assert not (apps / "local-runtime").exists(), "Local Runtime 已退役：原生执行宿主只允许 Hands"
+
+    hands_root = SRC / "hands"
+    supervisor_sources = [
+        path for path in hands_root.rglob("*.ts")
+        if "node_modules" not in path.parts and "windows-job" in path.name
+    ]
+    assert supervisor_sources, "Hands 必须继续承载 Windows Job-Object 执行守卫"
+    for path in supervisor_sources:
+        source = path.read_text(encoding="utf-8")
+        for authority in ("CapabilityRegistry", "ResourceRegistry", "RuntimeEventBroker"):
+            assert authority not in source, f"{path} 内嵌了 AgentOS 权威 {authority}"
+
+    for path in SRC.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        classes = {node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)}
         imported = {
             alias.name
             for node in ast.walk(tree)
@@ -133,13 +147,8 @@ def test_local_runtime_process_does_not_introduce_agentos_authorities() -> None:
             for node in ast.walk(tree)
             if isinstance(node, ast.ImportFrom)
         )
-        assert classes.isdisjoint({"CapabilityRegistry", "ResourceRegistry", "RuntimeEventBroker"})
-        if "process" in path.parts:
-            process_sources.append(path)
-        else:
-            assert imported.isdisjoint({"subprocess", "service.agents.base"})
-    assert process_sources
-    assert all(path.is_relative_to(local_root / "process") for path in process_sources)
+        assert "local_runtime.process" not in imported, path
+        assert "local_runtime.security" not in imported, path
 
 
 def test_agentos_does_not_host_native_process_execution() -> None:
@@ -161,8 +170,13 @@ def test_agentos_does_not_host_native_process_execution() -> None:
         assert "ProcessExecutionService" not in path.read_text(encoding="utf-8"), path
 
 
-def test_windows_isolation_is_local_runtime_only() -> None:
-    """OS identity, ACL, and Job Object code cannot cross into AgentOS."""
+def test_windows_isolation_stays_inside_the_hands_backend() -> None:
+    """OS identity, ACL, and Job Object code cannot cross into AgentOS.
+
+    Local Runtime（Python 宿主）退役后，Windows 隔离实现随执行基座一起落在
+    ``apps/agentOS/src/hands``（受限令牌 + ACL + Job Object，逐字复用 DSH）。
+    审计边界不变：这些原语绝不能出现在 AgentOS 的 Python 源码里。
+    """
     agentos_source = "\n".join(
         path.read_text(encoding="utf-8") for path in SRC.rglob("*.py")
     )
@@ -171,14 +185,14 @@ def test_windows_isolation_is_local_runtime_only() -> None:
     assert "CreateRestrictedToken" not in agentos_source
     assert "CreateJobObjectW" not in agentos_source
 
-    local_root = SRC.parents[1] / "local-runtime"
-    local_source = "\n".join(
+    hands_source = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in local_root.rglob("*.py")
-        if "tests" not in path.parts
+        for path in (SRC / "hands").rglob("*.ts")
+        if "node_modules" not in path.parts
     )
-    assert "WindowsWorkspaceSecurityLease" in local_source
-    assert "ProcessSupervisor" in local_source
+    assert "SetNamedSecurityInfoW" in hands_source, "ACL 隔离实现必须留在 Hands 执行基座内"
+    assert "CreateRestrictedToken" in hands_source, "受限令牌实现必须留在 Hands 执行基座内"
+    assert "CreateJobObject" in hands_source, "Job Object 实现必须留在 Hands 执行基座内"
 
 
 def test_acg_does_not_expose_shell_execution_in_pr6() -> None:
@@ -239,7 +253,7 @@ def _assert_desktop_execution_boundary(sources: dict[str, str]) -> None:
     main = sources['main.ts']
     channels = {'lspOpen', 'lspChange', 'lspClose', 'lspDiagnostics', 'lspDefinition', 'workspaceSearch',
         'workspaceDiagnostics', 'workspaceGitStatus', 'workspaceGitDiff', 'workspaceGitShow',
-        'workspaceGitStage', 'workspaceGitUnstage', 'workspaceGitCommit'}
+        'workspaceGitStage', 'workspaceGitUnstage', 'workspaceGitCommit', 'workspaceGitInit'}
     handlers = list(re.finditer(r'ipcMain.handle\(IPC\.(lsp\w+|workspace(?:Search|Diagnostics|Git\w+)),\s*async\s*\([^)]*\)\s*=>\s*\{\s*guard\(event\)', main))
     assert {match[1] for match in handlers} == channels, 'IDE IPC lost its owner renderer guard'
     for match in handlers:

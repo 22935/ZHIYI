@@ -22,7 +22,7 @@ from contracts.workflow import (
     WorkflowStepDefinition,
 )
 from runtime import ExecutionRuntime
-from runtime.v2 import AcgIdentityLifecycleService, IdentityProjectionBridge
+from runtime import AcgIdentityLifecycleService, IdentityProjectionBridge
 from service.agents import AgentRegistry
 from service.agents.base import AgentOutput, AgentProfile, BaseAgent
 from storage.v2 import SQLiteV2Repositories, SQLiteV2Storage

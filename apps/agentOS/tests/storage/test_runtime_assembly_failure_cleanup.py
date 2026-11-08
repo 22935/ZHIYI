@@ -85,7 +85,7 @@ def lock_held():
 
 
 def spy_identity_close(monkeypatch):
-    from runtime.v2.runner import AcgIdentityLifecycleService
+    from runtime.runner import AcgIdentityLifecycleService
     calls = []
     original = AcgIdentityLifecycleService.close
 

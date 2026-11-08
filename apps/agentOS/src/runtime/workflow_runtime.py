@@ -1419,7 +1419,7 @@ class ExecutionRuntime(CollaboratorAccess):
     def _flush_identity_outbox(self, *, raise_on_failure: bool = True) -> None:
         if self.identity_lifecycle is None:
             return
-        from runtime.v2.reconciliation import IdentityProjectionReconciler
+        from runtime.reconciliation import IdentityProjectionReconciler
 
         report = IdentityProjectionReconciler(self.identity_lifecycle).project_pending_events(
             self.workflow_store,

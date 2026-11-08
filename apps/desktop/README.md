@@ -27,7 +27,7 @@ PowerShell 7、Windows PowerShell、CMD 和 Git Bash，可选择 Shell、新建�
 后续 `cd` 以 Shell 提示符为准。收起面板会继续运行，标签上的 × 会终止该会话。
 切换页面、刷新页面保留会话与变量；退出整个桌面会关闭本次桌面拥有的终端，重开后创建新会话。
 
-首次安装还需在 `apps/terminal-host` 执行 `npm ci`，在 `apps/frontend` 执行 `npm ci`。
+首次安装还需在 `apps/terminal` 执行 `npm ci`，在 `apps/frontend` 执行 `npm ci`。
 使用桌面图标启动时 N03 自动拉起终端服务。热更新或构建入口默认连接
 `%LOCALAPPDATA%\ZhiyiNative\default`，可用 `KINLIN_NATIVE_HOME` 指定环境。
 终端使用当前 Windows 用户权限；Git、Python、Node 等命令是否可用取决于本机安装与 PATH。

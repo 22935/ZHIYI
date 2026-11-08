@@ -42,7 +42,7 @@ from contracts.workflow import (
 )
 from components.recovery.checkpoint import ACGCheckpointStore
 from runtime import ExecutionRuntime
-from runtime.v2 import AcgIdentityLifecycleService, IdentityProjectionBridge
+from runtime import AcgIdentityLifecycleService, IdentityProjectionBridge
 from service.agents import AgentRegistry
 from service.agents.base import AgentProfile, AgentOutput, BaseAgent
 from storage.v2 import SQLiteV2Repositories, SQLiteV2Storage

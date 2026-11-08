@@ -15,7 +15,7 @@ from contracts.planning import PlannedTask, TaskPlan
 from contracts.resource import ExecutionBinding as RuntimeExecutionBinding, RuntimeKind
 from contracts.workflow import RuntimeRunRecord, WorkflowStatus
 from domain.models import RunStatus
-from runtime.v2 import AcgIdentityLifecycleService, IdentityProjectionBridge, PlannerIdentityBridge
+from runtime import AcgIdentityLifecycleService, IdentityProjectionBridge, PlannerIdentityBridge
 from storage.v2 import SQLiteV2Repositories, SQLiteV2Storage
 from support.acg.models import ACGBlueprint, StepNode
 from support.acg.planning import ACGResourcePlan, AgentBindingSpec

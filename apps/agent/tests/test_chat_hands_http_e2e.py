@@ -1,6 +1,6 @@
 """真 hands 服务的 chat 工具链端到端测试。
 
-子进程 = node tsx 跑 apps/hands 独立服务（配置镜像 persistent_runtime.start_hands），
+子进程 = node tsx 跑 apps/agentOS/src/hands 独立服务（配置镜像 persistent_runtime.start_hands），
 调用侧 = HandsHttpTransport + LocalRuntimeClient + LocalRuntimeToolExecutor +
 ChatToolCatalog + AgentsToolRuntime 完整 chat 链。每个工具执行在 hands 账本
 （dataDir/ledger.jsonl）落一行，收据 checksum 可对账。
@@ -40,7 +40,7 @@ from contracts.local_runtime import LocalRuntimeAuthorizationRef
 
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="hands 执行基座依赖 Windows Job/koffi")
 
-HANDS_ROOT = Path(__file__).resolve().parents[2] / "hands"
+HANDS_ROOT = Path(__file__).resolve().parents[2] / "agentOS" / "src" / "hands"
 RESOURCE_ID = "chat-hands-e2e-runtime"
 CREDENTIAL_ID = "chat-hands-e2e-credential"
 CREDENTIAL_SECRET = "chat-hands-e2e-secret"

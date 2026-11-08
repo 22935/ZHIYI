@@ -171,7 +171,7 @@ N02（旧桌面开发入口）已退役，本入口是唯一的原生桌面运�
 
 ## 本地终端服务
 
-首次运行在 `apps/terminal-host` 执行 `npm ci` 安装 `node-pty`。N03 的 `up`/`open`
+首次运行在 `apps/terminal` 执行 `npm ci` 安装 `node-pty`。N03 的 `up`/`open`
 自动启动独立 Node PTY 服务，监听 `127.0.0.1:18766 + portOffset`，记录在
 `runtime-state.json` 的 `processes.terminal`；日志为 `logs/terminal-service.log`。
 `open` 可为已有健康环境补启终端服务，不重启数据库、AI、Host 或 Backend。

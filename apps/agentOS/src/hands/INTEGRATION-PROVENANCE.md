@@ -17,8 +17,8 @@ are restricted to the Hands boundary and AgentOS adapters; DSH vendor is unchang
 Install/build checks from the AgentOS root:
 
 ```powershell
-pnpm --dir apps/hands install --frozen-lockfile
-pnpm --dir apps/hands typecheck
-pnpm --dir apps/hands test
-pnpm --dir apps/hands service --config C:\private\hands-service.json
+pnpm --dir apps/agentOS/src/hands install --frozen-lockfile
+pnpm --dir apps/agentOS/src/hands typecheck
+pnpm --dir apps/agentOS/src/hands test
+pnpm --dir apps/agentOS/src/hands service --config C:\private\hands-service.json
 ```

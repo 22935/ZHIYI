@@ -675,9 +675,9 @@ class RuntimeRecoveryCoordinator(CollaboratorAccess):
                 }
         reused_projection_events: list[dict] = []
         if not reuse_source_run and self.identity_lifecycle is not None:
-            # 惰性导入与 flush_identity_outbox 同理由：不把 runtime.v2 的
+            # 惰性导入与 flush_identity_outbox 同理由：不把 runtime 的
             # 重组件图拖进本模块的包初始化。
-            from runtime.v2.resume_projection import (
+            from runtime.resume_projection import (
                 build_reused_step_projection_events,
             )
 

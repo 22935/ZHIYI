@@ -11,7 +11,7 @@ from components.mission_manager.semantic_service import MissionSemanticService
 from components.mission_manager.semantic_resolver import MissionSemanticResolver
 from contracts.mission_semantic import MissionSemanticRequest, SemanticPrincipal
 from contracts.workflow import MissionRecordState, RunRecordState, RuntimeMissionRecord, RuntimeRunRecord, WorkflowStatus
-from runtime.v2 import AcgIdentityLifecycleService, IdentityProjectionBridge
+from runtime import AcgIdentityLifecycleService, IdentityProjectionBridge
 from storage.v2 import SQLiteV2Repositories, SQLiteV2Storage
 from support.stores.sqlite_workflow_store import SQLiteWorkflowStore
 

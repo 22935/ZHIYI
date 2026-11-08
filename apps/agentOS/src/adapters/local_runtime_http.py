@@ -69,7 +69,10 @@ class HttpLocalRuntimeTransport:
         self._health_address = urlunsplit((parsed.scheme, parsed.netloc, "/health", "", ""))
         self.credential_provider = credential_provider
         self.timeout_seconds = timeout_seconds
-        self._client = client or httpx.AsyncClient()
+        # 本机/设备侧 Runtime 端点绝不能被环境代理接管（HTTP_PROXY/ALL_PROXY）：
+        # 走代理会把回环流量外发，且代理转发时请求行变成绝对 URI，签名路径
+        # 与规范化路径不一致 -> 对端 401。凭据也只应抵达该设备本身。
+        self._client = client or httpx.AsyncClient(trust_env=False)
         self._owns_client = client is None
 
     async def execute(self, request: LocalRuntimeExecutionRequest) -> LocalRuntimeExecutionResult:

@@ -5,7 +5,7 @@ from components.mission_manager.semantic_resolver import MissionSemanticResolver
 from contracts.mission_semantic import MissionSemanticOperation
 from contracts.workflow import RuntimeMissionRecord
 from domain.models import Mission, RunStatus
-from runtime.v2.workspace import MissionWorkspaceProjection, WorkspaceRunSummary, with_mission_semantics
+from runtime.workspace import MissionWorkspaceProjection, WorkspaceRunSummary, with_mission_semantics
 from support.stores.memory_workflow_store import MemoryWorkflowStore
 
 
