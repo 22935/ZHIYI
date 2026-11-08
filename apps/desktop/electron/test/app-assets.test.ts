@@ -29,6 +29,8 @@ test('contentTypeFor 常见映射与未知回退', () => {
   assert.equal(contentTypeFor('app.js'), 'text/javascript; charset=utf-8')
   assert.equal(contentTypeFor('style.css'), 'text/css; charset=utf-8')
   assert.equal(contentTypeFor('logo.webp'), 'image/webp')
+  assert.equal(contentTypeFor('logo.svg'), 'image/svg+xml')
+  assert.equal(contentTypeFor('logo-compact.svg'), 'image/svg+xml')
   assert.equal(contentTypeFor('font.woff2'), 'font/woff2')
   assert.equal(contentTypeFor('blob.bin'), 'application/octet-stream')
 })

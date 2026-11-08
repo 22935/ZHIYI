@@ -1,10 +1,11 @@
 <!--
   启动/过渡页：纯视觉入口，不参与鉴权。
 
-  N03 是本机单用户形态（无账号密码、身份由本机 home 自动就绪），因此这里
-  刻意不做登录表单、不写 token、不请求后端健康接口、也不改变路由。它只负责
-  在冷启动时盖住异步加载的应用壳，提供品牌感与「进入工作台」的可控入口：
-  到时自动收起、可点击/按 Esc 立即跳过、每个浏览器会话只出现一次。
+  登录页由 /login 单一路由与守卫负责（账号保存在浏览器本机）；后端 N03 仍是
+  本机单用户 LocalIdentity。这里刻意不做登录表单、不写 token、不请求后端健康
+  接口、也不改变路由。它只负责在登录成功后盖住异步加载的应用壳，提供品牌感
+  与「进入工作台」的可控入口：到时自动收起、可点击/按 Esc 立即跳过、每个
+  浏览器会话只出现一次。
 -->
 <template>
   <Teleport to="body">
@@ -24,7 +25,7 @@
           <p class="launch-card__eyebrow">ZHIYI · LOCAL WORKSPACE</p>
           <BrandLoader :size="76" />
           <h1 class="launch-card__title">知弈 AgentOS</h1>
-          <p class="launch-card__subtitle">本机工作空间 · 无需账号密码</p>
+          <p class="launch-card__subtitle">本机工作空间 · 身份已验证</p>
 
           <div class="launch-card__chips" aria-hidden="true">
             <span>本机身份</span>

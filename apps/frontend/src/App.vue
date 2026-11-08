@@ -7,21 +7,31 @@
         </div>
       </transition>
 
-      <AppShell />
-      <ZoomIndicator />
-      <CompanionHost v-if="companionEnabled" />
-      <AppLaunchOverlay />
+      <!-- 公开认证路由使用无工作台依赖的布局：不加载会话、不挂虚拟伙伴、不弹启动过渡页。 -->
+      <PublicRouteLayout v-if="isPublicRoute" />
+      <template v-else>
+        <AppShell />
+        <ZoomIndicator />
+        <CompanionHost v-if="companionEnabled" />
+        <AppLaunchOverlay />
+      </template>
     </div>
   </ErrorBoundary>
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import ZoomIndicator from '@/components/desktop/ZoomIndicator.vue'
 import AppLaunchOverlay from '@/components/app/AppLaunchOverlay.vue'
+import PublicRouteLayout from '@/components/app/PublicRouteLayout.vue'
 import { initUiZoom } from '@ui-zoom'
 import { useCompanionEnabled } from '@/features/companion/enabled'
+
+const route = useRoute()
+// 公开介绍页（/）与单一认证路由（/login）共用无工作台依赖的布局。
+const isPublicRoute = computed(() => Boolean(route.meta.public))
 
 const AppShell = defineAsyncComponent(
   () => import('@/components/app/AppShell.vue')

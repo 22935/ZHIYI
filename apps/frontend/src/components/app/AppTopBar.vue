@@ -223,6 +223,16 @@
         </span>
         <span class="app-topbar__terminal-label">终端</span>
       </button>
+      <button
+        class="app-topbar__terminal"
+        data-testid="app-logout"
+        type="button"
+        aria-label="退出登录"
+        title="退出登录"
+        @click="handleLogout"
+      >
+        <span class="app-topbar__terminal-label">退出</span>
+      </button>
       <DesktopWindowControls v-if="desktopShell" />
     </div>
   </header>
@@ -246,6 +256,7 @@ import { isDesktop, platform } from '@/platform'
 import { agentosApi, type MissionListItem } from '@/services/api/agentos'
 import { plainMissionTitle } from '@/utils/missionTitle'
 import { terminalVisible, toggleDesktopTerminal } from '@/composables/useDesktopTerminal'
+import { AUTH_ROUTE, logout } from '@/features/auth/authService'
 import { commands as commandRegistry } from '@/workbench/core/commands'
 
 // Desktop 构建下本栏即窗口标题栏（decorations:false）：
@@ -525,6 +536,12 @@ watch(query, () => {
 // 历史导航：vue-router 不暴露 canGoBack/canGoForward，用写入 history.state 的
 // position 对账——current 为当前栈位，furthest 记录本次会话到过的最深处。
 const router = useRouter()
+
+/** 退出登录：清掉本机会话，回到单一认证路由；工作台随之卸载。 */
+const handleLogout = () => {
+  logout()
+  void router.replace(AUTH_ROUTE)
+}
 const currentPosition = ref(0)
 const furthestPosition = ref(0)
 

@@ -97,6 +97,7 @@ declare module 'vue' {
     FileUpload: typeof import('./src/components/FileUpload.vue')['default']
     FormalExecutionControls: typeof import('./src/components/workspace/FormalExecutionControls.vue')['default']
     FormalToolApprovals: typeof import('./src/components/workspace/FormalToolApprovals.vue')['default']
+    GlassConstellation: typeof import('./src/components/landing/GlassConstellation.vue')['default']
     GraphEditor: typeof import('./src/components/workspace/GraphEditor.vue')['default']
     HorizontalResizeHandle: typeof import('./src/components/workbench/HorizontalResizeHandle.vue')['default']
     HumanReviewPanel: typeof import('./src/components/agentos/HumanReviewPanel.vue')['default']

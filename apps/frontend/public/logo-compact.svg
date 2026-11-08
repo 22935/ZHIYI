@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-labelledby="compactTitle" shape-rendering="geometricPrecision">
+  <title id="compactTitle">知弈 AgentOS 小尺寸标识</title>
+  <desc>32 像素网格对齐的精简方章，专供 favicon 与 16/24/32px 图标；省略眉弧与笔锋，避免细线在小尺寸糊化。</desc>
+  <style>
+    .plate { fill: #0B0F16; }
+    /* 偶数线宽 + 整数/半整数坐标，缩放到 16px 时笔画仍落在整像素上 */
+    .ink { fill: none; stroke: #F3F3F4; stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }
+    .ink-fine { fill: none; stroke: #F3F3F4; stroke-width: 1; stroke-linecap: butt; stroke-linejoin: miter; }
+    .tip { fill: #F3F3F4; }
+  </style>
+
+  <rect class="plate" x="1" y="1" width="30" height="30" rx="7" />
+
+  <!-- 中竖 + 笔锋 -->
+  <path class="ink" d="M16 5 V15" />
+  <path class="tip" d="M15 6 L16 3 L17 6 Z" />
+
+  <!-- 第一层：横展长枝 -->
+  <path class="ink" d="M16 7 L9 10" />
+  <path class="ink" d="M16 7 L23 10" />
+
+  <!-- 第二层：短斜枝，1px 细线仅在中大尺寸可见 -->
+  <path class="ink-fine" d="M14 10.5 L9.5 14" />
+  <path class="ink-fine" d="M18 10.5 L22.5 14" />
+
+  <!-- 第三层：下展长枝 -->
+  <path class="ink" d="M16 15 L9 19" />
+  <path class="ink" d="M16 15 L23 19" />
+
+  <!-- 双拱：左收竖笔，右出长撇 -->
+  <path class="ink" d="M14 18 C12.5 18 11 19 11 21 V26" />
+  <path class="ink" d="M18 18 C19.5 18 21 19 21 21 V24 L24 27" />
+</svg>

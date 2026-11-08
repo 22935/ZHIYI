@@ -50,7 +50,7 @@ describe('AppLaunchOverlay', () => {
 
     expect(overlay()).not.toBeNull()
     expect(document.body.textContent).toContain('知弈 AgentOS')
-    expect(document.body.textContent).toContain('无需账号密码')
+    expect(document.body.textContent).toContain('身份已验证')
     expect(document.body.textContent).toContain('进入工作台')
     expect(sessionStorage.getItem(SESSION_KEY)).toBe('1')
   })

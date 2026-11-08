@@ -23,7 +23,8 @@ import type {
   StoredAccount
 } from './types'
 
-export const AUTH_ROUTE = '/auth'
+/** 与 router 中恢复的 LoginView 路由保持一致（原登录页路径）。 */
+export const AUTH_ROUTE = '/login'
 export const DEFAULT_REDIRECT = '/chat'
 
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -80,7 +81,14 @@ const recordFailure = (): string => {
   return `账号或密码错误，还可尝试 ${remaining} 次`
 }
 
-export async function register(payload: RegisterPayload): Promise<AuthResult> {
+/**
+ * @param options.signIn 注册后是否立即建立会话。原登录页要求「注册成功后回到登录页，
+ * 由用户再完成一次密码验证」，因此页面侧会显式传 false；默认行为保持自动登录。
+ */
+export async function register(
+  payload: RegisterPayload,
+  options: { signIn?: boolean } = {}
+): Promise<AuthResult> {
   const issues = validateRegister(payload)
   if (issues.length) return fail(issues[0].message)
 
@@ -106,7 +114,7 @@ export async function register(payload: RegisterPayload): Promise<AuthResult> {
     createdAt: new Date().toISOString()
   }
   writeAccounts([...accounts, account])
-  startSession(account, false)
+  if (options.signIn !== false) startSession(account, false)
   return ok(toPublic(account), '注册成功，正在进入工作台')
 }
 

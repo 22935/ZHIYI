@@ -105,7 +105,7 @@ function applySchemeVariables(schemeId: ColorSchemeId): void {
   }
   // 品牌方章为深底浅线；浅色主题统一反相为浅底深线，避免深色块压在浅色界面上。
   // 反相后再做 180° 色相回正，使底色贴近各浅色方案的 --bg-app 而非发黄。
-  root.style.setProperty('--brand-logo-filter', isDark ? 'none' : 'invert(1) hue-rotate(180deg) saturate(.9)')
+  root.style.setProperty('--brand-logo-filter', isDark ? 'none' : 'invert(1) hue-rotate(180deg) saturate(.9) brightness(.96)')
   root.dataset.colorScheme = scheme.id
   root.style.colorScheme = isDark ? 'dark' : 'light'
   document.body.style.backgroundImage = scheme.bodyBackground

@@ -40,8 +40,11 @@
 
 ## 品牌标识（SVG 真源）
 
-- `public/logo.svg`：完整方章，深色底 `#0B0F16` + 线条 `#F3F3F4`，用于顶栏、启动页、加载态与 favicon。
-- `public/logo-mark.svg`：透明底纯线条，用于水印、空态与低干扰装饰，避免深色实心块压住页面内容。
+- `public/logo.svg`：完整方章，深色底 `#0B0F16` + 线条 `#F3F3F4`，用于顶栏、启动页、加载态与大尺寸展示。
+- `public/logo-mark.svg`：透明底纯线条，路径与 `logo.svg` 同源，用于水印、空态与低干扰装饰，避免深色实心块压住页面内容。
+- `public/logo-compact.svg`：32×32 像素网格对齐的精简方章，专供 favicon 与 16/24/32px 桌面图标。整数/半整数坐标 + 偶数线宽（主笔 2px、次笔 1px），省略眉弧与笔锋，避免细线在小尺寸糊化；不用于 ≥48px 场景。
 - 配色取自系统暗色令牌族（`--bg-app` 近 `#181818`、`--text-primary` 近 `#D4D4D4`）；浅色主题由 `useTheme` 下发 `--brand-logo-filter` 统一反相并回正色相，保证 5 套配色下对比度一致。
+- 桌面应用图标 `apps/desktop/electron/icons/icon.ico` 共 16/24/32/48/64/256 六档：前三档由 `logo-compact.svg` 逐尺寸直出，后三档由 `logo.svg` 导出，避免小尺寸二次缩放损失。
+- 像素对齐基线：以 `docs/assets/brand/logo.png`（132×121）为几何真源，方章 `x=8 y=1 w=116 h=114 r=27`；主笔 4.5px、次笔 3.4px、收笔 2.8px，均圆头；白色笔画像素重合基线 IoU ≥ 0.73，方章轮廓差异 ≤ 60px。
 - 旧位图花环标 `public/logo.webp` / `logo.png` 已退役，仅留作历史资产；`acglogo.webp` 是 ACG 子系统专用标，不作为主品牌标使用。
 - 禁止用文字色块或另绘图形替代矢量真源。

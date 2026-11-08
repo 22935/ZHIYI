@@ -1,10 +1,21 @@
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { isDesktop } from '@/platform'
+import { AUTH_ROUTE, DEFAULT_REDIRECT, isAuthenticated } from '@/features/auth/authService'
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', redirect: '/chat' },
-  { path: '/login', redirect: '/chat' },
+  {
+    path: '/',
+    name: 'Landing',
+    component: () => import('@/views/LandingView.vue'),
+    meta: { title: '介绍', public: true }
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { title: '登录', public: true }
+  },
   {
     path: '/user',
     name: 'User',
@@ -186,8 +197,26 @@ router.afterEach((to) => {
   }
 })
 
+/** 只接受站内绝对路径，防止 ?redirect= 变成开放重定向。 */
+const normalizeAuthRedirect = (value: unknown): string => {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value === AUTH_ROUTE) {
+    return DEFAULT_REDIRECT
+  }
+  return value
+}
+
+// 单一认证路由：未登录统一跳 /login 并带上原目标；已登录访问登录页则回到工作台。
+// 后端 N03 仍是本机单用户 LocalIdentity，这里的会话只控制前端入口。
 router.beforeEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} - 知弈AgentOS` : '知弈AgentOS'
+
+  const authenticated = isAuthenticated()
+  if (to.meta.public) {
+    if (authenticated && to.path === AUTH_ROUTE) return normalizeAuthRedirect(to.query.redirect)
+    return true
+  }
+  if (!authenticated) return { path: AUTH_ROUTE, query: { redirect: to.fullPath } }
+  return true
 })
 
 export default router
