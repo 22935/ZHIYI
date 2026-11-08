@@ -32,7 +32,10 @@ describe.skipIf(!existsSync(postgres))('isolated PostgreSQL business integration
     const probe = createServer(); probe.listen(0, '127.0.0.1'); await once(probe, 'listening');
     const address = probe.address(); if (!address || typeof address === 'string') throw new Error('Missing test port');
     const port = address.port; await new Promise<void>(done => probe.close(() => done()));
-    processHandle = spawn(postgres, ['-D', data, '-h', '127.0.0.1', '-p', String(port), '-c', 'fsync=off'],
+    // Unix socket 必须落进本套件自己的临时目录：Linux 打包版 PG 的编译默认目录
+    // （/var/run/postgresql）归 root 所有，普通用户启动即 Permission denied。
+    // 连接一律走 TCP（databaseUrl），socket 仅是副产物；Windows 上该选项无副作用。
+    processHandle = spawn(postgres, ['-D', data, '-h', '127.0.0.1', '-p', String(port), '-c', 'fsync=off', '-c', `unix_socket_directories=${directory}`],
       { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
     let diagnostics = ''; processHandle.stderr?.on('data', chunk => { diagnostics += String(chunk); });
     databaseUrl = `postgresql://postgres@127.0.0.1:${port}/postgres`;
