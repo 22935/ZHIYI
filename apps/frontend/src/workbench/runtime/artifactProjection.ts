@@ -1,4 +1,5 @@
 import type { WorkspaceEntry } from '@/services/api/agentos'
+import { reportContent } from './documentContent'
 
 export type ArtifactKind =
   | 'requirements_specification'
@@ -43,6 +44,13 @@ export interface ArtifactDocumentModel {
   summary: string
   blocks: ArtifactDocumentBlock[]
   inspector: ArtifactInspectorProjection
+  verification?: ArtifactVerification | null
+}
+
+export interface ArtifactVerification {
+  status: string
+  checks: Array<{ criterion: string; result: string; evidence: string }>
+  unresolvedGaps: string[]
 }
 
 export interface ArtifactProjectionInput {
@@ -148,12 +156,6 @@ export const resolveArtifactKind = (entry: WorkspaceEntry, output: unknown): Art
   return 'unknown'
 }
 
-const shortTitle = (value: string, fallback: string) => {
-  const firstSentence = value.split(/[。！？!?；;\n]/)[0].trim()
-  const beforeCondition = firstSentence.split(/(?=不超过|不少于|不低于|不得|至少|至多|应当|需要|必须|并给出|并提供)/)[0].trim()
-  return (beforeCondition || firstSentence || fallback).slice(0, 42)
-}
-
 const requirementId = (record: JsonRecord, index: number) => (
   firstText(record, ['id', 'requirement_id', 'requirementId']) || `REQ-${String(index + 1).padStart(2, '0')}`
 )
@@ -187,7 +189,7 @@ const requirementRecords = (value: JsonRecord): RequirementRecord[] => {
     const criterionText = firstText(criterion, ['criterion', 'acceptance_criterion', 'acceptanceCriterion', 'description'])
     return {
       id,
-      title: firstText(requirement, ['title', 'name']) || shortTitle(objective || criterionText, `要求 ${id}`),
+      title: firstText(requirement, ['title', 'name']),
       objective: objective || '未提供验收目标。',
       metric: firstText(criterion, ['metric', 'measure', 'indicator']) || '未提供验收指标。',
       target: firstText(criterion, ['target', 'targetValue', 'target_value']) || '未提供目标值。',
@@ -202,7 +204,7 @@ const tableCell = (value: string) => value.replace(/\|/g, '\\|').replace(/\r?\n/
 
 const requirementsProjector = (entry: WorkspaceEntry, value: JsonRecord): ArtifactDocumentModel => {
   const requirements = requirementRecords(value)
-  const summary = firstText(value, ['summary', 'overview', 'task_summary']) || entry.objective?.trim() || '已将结构化约束整理为可测试的需求与验收标准。'
+  const summary = firstText(value, ['summary', 'overview', 'task_summary']) || `共 ${requirements.length} 项需求与对应的验收标准。`
   const blocks: ArtifactDocumentBlockDraft[] = [
     { type: 'heading', level: 2, text: '需求与验收标准' },
     { type: 'paragraph', text: summary }
@@ -210,8 +212,8 @@ const requirementsProjector = (entry: WorkspaceEntry, value: JsonRecord): Artifa
 
   requirements.forEach(item => {
     blocks.push(
-      { type: 'heading', level: 3, text: `${item.id} ${item.title}` },
-      { type: 'paragraph', label: '验收目标', text: item.objective },
+      { type: 'heading', level: 3, text: item.title ? `${item.id} ${item.title}` : item.id },
+      ...(item.objective === item.title ? [] : [{ type: 'paragraph' as const, label: '验收目标', text: item.objective }]),
       { type: 'paragraph', label: '验收指标', text: item.metric },
       { type: 'paragraph', label: '目标值', text: item.target },
       { type: 'paragraph', label: '验收判据', text: item.criterion }
@@ -224,13 +226,6 @@ const requirementsProjector = (entry: WorkspaceEntry, value: JsonRecord): Artifa
         text: item.priority || item.source
       })
     }
-  })
-
-  blocks.push({ type: 'heading', level: 2, text: 'Requirement Acceptance Matrix' })
-  blocks.push({
-    type: 'table',
-    columns: ['ID', '指标', '目标值', '验收判据'],
-    rows: requirements.map(item => [item.id, item.metric, item.target, item.criterion].map(tableCell))
   })
 
   const assumptions = list(value.assumptions)
@@ -247,7 +242,7 @@ const requirementsProjector = (entry: WorkspaceEntry, value: JsonRecord): Artifa
 
 const evidenceProjector = (entry: WorkspaceEntry, value: JsonRecord): ArtifactDocumentModel => {
   const records = recordList(value.evidence_analysis || value.evidenceAnalysis)
-  const summary = firstText(value, ['summary', 'overview', 'description']) || entry.objective?.trim() || '对当前主张进行证据核验。'
+  const summary = firstText(value, ['summary', 'overview', 'description']) || `共 ${records.length} 项证据评估。`
   const blocks: ArtifactDocumentBlockDraft[] = [
     { type: 'heading', level: 2, text: '证据评估' },
     { type: 'paragraph', text: summary }
@@ -259,14 +254,17 @@ const evidenceProjector = (entry: WorkspaceEntry, value: JsonRecord): ArtifactDo
       { type: 'heading', level: 3, text: claim },
       { type: 'paragraph', label: '评估结论', text: assessment }
     )
+    const confidence = confidenceText(item.confidence ?? item.confidenceScore)
+    if (confidence) blocks.push({ type: 'paragraph', label: '该项置信度（模型自评）', text: confidence })
+    const refs = unique([text(item.evidence_ref), text(item.evidenceRef), ...list(item.evidence_refs), ...list(item.evidenceRefs), ...list(item.sourceRefs)])
+    if (refs.length) blocks.push({ type: 'paragraph', label: '该项来源', text: refs.join('；') })
   })
-  blocks.push({ blockId: 'source-trace', type: 'callout', tone: 'info', label: '来源追踪', text: '证据引用与置信度已收纳至右侧 Inspector。' })
   return documentModel(entry, 'evidence_assessment', summary, blocks, value)
 }
 
 const comparisonProjector = (entry: WorkspaceEntry, value: JsonRecord): ArtifactDocumentModel => {
   const comparison = isRecord(value.comparison) ? value.comparison : {}
-  const summary = firstText(comparison, ['recommendation', 'summary', 'overview']) || entry.objective?.trim() || '比较候选方案并形成选择依据。'
+  const summary = firstText(comparison, ['recommendation', 'summary', 'overview']) || firstText(value, ['summary', 'overview']) || '候选方案的比较与选择依据。'
   const blocks: ArtifactDocumentBlockDraft[] = [
     { type: 'heading', level: 2, text: '方案比较' },
     { type: 'paragraph', label: '推荐结论', text: summary }
@@ -296,17 +294,26 @@ const comparisonProjector = (entry: WorkspaceEntry, value: JsonRecord): Artifact
 }
 
 const finalReportProjector = (entry: WorkspaceEntry, value: JsonRecord): ArtifactDocumentModel => {
-  const summary = firstText(value, ['summary', 'overview', 'final_answer', 'finalAnswer', 'report', 'report_markdown', 'content']) || entry.objective?.trim() || '最终成果已生成。'
+  const report = reportContent(value) || firstText(value, ['content'])
+  if (report) {
+    const model = documentModel(entry, 'final_report', report, [{ type: 'paragraph', text: report }], value)
+    const heading = report.match(/^\s*#\s+([^\n]+)(?:\n|$)/)
+    return { ...model, title: heading?.[1].trim() || model.title }
+  }
+  if (Array.isArray(value.artifacts) && value.artifacts.length > 1 && !isRecord(value.deliverable) && !Array.isArray(value.sections)) {
+    return genericProjector(entry, value)
+  }
+  const structured = isRecord(value.deliverable) ? value.deliverable : value
+  const summary = firstText(structured, ['executiveSummary', 'summary', 'overview']) || '当前结果未提供执行摘要。'
   const blocks: ArtifactDocumentBlockDraft[] = [
     { type: 'heading', level: 2, text: '执行摘要' },
     { type: 'paragraph', text: summary }
   ]
-  const sections = recordList(value.sections)
-  sections.forEach(section => {
+  for (const section of recordList(structured.sections)) {
     const title = firstText(section, ['title', 'name']) || '结果章节'
     const content = firstText(section, ['content', 'summary', 'description'])
-    if (content) blocks.push({ type: 'heading', level: 3, text: title }, { type: 'paragraph', text: content })
-  })
+    if (content && content !== summary) blocks.push({ type: 'heading', level: 3, text: title }, { type: 'paragraph', text: content })
+  }
   return documentModel(entry, 'final_report', summary, blocks, value)
 }
 
@@ -339,18 +346,40 @@ const genericValue = (value: unknown, depth = 0, path = 'output'): ArtifactDocum
 
 const genericProjector = (entry: WorkspaceEntry, value: unknown): ArtifactDocumentModel => {
   const blocks = genericValue(value)
-  const summary = entry.objective?.trim() || '当前 Artifact 没有已知 schema，以下内容为受限 fallback 投影。'
+  const summary = '暂无可展示的结果正文。'
   return documentModel(entry, 'unknown', summary, blocks.length ? blocks : [{ type: 'paragraph', text: summary }], isRecord(value) ? value : {})
 }
 
 const unique = (values: string[]) => [...new Set(values.map(item => item.trim()).filter(Boolean))]
+
+const confidenceText = (value: unknown): string => {
+  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 && value <= 1 ? `${Math.round(value * 100)}%` : ''
+  return text(value)
+}
+
+const verificationFrom = (value: unknown): ArtifactVerification | null => {
+  if (!isRecord(value) || !isRecord(value.verification)) return null
+  const verification = value.verification
+  return {
+    status: text(verification.status) || 'unknown',
+    checks: recordList(verification.checks).map(item => ({
+      criterion: text(item.criterion), result: text(item.result), evidence: text(item.evidence)
+    })),
+    unresolvedGaps: list(verification.unresolvedGaps || verification.unresolved_gaps)
+  }
+}
 
 const inspectorFrom = (entry: WorkspaceEntry, artifacts: WorkspaceEntry[], value: unknown, artifactKind: ArtifactKind): ArtifactInspectorProjection => {
   const output = isRecord(value) ? value : {}
   const nestedRecords = Object.values(output).flatMap(item => recordList(item))
   const metadata = entry.metadata || {}
   const artifactMetadata = artifacts.flatMap(item => isRecord(item.metadata) ? [item.metadata] : [])
+  const sourceRecords = [output, ...nestedRecords,
+    ...(isRecord(output.deliverable) ? [output.deliverable] : []),
+    ...[output.artifact, ...recordList(output.artifacts)].flatMap(item => isRecord(item)
+      ? [item, ...(isRecord(item.structuredData) ? [item.structuredData] : [])] : [])]
   const refs = [
+    ...sourceRecords.flatMap(item => [...list(item.sourceRefs), ...list(item.source_refs)]),
     ...list(output.evidence_refs), ...list(output.evidenceRefs), text(output.evidence_ref), text(output.evidenceRef),
     ...nestedRecords.flatMap(item => [text(item.evidence_ref), text(item.evidenceRef), ...list(item.evidence_refs), ...list(item.evidenceRefs)]),
     ...list(metadata.evidenceRefs), ...list(metadata.evidence_refs),
@@ -377,9 +406,7 @@ const inspectorFrom = (entry: WorkspaceEntry, artifacts: WorkspaceEntry[], value
     artifactKind,
     artifactType: entry.artifactType || artifacts[0]?.artifactType || null,
     evidenceRefs: unique(refs),
-    confidence: firstText(output, ['confidence', 'confidenceScore'])
-      || firstText(nestedRecords[0] || {}, ['confidence', 'confidenceScore'])
-      || text(metadata.confidence) || null,
+    confidence: confidenceText(output.confidence ?? output.confidenceScore ?? metadata.confidence) || null,
     upstreamInputs: unique(upstreamInputs),
     provenance,
     traceLinks: unique(traceLinks)
@@ -450,7 +477,9 @@ export const projectArtifactDocument = (input: ArtifactProjectionInput): Artifac
   const value = unwrapOutput(parseOutput(input.output))
   const kind = resolveArtifactKind(input.entry, value)
   const base = isRecord(value) ? value : {}
-  const model = kind === 'requirements_specification'
+  const model = typeof value === 'string'
+    ? documentModel(input.entry, kind, value, [{ type: 'paragraph', text: value }], {})
+    : kind === 'requirements_specification'
     ? requirementsProjector(input.entry, base)
     : kind === 'evidence_assessment'
       ? evidenceProjector(input.entry, base)
@@ -461,6 +490,7 @@ export const projectArtifactDocument = (input: ArtifactProjectionInput): Artifac
           : genericProjector(input.entry, value)
   return {
     ...model,
+    verification: verificationFrom(base),
     inspector: inspectorFrom(input.entry, input.artifacts || [], base, kind)
   }
 }

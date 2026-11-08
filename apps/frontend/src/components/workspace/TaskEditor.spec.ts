@@ -29,6 +29,27 @@ const mountEditor = (runtimeStore: RunRuntimeStore | null = null) => mount(TaskE
 describe('TaskEditor stage output', () => {
   afterEach(() => vi.restoreAllMocks())
 
+  it('displays one final document with no duplicate heading or source controls', async () => {
+    const report = '# 成果报告\n\n## 恢复计划\n计划只出现一次。'
+    vi.spyOn(agentosApi, 'getRunOutput').mockResolvedValue({ runId: 'run_1', outputRef: 'output:node_1', content: {
+      final_answer: report, artifact: { artifactType: 'run_deliverable', content: report },
+      artifacts: [{ artifactType: 'run_deliverable', content: report }],
+      verification: { status: 'partial', checks: [], unresolvedGaps: ['尚未执行恢复测试'] }
+    } })
+    const wrapper = mountEditor()
+    await wrapper.setProps({ entry: { ...task, semanticTaskKey: 'final_report', status: 'completed' } })
+    await flushPromises()
+    expect(wrapper.findAll('h1')).toHaveLength(1)
+    expect(wrapper.get('h1').text()).toBe('成果报告')
+    expect(wrapper.text()).toContain('产物验证：部分通过')
+    expect(wrapper.text()).toContain('尚未执行恢复测试')
+    expect(wrapper.text().split('计划只出现一次。')).toHaveLength(2)
+    expect(wrapper.find('.task-document__source').exists()).toBe(false)
+    expect(wrapper.find('.stage-output-viewer__source').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('正文只呈现当前 Artifact')
+    wrapper.unmount()
+  })
+
   it('shows result loading instead of a task objective for a completed step', async () => {
     let resolveOutput!: (value: { runId: string; outputRef: string; content: unknown }) => void
     vi.spyOn(agentosApi, 'getRunOutput').mockImplementation(() => new Promise(resolve => { resolveOutput = resolve }))
@@ -101,7 +122,9 @@ describe('TaskEditor stage output', () => {
 
     expect(agentosApi.getRunOutput).toHaveBeenCalledWith('run_1', 'output:node_1', expect.anything())
     expect(wrapper.get('[data-testid="task-stage-output"]').text()).toContain('架构方案')
-    expect(wrapper.text()).toContain('原始结构化结果')
+    expect(wrapper.text()).not.toContain('原始结构化结果')
+    expect(wrapper.find('.task-document__footer-note').exists()).toBe(false)
+    expect(wrapper.text().split('架构方案')).toHaveLength(2)
     expect(wrapper.text()).not.toContain('PERSISTED')
   })
 
@@ -153,16 +176,17 @@ describe('TaskEditor stage output', () => {
     const wrapper = mountEditor()
     await flushPromises()
 
-    expect(wrapper.find('.task-document__blocks').text()).toContain('REQ-03 试生产及爬坡周期')
-    expect(wrapper.find('.task-document__blocks').text()).toContain('Requirement Acceptance Matrix')
-    expect(wrapper.find('.task-document__blocks').find('table').exists()).toBe(true)
+    expect(wrapper.find('.task-document__blocks').text()).toContain('REQ-03')
+    expect(wrapper.find('.task-document__blocks').text().split('试生产及爬坡周期')).toHaveLength(2)
+    expect(wrapper.find('.task-document__blocks').text()).not.toContain('Requirement Acceptance Matrix')
+    expect(wrapper.find('.task-document__blocks').find('table').exists()).toBe(false)
+    expect(wrapper.find('.task-document__blocks').text().split('≤ 6 周')).toHaveLength(2)
     expect(wrapper.find('.task-document__blocks').text()).not.toContain('metric:')
     expect(wrapper.find('.task-document__blocks').text()).not.toContain('requirement_id:')
-    expect(wrapper.findAll('.task-document__gutter').map(gutter => gutter.text())).toEqual(['01', '02', '03'])
+    expect(wrapper.findAll('.task-document__gutter').map(gutter => gutter.text())).toEqual(['01', '02'])
     expect(wrapper.findAll('.task-document__block').map(block => block.attributes('data-block-id'))).toEqual([
       'intro',
-      'req-03',
-      'acceptance-matrix'
+      'req-03'
     ])
     await wrapper.get('.task-document__gutter[data-block-id="req-03"]').trigger('click')
     expect(wrapper.get('.task-document__block[data-block-id="req-03"]').classes()).toContain('is-focused')

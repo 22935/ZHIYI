@@ -22,7 +22,7 @@
     </div>
     <template v-else-if="content">
       <article v-if="renderer === 'markdown'" class="artifact-editor__body markdown-body" v-html="renderedMarkdown" />
-      <pre v-else-if="renderer === 'json'" class="artifact-editor__body json-body"><code>{{ formattedJson }}</code></pre>
+      <div v-else-if="renderer === 'json'" class="artifact-editor__body json-body"><StageOutputRenderer :value="content.content" /></div>
       <pre v-else-if="renderer === 'text'" class="artifact-editor__body text-body">{{ content.content }}</pre>
       <div v-else class="artifact-editor__body generic-preview">
         <div class="generic-preview__icon" aria-hidden="true">FILE</div>
@@ -39,6 +39,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { agentosApi, type ArtifactContentResponse, type WorkspaceEntry } from '@/services/api/agentos'
 import { renderMarkdown } from '@/utils/markdown'
+import StageOutputRenderer from './StageOutputRenderer.vue'
 
 const props = defineProps<{
   entry: WorkspaceEntry
@@ -64,11 +65,6 @@ const renderer = computed<'markdown' | 'text' | 'json' | 'generic'>(() => {
   return 'generic'
 })
 const renderedMarkdown = computed(() => renderMarkdown(content.value?.content || ''))
-const formattedJson = computed(() => {
-  const raw = content.value?.content || ''
-  try { return JSON.stringify(JSON.parse(raw), null, 2) }
-  catch { return raw }
-})
 const canLocateGraph = computed(() => props.available && props.entry.identityQuality !== 'legacy' && Boolean(props.entry.semanticTaskKey))
 const bodyReadable = (value: string) => {
   const normalized = normalizeMediaType(value)

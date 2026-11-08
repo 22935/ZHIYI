@@ -2,11 +2,9 @@
   <article class="mission-editor editor-document" aria-label="mission.md">
     <header class="editor-document__header">
       <div>
-        <span class="editor-document__eyebrow">VIRTUAL DOCUMENT</span>
         <h1>mission.md</h1>
-        <p>{{ projection.missionSemanticView ? 'Mission brief · formal semantics' : 'Mission brief · read-only projection' }}</p>
+        <p>{{ projection.missionSemanticView ? '任务目标与约束' : '任务说明' }}</p>
       </div>
-      <code>{{ projection.mission.missionId }}</code>
       <button v-if="projection.missionSemanticView && !editing" type="button" @click="beginEdit">{{ projection.missionSemanticView.semanticStatus === 'INITIALIZED' ? '编辑目标与约束' : '初始化正式语义' }}</button>
     </header>
 
@@ -33,13 +31,9 @@
 
     <div class="editor-document__body markdown-body" v-html="renderedContent" />
 
-    <section class="mission-editor__meta" aria-label="Mission metadata">
-      <div class="property-row"><span>Mission 目标</span><span>{{ missionDisplayLabel(projection) }}</span></div>
+    <section v-if="projection.selectedRunBasis || projection.selectedRunBasisStatus" class="mission-editor__meta" aria-label="Mission metadata">
       <div v-if="projection.selectedRunBasis" class="property-row"><span>所选 Run 依据</span><span>{{ projection.selectedRunBasis.sourceType }} · revision {{ projection.selectedRunBasis.sourceRevision }}</span></div>
       <div v-else-if="projection.selectedRunBasisStatus" class="property-row"><span>所选 Run 依据</span><span>{{ runDisplayObjective(projection) }}</span></div>
-      <div class="property-row"><span>status</span><code>{{ projection.mission.status }}</code></div>
-      <div v-if="projection.activeRun" class="property-row"><span>active Run</span><code>{{ projection.activeRun.runId }}</code></div>
-      <div v-if="projection.activeRun" class="property-row"><span>Run status</span><code>{{ projection.activeRun.status }}</code></div>
     </section>
     <section v-if="projection.inputAttachments?.length" class="mission-editor__meta" aria-label="Run input attachments">
       <div class="property-row"><strong>Input attachments</strong><span>{{ projection.inputAttachments.length }}</span></div>
@@ -55,7 +49,7 @@
 import { computed, ref } from 'vue'
 import MissionRevisionNotice from './MissionRevisionNotice.vue'
 import { agentosApi, type MissionSemanticEditRequest } from '@/services/api/agentos'
-import { missionDocumentContent, missionDisplayLabel, runDisplayObjective } from './missionSemanticDisplay'
+import { missionDocumentContent, runDisplayObjective } from './missionSemanticDisplay'
 import { renderMarkdown } from '@/utils/markdown'
 import type { MissionWorkspaceProjection, WorkspaceEntry, RunActionCapabilities } from '@/services/api/agentos'
 

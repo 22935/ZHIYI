@@ -30,8 +30,11 @@ describe('ArtifactEditor', () => {
     vi.spyOn(agentosApi, 'getArtifactContent').mockResolvedValue({ mediaType: 'application/json', content: '{"ok":true,"count":2}', manifestId: 'manifest_1' })
     const wrapper = mountEditor({ mediaType: 'application/json' })
     await flushPromises()
-    expect(wrapper.find('.json-body').text()).toContain('"ok": true')
-    expect(wrapper.find('.json-body').text()).toContain('"count": 2')
+    expect(wrapper.find('.json-body').text()).toContain('ok')
+    expect(wrapper.find('.json-body').text()).toContain('true')
+    expect(wrapper.find('.json-body pre').exists()).toBe(false)
+    expect(wrapper.find('.json-body').text()).toContain('count')
+    expect(wrapper.find('.json-body').text()).toContain('2')
   })
 
   it('renders text/plain without interpreting markup', async () => {

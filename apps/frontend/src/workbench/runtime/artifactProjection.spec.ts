@@ -33,17 +33,73 @@ const output = {
 }
 
 describe('artifactProjection', () => {
+  it('keeps verification separate from execution and deduplicates nested source references', () => {
+    const document = projectArtifactDocument({ entry: { ...entry, semanticTaskKey: 'final_report' }, output: {
+      final_answer: '# 报告\n正文',
+      verification: { status: 'partial', checks: [{ criterion: '恢复测试', result: '未执行', evidence: '仅有测试设计' }], unresolvedGaps: ['缺少实测结果'] },
+      deliverable: { sourceRefs: ['source:1', 'source:2'] },
+      artifact: { structuredData: { sourceRefs: ['source:1', 'source:3'] } },
+      artifacts: [{ structuredData: { sourceRefs: ['source:3'] } }]
+    } })
+    expect(document.verification).toEqual({ status: 'partial', checks: [{ criterion: '恢复测试', result: '未执行', evidence: '仅有测试设计' }], unresolvedGaps: ['缺少实测结果'] })
+    expect(document.inspector.evidenceRefs).toEqual(['source:1', 'source:2', 'source:3'])
+    expect(renderArtifactDocument(document)).toBe('# 报告\n正文')
+    expect(projectArtifactDocument({ entry, output: {} }).verification).toBeNull()
+  })
+
+  it('associates confidence and sources with each claim instead of treating the first as global', () => {
+    const document = projectArtifactDocument({ entry: { ...entry, semanticTaskKey: 'evidence_assessment' }, output: { evidence_analysis: [
+      { claim: '高置信结论', assessment: '有输入依据', confidence: 0.9, evidence_ref: 'source:high' },
+      { claim: '低置信结论', assessment: '尚待确认', confidence: 0.3, evidence_ref: 'source:low' },
+      { claim: '零置信结论', assessment: '无证据', confidence: 0 },
+    ] } })
+    const markdown = renderArtifactDocument(document)
+    expect(markdown).toMatch(/高置信结论[\s\S]*90%[\s\S]*source:high[\s\S]*低置信结论[\s\S]*30%[\s\S]*source:low/)
+    expect(markdown).toContain('0%')
+    expect(document.inspector.confidence).toBeNull()
+  })
+
+  it('shows a complete report once rather than repeating its summary and structured mirror', () => {
+    const report = '# 恢复报告\n\n## 检查\n只进行一次检查。'
+    const document = projectArtifactDocument({ entry: { ...entry, semanticTaskKey: 'final_report' }, output: {
+      summary: '摘要不能代替完整报告', final_answer: report,
+      artifact: { artifactType: 'run_deliverable', content: report },
+      artifacts: [{ artifactType: 'run_deliverable', content: report }],
+      sections: [{ title: '检查', content: '只进行一次检查。' }]
+    } })
+    const markdown = renderArtifactDocument(document)
+    expect(markdown).toBe(report)
+    expect(document.title).toBe('恢复报告')
+    expect(markdown.split('只进行一次检查。')).toHaveLength(2)
+    expect(markdown).not.toContain('执行摘要')
+  })
+
+  it('preserves a plain narrative even when the task has a known schema label', () => {
+    const document = projectArtifactDocument({ entry, output: '# 实际输出\n\n这不是任务目标。' })
+    expect(renderArtifactDocument(document)).toBe('# 实际输出\n\n这不是任务目标。')
+    expect(renderArtifactDocument(document)).not.toContain(entry.objective)
+  })
+
+  it('retains distinct reports instead of treating them as duplicates', () => {
+    const document = projectArtifactDocument({ entry: { ...entry, semanticTaskKey: 'final_report' }, output: {
+      artifacts: [{ artifactType: 'run_deliverable', content: '第一份报告' }, { artifactType: 'run_deliverable', content: '另一份报告' }]
+    } })
+    expect(renderArtifactDocument(document)).toContain('第一份报告')
+    expect(renderArtifactDocument(document)).toContain('另一份报告')
+  })
+
   it('dispatches requirements schema to a semantic document projection', () => {
     expect(resolveArtifactKind(entry, output)).toBe('requirements_specification')
     const document = projectArtifactDocument({ entry, output })
     const markdown = renderArtifactDocument(document)
 
-    expect(markdown).toContain('### REQ-03 试生产及爬坡周期')
+    expect(markdown).toContain('### REQ-03')
+    expect(markdown.split('试生产及爬坡周期')).toHaveLength(2)
     expect(markdown).toContain('**验收目标**')
     expect(markdown).toContain('**验收指标**')
     expect(markdown).toContain('**验收判据**')
-    expect(markdown).toContain('Requirement Acceptance Matrix')
-    expect(markdown).toContain('| REQ-03 | 试生产 + 爬坡周数 | ≤ 6 周 |')
+    expect(markdown).not.toContain('Requirement Acceptance Matrix')
+    expect(markdown.split('≤ 6 周')).toHaveLength(2)
     expect(markdown).not.toContain('- metric:')
     expect(markdown).not.toContain('- requirement_id:')
     expect(markdown).not.toContain('- target:')
@@ -54,7 +110,6 @@ describe('artifactProjection', () => {
     expect(document.blocks.filter(block => block.gutter).map(block => block.blockId)).toEqual([
       'intro',
       'req-03',
-      'acceptance-matrix',
       'assumptions'
     ])
     expect(document.blocks.filter(block => block.blockId === 'req-03' && block.gutter)).toHaveLength(1)

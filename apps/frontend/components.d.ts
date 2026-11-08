@@ -28,6 +28,7 @@ declare module 'vue' {
     AppShell: typeof import('./src/components/app/AppShell.vue')['default']
     AppTopBar: typeof import('./src/components/app/AppTopBar.vue')['default']
     ArtifactEditor: typeof import('./src/components/workspace/ArtifactEditor.vue')['default']
+    ArtifactVerification: typeof import('./src/components/workspace/ArtifactVerification.vue')['default']
     AvatarSettingsPanel: typeof import('./src/components/AvatarSettingsPanel.vue')['default']
     BrandEmpty: typeof import('./src/components/common/BrandEmpty.vue')['default']
     BrandLoader: typeof import('./src/components/common/BrandLoader.vue')['default']

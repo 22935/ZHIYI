@@ -5,28 +5,19 @@
     <nav class="task-document__breadcrumb" aria-label="Document breadcrumb">
       <button type="button" @click="openMission">{{ missionTitle }}</button>
       <span aria-hidden="true">/</span>
-      <span>Run {{ runNumber }}</span>
+      <span>运行 {{ runNumber }}</span>
       <span aria-hidden="true">/</span>
-      <span>Steps</span>
-      <span aria-hidden="true">/</span>
-      <strong>{{ documentFilename }}</strong>
+      <strong>步骤 {{ taskNumber }}</strong>
     </nav>
 
     <header class="task-document__header">
       <div class="task-document__heading-row">
         <div class="task-document__heading task-editor__heading">
-          <div class="task-document__filename">
-            <span aria-hidden="true">◇</span>
-            <code>{{ documentFilename }}</code>
-          </div>
           <h1>{{ document.title }}</h1>
           <div class="task-document__meta">
             <span class="task-document__status-mark" :class="`is-${entry.status || 'pending'}`" aria-hidden="true">{{ statusMark(entry.status) }}</span>
             <span class="task-document__status task-editor__status" :class="`is-${entry.status || 'pending'}`">{{ statusLabel(entry.status) }}</span>
-            <span>Run {{ runNumber }}</span>
-            <span>Task {{ taskNumber }}</span>
-            <span>Attempt {{ entry.attemptCount ?? 0 }}</span>
-            <span v-if="durationText">{{ durationText }}</span>
+            <span v-if="entry.attemptCount != null">执行 {{ entry.attemptCount }} 次</span>
           </div>
         </div>
         <div class="task-document__actions task-editor__actions">
@@ -37,9 +28,13 @@
 
     <div class="task-document__body">
       <article class="task-document__canvas">
+        <ArtifactVerification v-if="stageOutputContent && (document.artifactKind === 'final_report' || (document.artifactKind !== 'unknown' && document.verification))" :verification="document.verification" />
         <p v-if="!stageOutputContent && stageOutputLoading" role="status">{{ stageOutputPlaceholder }}</p>
         <p v-else-if="!stageOutputContent && stageOutputError" role="alert">{{ stageOutputError }}</p>
         <p v-else-if="!stageOutputContent && isTerminal" role="status">{{ stageOutputPlaceholder }}</p>
+        <StageOutputRenderer v-else-if="document.artifactKind === 'unknown'" class="task-document__blocks" :value="stageOutputContent"
+          :selected-id="selectedSymbolId" :id-prefix="resultIdPrefix" :document-title="document.title"
+          @select="emit('selectResult', $event)" @reference="emit('selectResult', $event)" />
         <div v-else class="task-document__blocks" aria-label="Artifact document blocks">
           <div
             v-for="group in blockGroups"
@@ -51,7 +46,7 @@
             <span
               class="task-document__gutter"
               :data-block-id="group.blockId"
-              :title="`Focus ${group.blockId}`"
+              :title="`定位段落 ${group.displayIndex}`"
               @click.stop="focusBlock(group.blockId)"
             >{{ group.displayIndex }}</span>
             <div class="task-document__block-content task-document__markdown markdown-body" v-html="renderedBlock(group.blocks)" />
@@ -66,26 +61,11 @@
           <div class="task-document__artifact-links task-editor__artifacts">
             <button v-for="artifact in artifacts" :key="artifact.entryId" type="button" @click="emit('openArtifact', artifact)">
               <span>{{ artifact.name }}</span>
-              <code>{{ artifact.artifactKey || artifact.contentRef || 'artifact' }}</code>
+              <span>查看</span>
             </button>
           </div>
         </section>
 
-        <details v-if="stageOutputAvailable" class="task-document__source">
-          <summary>原始结构化结果（调试）</summary>
-          <StageOutputRenderer
-            :value="stageOutputContent || stageOutputError || stageOutputPlaceholder"
-            :selected-id="selectedSymbolId"
-            :id-prefix="resultIdPrefix"
-            @select="emit('selectResult', $event)"
-            @reference="emit('selectResult', $event)"
-          />
-        </details>
-
-        <p class="task-document__footer-note">
-          <span aria-hidden="true">⌁</span>
-          正文只呈现当前 Artifact 的文档语义；证据、置信度、输入与运行来源位于右侧 Inspector。
-        </p>
       </article>
     </div>
   </section>
@@ -97,8 +77,10 @@ import { missionDocumentContent } from './missionSemanticDisplay'
 import type { MissionWorkspaceProjection, WorkspaceEntry, WorkspaceGraphNode } from '@/services/api/agentos'
 import type { StageOutputSelection } from './StageOutputRenderer.vue'
 import StageOutputRenderer from './StageOutputRenderer.vue'
+import ArtifactVerification from './ArtifactVerification.vue'
 import { renderArtifactDocument, type ArtifactDocumentBlock, type ArtifactDocumentModel } from '@/workbench/runtime/artifactProjection'
 import { renderMarkdown } from '@/utils/markdown'
+import { withoutRepeatedTitle } from '@/workbench/runtime/documentContent'
 
 const props = defineProps<{
   entry: WorkspaceEntry
@@ -107,14 +89,12 @@ const props = defineProps<{
   artifacts: WorkspaceEntry[]
   document: ArtifactDocumentModel
   stageOutputContent: string
-  stageOutputAvailable: boolean
   stageOutputLoading?: boolean
   stageOutputError: string
   selectedSymbolId?: string | null
   resultIdPrefix: string
   runNumber: string
   taskNumber: string
-  durationText: string | null
   missionTitle: string
 }>()
 
@@ -124,11 +104,6 @@ const emit = defineEmits<{
   openEntry: [entry: WorkspaceEntry]
   selectResult: [selection: StageOutputSelection]
 }>()
-
-const documentFilename = computed(() => {
-  const normalized = props.entry.name.trim()
-  return /\.(md|markdown)$/i.test(normalized) ? normalized : `${normalized || 'task'}.md`
-})
 
 const isTerminal = computed(() => ['completed', 'succeeded', 'failed', 'cancelled', 'skipped'].includes(props.entry.status || ''))
 const stageOutputPlaceholder = computed(() => {
@@ -140,15 +115,15 @@ const stageOutputPlaceholder = computed(() => {
 })
 
 const statusLabel = (status?: string | null) => ({
-  pending: 'Pending',
-  ready: 'Ready',
-  running: 'Running',
-  completed: 'Completed',
-  succeeded: 'Completed',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-  skipped: 'Skipped'
-}[status || ''] || status || 'Pending')
+  pending: '待执行',
+  ready: '已就绪',
+  running: '执行中',
+  completed: '已完成',
+  succeeded: '已完成',
+  failed: '执行失败',
+  cancelled: '已取消',
+  skipped: '已跳过'
+}[status || ''] || status || '待执行')
 
 const statusMark = (status?: string | null) => {
   if (['completed', 'succeeded'].includes(status || '')) return '✓'
@@ -176,10 +151,10 @@ const blockGroups = computed(() => {
   return groups
 })
 
-const renderedBlock = (blocks: ArtifactDocumentBlock[]) => renderMarkdown(renderArtifactDocument({
-  ...props.document,
-  blocks
-}))
+const renderedBlock = (blocks: ArtifactDocumentBlock[]) => {
+  const content = renderArtifactDocument({ ...props.document, blocks })
+  return renderMarkdown(blocks[0] === props.document.blocks[0] ? withoutRepeatedTitle(content, props.document.title) : content)
+}
 
 const focusBlock = (blockId: string) => {
   focusedBlockId.value = blockId
@@ -252,15 +227,6 @@ const openMission = () => emit('openEntry', {
 .task-document__artifact-links button:hover { color: var(--wb-accent); background: var(--wb-hover); }
 .task-document__artifact-links button:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: -1px; }
 .task-document__artifact-links code { color: var(--wb-text-muted); font: 10px var(--font-mono, monospace); }
-.task-document__source { margin-top: 28px; border-top: 1px solid var(--wb-border-soft); }
-.task-document__source > summary { padding: 11px 0; color: var(--wb-text-muted); cursor: pointer; font: 10px var(--font-mono, monospace); letter-spacing: .05em; list-style: none; }
-.task-document__source > summary::-webkit-details-marker { display: none; }
-.task-document__source > summary::before { content: '▸'; display: inline-block; width: 15px; color: var(--wb-accent); }
-.task-document__source[open] > summary::before { content: '▾'; }
-.task-document__source :deep(.stage-output-viewer__sections) { max-height: none; }
-.task-document__footer-note { display: flex; align-items: flex-start; gap: 8px; margin: 31px 0 0; padding-top: 14px; border-top: 1px solid var(--wb-border-soft); color: var(--wb-text-muted); font-size: 11px; line-height: 1.6; }
-.task-document__footer-note span { color: var(--wb-accent); }
-
 @media (max-width: 760px) {
   .task-document__header { padding-inline: 20px; }
   .task-document__heading-row { align-items: flex-start; flex-direction: column; gap: 12px; }

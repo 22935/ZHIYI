@@ -1,6 +1,7 @@
 <template>
   <div class="stage-output-viewer" data-testid="task-stage-output">
-    <template v-if="isStructured">
+    <article v-if="reportText" class="stage-output-viewer__document markdown-body" v-html="renderedReport" />
+    <template v-else-if="isStructured">
       <div class="stage-output-viewer__sections">
         <section v-for="section in sections" :key="section.key" class="stage-output-viewer__section">
           <button
@@ -75,7 +76,6 @@
               >
                 <dt class="stage-output-viewer__field-label">
                   <span>{{ labelForKey(fieldKey) }}</span>
-                  <code>{{ fieldKey }}</code>
                 </dt>
                 <dd :class="valueClass(fieldValue)"><StructuredValue :value="fieldValue" :markdown="isRichTextKey(fieldKey)" :collapsible="true" /></dd>
               </div>
@@ -85,42 +85,9 @@
         </section>
       </div>
 
-      <details class="stage-output-viewer__source" @toggle="onSourceToggle">
-        <summary @click="sourceOpen = true">STRUCTURED SOURCE</summary>
-        <div v-if="sourceOpen" class="stage-output-viewer__source-preview">
-          <div v-if="isStructured" class="stage-output-viewer__source-sections">
-            <section v-for="section in sections" :key="section.key" class="stage-output-viewer__source-section">
-              <div class="stage-output-viewer__source-section-head">
-                <span class="stage-output-viewer__source-fold" aria-hidden="true">▾</span>
-                <strong>{{ labelForKey(section.key) }}</strong>
-                <span v-if="sectionCount(section.value) !== null" class="stage-output-viewer__source-count">· {{ sectionCount(section.value) }}</span>
-                <code>{{ section.key }}</code>
-              </div>
-              <div v-if="Array.isArray(section.value)" class="stage-output-viewer__source-list">
-                <div v-for="(item, index) in section.value" :key="`${section.key}-source-${index}`" class="stage-output-viewer__source-item">
-                  <span class="stage-output-viewer__source-index">{{ padIndex(index) }}</span>
-                  <span>{{ isRecord(item) ? displayValue(primaryEntry(item)?.[1] || item) : displayValue(item) }}</span>
-                </div>
-              </div>
-              <dl v-else-if="isRecord(section.value)" class="stage-output-viewer__source-fields">
-                <div v-for="[fieldKey, fieldValue] in recordEntries(section.value)" :key="fieldKey">
-                  <dt>{{ labelForKey(fieldKey) }}</dt>
-                  <dd>{{ displayValue(fieldValue) }}</dd>
-                </div>
-              </dl>
-              <p v-else class="stage-output-viewer__source-value">{{ displayValue(section.value) }}</p>
-            </section>
-          </div>
-          <pre v-else class="stage-output-viewer__source-fallback">{{ value }}</pre>
-          <details class="stage-output-viewer__raw" @toggle="onRawToggle">
-            <summary @click="rawOpen = true">RAW JSON</summary>
-            <pre v-if="rawOpen">{{ value }}</pre>
-          </details>
-        </div>
-      </details>
     </template>
 
-    <pre v-else class="stage-output-viewer__fallback">{{ value }}</pre>
+    <article v-else class="stage-output-viewer__document markdown-body" v-html="renderedText" />
   </div>
 </template>
 
@@ -128,6 +95,8 @@
 import { computed, ref, watch } from 'vue'
 import EditorObjectRow from './EditorObjectRow.vue'
 import StructuredValue from './StructuredValue.vue'
+import { renderMarkdown } from '@/utils/markdown'
+import { documentEntries, reportContent, withoutRepeatedTitle } from '@/workbench/runtime/documentContent'
 
 type JsonRecord = Record<string, unknown>
 
@@ -144,6 +113,7 @@ const props = withDefaults(defineProps<{
   value: string
   selectedId?: string | null
   idPrefix?: string
+  documentTitle?: string
 }>(), {
   selectedId: null,
   idPrefix: 'result'
@@ -197,14 +167,15 @@ const isRecord = (value: unknown): value is JsonRecord => (
   typeof value === 'object' && value !== null && !Array.isArray(value)
 )
 const isStructured = computed(() => isRecord(parsedValue.value) || Array.isArray(parsedValue.value))
+const reportText = computed(() => reportContent(parsedValue.value))
+const renderedReport = computed(() => renderMarkdown(withoutRepeatedTitle(reportText.value, props.documentTitle)))
+const renderedText = computed(() => renderMarkdown(withoutRepeatedTitle(typeof parsedValue.value === 'string' ? parsedValue.value : props.value, props.documentTitle)))
 const sections = computed(() => {
   if (Array.isArray(parsedValue.value)) return [{ key: 'items', value: parsedValue.value }]
-  if (isRecord(parsedValue.value)) return Object.entries(parsedValue.value).map(([key, value]) => ({ key, value }))
+  if (isRecord(parsedValue.value)) return documentEntries(parsedValue.value).map(([key, value]) => ({ key, value }))
   return []
 })
 const collapsedSections = ref(new Set<string>())
-const sourceOpen = ref(false)
-const rawOpen = ref(false)
 const isSectionOpen = (key: string) => !collapsedSections.value.has(key)
 const toggleSection = (key: string) => {
   const next = new Set(collapsedSections.value)
@@ -223,14 +194,7 @@ watch(sections, (next) => {
   if (!autoCollapsed.length) return
   collapsedSections.value = new Set([...collapsedSections.value, ...autoCollapsed])
 }, { immediate: true })
-const onSourceToggle = (event: Event) => {
-  sourceOpen.value = (event.currentTarget as HTMLDetailsElement).open
-}
-const onRawToggle = (event: Event) => {
-  rawOpen.value = (event.currentTarget as HTMLDetailsElement).open
-}
-
-const recordEntries = (value: JsonRecord) => Object.entries(value)
+const recordEntries = (value: JsonRecord) => documentEntries(value)
 const labelForKey = (key: string) => keyLabels[key] || key.split('_').join(' ')
 const padIndex = (index: number) => String(index + 1).padStart(2, '0')
 const sectionCount = (value: unknown) => {
@@ -259,7 +223,7 @@ const displayValue = (value: unknown) => {
   try { return JSON.stringify(value) } catch { return String(value) }
 }
 const displayMetadata = (key: string, value: unknown) => {
-  if (['mandatory', 'required'].includes(key)) return value === true ? 'hard' : 'advisory'
+  if (['mandatory', 'required'].includes(key)) return value === true ? '必须满足' : '建议满足'
   if (['validation', 'validationStatus', 'validation_status'].includes(key)) return displayValue(value).split('_').join(' ')
   return displayValue(value)
 }
@@ -310,7 +274,10 @@ const selectionFor = (sectionKey: string, index: number, value: unknown): StageO
 
 <style scoped>
 .stage-output-viewer { min-width: 0; color: var(--wb-text); }
-.stage-output-viewer__sections { max-height: min(58vh, 720px); overflow: auto; scrollbar-gutter: stable; }
+.stage-output-viewer__sections { min-width: 0; }
+.stage-output-viewer__document { color: var(--wb-text-secondary); font-size: 14px; line-height: 1.85; }
+.stage-output-viewer__document :deep(p), .stage-output-viewer__document :deep(li) { overflow-wrap: anywhere; }
+.stage-output-viewer__document :deep(pre) { max-width: 100%; overflow: auto; }
 .stage-output-viewer__section { border-bottom: 1px solid var(--wb-border-soft); }
 .stage-output-viewer__section:last-child { border-bottom: 0; }
 .stage-output-viewer__section-head { display: flex; align-items: center; justify-content: flex-start; width: 100%; min-height: 34px; padding: 0 2px; border: 0; color: var(--wb-text-secondary); background: transparent; cursor: pointer; font-size: 13px; font-weight: 700; text-align: left; }
@@ -357,27 +324,6 @@ const selectionFor = (sectionKey: string, index: number, value: unknown): StageO
 .stage-output-viewer__fields--record > div.is-status.is-danger dd { color: var(--wb-danger); font-weight: 650; }
 .stage-output-viewer__fields--record > div.is-complex .stage-output-viewer__field-label span { color: var(--wb-text); }
 .stage-output-viewer__fields--record > div.is-narrative > dd { margin-top: 7px; }
-.stage-output-viewer__source { margin-top: 8px; border-top: 1px solid var(--wb-border-soft); color: var(--wb-text-muted); font: 11px var(--font-mono, monospace); }
-.stage-output-viewer__source > summary { padding: 8px 2px 5px; cursor: pointer; }
-.stage-output-viewer__source-preview { margin-top: 2px; }
-.stage-output-viewer__source-section { border-bottom: 1px solid color-mix(in srgb, var(--wb-border-soft) 72%, transparent); }
-.stage-output-viewer__source-section:last-child { border-bottom: 0; }
-.stage-output-viewer__source-section-head { display: flex; align-items: center; gap: 6px; min-height: 31px; padding: 0 2px; color: var(--wb-text-secondary); }
-.stage-output-viewer__source-section-head strong { color: var(--wb-text-secondary); font-weight: 600; }
-.stage-output-viewer__source-fold { color: var(--wb-accent); }
-.stage-output-viewer__source-count { color: var(--wb-text-muted); }
-.stage-output-viewer__source-section-head code { margin-left: auto; color: var(--wb-text-muted); font: inherit; }
-.stage-output-viewer__source-list { padding: 0 0 4px 24px; }
-.stage-output-viewer__source-item { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; padding: 6px 4px 6px 0; color: var(--wb-text-secondary); line-height: 1.5; }
-.stage-output-viewer__source-index { color: var(--wb-accent); text-align: right; }
-.stage-output-viewer__source-fields { display: grid; gap: 5px 14px; margin: 0; padding: 0 4px 8px 24px; }
-.stage-output-viewer__source-fields > div { display: grid; grid-template-columns: minmax(100px, 28%) minmax(0, 1fr); gap: 10px; }
-.stage-output-viewer__source-fields dt { color: var(--wb-text-muted); }
-.stage-output-viewer__source-fields dd { min-width: 0; margin: 0; color: var(--wb-text-secondary); overflow-wrap: anywhere; }
-.stage-output-viewer__source-value { margin: 0; padding: 0 4px 8px 24px; color: var(--wb-text-secondary); line-height: 1.5; }
-.stage-output-viewer__raw { margin-top: 6px; border-top: 1px solid var(--wb-border-soft); }
-.stage-output-viewer__raw summary { padding: 7px 2px 5px; color: var(--wb-text-muted); cursor: pointer; }
-.stage-output-viewer__raw pre, .stage-output-viewer__source-fallback, .stage-output-viewer__fallback { max-height: 360px; margin: 0; padding: 10px; overflow: auto; border: 1px solid var(--wb-border); border-radius: var(--wb-radius-sm); background: var(--wb-surface-inset); color: var(--wb-text-secondary); font: 10px/1.55 var(--font-mono, monospace); white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 720px) {
   .stage-output-viewer__section-body { padding-left: 12px; }
   .stage-output-viewer__fields { grid-template-columns: minmax(0, 1fr); }

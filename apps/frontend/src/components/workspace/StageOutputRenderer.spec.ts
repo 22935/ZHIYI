@@ -15,33 +15,29 @@ describe('StageOutputRenderer', () => {
 
     expect(wrapper.get('[data-testid="task-stage-output"]').text()).toContain('假设')
     expect(wrapper.get('.stage-output-viewer__section-head').text()).toContain('假设 · 1')
-    await wrapper.get('.stage-output-viewer__source > summary').trigger('click')
-    expect(wrapper.findAll('.stage-output-viewer__source-section').some(section => section.text().includes('约束'))).toBe(true)
-    expect(wrapper.get('.stage-output-viewer__raw').element.open).toBe(false)
     expect(wrapper.text()).toContain('需求增长 22%')
     expect(wrapper.text()).toContain('项目投资不超过3500万元')
-    expect(wrapper.text()).toContain('hard')
+    expect(wrapper.text()).toContain('必须满足')
     expect(wrapper.text()).toContain('constraint:1')
-    expect(wrapper.get('.stage-output-viewer__meta.is-hard').text()).toBe('hard')
-    expect(wrapper.find('details').exists()).toBe(true)
+    expect(wrapper.get('.stage-output-viewer__meta.is-hard').text()).toBe('必须满足')
+    expect(wrapper.find('.stage-output-viewer__source').exists()).toBe(false)
+    expect(wrapper.text().split('需求增长 22%')).toHaveLength(2)
   })
 
-  it('keeps a raw JSON escape hatch', async () => {
+  it('shows one readable narrative without source or raw JSON controls', () => {
     const wrapper = mount(StageOutputRenderer, {
-      props: { value: JSON.stringify({ summary: '阶段完成' }) }
+      props: { value: JSON.stringify({ summary: '阶段完成', overview: '阶段完成' }) }
     })
-
-    await wrapper.get('.stage-output-viewer__source > summary').trigger('click')
-    await wrapper.get('.stage-output-viewer__raw > summary').trigger('click')
-
-    expect(wrapper.get('details pre').text()).toContain('阶段完成')
-    expect(wrapper.text()).toContain('STRUCTURED SOURCE')
+    expect(wrapper.text().split('阶段完成')).toHaveLength(2)
+    expect(wrapper.find('.stage-output-viewer__source').exists()).toBe(false)
+    expect(wrapper.find('.stage-output-viewer__raw').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('STRUCTURED SOURCE')
   })
 
   it('falls back to plain output for non-JSON content', () => {
     const wrapper = mount(StageOutputRenderer, { props: { value: '正在生成阶段结果' } })
 
-    expect(wrapper.get('pre').text()).toBe('正在生成阶段结果')
+    expect(wrapper.get('article').text()).toBe('正在生成阶段结果')
   })
 
   it('keeps long text readable and expands nested result values structurally', () => {
@@ -62,7 +58,7 @@ describe('StageOutputRenderer', () => {
     expect(wrapper.findAll('.structured-value__list').length).toBeGreaterThan(0)
   })
 
-  it('gives narrative fields a readable full-width treatment while keeping raw keys visible', () => {
+  it('gives narrative fields a readable full-width treatment without repeating raw keys', () => {
     const wrapper = mount(StageOutputRenderer, {
       props: {
         value: JSON.stringify({
@@ -79,8 +75,8 @@ describe('StageOutputRenderer', () => {
     expect(narrativeFields).toHaveLength(2)
     expect(narrativeFields.every(field => field.classes('is-narrative'))).toBe(true)
     expect(wrapper.text()).toContain('部署方案')
-    expect(wrapper.text()).toContain('deployment')
-    expect(wrapper.findAll('.structured-value__text.is-long')).toHaveLength(2)
+    expect(wrapper.find('.stage-output-viewer__field-label code').exists()).toBe(false)
+    expect(wrapper.findAll('.structured-value__disclosure')).toHaveLength(2)
     expect(wrapper.get('.stage-output-viewer__field-label').element).toBeTruthy()
   })
 
@@ -100,5 +96,6 @@ describe('StageOutputRenderer', () => {
     await disclosure.get('summary').trigger('click')
     expect((disclosure.element as HTMLDetailsElement).open).toBe(true)
     expect(disclosure.findAll('.structured-value__markdown p').length).toBeGreaterThan(1)
+    expect(disclosure.find('.structured-value__preview').exists()).toBe(false)
   })
 })

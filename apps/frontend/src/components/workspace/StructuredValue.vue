@@ -1,12 +1,14 @@
 <template>
-  <details v-if="isPrimitive && collapsible && isLongText" class="structured-value__disclosure">
-    <summary @click.stop>
-      <span class="structured-value__preview">{{ previewText }}</span>
-      <span class="structured-value__disclosure-action">展开完整结论</span>
+  <details v-if="isPrimitive && collapsible && isLongText" class="structured-value__disclosure" :open="expanded">
+    <summary @click.stop.prevent="expanded = !expanded">
+      <span v-if="!expanded" class="structured-value__preview">{{ previewText }}</span>
+      <span class="structured-value__disclosure-action">{{ expanded ? '收起结论' : '展开完整结论' }}</span>
       <span class="structured-value__disclosure-count">{{ primitiveText.length }} 字符</span>
     </summary>
-    <div v-if="markdown" class="structured-value__markdown markdown-body is-long" v-html="renderedMarkdown" />
-    <span v-else class="structured-value__text" :class="[primitiveKindClass, { 'is-long': isLongText }]">{{ primitiveText }}</span>
+    <template v-if="expanded">
+      <div v-if="markdown" class="structured-value__markdown markdown-body is-long" v-html="renderedMarkdown" />
+      <span v-else class="structured-value__text" :class="[primitiveKindClass, { 'is-long': isLongText }]">{{ primitiveText }}</span>
+    </template>
   </details>
   <div v-else-if="isPrimitive && markdown" class="structured-value__markdown markdown-body" v-html="renderedMarkdown" />
   <span
@@ -26,7 +28,6 @@
     <div v-for="[key, item] in objectEntries" :key="key" class="structured-value__field" :class="{ 'is-narrative': isRichTextKey(key) || isLongValue(item) }">
       <dt>
         <span>{{ labelForKey(key) }}</span>
-        <code v-if="labelForKey(key) !== key">{{ key }}</code>
       </dt>
       <dd><StructuredValue :value="item" :depth="depth + 1" :markdown="isRichTextKey(key)" :collapsible="collapsible" /></dd>
     </div>
@@ -34,8 +35,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
+import { documentEntries } from '@/workbench/runtime/documentContent'
 
 defineOptions({ name: 'StructuredValue' })
 
@@ -49,6 +51,9 @@ const props = withDefaults(defineProps<{
   markdown: false,
   collapsible: false
 })
+
+const expanded = ref(false)
+watch(() => props.value, () => { expanded.value = false })
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -77,7 +82,7 @@ const narrativeSource = computed(() => {
   return primitiveText.value.replace(/([。！？；;])\s*/g, '$1\n')
 })
 const renderedMarkdown = computed(() => renderMarkdown(narrativeSource.value))
-const objectEntries = computed(() => isRecord(props.value) ? Object.entries(props.value) : [])
+const objectEntries = computed(() => isRecord(props.value) ? documentEntries(props.value) : [])
 const labels: Record<string, string> = {
   overview: '\u6982\u8981',
   objective: '\u76ee\u6807',

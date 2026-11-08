@@ -6,14 +6,12 @@
     :artifacts="artifacts"
     :document="artifactDocument"
     :stage-output-content="stageOutputContent"
-    :stage-output-available="stageOutputAvailable"
     :stage-output-loading="stageOutputLoading"
     :stage-output-error="stageOutputError"
     :selected-symbol-id="selectedSymbolId"
     :result-id-prefix="resultIdPrefix"
     :run-number="runNumber"
     :task-number="taskNumber"
-    :duration-text="durationText"
     :mission-title="missionTitle"
     @locate-graph="emit('locateGraph')"
     @open-artifact="emit('openArtifact', $event)"
@@ -113,9 +111,6 @@ const stageOutputContent = computed(() => {
   }
   return persistedStageOutput.value
 })
-const stageOutputAvailable = computed(() => Boolean(
-  outputRef.value || liveNode.value || stageOutputLoading.value || stageOutputError.value
-))
 const resultIdPrefix = computed(() => `task-result:${props.entry.semanticTaskKey || props.entry.entryId}`)
 const artifactDocument = computed(() => projectArtifactDocument({
   entry: props.entry,
@@ -139,16 +134,6 @@ const taskNumber = computed(() => {
   const index = tasks.findIndex(item => item.entryId === props.entry.entryId)
   return String(index >= 0 ? index + 1 : 1).padStart(2, '0')
 })
-const durationText = computed(() => {
-  const run = props.projection.runs.find(item => item.runId === runId.value)
-  if (!run?.createdAt) return null
-  const start = new Date(run.createdAt).getTime()
-  const end = run.completedAt ? new Date(run.completedAt).getTime() : Date.now()
-  if (Number.isNaN(start) || Number.isNaN(end)) return null
-  const seconds = Math.max(0, (end - start) / 1000)
-  return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s` : `${Number(seconds.toFixed(1))}s`
-})
-
 const resultSymbol = (selection: StageOutputSelection): RunDocumentSymbol => ({
   id: `${resultIdPrefix.value}:${selection.sectionKey}:${selection.index}`,
   type: 'result',
