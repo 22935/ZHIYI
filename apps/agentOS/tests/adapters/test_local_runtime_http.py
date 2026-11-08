@@ -312,3 +312,35 @@ async def test_http_transport_authenticates_events_and_cancel_on_same_runtime_bo
     assert captured[0][0] == "GET"
     assert captured[0][1].startswith(f"/v1/executions/{execution_id}/events?")
     assert captured[1] == ("POST", f"/v1/executions/{execution_id}/cancel")
+
+
+def test_default_client_ignores_environment_proxy(monkeypatch: pytest.MonkeyPatch):
+    """设备侧 Runtime 端点不得被 HTTP_PROXY 接管。
+
+    走环境代理时请求行会变成绝对 URI：代理把 "POST /v1/executions" 转发为
+    "POST http://host/v1/executions"，对端按原始 req.url 验签就会 401；凭据
+    也会被送往代理。因此默认客户端必须 trust_env=False（显式传入的 client
+    仍然是调用方的责任）。
+    """
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:9")
+    monkeypatch.setenv("ALL_PROXY", "http://127.0.0.1:9")
+
+    transport = HttpLocalRuntimeTransport(
+        resource_id="zhiyi-local-runtime",
+        address="http://127.0.0.1:18765/v1/executions",
+        credential_provider=CredentialProvider(),
+    )
+
+    assert transport._client.trust_env is False
+
+
+def test_explicit_client_is_used_as_given():
+    client = httpx.AsyncClient(trust_env=True)
+    transport = HttpLocalRuntimeTransport(
+        resource_id="zhiyi-local-runtime",
+        address="http://127.0.0.1:18765/v1/executions",
+        credential_provider=CredentialProvider(),
+        client=client,
+    )
+
+    assert transport._client is client

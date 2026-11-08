@@ -156,6 +156,17 @@ describe('HANDS-02A transport: authentication failures', () => {
     expect(response.status).toBe(401)
   })
 
+  it('accepts a proxy-forwarded ABSOLUTE-form request target (signature covers the normalised path)', () => {
+    // RFC 9112 §3.2.2：代理转发时请求行是绝对 URI，Node 原样放进 req.url。
+    // 签名只覆盖 pathname+query，故绝对形式与源形式必须得到同一鉴权结果，
+    // 否则带 HTTP_PROXY 的宿主会让每一次 hands 调用 401。
+    const signed = signedPost(bodyFor('absolute-form-target'), 'absolute-form-target')
+    const response = callHandle(service, { ...signed, path: `http://127.0.0.1:1${signed.path}` })
+    bodies.push(response.body)
+    expect(response.status).toBe(202)
+    expect((response.body as { error?: unknown }).error).toBeUndefined()
+  })
+
   it('rejects an expired timestamp (outside the ±300s window)', () => {
     const response = post(bodyFor('expired-ts'), 'expired-ts', { timestamp: Date.now() - 400_000 })
     expect(response.status).toBe(401)

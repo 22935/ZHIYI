@@ -183,6 +183,10 @@ export class HandsService {
     const { method, path, headers, body } = request
     const url = new URL(path, 'http://hands.local')
     const pathname = url.pathname
+    // 签名覆盖的是规范化请求目标（pathname + query），而不是原始请求行：
+    // 经代理转发的合法请求使用绝对 URI 形式（RFC 9112 §3.2.2），Node 会把
+    // req.url 原样给出 "http://host/v1/executions"，按原文验签必然 401。
+    const signedPath = pathname + url.search
 
     if (method === 'GET' && pathname === HEALTH_PATH) {
       return json(200, {
@@ -200,22 +204,22 @@ export class HandsService {
     try {
       if (method === 'POST' && pathname === EXECUTION_PATH) {
         if (body.length > MAX_BODY_BYTES) return error(413, 'REQUEST_TOO_LARGE', 'request body is too large')
-        const caller = this.#authenticate(method, path, headers, body)
+        const caller = this.#authenticate(method, signedPath, headers, body)
         return this.#postExecution(caller.credentialId, body, headers)
       }
       if (method === 'GET' && execMatch?.endpoint === 'events') {
-        const caller = this.#authenticate(method, path, headers, body)
+        const caller = this.#authenticate(method, signedPath, headers, body)
         this.#assertOwner(execMatch.executionId, caller.credentialId)
         return this.#getEvents(execMatch.executionId, url.searchParams)
       }
       if (method === 'GET' && execMatch !== undefined) {
-        const caller = this.#authenticate(method, path, headers, body)
+        const caller = this.#authenticate(method, signedPath, headers, body)
         this.#assertOwner(execMatch.executionId, caller.credentialId)
         return this.#getExecution(execMatch.executionId)
       }
       if (method === 'POST' && execMatch?.endpoint === 'cancel') {
         if (body.length > MAX_BODY_BYTES) return error(413, 'REQUEST_TOO_LARGE', 'request body is too large')
-        const caller = this.#authenticate(method, path, headers, body)
+        const caller = this.#authenticate(method, signedPath, headers, body)
         this.#assertOwner(execMatch.executionId, caller.credentialId)
         return this.#postCancel(execMatch.executionId, body)
       }
