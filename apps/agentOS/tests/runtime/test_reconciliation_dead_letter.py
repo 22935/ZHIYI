@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.v2.reconciliation import (
+from runtime.reconciliation import (
     DEAD_LETTER_MAX_ATTEMPTS,
     IdentityProjectionReconciler,
     IdentityReconciliationReport,

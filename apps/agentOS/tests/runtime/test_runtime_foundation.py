@@ -5,7 +5,7 @@ import pytest
 from domain.identity_graph import ExecutionBinding, TaskBinding
 from domain.models import AttemptStatus, RunStatus, StepExecutionStatus, MissionStatus
 from domain.repository import IdentityConflictError
-from runtime.v2 import AcgIdentityLifecycleService
+from runtime import AcgIdentityLifecycleService
 from storage.v2 import SQLiteV2Repositories, SQLiteV2Storage
 
 

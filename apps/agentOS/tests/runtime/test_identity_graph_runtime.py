@@ -8,7 +8,7 @@ from contracts.resource import ExecutionBinding as RuntimeExecutionBinding, Runt
 from domain.identity_graph import IdentityRelation, IdentityResolver
 from domain.models import RunStatus, MissionStatus
 from domain.repository import IdentityConflictError
-from runtime.v2 import (
+from runtime import (
     PlannerIdentityBridge,
     TaskPlan,
     PlannedTask,

@@ -10,6 +10,29 @@ __all__: list[str] = []
 from .bootstrap import bootstrap
 
 
+_RUNTIME_V2_NAMES = {
+    "AcgIdentityLifecycleService",
+    "ExecutionContext",
+    "IdentityProjectionBridge",
+    "IdentityProjectionReconciler",
+    "IdentityReconciliationReport",
+    "IdentityQueryService",
+    "MissionWorkspaceProjection",
+    "MissionWorkspaceProjector",
+    "WorkspaceDiagnostic",
+    "WorkspaceEntry",
+    "WorkspaceEntryKind",
+    "WorkspaceGraphNode",
+    "WorkspaceIdentityQuality",
+    "WorkspaceRunSummary",
+    "PlannerIdentityBridge",
+    "TaskImplementationBinding",
+    "TaskPlan",
+    "PlannedTask",
+    "TaskPlanPatch",
+}
+
+
 def __getattr__(name: str):
     if name in {"ApplicationSetup", "ApplicationSetupError", "ModelSetup"}:
         from .app_setup import ApplicationSetup, ApplicationSetupError, ModelSetup
@@ -26,6 +49,45 @@ def __getattr__(name: str):
             "ExecutionRuntime": ExecutionRuntime,
             "build_default_runtime": build_default_runtime,
         }[name]
+    if name in _RUNTIME_V2_NAMES:
+        from . import (
+            context,
+            identity_projection,
+            planner_bridge,
+            queries,
+            reconciliation,
+            runner,
+            workspace,
+        )
+        from contracts.planning import (
+            TaskImplementationBinding,
+            TaskPlan,
+            PlannedTask,
+            TaskPlanPatch,
+        )
+
+        mapping = {
+            "AcgIdentityLifecycleService": runner.AcgIdentityLifecycleService,
+            "ExecutionContext": context.ExecutionContext,
+            "IdentityProjectionBridge": identity_projection.IdentityProjectionBridge,
+            "IdentityProjectionReconciler": reconciliation.IdentityProjectionReconciler,
+            "IdentityReconciliationReport": reconciliation.IdentityReconciliationReport,
+            "IdentityQueryService": queries.IdentityQueryService,
+            "MissionWorkspaceProjection": workspace.MissionWorkspaceProjection,
+            "MissionWorkspaceProjector": workspace.MissionWorkspaceProjector,
+            "WorkspaceDiagnostic": workspace.WorkspaceDiagnostic,
+            "WorkspaceEntry": workspace.WorkspaceEntry,
+            "WorkspaceEntryKind": workspace.WorkspaceEntryKind,
+            "WorkspaceGraphNode": workspace.WorkspaceGraphNode,
+            "WorkspaceIdentityQuality": workspace.WorkspaceIdentityQuality,
+            "WorkspaceRunSummary": workspace.WorkspaceRunSummary,
+            "PlannerIdentityBridge": planner_bridge.PlannerIdentityBridge,
+            "TaskImplementationBinding": TaskImplementationBinding,
+            "TaskPlan": TaskPlan,
+            "PlannedTask": PlannedTask,
+            "TaskPlanPatch": TaskPlanPatch,
+        }
+        return mapping[name]
     raise AttributeError(name)
 
 
@@ -36,4 +98,23 @@ __all__ = [
     "ExecutionRuntime",
     "bootstrap",
     "build_default_runtime",
+    "AcgIdentityLifecycleService",
+    "ExecutionContext",
+    "IdentityProjectionBridge",
+    "IdentityProjectionReconciler",
+    "IdentityReconciliationReport",
+    "IdentityQueryService",
+    "MissionWorkspaceProjection",
+    "MissionWorkspaceProjector",
+    "WorkspaceDiagnostic",
+    "WorkspaceEntry",
+    "WorkspaceEntryKind",
+    "WorkspaceGraphNode",
+    "WorkspaceIdentityQuality",
+    "WorkspaceRunSummary",
+    "PlannerIdentityBridge",
+    "TaskImplementationBinding",
+    "TaskPlan",
+    "PlannedTask",
+    "TaskPlanPatch",
 ]

@@ -25,13 +25,13 @@ from contracts.workflow import WorkflowDefinition, RuntimeRunRecord, WorkflowSte
 from domain.identity_graph import IdentityResolver
 from domain.models import AttemptStatus, RunStatus, StepExecutionStatus
 from domain.lifecycle_projection import LifecycleProjectionEvent, ProjectionEventStatus
-from runtime.v2 import (
+from runtime import (
     AcgIdentityLifecycleService,
     IdentityProjectionReconciler,
     IdentityQueryService,
     IdentityProjectionBridge,
 )
-from runtime.v2.reconciliation import DEAD_LETTER_MAX_ATTEMPTS
+from runtime.reconciliation import DEAD_LETTER_MAX_ATTEMPTS
 from runtime.workflow_runtime import ExecutionRuntime
 from service.agents import AgentRegistry
 from service.agents.base import AgentOutput, AgentProfile, BaseAgent

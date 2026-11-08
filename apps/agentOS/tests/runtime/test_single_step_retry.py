@@ -12,13 +12,13 @@ from contracts.planning import PlannedTask, TaskImplementationBinding, TaskPlan,
 from contracts.workflow import StepStatus, WorkflowDefinition, WorkflowStatus, WorkflowStepDefinition
 from domain.models import AttemptStatus, RunStatus, StepExecutionStatus
 from runtime.workflow_runtime import ExecutionRuntime
-from runtime.v2 import (
+from runtime import (
     AcgIdentityLifecycleService,
     IdentityProjectionBridge,
     MissionWorkspaceProjector,
     WorkspaceEntryKind,
 )
-from runtime.v2.resume_projection import build_reused_step_projection_events
+from runtime.resume_projection import build_reused_step_projection_events
 from service.agents import AgentRegistry
 from service.agents.base import AgentOutput, AgentProfile, BaseAgent
 from storage.v2 import SQLiteV2Repositories, SQLiteV2Storage

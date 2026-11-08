@@ -92,8 +92,8 @@ def protect(directory):
 
 
 def validate_home(home):
-    if os.name != 'nt' or sys.version_info[:2] != (3, 14):
-        raise RuntimeError('Real Windows CPython 3.14 required')
+    if os.name != 'nt' or sys.version_info[:2] not in ((3, 13), (3, 14)):
+        raise RuntimeError('Real Windows CPython 3.13 or 3.14 required')
     token = native.windows_token(os.getpid())
     if token['elevated'] or int(token['integritySid'].rsplit('-', 1)[1]) > 8192:
         raise RuntimeError('Run as an ordinary non-elevated Windows user')

@@ -30,7 +30,7 @@ from contracts.runtime_planning import RuntimePlanningDecision
 from contracts.recovery import SemanticPatchRequest
 from contracts.workflow import WorkflowDefinition, WorkflowStepDefinition, WorkflowStatus
 from runtime import ExecutionRuntime
-from runtime.v2 import AcgIdentityLifecycleService, IdentityProjectionBridge, IdentityQueryService
+from runtime import AcgIdentityLifecycleService, IdentityProjectionBridge, IdentityQueryService
 from service.agents import AgentRegistry
 from service.agents.base import AgentOutput, AgentProfile, BaseAgent
 from storage.v2 import SQLiteV2Repositories, SQLiteV2Storage

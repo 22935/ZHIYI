@@ -18,7 +18,7 @@ from contracts.planning import PlannedTask, TaskPlanPatch, TaskPlanRelation
 from contracts.runtime_planning import RuntimePlanningDecision, RuntimePlanningState, RuntimeWaitCondition
 from contracts.workflow import WorkflowDefinition, WorkflowStepDefinition, WorkflowStatus, ReviewDecision
 from runtime import ExecutionRuntime
-from runtime.v2 import AcgIdentityLifecycleService, IdentityProjectionBridge
+from runtime import AcgIdentityLifecycleService, IdentityProjectionBridge
 from service.agents import AgentRegistry
 from service.agents.base import BaseAgent, AgentProfile, AgentOutput
 from storage.v2 import SQLiteV2Repositories, SQLiteV2Storage
