@@ -167,7 +167,7 @@ def backend_environment(home, info, creds):
 def prepare_platform(home, info, creds):
     env = backend_environment(home, info, creds)
     identity_env = platform_database.prepare(home, env['ZHIYI_DATABASE_URL'],
-                                             ROOT/'apps/backend-ts/migrations')
+                                             ROOT/'apps/backend/migrations')
     env.update(identity_env)
     return env
 
@@ -231,7 +231,7 @@ def init(home, args):
             'redisLicense': 'Memurai Developer; development/testing only; 10-day maximum uptime',
             'initialized': False, 'portOffset':args.port_offset,
             'testPython':str(args.test_python.absolute()) if args.test_python else sys.executable,
-            'backendEntry':str(ROOT/'apps/backend-ts/dist/main.js')}
+            'backendEntry':str(ROOT/'apps/backend/dist/main.js')}
     native.write_json(home/'environment.json', info)
     save(home, state_for(home))
     return {'status': 'READY', 'initializedNow': True, 'home': str(home), 'workspace': str(workspace)}
@@ -282,10 +282,10 @@ def start_hands(home, info, creds, state, env, start):
     native.write_json(config, {'workspaceRoot':info['workspace'],'credentialsFile':str(keys),
         'grantsFile':str(grants),'dataDir':str(home/'hands-ledger'),'host':'127.0.0.1',
         'port':ports(info)['host'],'confinement':'none','dynamicWorkspaces':True})
-    node_env = dict(env, TSX_TSCONFIG_PATH=str(ROOT/'apps/hands/tsconfig.json'))
+    node_env = dict(env, TSX_TSCONFIG_PATH=str(ROOT/'apps/agentOS/src/hands/tsconfig.json'))
     try:
-        record = start('host',[shutil.which('node'),str(ROOT/'apps/hands/node_modules/tsx/dist/cli.mjs'),
-            '--tsconfig',str(ROOT/'apps/hands/tsconfig.json'),str(ROOT/'apps/hands/hands/service-main.ts'),
+        record = start('host',[shutil.which('node'),str(ROOT/'apps/agentOS/src/hands/node_modules/tsx/dist/cli.mjs'),
+            '--tsconfig',str(ROOT/'apps/agentOS/src/hands/tsconfig.json'),str(ROOT/'apps/agentOS/src/hands/hands/service-main.ts'),
             '--config',str(config)],node_env)
         desktop.wait_until(lambda:native.health(ports(info)['host'],'/v1/health').get('ok'),record,60)
     finally:
@@ -312,10 +312,10 @@ def up(home, use_desktop):
         raise RuntimeError('Startup-issued workspace root changed; refusing to reissue authority')
     if any(alive(record) for record in state['processes'].values()):
         raise RuntimeError('This persistent environment already owns running processes; use status or recover')
-    backend_entry = ROOT/'apps/backend-ts/scripts/dev.mjs'
+    backend_entry = ROOT/'apps/backend/scripts/dev.mjs'
     if (not backend_entry.is_file()
-            or not (ROOT/'apps/backend-ts/node_modules/typescript/lib/typescript.js').is_file()):
-        raise RuntimeError('Install backend development dependencies first: cd apps/backend-ts && npm ci')
+            or not (ROOT/'apps/backend/node_modules/typescript/lib/typescript.js').is_file()):
+        raise RuntimeError('Install backend development dependencies first: cd apps/backend && npm ci')
     # Never take over an unrelated process, even in the development launcher.
     target_ports = list(ports(info).values()) if use_desktop else list(ports(info).values())[:-1]
     for port in target_ports:
@@ -488,17 +488,17 @@ def up(home, use_desktop):
 def watch_backend(home):
     """Switch only the identity-verified platform process to its stable watcher."""
     info, state = manifest(home), state_for(home)
-    entry = ROOT/'apps/backend-ts/scripts/dev.mjs'
-    compiler = ROOT/'apps/backend-ts/node_modules/typescript/lib/typescript.js'
+    entry = ROOT/'apps/backend/scripts/dev.mjs'
+    compiler = ROOT/'apps/backend/node_modules/typescript/lib/typescript.js'
     node = shutil.which('node')
     if not node or not entry.is_file() or not compiler.is_file():
-        raise RuntimeError('Install backend development dependencies first: cd apps/backend-ts && npm ci')
+        raise RuntimeError('Install backend development dependencies first: cd apps/backend && npm ci')
     record = state['processes'].get('backend')
     if not record or not alive(record):
         raise RuntimeError('The recorded backend is not running; inspect status before starting it')
     command = record.get('command', [])
     if (len(command) != 2 or Path(command[0]) != Path(node)
-            or Path(command[1]) not in {entry, ROOT/'apps/backend-ts/dist/main.js'}):
+            or Path(command[1]) not in {entry, ROOT/'apps/backend/dist/main.js'}):
         raise RuntimeError('The recorded backend is not a recognized repository entry')
     if Path(command[1]) == entry:
         if native.health(ports(info)['backend'], '/health/ready').get('status') != 'UP':

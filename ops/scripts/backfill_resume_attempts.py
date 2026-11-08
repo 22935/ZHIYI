@@ -51,9 +51,9 @@ def main() -> int:
             return 2
 
     from components.content import SQLiteContentManifestStore
-    from runtime.v2 import AcgIdentityLifecycleService, IdentityProjectionBridge
-    from runtime.v2.reconciliation import IdentityProjectionReconciler
-    from runtime.v2.resume_projection import build_reused_step_projection_events
+    from runtime import AcgIdentityLifecycleService, IdentityProjectionBridge
+    from runtime.reconciliation import IdentityProjectionReconciler
+    from runtime.resume_projection import build_reused_step_projection_events
     from support.stores.sqlite_workflow_store import SQLiteWorkflowStore
 
     store = SQLiteWorkflowStore(WORKFLOW_DB)
