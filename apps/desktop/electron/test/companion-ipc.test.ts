@@ -1,21 +1,23 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 import { test } from 'node:test'
 
 /**
  * 通道四处同构的一致性门禁：项目此前只靠人工核对 preload / Main /
  * frontend bridge，PR-EL-01 明确登记过这个已知问题。新增 Companion 通道
  * 顺手把「漂移」变成可失败的测试，而不是继续靠约定。
+ *
+ * 与 lsp-host / workspace-diagnostics 等测试保持一致，以 npm 脚本约定的
+ * 包目录 cwd 定位文件：桌面端 tsconfig 是 CommonJS，不能用 import.meta。
  */
-const read = (relative: string): string =>
-  readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8')
+const read = (relative: string): string => readFileSync(resolve(process.cwd(), relative), 'utf8')
 
-const contract = read('../src/lib/ipc-contract.ts')
-const main = read('../src/main.ts')
-const preload = read('../src/preload.ts')
-const frontendBridge = read('../../../frontend/src/platform/electron/bridge.ts')
-const frontendAdapter = read('../../../frontend/src/features/companion/adapters/desktop.ts')
+const contract = read('src/lib/ipc-contract.ts')
+const main = read('src/main.ts')
+const preload = read('src/preload.ts')
+const frontendBridge = read('../../frontend/src/platform/electron/bridge.ts')
+const frontendAdapter = read('../../frontend/src/features/companion/adapters/desktop.ts')
 
 const CHANNELS = ['companionState', 'companionNotify', 'companionTrayAction'] as const
 
@@ -62,5 +64,5 @@ test('desktop companion work does not weaken the existing security baseline', ()
   assert.ok(main.includes('createCompanionTray()'))
   assert.ok(main.includes('companionTray?.destroy()'))
   // 图标必须随 dist/icons 进 asar，否则生产包托盘会静默消失。
-  assert.match(read('../build.mjs'), /companion-tray\.png/)
+  assert.match(read('build.mjs'), /companion-tray\.png/)
 })
