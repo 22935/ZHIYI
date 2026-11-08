@@ -9,7 +9,8 @@ describe('stream history capture', () => {
       { event: 'reasoning_delta', data: { delta: '推理😀' } },
       { event: 'reasoning_end', data: { reasoningPhaseMs: 17 } },
       { event: 'content_delta', data: { delta: '答案中文' } },
-      { event: 'usage', data: { input_tokens: 11, reasoning_tokens: 3, output_tokens: 5, total_tokens: 19 } },
+      { event: 'usage', data: { input_tokens: 11, reasoning_tokens: 3, output_tokens: 5, total_tokens: 19,
+        contextFixedTokens: 100, contextTokenMethod: 'utf8-upper-bound' } },
       { event: 'done', data: { status: 'completed' } },
     ].map((value, index) => `event: ${value.event}\r\ndata: ${JSON.stringify({ requestId: 'request-a', sequence: index + 1, ...value })}\r\n\r\n`).join('');
     const bytes = new TextEncoder().encode(stream); const capture = new StreamCapture();
@@ -17,6 +18,7 @@ describe('stream history capture', () => {
     capture.finish();
     expect(capture.content).toBe('答案中文'); expect(capture.completed).toBe(true);
     expect(capture.metadata()).toMatchObject({ reasoningContent: '推理😀', reasoningPhaseMs: 17, totalTokens: 19, reasoningTokens: 3,
+      contextFixedTokens: 100, contextTokenMethod: 'utf8-upper-bound',
       executionSummary: [{ stage: 'chat_stream', status: 'completed' }, { stage: 'reasoning', status: 'completed' }, { stage: 'answer_generation', status: 'completed' }] });
   });
   it('persists partial cancelled output and bounded reasoning', () => {

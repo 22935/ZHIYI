@@ -35,6 +35,18 @@ def _upper_bound(messages, instructions, tools):
             + sum(len(_wire(m).encode("utf8")) + 24 + images(m) * 8192 for m in messages))
 
 
+def model_input_tools(agent):
+    return [{"type": "function", "name": t.name, "description": t.description,
+             "parameters": t.params_json_schema, "strict": t.strict_json_schema}
+            for t in agent.tools if hasattr(t, "params_json_schema")]
+
+
+def context_budget_metadata(agent):
+    """Fixed allowance for the next text-history input, separate from Provider usage."""
+    return {"contextFixedTokens": _upper_bound([], agent.instructions or "", model_input_tools(agent)),
+            "contextTokenMethod": "utf8-upper-bound"}
+
+
 class TypeScriptInputFilter:
     def __init__(self, *, context_id, model, base_url, api_key, budget, config, tools, tokenizer=None, node="", invoke=None):
         self.context_id, self.model, self.base_url, self.api_key = context_id, model, base_url, api_key
@@ -97,7 +109,8 @@ class TypeScriptInputFilter:
                                     "text": summary["text"], "totalTokens": summary.get("total_tokens") or summary.get("tokens_used") or 0}})
                             except asyncio.CancelledError:
                                 raise
-                            except Exception:
+                            except Exception as error:
+                                logger.warning("oscode_context_summary_failed type=%s", type(error).__name__)
                                 await self._send({"type": "summary", "id": reply["id"], "error": True})
                         elif reply.get("type") == "result":
                             if hashlib.sha256(_wire(data.input).encode('utf8')).digest() != source_hash:
@@ -144,9 +157,7 @@ def build_input_filter(*, agent, context_id: str, model: str, base_url: str, api
              "retain_ratio": "retainRatio", "summary_max_tokens": "summaryMaxTokens", "max_summary_calls": "maxSummaryCalls",
              "threshold_chars": "thresholdChars", "head_chars": "headChars", "tail_chars": "tailChars"}
     config = {target: policy[source] for source, target in names.items() if source in policy}
-    tools = [{"type": "function", "name": t.name, "description": t.description,
-              "parameters": t.params_json_schema, "strict": t.strict_json_schema}
-             for t in agent.tools if hasattr(t, "params_json_schema")]
+    tools = model_input_tools(agent)
     tokenizer = None
     if policy.get("tokenizer_json") or policy.get("tokenizer_config"):
         if not policy.get("tokenizer_json") or not policy.get("tokenizer_config"):

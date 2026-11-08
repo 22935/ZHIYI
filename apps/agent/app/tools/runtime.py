@@ -629,7 +629,9 @@ class AgentsToolRuntime:
                 extra_body=extra_body or None,
             ),
         )
+        from app.context_compaction.runtime import context_budget_metadata
         return agent, client, {
+            **context_budget_metadata(agent),
             "requestedModel": normalized.requested_model,
             "effectiveModel": normalized.effective_model,
             "requestedThinkingMode": normalized.requested_thinking_mode.value,

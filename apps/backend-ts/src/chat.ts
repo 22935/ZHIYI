@@ -102,7 +102,7 @@ export class StreamCapture {
       if (kind === 'reasoning_end') { this.reasoningCompleted = true; copy('reasoningPhaseMs'); }
       if (kind === 'content_delta' && typeof payload.delta === 'string') this.content += payload.delta;
       if (kind === 'usage') copy('inputTokens', 'input_tokens', 'reasoningTokens', 'reasoning_tokens', 'outputTokens', 'output_tokens',
-        'totalTokens', 'total_tokens', 'latencyMs', 'effectiveModel', 'requestedModel', 'requestedThinkingMode', 'effectiveThinkingMode', 'effectiveReasoningEffort', 'resolutionReasons');
+        'totalTokens', 'total_tokens', 'latencyMs', 'effectiveModel', 'requestedModel', 'requestedThinkingMode', 'effectiveThinkingMode', 'effectiveReasoningEffort', 'resolutionReasons', 'contextFixedTokens', 'contextTokenMethod');
       if (kind === 'tool_result' || kind === 'tool_error') { this.addTool(payload); this.addSources(payload.sources); }
       if (kind === 'done') {
         this.completed = !this.failure && payload.status === 'completed';

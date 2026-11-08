@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.ai_engine.model_runtime import resolve_system_runtime_config
 from app.config import settings
-from app.context_compaction.runtime import CompactionBridgeError, build_input_filter
+from app.context_compaction.runtime import CompactionBridgeError, build_input_filter, context_budget_metadata
 from app.tools import get_chat_tool_runtime
 from app.tools.runtime import _provider_for_model
 
@@ -52,6 +52,7 @@ async def compact_chat(request: CompactRequest):
         result = await projection.project(ModelInputData(input=history, instructions=agent.instructions), force=True)
         metrics = projection.last_metrics or {}
         return {"contextId": request.context_id, "status": metrics.get("status", "unchanged"),
+                **context_budget_metadata(agent),
                 "messages": result.input, "metrics": metrics, "model": str(metadata.get("effectiveModel") or model),
                 "contextWindowTokens": projection.budget["contextWindow"]}
     except (CompactionBridgeError, ValueError) as error:

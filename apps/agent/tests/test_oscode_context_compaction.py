@@ -242,6 +242,10 @@ async def test_http_chat_stream_uses_real_sdk_filter_and_preserves_sse_contract(
     assert any('checkpoint' in str(m.get('content')) for m in inputs[0]['messages'])
     assert inputs[0]['max_tokens'] == 1000
     assert sum(m.get('role') == 'user' and m.get('content') == 'current' for m in inputs[0]['messages']) == 1
+    usage = next(json.loads(line[6:])['data'] for line in response.text.splitlines()
+                 if line.startswith('data: ') and json.loads(line[6:]).get('event') == 'usage')
+    assert usage['contextFixedTokens'] > 0
+    assert usage['contextTokenMethod'] == 'utf8-upper-bound'
 
 
 @pytest.mark.skipif(os.environ.get('OSCODE_COMPACTION_LIVE_TEST') != '1', reason='explicit opt-in for limited real Provider calls')

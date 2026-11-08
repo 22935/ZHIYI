@@ -51,17 +51,34 @@ async def test_manual_http_forces_below_threshold_without_changing_original(manu
     assert data['status'] == 'summarized'
     assert data['metrics']['summaryCalls'] == len(calls) > 0
     assert data['metrics']['outputTokens'] < data['metrics']['inputTokens']
-    assert data['messages'][-4:] == body['context'][-4:]
+    assert len(data['messages']) == 1
+    assert 'checkpoint' in data['messages'][0]['content']
+    assert data['contextTokenMethod'] == 'utf8-upper-bound'
+    assert data['contextFixedTokens'] > 0
     assert body == original
     assert '/compact' not in str(calls)
 
 
-async def test_manual_recent_only_is_noop_and_disabled_is_explicit(manual, monkeypatch):
+@pytest.mark.parametrize('rounds', [1, 2])
+async def test_manual_completed_turns_can_be_compacted(manual, rounds):
     app, calls = manual
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
-        response = await client.post('/ai/chat/compact', json=payload(1))
+        response = await client.post('/ai/chat/compact', json=payload(rounds))
+    assert response.status_code == 200
+    assert response.json()['status'] == 'summarized'
+    assert response.json()['metrics']['outputTokens'] < response.json()['metrics']['inputTokens']
+    assert len(calls) > 0
+
+
+async def test_manual_short_history_is_noop_and_disabled_is_explicit(manual, monkeypatch):
+    app, calls = manual
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+        body = payload(1)
+        body['context'] = [{'role': 'user', 'content': 'Hi'}, {'role': 'assistant', 'content': 'Hello'}]
+        response = await client.post('/ai/chat/compact', json=body)
         assert response.status_code == 200
-        assert response.json()['status'] == 'no_safe_range'
+        assert response.json()['status'] == 'unchanged'
+        assert response.json()['metrics']['reasonCode'] == 'INSUFFICIENT_SAVINGS'
         assert not calls
         monkeypatch.setattr(settings, 'OSCODE_CONTEXT_COMPACTION_MANUAL_ENABLED', False)
         assert (await client.post('/ai/chat/compact', json=payload())).status_code == 503
@@ -88,4 +105,5 @@ async def test_manual_provider_failure_returns_original_context(manual, monkeypa
         response = await client.post('/ai/chat/compact', json=body)
     assert response.status_code == 200
     assert response.json()['status'] == 'failed_passthrough'
+    assert response.json()['metrics']['failureCode'] == 'SUMMARY_PROVIDER_FAILED'
     assert response.json()['messages'] == body['context']
