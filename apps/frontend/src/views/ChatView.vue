@@ -2952,7 +2952,7 @@ const handleHeroLogoPointerUp = () => {
 }
 
 .messages::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .messages::-webkit-scrollbar-track {

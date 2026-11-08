@@ -232,8 +232,9 @@ const tabStatusMark = (entry: WorkspaceEntry) => {
 <style scoped>
 .editor-group { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; color: var(--wb-text); background: var(--wb-surface-shell); }
 .editor-tabs { --editor-tab-bg: var(--wb-surface-1); display: flex; align-items: stretch; min-height: var(--editor-rail-height, var(--wb-tab-height)); overflow: hidden; border-bottom: 0; background: var(--editor-tab-bg); }
-.editor-tabs__scroll { display: flex; flex: 1 1 auto; align-items: stretch; min-width: 0; overflow-x: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--wb-border-strong) transparent; }
-.editor-tabs__actions { display: flex; flex: 0 0 auto; align-items: stretch; min-width: 32px; background: var(--editor-tab-bg); }
+.editor-tabs__scroll { display: flex; flex: 1 1 auto; align-items: stretch; min-width: 0; overflow-x: auto; scrollbar-gutter: stable; }
+/* 右侧留缓冲：触发钮紧贴分隔槽时，瞄准滚动条/分隔条的点击容易误触「收起 Inspector」。 */
+.editor-tabs__actions { display: flex; flex: 0 0 auto; align-items: stretch; min-width: 38px; padding-right: 6px; background: var(--editor-tab-bg); }
 .editor-tab { display: flex; align-items: center; flex: 1 1 0; min-width: 100px; max-width: 300px; box-sizing: border-box; border-right: 0; background: var(--editor-tab-bg); }
 .editor-tab:hover { background: var(--wb-hover); }
 .editor-tab.is-active { background: var(--wb-surface-shell); box-shadow: none; }

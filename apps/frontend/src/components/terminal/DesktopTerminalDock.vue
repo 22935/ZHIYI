@@ -376,7 +376,6 @@ onBeforeUnmount(() => {
 .desktop-terminal__divider { width:1px; height:12px; margin:0 3px; background:var(--term-line-soft); }
 .desktop-terminal__canvas { flex:1; min-height:0; min-width:0; padding:7px 8px 0 12px; overflow:hidden; background:var(--term-bg); }
 .desktop-terminal__canvas :deep(.xterm) { height:100%; }
-.desktop-terminal__canvas :deep(.xterm-viewport) { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.14) transparent; }
 .desktop-terminal__canvas :deep(.xterm-viewport)::-webkit-scrollbar { width:9px; }
 .desktop-terminal__canvas :deep(.xterm-viewport)::-webkit-scrollbar-thumb { background:rgba(255,255,255,.13); border:3px solid transparent; background-clip:padding-box; border-radius:999px; }
 .desktop-terminal__canvas :deep(.xterm-viewport)::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,.24); border:3px solid transparent; background-clip:padding-box; }

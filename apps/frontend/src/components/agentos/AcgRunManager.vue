@@ -434,7 +434,7 @@ onUnmounted(() => {
 .acg-run-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 10px; }
 .acg-run-search input::placeholder { color: var(--text-disabled); }
 .acg-run-filter { height: 30px; min-width: 0; padding: 0 6px; border: 1px solid var(--border-light); border-radius: 7px; background: var(--bg-input); color: var(--text-secondary); font: inherit; font-size: 10px; }
-.acg-run-groups { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+.acg-run-groups { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .acg-run-groups::-webkit-scrollbar { width: 4px; }
 .acg-run-groups::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--scrollbar-thumb); }
 .acg-run-group + .acg-run-group { margin-top: 8px; }

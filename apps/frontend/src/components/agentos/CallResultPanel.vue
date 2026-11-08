@@ -271,7 +271,7 @@ summary {
 
 .result-list.is-managed::-webkit-scrollbar,
 pre.is-managed::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .result-list.is-managed::-webkit-scrollbar-track,

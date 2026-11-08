@@ -587,7 +587,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.project-list { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--scrollbar-thumb, var(--border-hover)) transparent; scrollbar-width: thin; padding: 34px clamp(24px, 5vw, 76px) 56px; color: var(--text-primary); background: var(--bg-app); }
+.project-list { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 34px clamp(24px, 5vw, 76px) 56px; color: var(--text-primary); background: var(--bg-app); }
 .project-list__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; max-width: 1040px; width: 100%; margin: 0 auto; padding-bottom: 28px; }
 .project-list__eyebrow { color: var(--primary-color); font: 10px var(--font-mono, monospace); letter-spacing: .14em; }
 .project-list h1 { margin: 8px 0 5px; font-size: 25px; line-height: 1.2; }

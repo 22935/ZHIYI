@@ -1231,8 +1231,6 @@ onUnmounted(() => {
   gap: 6px;
   padding: 2px 2px 8px;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .chat-project-list::-webkit-scrollbar {
@@ -1796,7 +1794,7 @@ onUnmounted(() => {
 
 /* Responsive optimization */
 .app-main::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .app-main::-webkit-scrollbar-track {

@@ -1742,7 +1742,6 @@ onBeforeUnmount(() => {
   background: var(--wb-surface-1, rgba(255, 255, 255, 0.98));
   box-shadow: 0 6px 18px rgba(15, 35, 40, 0.12);
   color: var(--wb-text, var(--text-primary));
-  scrollbar-width: thin;
 }
 .uml-card__head {
   position: sticky;

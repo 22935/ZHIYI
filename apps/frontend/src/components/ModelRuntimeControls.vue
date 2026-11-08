@@ -539,10 +539,8 @@ function handleComposerOpen(): void {
   padding: 2px 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-primary) 18%, transparent) transparent;
 }
-.model-menu__list::-webkit-scrollbar { width: 6px; }
+.model-menu__list::-webkit-scrollbar { width: 4px; }
 .model-menu__list::-webkit-scrollbar-thumb { border-radius: 999px; background: color-mix(in srgb, var(--text-primary) 16%, transparent); }
 .model-menu__model {
   display: flex;

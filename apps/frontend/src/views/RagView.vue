@@ -222,8 +222,6 @@ onMounted(() => {
   overflow: auto;
   padding: 0 clamp(20px, 4vw, 58px) 48px;
   color: var(--text-primary);
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-  scrollbar-width: thin;
 }
 
 .rag-document-count {

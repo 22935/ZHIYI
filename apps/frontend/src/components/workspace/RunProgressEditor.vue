@@ -762,7 +762,7 @@ watch(documentModel, async () => {
   .run-progress__directory { flex: 1 1 auto; }
   .run-progress__filter { align-self: flex-end; }
 }
-.run-progress__body { position: relative; display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: auto; scrollbar-color: var(--wb-border-strong) transparent; scrollbar-width: thin; }
+.run-progress__body { position: relative; display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: auto; }
 .run-progress__body.is-graph-mode { overflow-x: auto; overflow-y: hidden; overscroll-behavior: contain; }
 .run-progress__stream { box-sizing: border-box; display: flex; flex: 1 0 auto; flex-direction: column; width: max-content; min-width: 100%; min-height: 100%; padding-bottom: 42px; }
 .run-progress__browser { display: flex; flex: 1 0 auto; align-items: stretch; min-width: 100%; min-height: 100%; padding-inline: var(--run-content-inset); }

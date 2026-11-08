@@ -687,7 +687,7 @@ onBeforeUnmount(() => {
 .workspace-pane__heading--row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .workspace-pane__eyebrow { display: block; margin-bottom: 8px; }
 .workspace-pane__heading h2 { margin: 0; color: var(--text-primary); font-family: var(--font-sans); font-size: 17px; font-weight: 650; line-height: 1.2; }
-.mission-pane__scroll { display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; overflow: auto; padding: 2px 18px 18px 0; scrollbar-color: var(--scrollbar-thumb, var(--border-hover)) transparent; scrollbar-width: thin; }
+.mission-pane__scroll { display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; overflow: auto; padding: 2px 18px 18px 0; }
 .mission-fields { display: grid; grid-template-rows: minmax(0, 1fr); gap: 28px; max-width: none; min-height: 0; padding-bottom: 12px; }
 
 .field-block { display: grid !important; gap: 9px; min-width: 0; margin: 0 !important; color: var(--text-primary); }
@@ -739,7 +739,7 @@ onBeforeUnmount(() => {
 .panel-action input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 
 .context-panel__body { min-width: 0; min-height: 0; overflow: hidden; }
-.attachment-input__dropzone { display: grid; align-content: start; width: 100%; height: 100%; min-height: 200px; overflow: auto; padding: 16px; border: 1.5px dashed color-mix(in srgb, var(--primary-color) 42%, var(--border-hover)); border-radius: 10px; background: color-mix(in srgb, var(--primary-color) 5%, var(--mission-surface)); scrollbar-color: var(--scrollbar-thumb, var(--border-hover)) transparent; scrollbar-width: thin; transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out); }
+.attachment-input__dropzone { display: grid; align-content: start; width: 100%; height: 100%; min-height: 200px; overflow: auto; padding: 16px; border: 1.5px dashed color-mix(in srgb, var(--primary-color) 42%, var(--border-hover)); border-radius: 10px; background: color-mix(in srgb, var(--primary-color) 5%, var(--mission-surface)); transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out); }
 .attachment-input__dropzone:hover { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 8%, var(--mission-surface)); }
 .attachment-input__dropzone.is-dragging { border-color: var(--primary-color); background: var(--primary-fade); }
 .context-empty { display: grid; align-content: center; justify-items: center; gap: 12px; min-height: 170px; }
@@ -770,7 +770,7 @@ onBeforeUnmount(() => {
 .attachment-row__remove { font-size: 18px !important; line-height: 1; }
 
 .execution-panel { display: grid; grid-template-rows: minmax(0, 1fr); }
-.execution-overview { min-width: 0; min-height: 0; overflow: auto; padding-right: 8px; scrollbar-color: var(--scrollbar-thumb, var(--border-hover)) transparent; scrollbar-width: thin; }
+.execution-overview { min-width: 0; min-height: 0; overflow: auto; padding-right: 8px; }
 .execution-settings { display: grid; gap: 20px; }
 .config-line { display: grid; grid-template-columns: minmax(105px, .72fr) minmax(0, 1.28fr); align-items: start; gap: 16px; min-width: 0; }
 .config-line__label { display: grid; gap: 4px; min-width: 0; color: var(--text-primary); font-size: 11px; }

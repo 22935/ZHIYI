@@ -2154,7 +2154,7 @@ onBeforeUnmount(() => {
 .contract-upload__actions { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
 
 .acg-inspector-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-solid); }
-.acg-inspector-pane__content { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: var(--space-lg); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; }
+.acg-inspector-pane__content { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: var(--space-lg); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .side-provenance { flex: 0 0 auto; min-width: 0; display: flex; overflow: hidden; }
 .side-provenance :deep(.acg-provenance) { flex: 1 1 auto; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
 .side-provenance :deep(.panel-head) { padding: 14px 16px 10px; }
@@ -2211,7 +2211,6 @@ onBeforeUnmount(() => {
   overflow-y: hidden;
   border-bottom: 1px solid var(--wb-border);
   background: var(--wb-bg);
-  scrollbar-width: thin;
 }
 .workbench-editor-tab {
   min-width: 0;

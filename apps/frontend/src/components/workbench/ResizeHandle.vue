@@ -35,13 +35,14 @@ const emit = defineEmits<{
 </script>
 
 <style scoped>
+/* 占据真实宽度而非负 margin 悬浮：悬浮式会盖住两侧窗格贴边滚动条（任务文档 padding 为 0），
+   用户想拖滚动条却拖到分隔条。改为 6px 实体槽位，滚动条回到窗格内部可抓取。 */
 .workbench-resize-handle {
   position: relative;
   z-index: 2;
-  flex: 0 0 8px;
-  width: 8px;
-  min-width: 8px;
-  margin-inline: -4px;
+  flex: 0 0 6px;
+  width: 6px;
+  min-width: 6px;
   align-self: stretch;
   cursor: col-resize;
   touch-action: none;

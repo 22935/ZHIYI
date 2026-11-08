@@ -158,7 +158,7 @@ button:disabled {
 }
 
 .events.is-managed::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .events.is-managed::-webkit-scrollbar-track {

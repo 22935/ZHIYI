@@ -546,7 +546,6 @@ onUnmounted(() => {
   color: var(--text-primary);
   font-size: 12px;
   outline: none;
-  scrollbar-width: thin;
 }
 
 .workspace-trust__panel-head {

@@ -1053,7 +1053,6 @@ const formatTime = (date: Date) => {
   max-height: min(68vh, 720px);
   overflow: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
 }
 
 .thinking-meta {
@@ -1275,7 +1274,6 @@ const formatTime = (date: Date) => {
   white-space: pre-wrap;
   overflow-wrap: break-word;
   tab-size: 2;
-  scrollbar-width: thin;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11.5px;
   line-height: 1.65;
@@ -1296,7 +1294,6 @@ const formatTime = (date: Date) => {
   width: 100%;
   max-height: 260px;
   overflow-y: auto;
-  scrollbar-width: thin;
   border: 1px solid color-mix(in srgb, var(--border-light) 80%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--bg-panel) 56%, transparent);
