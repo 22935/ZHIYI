@@ -1,6 +1,7 @@
 import { ref, type Ref } from 'vue'
 
 export type DragReorderOrientation = 'vertical' | 'horizontal'
+export type DragReorderGhost = 'default' | 'none'
 
 interface ActiveDrag {
   group: string
@@ -11,11 +12,29 @@ interface ActiveDrag {
 // 活跃拖拽必须放在模块级，让所有 useDragReorder 实例共享同一份「谁在拖」的事实。
 let activeDrag: ActiveDrag | null = null
 
+// ghost:'none' 共用的 1×1 透明锚点：setDragImage 指向它即等于隐藏浏览器默认的半透明快照。
+let ghostAnchor: HTMLElement | null = null
+
+const hideNativeGhost = (event: DragEvent) => {
+  if (!event.dataTransfer) return
+  if (!ghostAnchor) {
+    ghostAnchor = document.createElement('div')
+    ghostAnchor.style.cssText = 'position:fixed;top:-100px;left:-100px;width:1px;height:1px;opacity:0;pointer-events:none;'
+    document.body.appendChild(ghostAnchor)
+  }
+  event.dataTransfer.setDragImage(ghostAnchor, 0, 0)
+}
+
 export interface DragReorderOptions {
   /** 列表方向：vertical 按纵向中点判定前后，horizontal 按横向中点。 */
   orientation?: DragReorderOrientation
   /** 列表身份：拖拽只在同 group 的条目之间生效，跨 group 的 dragover 不响应。 */
   group: string
+  /**
+   * 拖拽投影：default=浏览器默认快照（适合标签页/文件行）；none=隐藏快照，
+   * 只留源项淡化 + 落点指示线（适合活动栏小图标，避免快照叠在真实图标上）。
+   */
+  ghost?: DragReorderGhost
   /**
    * 重排回调。from/to 都是「移除源项之后」的坐标：
    * to === from 表示原位（调用方应视为 no-op），to > from 表示向后移一格以上。
@@ -63,6 +82,7 @@ export const useDragReorder = (options: DragReorderOptions): DragReorderState =>
       event.dataTransfer.effectAllowed = 'move'
       event.dataTransfer.setData('text/plain', String(index))
     }
+    if (options.ghost === 'none') hideNativeGhost(event)
   }
 
   const onDragover = (event: DragEvent) => {

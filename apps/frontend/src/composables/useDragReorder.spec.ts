@@ -10,7 +10,7 @@ const makeTarget = (index: number, rect: { left?: number; top?: number; width?: 
 }
 
 const makeEvent = (currentTarget: HTMLElement, point: { x?: number; y?: number } = {}) => {
-  const dataTransfer = { effectAllowed: '', dropEffect: '', setData: vi.fn() }
+  const dataTransfer = { effectAllowed: '', dropEffect: '', setData: vi.fn(), setDragImage: vi.fn() }
   const raw = { currentTarget, clientX: point.x ?? 0, clientY: point.y ?? 0, dataTransfer, preventDefault: vi.fn() }
   return { event: raw as unknown as DragEvent, dataTransfer, preventDefault: raw.preventDefault }
 }
@@ -146,5 +146,25 @@ describe('useDragReorder', () => {
     expect(drag.dropIndex.value).toBe(2)
     props.onDrop(makeEvent(makeTarget(1), { x: 80 }).event)
     expect(onReorder).toHaveBeenCalledWith(0, 1)
+  })
+
+  it('hides the native ghost only when ghost is none', () => {
+    const silent = useDragReorder({ group: 'list-a', ghost: 'none', onReorder: vi.fn() })
+    const { event: silentEvent, dataTransfer: silentTransfer } = makeEvent(makeTarget(0))
+    silent.itemProps(0).onDragstart(silentEvent)
+    expect(silentTransfer.setDragImage).toHaveBeenCalledTimes(1)
+    expect(silentTransfer.setDragImage).toHaveBeenCalledWith(expect.any(HTMLElement), 0, 0)
+
+    const loud = useDragReorder({ group: 'list-a', onReorder: vi.fn() })
+    const { event: loudEvent, dataTransfer: loudTransfer } = makeEvent(makeTarget(0))
+    loud.itemProps(0).onDragstart(loudEvent)
+    expect(loudTransfer.setDragImage).not.toHaveBeenCalled()
+  })
+
+  it('still records the drag when ghost none and dataTransfer is missing', () => {
+    const drag = useDragReorder({ group: 'list-a', ghost: 'none', onReorder: vi.fn() })
+    const raw = { currentTarget: makeTarget(0), clientX: 0, clientY: 0, dataTransfer: null, preventDefault: vi.fn() }
+    drag.itemProps(0).onDragstart(raw as unknown as DragEvent)
+    expect(drag.draggingIndex.value).toBe(0)
   })
 })

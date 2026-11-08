@@ -61,9 +61,7 @@
                 <button v-for="(item, activityIndex) in workbenchActivities" :key="item.id" class="chat-nav-trigger workbench-activity-button"
                   type="button" :class="{
                     'is-selected': activeWorkbenchSidebar === item.id,
-                    'is-dragging': draggingActivity === activityIndex,
-                    'is-drop-above': activityDropIndex === activityIndex,
-                    'is-drop-below': activityDropIndex === activityIndex + 1
+                    'is-dragging': draggingActivity === activityIndex
                   }"
                   :title="item.label" :aria-label="item.label" :aria-pressed="activeWorkbenchSidebar === item.id"
                   v-bind="activityDrag.itemProps(activityIndex)"
@@ -683,8 +681,10 @@ const reorderWorkbenchActivities = (from: number, to: number) => {
   writeWorkbenchActivityOrder(next)
 }
 
-const activityDrag = useDragReorder({ group: 'workbench-activities', onReorder: reorderWorkbenchActivities })
-const { draggingIndex: draggingActivity, dropIndex: activityDropIndex } = activityDrag
+// 活动栏小图标拖拽排序：隐藏原生快照（会叠在真实图标上显得杂乱），只留淡化 + 落点线。
+const activityDrag = useDragReorder({ group: 'workbench-activities', ghost: 'none', onReorder: reorderWorkbenchActivities })
+// 活动栏不画落点指示线：按钮圆角会把 2px 插入线弯成半圆，且边界处上下两条同显；松手即重排，视觉只留源项淡化。
+const { draggingIndex: draggingActivity } = activityDrag
 onBeforeUnmount(() => activityDrag.resetDrag())
 const selectWorkbenchSidebar = (view: WorkbenchSidebar) => {
   activeWorkbenchSidebar.value = view
@@ -1904,6 +1904,4 @@ onUnmounted(() => {
 .workbench-activity-button { cursor: grab; }
 .workbench-activity-button:active { cursor: grabbing; }
 .workbench-activity-button.is-dragging { opacity: .45; }
-.workbench-activity-button.is-drop-above { box-shadow: inset 0 2px 0 var(--primary-color, var(--wb-accent)); }
-.workbench-activity-button.is-drop-below { box-shadow: inset 0 -2px 0 var(--primary-color, var(--wb-accent)); }
 </style>
