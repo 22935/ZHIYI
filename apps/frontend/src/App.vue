@@ -10,6 +10,7 @@
       <AppShell />
       <ZoomIndicator />
       <CompanionHost v-if="companionEnabled" />
+      <AppLaunchOverlay />
     </div>
   </ErrorBoundary>
 </template>
@@ -18,6 +19,7 @@
 import { defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import ZoomIndicator from '@/components/desktop/ZoomIndicator.vue'
+import AppLaunchOverlay from '@/components/app/AppLaunchOverlay.vue'
 import { initUiZoom } from '@ui-zoom'
 import { useCompanionEnabled } from '@/features/companion/enabled'
 

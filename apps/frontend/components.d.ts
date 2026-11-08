@@ -25,6 +25,7 @@ declare module 'vue' {
     AcgRunManager: typeof import('./src/components/agentos/AcgRunManager.vue')['default']
     AcgTopologyGraph: typeof import('./src/components/agentos/AcgTopologyGraph.vue')['default']
     AgentOsRunSummaryCard: typeof import('./src/components/agentos/AgentOsRunSummaryCard.vue')['default']
+    AppLaunchOverlay: typeof import('./src/components/app/AppLaunchOverlay.vue')['default']
     AppShell: typeof import('./src/components/app/AppShell.vue')['default']
     AppTopBar: typeof import('./src/components/app/AppTopBar.vue')['default']
     ArtifactEditor: typeof import('./src/components/workspace/ArtifactEditor.vue')['default']
