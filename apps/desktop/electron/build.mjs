@@ -18,7 +18,7 @@ for (const entry of entries) {
     format: 'cjs',
     platform: 'node',
     target: 'node20',
-    external: ['electron'],
+    external: ['electron', 'canvas'],
     sourcemap: true,
     minify: false,
     logLevel: 'info'
