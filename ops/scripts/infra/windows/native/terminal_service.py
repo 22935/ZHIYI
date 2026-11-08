@@ -18,9 +18,9 @@ def desktop_environment(home, info, creds):
 
 
 def start(home, info, creds, state):
-    entry = native.ROOT / 'apps/terminal-host/src/main.mjs'
+    entry = native.ROOT / 'apps/terminal/src/main.mjs'
     if not (entry.parent.parent / 'node_modules/node-pty/package.json').is_file():
-        raise RuntimeError('Install terminal dependencies first: cd apps/terminal-host; npm ci')
+        raise RuntimeError('Install terminal dependencies first: cd apps/terminal; npm ci')
     desktop_env = desktop_environment(home, info, creds)
     token_file = home / 'temp/terminal-token'
     token_file.write_text(desktop_env['KINLIN_TERMINAL_TOKEN'], encoding='utf-8')

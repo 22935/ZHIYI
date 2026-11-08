@@ -293,13 +293,13 @@ def start_hands(home: Path, info: dict, creds: dict, session: str, state: dict, 
         "workspaceRoot": info["workspace"], "credentialsFile": str(keys), "grantsFile": str(grants),
         "dataDir": str(home / "hands-ledger"), "host": "127.0.0.1",
         "port": persistent.ports(info)["host"], "confinement": "none", "dynamicWorkspaces": True})
-    node_env = dict(env, TSX_TSCONFIG_PATH=str(PRODUCT_ROOT / "apps/hands/tsconfig.json"))
+    node_env = dict(env, TSX_TSCONFIG_PATH=str(PRODUCT_ROOT / "apps/agentOS/src/hands/tsconfig.json"))
     try:
         record = start_service(home, session, state, "host", [
             str(PATHS["node"]),
-            str(PRODUCT_ROOT / "apps/hands/node_modules/tsx/dist/cli.mjs"),
-            "--tsconfig", str(PRODUCT_ROOT / "apps/hands/tsconfig.json"),
-            str(PRODUCT_ROOT / "apps/hands/hands/service-main.ts"),
+            str(PRODUCT_ROOT / "apps/agentOS/src/hands/node_modules/tsx/dist/cli.mjs"),
+            "--tsconfig", str(PRODUCT_ROOT / "apps/agentOS/src/hands/tsconfig.json"),
+            str(PRODUCT_ROOT / "apps/agentOS/src/hands/hands/service-main.ts"),
             "--config", str(config)], node_env)
         desktop.wait_until(lambda: native.health(persistent.ports(info)["host"], "/v1/health").get("ok"),
                            record, 90)

@@ -36,9 +36,9 @@ async def check(home, output, port):
         'allowedCallers':['n01a-credential'],'revoked':False}]})
     setup = dict(workspaceRoot=str(workspace),credentialsFile=str(keys),grantsFile=str(case/'grants.json'),
         dataDir=str(case/'ledger'),host='127.0.0.1',port=port,confinement='none')
-    env = dict(os.environ,TSX_TSCONFIG_PATH=str(native.ROOT/'apps/hands/tsconfig.json'))
-    command = [shutil.which('node'),str(native.ROOT/'apps/hands/node_modules/tsx/dist/cli.mjs'),
-        '--tsconfig',str(native.ROOT/'apps/hands/tsconfig.json'),str(native.ROOT/'apps/hands/hands/service-main.ts'),
+    env = dict(os.environ,TSX_TSCONFIG_PATH=str(native.ROOT/'apps/agentOS/src/hands/tsconfig.json'))
+    command = [shutil.which('node'),str(native.ROOT/'apps/agentOS/src/hands/node_modules/tsx/dist/cli.mjs'),
+        '--tsconfig',str(native.ROOT/'apps/agentOS/src/hands/tsconfig.json'),str(native.ROOT/'apps/agentOS/src/hands/hands/service-main.ts'),
         '--config',str(config)]
     child = None
     def start(faults=None):

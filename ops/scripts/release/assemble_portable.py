@@ -262,11 +262,11 @@ def copy_application_code(target: Path) -> None:
         exclude = skip if keep_node_modules else skip + ("node_modules",)
         robocopy(source, target / "apps" / name, exclude_dirs=exclude)
 
-    # hands 用 npm 扁平安装（不复制 pnpm 的 junction 树）；terminal-host 本身就是 npm 布局。
+    # hands 已并入 agentOS（apps/agentOS/src/hands），随 agentOS 一并复制；
+    # 其 node_modules 仍在此处按需扁平安装。terminal 本身就是 npm 布局。
     copy_app("agent")
     copy_app("agentOS")
-    copy_app("hands")
-    copy_app("terminal-host", keep_node_modules=True)
+    copy_app("terminal", keep_node_modules=True)
 
     # app/data、data/ 是开发机上的运行数据，运行时用的是 home\data，没必要随包分发。
     for relative in ("apps/agent/app/data", "apps/agent/data"):
@@ -275,10 +275,10 @@ def copy_application_code(target: Path) -> None:
             shutil.rmtree(stale, ignore_errors=True)
             log(f"应用代码: 排除开发运行数据 {relative}")
 
-    install_hands_dependencies(target / "apps/hands")
+    install_hands_dependencies(target / "apps/agentOS/src/hands")
 
-    rebuilt = relink_junctions(REPO / "apps/terminal-host/node_modules",
-                              target / "apps/terminal-host/node_modules")
+    rebuilt = relink_junctions(REPO / "apps/terminal/node_modules",
+                              target / "apps/terminal/node_modules")
     if rebuilt:
         log(f"terminal-host: 重建 {rebuilt} 个 junction")
 
@@ -491,8 +491,8 @@ def validate(target: Path) -> list[str]:
         "apps/backend-ts/migrations/V13__drop_user_feedback.sql",
         "apps/agent/app/main.py",
         "apps/agentOS/src/runtime/workflow_runtime.py",
-        "apps/hands/node_modules/tsx/dist/cli.mjs",
-        "apps/terminal-host/node_modules/node-pty/package.json",
+        "apps/agentOS/src/hands/node_modules/tsx/dist/cli.mjs",
+        "apps/terminal/node_modules/node-pty/package.json",
         "scripts/prepare_agentos_runtime.py",
         "ops/scripts/infra/windows/native/persistent_runtime.py",
     ]

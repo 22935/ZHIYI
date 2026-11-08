@@ -3,7 +3,7 @@
 Independent TypeScript engine, adapted from DeepSeek Harness MIT mechanisms. It has no Session, Cordis, AgentOS, scheduler, DB, Provider credentials, tool execution, or HTTP server.
 
 ```powershell
-cd apps/oscode-context
+cd apps/agentOS/src/oscode-context
 npm ci --ignore-scripts
 npm run typecheck
 npm test
