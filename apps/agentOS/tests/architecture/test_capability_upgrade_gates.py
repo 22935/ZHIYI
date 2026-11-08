@@ -114,7 +114,7 @@ def test_local_runtime_http_transport_keeps_the_low_level_boundary() -> None:
 
 
 def test_native_process_execution_stays_in_the_hands_backend() -> None:
-    """原生进程宿主的唯一归属是 Hands；它不內嵌 AgentOS 权威，Python 侧不得复活 Local Runtime。
+    """原生进程宿主的唯一归属是 Hands；它不内嵌 AgentOS 权威，Python 侧不得复活 Local Runtime。
 
     ``225d1934`` 退役了 ``apps/local-runtime``（Python 执行宿主），执行改由
     ``apps/agentOS/src/hands``（TS，逐字复用 DSH 执行基座）承载。门禁随主体迁移，
@@ -152,7 +152,7 @@ def test_native_process_execution_stays_in_the_hands_backend() -> None:
 
 
 def test_agentos_does_not_host_native_process_execution() -> None:
-    """Native subprocess and Windows Job Object code stay in local-runtime."""
+    """Native subprocess and Windows Job Object code stay in the Hands backend."""
     for path in SRC.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         imports = {
