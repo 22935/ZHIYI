@@ -337,7 +337,15 @@ class ResourceBinder:
         current = now or datetime.now(timezone.utc)
         candidates = self.evaluate(requirement, now=current)
         eligible = [c for c in candidates if c.accepted]
-        endpoints = self.plane.model_candidates(requirement.model, now=current) if requirement.model else []
+        endpoints = (
+            self.plane.model_candidates(
+                requirement.model,
+                owner_scope=requirement.owner_scope,
+                now=current,
+            )
+            if requirement.model
+            else []
+        )
         runtime_versions = {c.resource_id: self.plane.runtime_snapshot(c.resource_id).version for c in candidates}
         node_ids = {self.plane.runtime(c.resource_id).node_id for c in candidates}
         node_versions = {node_id: self.plane.node_snapshot(node_id).version for node_id in node_ids}

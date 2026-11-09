@@ -43,9 +43,10 @@ def _register(
     **overrides,
 ) -> RuntimeProfile:
     plane.ensure_node(node, placement=placement, trust=TrustLevel.HOST_TRUSTED)
+    kind = overrides.pop("kind", RuntimeKind.EXECUTION_BACKEND)
     profile = RuntimeProfile(
         runtimeId=runtime_id,
-        kind=RuntimeKind.EXECUTION_BACKEND,
+        kind=kind,
         nodeId=node,
         placement=placement,
         capabilities=list(capabilities),
@@ -452,6 +453,44 @@ def test_model_demand_can_allow_or_exclude_specific_vendors_and_models() -> None
     assert excluded == []
     allowed = plane.model_candidates(ModelDemand(allowedProviders=["vendor-a"], allowedModels=["vendor-a/chat"]))
     assert [item.endpoint.endpoint_id for item in allowed] == ["m:a"]
+
+
+def test_model_binding_rejects_another_tenants_runtime_backed_endpoint() -> None:
+    plane = _plane()
+    _register(plane, "runtime:tenant-a:exec", ownerScope="tenant-a")
+    _register(
+        plane,
+        "runtime:tenant-b:model",
+        node="node:tenant-b:model",
+        kind=RuntimeKind.MODEL_SERVER,
+        ownerScope="tenant-b",
+        provider="VendorB",
+        modelIds=["private-chat"],
+    )
+    _register(
+        plane,
+        "runtime:tenant-a:model",
+        node="node:tenant-a:model",
+        kind=RuntimeKind.MODEL_SERVER,
+        ownerScope="tenant-a",
+        provider="VendorA",
+        modelIds=["private-chat"],
+    )
+    binder = ResourceBinder(plane)
+
+    result = binder.bind_ready(
+        run_id="run-tenant-a",
+        step_id="step-1",
+        attempt_id="attempt-1",
+        requirement=_requirement(
+            ownerScope="tenant-a",
+            model=ModelDemand(allowedModels=["private-chat"]),
+        ),
+    )
+
+    assert result.status == "allocated"
+    assert result.binding is not None and result.binding.model_binding is not None
+    assert result.binding.model_binding.endpoint_id == "model:runtime:tenant-a:model:private-chat"
 
 
 def test_zero_remote_snapshot_slots_do_not_override_free_redis_capacity():

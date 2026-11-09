@@ -501,7 +501,8 @@ def _project_model_endpoint(endpoint, host_runtime: RuntimeProfile | None = None
         "dataZone": None,
         "costMetadata": dict(endpoint.cost_metadata),
         "capacity": 1,
-        "ownerScope": host_runtime.owner_scope if host_runtime is not None else None,
+        # Runtime 承载端点以宿主归属为权威；注册表共享端点则显式保留自身归属。
+        "ownerScope": host_runtime.owner_scope if host_runtime is not None else endpoint.owner_scope,
         "privacyLevel": None,
         "executionEndpoint": None,
         "computeCapacity": {},

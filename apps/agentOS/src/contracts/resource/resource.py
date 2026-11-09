@@ -249,6 +249,11 @@ class ModelEndpointProfile(BaseModel):
     model: StrictStr = Field(min_length=1)
     model_version: StrictStr | None = Field(default=None, alias="modelVersion", description="供应商模型版本号。")
     placement: Placement = Field(default=Placement.CLOUD)
+    owner_scope: StrictStr | None = Field(
+        default=None,
+        alias="ownerScope",
+        description="端点归属范围；为空表示显式共享的模型注册表端点。",
+    )
     tier: StrictStr | None = Field(default=None, description="语义档位标签（如 frontier / lightweight），只作先验不作约束。")
     context_window_tokens: int | None = Field(default=None, alias="contextWindowTokens", ge=1)
     max_output_tokens: int | None = Field(default=None, alias="maxOutputTokens", ge=1)

@@ -507,8 +507,11 @@ class ResourcePlane:
         try:
             existing = self.store.get_profile(profile.runtime_id)
         except KeyError:
-            return self.store.register(profile, initial)
+            versioned = self.store.register(profile, initial)
+            self._sync_runtime_model_endpoints(profile)
+            return versioned
         if existing == profile:
+            self._sync_runtime_model_endpoints(profile)
             return self.store.get_snapshot(profile.runtime_id)
         if not self._is_bootstrap_owned(existing):
             raise ValueError(
@@ -520,8 +523,10 @@ class ResourcePlane:
             )
             if existing != profile.model_copy(update={"capacity": profile.capacity}):
                 self.store.update_profile(profile)
+            self._sync_runtime_model_endpoints(profile)
             return versioned
         self.store.update_profile(profile)
+        self._sync_runtime_model_endpoints(profile)
         return self.store.get_snapshot(profile.runtime_id)
 
     def register_remote_runtime(
@@ -571,6 +576,7 @@ class ResourcePlane:
                     f"runtime registration conflicts with existing profile: {profile.runtime_id}"
                 )
             credential = self.store.get_credential(profile.runtime_id)
+            self._sync_runtime_model_endpoints(profile)
             return IssuedResourceCredential(
                 resource_id=profile.runtime_id, credential_id=credential.credential_id,
                 owner_scope=credential.owner_scope, secret="", created=False,
@@ -590,7 +596,7 @@ class ResourcePlane:
             created_at=datetime.now(timezone.utc),
         )
         self.store.register_remote(profile, snapshot, record)
-        self._register_runtime_model_endpoints(profile)
+        self._sync_runtime_model_endpoints(profile)
         return IssuedResourceCredential(
             resource_id=profile.runtime_id,
             credential_id=record.credential_id,
@@ -647,31 +653,46 @@ class ResourcePlane:
                 self.store.upsert_model_endpoint(endpoint.model_copy(update={"enabled": enabled}))
         return updated
 
-    def _register_runtime_model_endpoints(self, profile: RuntimeProfile) -> None:
-        """Project a registered model server into the model-routing catalog.
+    def _sync_runtime_model_endpoints(self, profile: RuntimeProfile) -> None:
+        """将模型服务的静态声明收敛到模型路由目录。
 
-        Runtime registration owns its static model declarations. Creating these
-        endpoint records here keeps customer model registration and ModelDemand
-        selection on one source of truth without assuming a provider's location.
+        本机与远程 Runtime 必须走同一投影逻辑。更新/降级 Runtime 时，清理
+        仅由本方法创建且已不再声明的端点，避免旧模型继续被路由。
         """
-        if profile.kind is not RuntimeKind.MODEL_SERVER:
+        managed_endpoints = [
+            endpoint for endpoint in self.store.list_model_endpoints()
+            if endpoint.runtime_id == profile.runtime_id
+            and endpoint.metadata.get("_resourcePlaneManagedBy") == "runtime-registration"
+        ]
+        if profile.kind is not RuntimeKind.MODEL_SERVER or not (profile.provider or "").strip():
+            for endpoint in managed_endpoints:
+                self.store.delete_model_endpoint(endpoint.endpoint_id)
             return
-        assert profile.provider is not None
-        for model_id in profile.model_ids:
+        endpoint_ids: set[str] = set()
+        for raw_model_id in profile.model_ids:
+            model_id = raw_model_id.strip()
+            if not model_id:
+                continue
+            endpoint_id = f"model:{profile.runtime_id}:{model_id}"
+            endpoint_ids.add(endpoint_id)
             endpoint = ModelEndpointProfile(
-                endpointId=f"model:{profile.runtime_id}:{model_id}",
+                endpointId=endpoint_id,
                 runtimeId=profile.runtime_id,
                 provider=profile.provider,
                 sourceType=profile.source_type,
                 adapter=profile.adapter,
                 model=model_id,
                 placement=profile.placement,
+                ownerScope=profile.owner_scope,
                 costMetadata=profile.cost_metadata,
                 labels=profile.labels,
                 enabled=profile.enabled,
                 metadata={"_resourcePlaneManagedBy": "runtime-registration"},
             )
             self.store.upsert_model_endpoint(endpoint)
+        for endpoint in managed_endpoints:
+            if endpoint.endpoint_id not in endpoint_ids:
+                self.store.delete_model_endpoint(endpoint.endpoint_id)
 
     def update_runtime_capacity(
         self, runtime_id: str, capacity: int, *, expected_capacity: int
@@ -1036,6 +1057,7 @@ class ResourcePlane:
                 sourceType=(str(route.get("sourceType") or route.get("source_type") or "model_registry")),
                 adapter=(str(route.get("adapter")) if route.get("adapter") else None),
                 placement=placement,
+                ownerScope=route.get("ownerScope") or route.get("owner_scope"),
                 tier=route.get("tier"),
                 contextWindowTokens=context_window,
                 maxOutputTokens=max_output,
@@ -1060,7 +1082,11 @@ class ResourcePlane:
         return {"kept": len(keep), "replaced": replaced, "removed": removed}
 
     def model_candidates(
-        self, demand: ModelDemand | None, *, now: datetime | None = None
+        self,
+        demand: ModelDemand | None,
+        *,
+        owner_scope: str | None = None,
+        now: datetime | None = None,
     ) -> list[ModelEndpointCandidate]:
         """按模型需求返回可用端点候选；特征未声明的端点按不支持处理。"""
         demand = demand or ModelDemand()
@@ -1083,6 +1109,13 @@ class ResourcePlane:
                     continue
                 if not host_runtime.enabled:
                     continue
+                endpoint_owner_scope = host_runtime.owner_scope
+            else:
+                endpoint_owner_scope = endpoint.owner_scope
+            # 没有 ownerScope 的注册表端点代表显式共享服务；有归属的端点
+            # 必须由同一归属范围的执行需求使用，避免跨租户模型路由。
+            if owner_scope and endpoint_owner_scope not in {None, owner_scope}:
+                continue
             if allowed and endpoint.endpoint_id not in allowed:
                 continue
             if endpoint.endpoint_id in excluded:

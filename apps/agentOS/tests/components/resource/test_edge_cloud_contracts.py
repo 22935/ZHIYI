@@ -265,6 +265,32 @@ def test_remote_model_server_registration_creates_schedulable_model_endpoints():
     ]
 
 
+def test_local_model_server_registration_projects_tenant_scoped_model_endpoints():
+    """本机模型服务与远程服务必须走同一模型目录投影规则。"""
+    plane = ResourcePlane()
+    plane.ensure_node("node:device:model", placement=Placement.DEVICE)
+    profile = RuntimeProfile(
+        runtimeId="runtime:device:model",
+        kind=RuntimeKind.MODEL_SERVER,
+        nodeId="node:device:model",
+        placement=Placement.DEVICE,
+        capabilities=["model.generate"],
+        provider="LocalVendor",
+        modelIds=["chat-local"],
+        ownerScope="tenant-a",
+    )
+
+    plane.register_runtime(profile)
+
+    candidates = plane.model_candidates(
+        ModelDemand(allowedModels=["localvendor/chat-local"]), owner_scope="tenant-a"
+    )
+    assert [candidate.endpoint.endpoint_id for candidate in candidates] == [
+        "model:runtime:device:model:chat-local"
+    ]
+    assert candidates[0].endpoint.owner_scope == "tenant-a"
+
+
 def test_remote_model_server_registration_requires_provider_and_model_ids():
     plane = ResourcePlane()
     plane.ensure_node("node:edge:model", placement=Placement.EDGE, trust=TrustLevel.TRUSTED)
