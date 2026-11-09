@@ -10,7 +10,7 @@
     <div class="app-topbar__left" v-bind="dragRegionProps">
       <div class="app-topbar__brand-zone" v-bind="dragRegionProps">
         <span class="app-topbar__logo" aria-hidden="true">
-          <img src="/logo.svg" alt="" />
+          <img :src="activePack.main" alt="" />
         </span>
       </div>
 
@@ -223,16 +223,6 @@
         </span>
         <span class="app-topbar__terminal-label">终端</span>
       </button>
-      <button
-        class="app-topbar__terminal"
-        data-testid="app-logout"
-        type="button"
-        aria-label="退出登录"
-        title="退出登录"
-        @click="handleLogout"
-      >
-        <span class="app-topbar__terminal-label">退出</span>
-      </button>
       <DesktopWindowControls v-if="desktopShell" />
     </div>
   </header>
@@ -256,7 +246,7 @@ import { isDesktop, platform } from '@/platform'
 import { agentosApi, type MissionListItem } from '@/services/api/agentos'
 import { plainMissionTitle } from '@/utils/missionTitle'
 import { terminalVisible, toggleDesktopTerminal } from '@/composables/useDesktopTerminal'
-import { AUTH_ROUTE, logout } from '@/features/auth/authService'
+import { useBrand } from '@/features/brand/useBrand'
 import { commands as commandRegistry } from '@/workbench/core/commands'
 
 // Desktop 构建下本栏即窗口标题栏（decorations:false）：
@@ -264,6 +254,7 @@ import { commands as commandRegistry } from '@/workbench/core/commands'
 // Web 构建通过 @window-controls 别名拿到空占位，不含任何桌面 API。
 const desktopShell = isDesktop()
 const dragRegionProps = platform.dragRegionProps
+const { activePack } = useBrand()
 
 const emit = defineEmits<{
   home: []
@@ -537,11 +528,6 @@ watch(query, () => {
 // position 对账——current 为当前栈位，furthest 记录本次会话到过的最深处。
 const router = useRouter()
 
-/** 退出登录：清掉本机会话，回到单一认证路由；工作台随之卸载。 */
-const handleLogout = () => {
-  logout()
-  void router.replace(AUTH_ROUTE)
-}
 const currentPosition = ref(0)
 const furthestPosition = ref(0)
 
