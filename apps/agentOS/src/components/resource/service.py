@@ -3,6 +3,9 @@
 本服务是资源状态的唯一权威入口。它回答"系统现在拥有哪些真实可调用的
 运行能力"，但不做调度决策——候选过滤、评分与租约授予由 ResourceBinder
 完成。逻辑 Agent 角色不是资源，不在这里登记。
+
+ResourcePlane 负责跨 Node、Runtime、模型端点、健康投影与凭据存储的业务
+不变量；它不承担 HTTP、任务执行或数据库连接生命周期等基础设施职责。
 """
 
 from __future__ import annotations
@@ -92,7 +95,11 @@ class IssuedNodeCredential:
 
 
 def compute_registration_id(resource_id: str, owner_scope: str, profile: NodeProfile | RuntimeProfile) -> str:
-    """Return a stable idempotency key for a static remote registration."""
+    """为静态远程登记生成稳定的幂等键。
+
+    忽略会随写入变化的 ``version`` 与登记键本身，使同一配置重试时保持
+    标识不变，而配置实质变化时获得新的指纹。
+    """
     import json
 
     payload = profile.model_dump(by_alias=True, mode="json")
@@ -100,6 +107,7 @@ def compute_registration_id(resource_id: str, owner_scope: str, profile: NodePro
     metadata = payload.get("metadata")
     if isinstance(metadata, dict):
         metadata.pop("registrationId", None)
+    # 规范 JSON 序列化确保字典插入顺序不会改变登记指纹。
     fingerprint = hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()[:16]
@@ -126,8 +134,7 @@ class ResourcePlane:
         )
         self.node_health_monitor = node_health_monitor or NodeHealthMonitor()
         self.secret_box = ResourceSecretBox(credential_key)
-        # SQLite snapshots are the cross-process authority.  Hydrating only
-        # accelerates local reads; every scheduler still calls get_node_health.
+        # SQLite 快照是跨进程事实源；hydrate 仅加速本地读取，调度器仍会调用 get_node_health。
         for profile in self.node_store.list_profiles():
             snapshot = self.node_store.get_snapshot(profile.node_id).snapshot
             self.node_health_monitor.hydrate(
@@ -149,6 +156,7 @@ class ResourcePlane:
             existing = self.node_store.get_profile(profile.node_id)
         except KeyError:
             return self.node_store.register(profile, snapshot)
+        # 幂等重试只能复用完全相同的静态画像，防止调用方无意覆盖节点身份。
         if existing != profile:
             raise ValueError(f"node conflicts with existing profile: {profile.node_id}")
         return self.node_store.get_snapshot(profile.node_id)
@@ -271,8 +279,7 @@ class ResourcePlane:
 
     def node_health(self, node_id: str, *, now: datetime | None = None) -> NodeHealth:
         snapshot = self.node_store.get_snapshot(node_id).snapshot
-        # Persisted snapshot is the authoritative cross-worker source.  The
-        # monitor supplies locally refreshed state only when it is newer.
+        # 持久化快照是跨 worker 的事实源；监控器只在本地状态更新时提供刷新值。
         live = self.node_health_monitor.health(node_id, now=now)
         if (
             live.last_heartbeat is not None
@@ -894,6 +901,7 @@ class ResourcePlane:
     ) -> bool:
         self.store.get_profile(runtime_id)
         current = now or datetime.now(timezone.utc)
+        # 将存储层唯一性结果直接返回给鉴权器，避免服务层维护第二份 nonce 状态。
         return self.store.consume_nonce(runtime_id, nonce, expires_at, now=current)
 
     # ------------------------------------------------------------------
@@ -1023,6 +1031,7 @@ class ResourcePlane:
 
 
 __all__ = [
+    # TODO(resource-plane-observability): 补充登记、凭据轮换、观测丢弃和 CAS 冲突的结构化指标与审计事件。
     "IssuedNodeCredential",
     "IssuedResourceCredential",
     "ResourcePlane",

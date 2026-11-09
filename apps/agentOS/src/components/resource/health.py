@@ -1,4 +1,9 @@
-"""将心跳和执行结果转化为资源健康度。"""
+"""将 Runtime 心跳与执行结果收敛为可调度的健康投影。
+
+健康状态在写入时保存原始观测，在读取时根据心跳年龄实时计算，确保即使
+后台没有定时任务，失联资源也会自然降级。持久化由 Store 负责，本模块只
+维护健康语义与 EMA 计算规则。
+"""
 
 from __future__ import annotations
 
@@ -42,6 +47,7 @@ class ResourceHealthMonitor:
         """记录本地接收心跳的时间，并返回新的健康投影。"""
         timestamp = _utc(received_at) if received_at is not None else datetime.now(timezone.utc)
         state = self.store.get(resource_id)
+        # 心跳只刷新在线时间，保留已经积累的可靠性与时延观测。
         self.store.upsert(
             resource_id=resource_id,
             reliability=state.reliability if state else self.initial_reliability,
@@ -114,5 +120,5 @@ class ResourceHealthMonitor:
     calculate = health
 
 
-# TODO: 继续补齐跨进程心跳的签名鉴权、重放保护和持久化；当前由 ResourcePlane
+# TODO(distributed-health): 继续补齐跨进程心跳的签名鉴权、重放保护和持久化；当前由 ResourcePlane
 # 接收远程观测并更新本进程监测器，尚不等同于生产级多节点健康中心。

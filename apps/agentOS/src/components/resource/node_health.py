@@ -1,4 +1,8 @@
-"""节点心跳分级：把心跳年龄与负载投影为分级健康状态。"""
+"""节点心跳分级：把心跳年龄与负载投影为分级健康状态。
+
+Node 健康描述部署实体是否可联通及其粗粒度负载，不等同于 Runtime 的执行
+健康。两者分别维护，调度层可以据此区分节点离线和单个运行时不可用。
+"""
 
 from __future__ import annotations
 
@@ -11,6 +15,7 @@ from .models import NodeHealth
 
 
 def _utc(value: datetime) -> datetime:
+    """将节点观测时间标准化为 UTC，并拒绝无法可靠比较的无时区值。"""
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("timestamps must be timezone-aware")
     return value.astimezone(timezone.utc)
@@ -20,6 +25,7 @@ def infer_load_status(
     queued_tasks: int, utilization: float, *, overloaded_tasks: int = 10
 ) -> NodeHealthStatus:
     """根据排队任务数与负载推断在线 / 忙碌 / 过载。"""
+    # 阈值优先判定过载，避免高利用率节点被错误归类为普通忙碌。
     if utilization >= 0.9 or queued_tasks >= overloaded_tasks:
         return NodeHealthStatus.OVERLOADED
     if utilization >= 0.7 or queued_tasks > 0:
@@ -81,7 +87,7 @@ class NodeHealthMonitor:
         status: NodeHealthStatus = NodeHealthStatus.UNKNOWN,
         consecutive_failures: int = 0,
     ) -> None:
-        """Rebuild local cache from the durable node snapshot at process start."""
+        """进程启动时从持久化节点快照重建本地缓存。"""
         if last_heartbeat is None:
             return
         with self._lock:
@@ -123,3 +129,6 @@ class NodeHealthMonitor:
                 elif age > self.stale_threshold:
                     events.append((node_id, NodeHealthStatus.STALE))
         return events
+
+
+# TODO(node-health-policy): 根据真实负载分布配置阈值，并引入连续超时的退避/恢复窗口。
