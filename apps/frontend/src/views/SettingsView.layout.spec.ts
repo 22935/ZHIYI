@@ -42,3 +42,19 @@ describe('SettingsView shell integration', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 })
+
+describe('SettingsView brand picker', () => {
+  it('offers the three brand packs in the appearance tab and applies on click', () => {
+    // Logo 三选卡与主题卡片同构：点击即预览生效（滤镜 + favicon），保存设置统一落盘。
+    expect(settingsViewSource).toContain('const { brandOptions, setBrand } = useBrand()')
+    expect(settingsViewSource).toContain('v-for="pack in brandOptions"')
+    expect(settingsViewSource).toContain('@click="settings.brand = pack.id; applyBrand()"')
+  })
+
+  it('defaults the brand to ember and persists it inside appSettings', () => {
+    // 默认 ember = 2026-11-09 既有视觉零变化；brand 随整份 appSettings 落盘，
+    // 启动链路由 main.ts 的 initBrand 消费。
+    expect(settingsViewSource).toContain('brand: DEFAULT_BRAND_ID')
+    expect(settingsViewSource).toContain("localStorage.setItem('appSettings', JSON.stringify(settings.value))")
+  })
+})

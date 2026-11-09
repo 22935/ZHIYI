@@ -38,13 +38,12 @@
 - 新增偏离 C4 的配色、字体、渐变、图标或装饰性卡片。
 - 为追求视觉完整而伪造运行指标。
 
-## 品牌标识（SVG 真源）
+## 品牌标识（三选一 pack）
 
-- `public/logo.svg`：完整方章，深色底 `#0B0F16` + 线条 `#F3F3F4`，用于顶栏、启动页、加载态与大尺寸展示。
-- `public/logo-mark.svg`：透明底纯线条，路径与 `logo.svg` 同源，用于水印、空态与低干扰装饰，避免深色实心块压住页面内容。
-- `public/logo-compact.svg`：32×32 像素网格对齐的精简方章，专供 favicon 与 16/24/32px 桌面图标。整数/半整数坐标 + 偶数线宽（主笔 2px、次笔 1px），省略眉弧与笔锋，避免细线在小尺寸糊化；不用于 ≥48px 场景。
-- 配色取自系统暗色令牌族（`--bg-app` 近 `#181818`、`--text-primary` 近 `#D4D4D4`）；浅色主题由 `useTheme` 下发 `--brand-logo-filter` 统一反相并回正色相，保证 5 套配色下对比度一致。
-- 桌面应用图标 `apps/desktop/electron/icons/icon.ico` 共 16/24/32/48/64/256 六档：前三档由 `logo-compact.svg` 逐尺寸直出，后三档由 `logo.svg` 导出，避免小尺寸二次缩放损失。
-- 像素对齐基线：以 `docs/assets/brand/logo.png`（132×121）为几何真源，方章 `x=8 y=1 w=116 h=114 r=27`；主笔 4.5px、次笔 3.4px、收笔 2.8px，均圆头；白色笔画像素重合基线 IoU ≥ 0.73，方章轮廓差异 ≤ 60px。
-- 旧位图花环标 `public/logo.webp` / `logo.png` 已退役，仅留作历史资产；`acglogo.webp` 是 ACG 子系统专用标，不作为主品牌标使用。
+- 2026-11-09 起 Logo 为设置内三选一（设置 → 外观 → Logo），中央模块 `src/features/brand/`（brandPacks.ts 资产清单 + useBrand.ts 应用与持久化，存 `appSettings.brand`）；favicon 运行时跟随所选标；桌面原生 `icon.ico` 与托盘不跟随（Electron 层，仍为弈章六档）。
+- `ember 焰标`（默认）：橙色三角标，沿用 public 根路径 `/logo.svg`、`/logo-mark.svg`、`/logo.webp`；注意当前两份 svg 是内嵌 webp 的位图壳（约 511KB），如需矢量真源应重新导出。
+- `ink 弈章`：深色底 `#0B0F16` + 线条 `#F3F3F4` 的矢量方章，真源 `/brand/ink/logo.svg` 与透明线稿 `/brand/ink/logo-mark.svg`（取回自提交 d8d77f99）；favicon 沿用 `/logo-compact.svg`（32×32 像素网格对齐，主笔 2px、次笔 1px，省略眉弧与笔锋；不用于 ≥48px 场景）。桌面应用图标 `apps/desktop/electron/icons/icon.ico` 16/24/32/48/64/256 六档由这一套导出。
+- `wreath 花环`：初代花环标，位图 `/brand/wreath/logo.webp`（取回自提交 73d172aa 的退役资产）。
+- 浅色主题滤镜 `--brand-logo-filter` 由 useTheme 下发，口径经 useBrand 的 brandLogoFilter：仅 ink 需要反相（invert + 180° 色相回正，保证 5 套配色下对比度一致），位图彩色标恒为 none。
+- `acglogo.*` 是 ACG 子系统专用标，独立品牌资产，不参与主标适配，不作为主品牌标使用。
 - 禁止用文字色块或另绘图形替代矢量真源。

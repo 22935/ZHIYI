@@ -57,7 +57,7 @@
                   </filter>
                 </defs>
               </svg>
-              <img class="hero-watermark" src="/logo-mark.svg" alt="" />
+              <img class="hero-watermark" :src="activePack.mark" alt="" />
             </div>
             <h2 class="hero-greeting">{{ heroGreeting }}</h2>
           </div>
@@ -536,10 +536,12 @@ import { wasErrorUserNotified } from '@/utils/request'
 import { plainMissionTitle } from '@/utils/missionTitle'
 import { loadModelSettings } from '@/config/modelSettings'
 import { belongsToConversation, contextQuery, conversationBindings, isTerminalRunStatus, runMatchesSelection, selectSessionRun } from '@/features/workspace/session'
+import { useBrand } from '@/features/brand/useBrand'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const { activePack } = useBrand()
 
 const chatStore = useChatStore()
 const createClientRequestId = (): string => {

@@ -5,7 +5,7 @@
 
     <header class="landing-header" v-bind="dragRegionProps" aria-label="应用窗口标题栏">
       <a class="landing-brand" href="/" aria-label="知弈 AgentOS 首页" @click.prevent="goHome">
-        <span class="landing-brand__logo"><img src="/logo.webp" alt="" aria-hidden="true" /></span>
+        <span class="landing-brand__logo"><img :src="activePack.landing" alt="" aria-hidden="true" /></span>
         <span>知弈 <strong>AgentOS</strong></span>
       </a>
 
@@ -148,12 +148,14 @@ import DesktopWindowControls from '@window-controls'
 import { isDesktop, platform } from '@/platform'
 import { usePublicTheme } from '@/composables/usePublicTheme'
 import { AUTH_ROUTE, DEFAULT_REDIRECT, isAuthenticated } from '@/features/auth/authService'
+import { useBrand } from '@/features/brand/useBrand'
 const GlassConstellation = defineAsyncComponent(() => import('@/components/landing/GlassConstellation.vue').then(module => module.default))
 const LoginView = defineAsyncComponent(() => import('@/views/LoginView.vue').then(module => module.default))
 
 const router = useRouter()
 const route = useRoute()
 const { isDarkTheme, themeToggleLabel, toggleTheme } = usePublicTheme()
+const { activePack } = useBrand()
 const desktopShell = isDesktop()
 const dragRegionProps = platform.dragRegionProps
 const landingRoot = ref<HTMLElement | null>(null)

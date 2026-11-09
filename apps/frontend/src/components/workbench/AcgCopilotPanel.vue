@@ -16,7 +16,7 @@
         :show-review="!state?.review" @refresh="refreshRun" @cancel="emit('cancel-run')" />
       <div v-if="loading && !state" class="empty-state"><el-icon class="is-loading"><Loading /></el-icon><p>正在读取任务对话…</p></div>
       <div v-else-if="!messages.length && !state?.question && !state?.review" class="empty-state">
-        <img class="empty-watermark" src="/logo-mark.svg" alt="" aria-hidden="true" />
+        <img class="empty-watermark" :src="activePack.mark" alt="" aria-hidden="true" />
         <h3>{{ runId ? '一起推进这项任务' : '从一项任务开始' }}</h3>
         <p>{{ runId ? '检查进展、理解问题，或一起梳理下一步。' : '选择或启动任务后，在这里与任务助手交流。' }}</p>
       </div>
@@ -125,6 +125,7 @@ import type { RuntimeObservation } from '@/workbench/runtime/observation'
 import { renderMarkdown } from '@/utils/markdown'
 import { clearCopilotSession, getCopilotSession, saveCopilotSession } from './copilotSessionCache'
 import FormalExecutionControls from '@/components/workspace/FormalExecutionControls.vue'
+import { useBrand } from '@/features/brand/useBrand'
 
 const props = withDefaults(defineProps<{
   entry?: WorkspaceEntry | null; graphNode?: WorkspaceGraphNode | null; graphNodes?: WorkspaceGraphNode[]
@@ -133,6 +134,7 @@ const props = withDefaults(defineProps<{
   missionId?: string; canCancel?: boolean; cancelPending?: boolean
 }>(), { entry: null, graphNode: null, graphNodes: () => [], graph: null, runId: null, runStatus: null, runtimeObservation: null, historical: false, readonly: false, missionId: '', canCancel: false, cancelPending: false })
 const emit = defineEmits<{ 'select-run': [runId: string]; 'refresh-run': []; 'cancel-run': [] }>()
+const { activePack } = useBrand()
 const controlRun = computed(() => props.runtimeObservation?.runId === props.runId ? props.runtimeObservation?.run || null : null)
 const offeredCapabilities = computed(() => props.actionCapabilities === undefined ? controlRun.value?.actionCapabilities : props.actionCapabilities)
 function allows(action: RunCapabilityAction) {

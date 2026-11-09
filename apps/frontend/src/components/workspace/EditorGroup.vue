@@ -115,7 +115,7 @@
         @semantics-saved="emit('semanticsSaved')"
       />
       <div v-else-if="activeOpened?.entry.kind !== 'local_file'" class="editor-group__empty">
-        <img class="editor-group__empty-watermark" src="/logo-mark.svg" alt="" aria-hidden="true" />
+        <img class="editor-group__empty-watermark" :src="activePack.mark" alt="" aria-hidden="true" />
       </div>
     </section>
   </main>
@@ -134,6 +134,7 @@ import type { RunDocumentSymbol } from '@/workbench/runtime/runDocument'
 import type { ArtifactDocumentModel } from '@/workbench/runtime/artifactProjection'
 import { workspaceEntryIcon } from './workspaceEntryIcon'
 import { useDragReorder } from '@/composables/useDragReorder'
+import { useBrand } from '@/features/brand/useBrand'
 
 export interface OpenWorkspaceEntry {
   entry: WorkspaceEntry
@@ -186,6 +187,7 @@ const tabDrag = useDragReorder({
   onReorder: (from, to) => emit('reorder', from, to)
 })
 const { draggingIndex: draggingTab, dropIndex: tabDropIndex } = tabDrag
+const { activePack } = useBrand()
 onBeforeUnmount(() => tabDrag.resetDrag())
 const fileRequest = (entry: WorkspaceEntry) => entry.metadata!.fileRequest as WorkspaceFileOpenRequest
 const setDirty = (entry: WorkspaceEntry, dirty: boolean) => { entry.metadata!.dirty = dirty }

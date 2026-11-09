@@ -164,6 +164,27 @@
           </div>
         </div>
 
+        <div class="section-label">Logo</div>
+        <div class="theme-grid">
+          <button
+            v-for="pack in brandOptions"
+            :key="pack.id"
+            class="theme-option brand-option"
+            :class="{ active: settings.brand === pack.id }"
+            type="button"
+            :aria-label="`选择品牌标 ${pack.label}`"
+            @click="settings.brand = pack.id; applyBrand()"
+          >
+            <span class="brand-preview">
+              <img :src="pack.main" alt="" aria-hidden="true" />
+            </span>
+            <span class="theme-option-footer">
+              <strong>{{ pack.label }}</strong>
+              <el-icon v-if="settings.brand === pack.id"><Check /></el-icon>
+            </span>
+          </button>
+        </div>
+
         <div class="section-label">界面</div>
         <div class="setting-card">
           <div class="setting-row">
@@ -415,6 +436,8 @@ import { ArrowLeft, Brush, ChatDotRound, Check, Cpu, InfoFilled, Key, Lock, Micr
 import { useTheme } from '@/composables/useTheme'
 import { UI_ZOOM_BASE, UI_ZOOM_MAX_LEVEL, UI_ZOOM_MIN_LEVEL, UI_ZOOM_STORAGE_KEY, setUiZoomLevel, uiZoomPercentage, uiZoomState } from '@/composables/useUiZoom'
 import { colorSchemes, type ColorSchemeId } from '@/themes/presets'
+import { useBrand } from '@/features/brand/useBrand'
+import { DEFAULT_BRAND_ID, type BrandId } from '@/features/brand/brandPacks'
 import { APP_SETTINGS_SAVED_EVENT, applyCompanionEnabled } from '@/features/companion/enabled'
 import {
   applyProviderPreset,
@@ -435,6 +458,7 @@ type NavigationItem = {
 
 interface AppSettings {
   colorScheme: ColorSchemeId
+  brand: BrandId
   language: 'zh-CN' | 'en'
   primaryColor: string
   defaultPermission: boolean
@@ -455,6 +479,7 @@ interface AppSettings {
 
 const { locale } = useI18n()
 const { applyColorScheme } = useTheme()
+const { brandOptions, setBrand } = useBrand()
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
@@ -518,6 +543,7 @@ const themeDetailRows = computed(() => [
 
 const defaultSettings = (): AppSettings => ({
   colorScheme: 'codex-dark',
+  brand: DEFAULT_BRAND_ID,
   language: 'zh-CN',
   primaryColor: '#4f46e5',
   defaultPermission: true,
@@ -563,6 +589,11 @@ const lastSavedText = computed(() => {
 
 function applyTheme(): void {
   applyColorScheme(settings.value.colorScheme)
+}
+
+// 品牌标与主题同口径：卡片点击即应用（滤镜 + favicon），「保存设置」统一落盘。
+function applyBrand(): void {
+  setBrand(settings.value.brand)
 }
 
 // 界面缩放：档位是唯一事实源（Ctrl+滚轮/快捷键与滑杆共用，持久化在独立键）。
@@ -631,6 +662,7 @@ function loadSettings(): void {
     settings.value = { ...defaultSettings(), ...savedSettings }
     locale.value = settings.value.language
     applyTheme()
+    applyBrand()
     inlineHint.value = '已读取本地设置。'
   } catch {
     settings.value = defaultSettings()
@@ -669,6 +701,7 @@ function resetSettings(): void {
   setUiZoomLevel(0)
   saveModelSettings(modelSettings.value)
   applyTheme()
+  applyBrand()
   lastSaved.value = new Date()
   inlineHint.value = '已恢复默认设置。'
 }
@@ -1238,6 +1271,21 @@ function ensureSelectedModel(models: string[]): void {
 
 .theme-option-footer strong { color: var(--text-primary); font-weight: 600; }
 .theme-option-footer .el-icon { color: var(--primary-color); }
+
+/* Logo 三选卡：预览区居中展示各标的 main 资产，滤镜走全局 --brand-logo-filter（与实际显示一致）。 */
+.brand-preview {
+  height: 116px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+.brand-preview img {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+}
 
 .theme-header-row {
   display: flex;

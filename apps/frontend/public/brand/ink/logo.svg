@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="132" height="121" viewBox="0 0 132 121" role="img" aria-labelledby="brandTitle brandDesc" shape-rendering="geometricPrecision">
+  <title id="brandTitle">知弈 AgentOS</title>
+  <desc id="brandDesc">深色圆角方章内的白色线描标识：中竖、三层对称枝干、门内双眉与左右双拱。</desc>
+  <style>
+    .plate { fill: #0B0F16; }
+    .ink { fill: none; stroke: #F3F3F4; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+    .ink-fine { fill: none; stroke: #F3F3F4; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+    .ink-tail { fill: none; stroke: #F3F3F4; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+    .tip { fill: #F3F3F4; stroke: #F3F3F4; stroke-width: 1; stroke-linejoin: round; }
+  </style>
+
+  <!-- 方章：与 132x121 位图真源逐像素对齐，x=8..124 / y=1..115 / r=27 -->
+  <rect class="plate" x="8" y="1" width="116" height="114" rx="27" />
+
+  <!-- 中竖收在 y=41，圆头延伸后白色止于 y=43，正好交给第三层枝干 -->
+  <path class="ink" d="M66 18 V41" />
+  <path class="tip" d="M64.3 20.5 L66 14 L67.7 20.5 Z" />
+
+  <!-- 第一层：横展长枝，近直线 (66,23.5)->(39.5,32)，末端略收 -->
+  <path class="ink" d="M66 23.5 C57 26.3 45 29.3 39.5 32" />
+  <path class="ink" d="M66 23.5 C75 26.3 87 29.3 92.5 32" />
+
+  <!-- 第二层：短斜枝 -->
+  <path class="ink-fine" d="M60.5 32.5 C53.5 37.5 46 42.5 40.5 47" />
+  <path class="ink-fine" d="M72.5 32.5 C78.5 37.5 86 42.5 92 47" />
+
+  <!-- 第三层：下展长枝，起点 y=41.5 让 y=44 起分叉留出中缝 -->
+  <path class="ink" d="M66 41.5 C61.5 46 47 54 39.5 62" />
+  <path class="ink" d="M66 41.5 C70.5 46 85 54 92.5 62" />
+
+  <!-- 门内双眉：y=70..75 的短弧 -->
+  <path class="ink-fine" d="M62 70.5 C58 70 54 71.5 52 75" />
+  <path class="ink-fine" d="M70 70.5 C74 70 78 71.5 80 75" />
+
+  <!-- 双拱：顶部近水平、转角后近垂直；左收竖笔，右出细长撇至 (95,102) -->
+  <path class="ink" d="M59 59.5 C59 59.5 55 61 49 69 C49 74 49 84 49 92" />
+  <path class="ink" d="M73 59.5 C73 59.5 77 61 83.5 69 C84 74 83.5 82 83.5 89" />
+  <path class="ink-tail" d="M83.5 89 C85 94 89 98 95 102" />
+</svg>

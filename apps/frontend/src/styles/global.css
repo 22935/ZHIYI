@@ -205,9 +205,11 @@
   --brand-logo-filter: none;
 }
 
-/* 品牌矢量资产随主题反相，保证 5 套配色下对比度一致。
+/* 品牌标资产随主题反相（弈章需要，位图彩标由 useBrand 下发 none），保证 5 套配色下对比度一致。
+   前缀覆盖 public 根路径 (/logo*) 与三选一资产目录 (/brand/*)。
    ACG 子系统专用标 (/acglogo.*) 是独立品牌资产，不参与主标适配。 */
-img[src^="/logo"] {
+img[src^="/logo"],
+img[src^="/brand/"] {
   filter: var(--brand-logo-filter, none);
 }
 

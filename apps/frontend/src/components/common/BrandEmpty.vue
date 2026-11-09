@@ -1,7 +1,7 @@
 <!-- 品牌空态 — 花环静置水印 + 说明文案，统一「无内容」呈现（区别于 BrandLoader 的加载呼吸态） -->
 <template>
   <div class="brand-empty">
-    <img class="brand-empty__mark" src="/logo-mark.svg" alt="" aria-hidden="true" :style="{ width: `${size}px`, height: `${size}px` }" />
+    <img class="brand-empty__mark" :src="activePack.mark" alt="" aria-hidden="true" :style="{ width: `${size}px`, height: `${size}px` }" />
     <p class="brand-empty__text">
       <slot>{{ text }}</slot>
     </p>
@@ -9,6 +9,8 @@
 </template>
 
 <script setup lang="ts">
+import { useBrand } from '@/features/brand/useBrand'
+
 withDefaults(defineProps<{
   text?: string
   size?: number
@@ -16,6 +18,8 @@ withDefaults(defineProps<{
   text: '',
   size: 96
 })
+
+const { activePack } = useBrand()
 </script>
 
 <style scoped>

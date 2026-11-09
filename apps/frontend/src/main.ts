@@ -13,11 +13,13 @@ import { useUserStore } from './stores/user'
 import { currentAccount, isAuthenticated } from '@/features/auth/authService'
 import i18n from './i18n'
 import { initTheme } from './composables/useTheme'
+import { initBrand } from './features/brand/useBrand'
 import './styles/global.css'
 import './styles/responsive.css'
 import './styles/animations.css'
 
 initTheme()
+initBrand()
 
 const app = createApp(App)
 const pinia = createPinia()

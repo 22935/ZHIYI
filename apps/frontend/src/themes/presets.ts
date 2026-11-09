@@ -472,3 +472,10 @@ export const colorSchemes: ColorScheme[] = [codexDark, oneDarkModern, claudeWarm
 export function getColorScheme(id: ColorSchemeId): ColorScheme {
   return colorSchemes.find((s) => s.id === id) || codexDark
 }
+
+// 深色方案名单：主题应用（useTheme）与品牌标浅色反相（useBrand）共用这一个口径。
+export const DARK_COLOR_SCHEMES: ColorSchemeId[] = ['codex-dark', 'one-dark-modern']
+
+export function isDarkColorScheme(id: string): boolean {
+  return DARK_COLOR_SCHEMES.includes(id as ColorSchemeId)
+}
