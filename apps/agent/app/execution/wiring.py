@@ -41,9 +41,9 @@ from components.resource.domain.runtime_health import ResourceHealthMonitor
 from components.resource.infrastructure.health_store import SQLiteResourceHealthStore
 from components.resource.infrastructure.node_store import SQLiteNodeStore
 from components.resource.infrastructure.runtime_store import SQLiteResourceStore
-from components.scheduler.binder import ResourceBinder
+from components.resource.scheduler.binder import ResourceBinder
 from components.recovery.checkpoint import ACGCheckpointStore
-from components.scheduler.leases import RedisLeaseCoordinator
+from components.resource.scheduler.leases import RedisLeaseCoordinator
 from components.mission_manager.store import WorkflowRegistry
 from runtime import ApplicationSetup, ExecutionRuntime
 from adapters.guarded_model import GuardedModelRuntime

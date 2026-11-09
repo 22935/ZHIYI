@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from adapters.audited_tool_runtime import AuditedToolRuntime
 from adapters.hands_http import HandsExecutionCancelled, HandsOutcomeUnknown
 from support.async_tasks import await_settled
-from components.scheduler.binder import LeaseKeepAlive
+from components.resource.scheduler.binder import LeaseKeepAlive
 from contracts.resource import ExecutionRequirement, RuntimeKind
 from contracts.local_runtime import LocalRuntimeExecutionRequest, LocalRuntimeExecutionLimits
 from contracts.runtime_events import RuntimeEvent

@@ -4,12 +4,12 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from components.scheduler.leases import (
+from components.resource.scheduler.leases import (
     InMemoryLeaseCoordinator,
     LeaseRenewalFailedError,
     RedisLeaseCoordinator,
 )
-from components.scheduler.models import SchedulerUnavailable
+from components.resource.scheduler.models import SchedulerUnavailable
 
 
 class _RedisStub:

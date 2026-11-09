@@ -11,8 +11,8 @@ from datetime import timedelta
 import pytest
 
 from components.resource.application.resource_plane import ResourcePlane
-from components.scheduler.binder import LeaseKeepAlive, ResourceBinder, hard_constraint_reasons, placement_score
-from components.scheduler.models import FATAL_SCHEDULING_REASONS
+from components.resource.scheduler.binder import LeaseKeepAlive, ResourceBinder, hard_constraint_reasons, placement_score
+from components.resource.scheduler.models import FATAL_SCHEDULING_REASONS
 from contracts.resource import (
     ComputeCapacity,
     ExecutionRequirement,
@@ -468,7 +468,7 @@ def test_zero_remote_snapshot_slots_do_not_override_free_redis_capacity():
 
 
 def test_unavailable_coordination_never_claims_readiness():
-    from components.scheduler.models import SchedulerUnavailable
+    from components.resource.scheduler.models import SchedulerUnavailable
     plane = _plane()
     _register(plane, "runtime:edge-exec-1")
     class Unavailable:
@@ -482,7 +482,7 @@ def test_unavailable_coordination_never_claims_readiness():
 def test_lease_ttl_expires_and_capacity_recovers() -> None:
     from datetime import datetime, timezone
 
-    from components.scheduler.leases import InMemoryLeaseCoordinator
+    from components.resource.scheduler.leases import InMemoryLeaseCoordinator
 
     plane = _plane()
     _register(plane, "runtime:edge-exec-1", capacity=1)

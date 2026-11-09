@@ -19,8 +19,8 @@ from components.mission_manager.store import WorkflowRegistry
 from components.memory.store import MemoryStore
 from components.resource.runtime.embedded_runtime import EMBEDDED_AGENTS_RUNTIME_ID
 from components.resource.application.resource_plane import ResourcePlane
-from components.scheduler.binder import ResourceBinder
-from components.scheduler.models import (
+from components.resource.scheduler.binder import ResourceBinder
+from components.resource.scheduler.models import (
     SchedulerAllocationTimeout,
     SchedulerNoEligibleResource,
 )

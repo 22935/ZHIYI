@@ -2,7 +2,7 @@
 
 import pytest
 
-from components.scheduler.binder import ResourceBinder
+from components.resource.scheduler.binder import ResourceBinder
 from components.resource.application.resource_plane import ResourcePlane
 from contracts.resource import (
     ExecutionRequirement,

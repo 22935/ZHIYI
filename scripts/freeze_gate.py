@@ -52,7 +52,6 @@ SOURCE_TEST_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("src/runtime/workflow_runtime.py", ("../agent/tests/test_managed_execution_settlement.py",)),
     ("src/components/executor/graph.py", ("tests/test_acg_execution_graph.py", "tests/components/executor/test_advanced_acg_capabilities.py", "../agent/tests/test_execution_adapter_settlement.py")),
     ("src/components/executor/compiler.py", ("tests/test_acg_execution_graph.py", "tests/components/planner/test_acg_semantic_preservation.py")),
-    ("src/components/scheduler/binder.py", ("../agent/tests/test_managed_execution_settlement.py",)),
     ("src/adapters/audited_tool_runtime.py", ("tests/adapters/test_audited_tool_runtime.py", "tests/adapters/test_hands_integration.py")),
     ("src/adapters/guarded_tool.py", ("tests/adapters/test_guarded_runtime.py", "tests/adapters/test_hands_integration.py")),
     ("src/adapters/hands_http.py", ("tests/adapters/test_hands_integration.py", "../agent/tests/test_execution_adapter_settlement.py")),
@@ -86,9 +85,11 @@ SOURCE_TEST_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("src/components/resource/sqlite_support.py", ("tests/components/resource/test_store_contract.py", "tests/components/resource/test_health_store.py", "tests/components/resource/test_node_store.py")),
     ("src/components/resource/store.py", ("tests/components/resource/test_store_contract.py", "tests/components/resource/test_remote_observation.py", "tests/components/resource/test_resource_auth.py")),
     ("src/contracts/resource.py", ("tests/components/resource/test_edge_cloud_contracts.py", "tests/components/scheduler/test_binder.py")),
-    ("src/components/scheduler/binder.py", ("tests/components/scheduler/test_binder.py",)),
-    ("src/components/scheduler/leases.py", ("tests/components/scheduler/test_redis_leases.py",)),
-    ("src/components/scheduler/models.py", ("tests/components/scheduler/test_binder.py",)),
+    # The scheduler belongs to the resource plane. Keep the test selection
+    # aligned with the layered module location after removing the legacy shim.
+    ("src/components/resource/scheduler/binder.py", ("tests/components/scheduler/test_binder.py",)),
+    ("src/components/resource/scheduler/leases.py", ("tests/components/scheduler/test_redis_leases.py",)),
+    ("src/components/resource/scheduler/models.py", ("tests/components/scheduler/test_binder.py",)),
     ("src/runtime/initial_execution.py", ("tests/components/planner/test_initial_execution_permit.py",
         "tests/architecture/test_capability_upgrade_gates.py")),
     ("src/runtime/graph_handoff.py", ("tests/components/planner/test_initial_execution_permit.py",
@@ -179,9 +180,9 @@ EXTERNAL_BASELINE = {
     # (cancellation safety); drift forces the lifespan cleanup tests.
     "apps/agent/app/lifespan.py": "1e4f5e7cabfd5df60ed8a7d3deb1ccd5e72b3f59499e6389ff01a422ced19b01",
     "apps/agent/app/api/agentos_v2.py": "b78ffdd8d0b1c004f9befdd63c7372070cf9a733c244f86591328897791ccc21",
-    # PR-UI-04.2 assembly review: existing workspace authorization/composition
-    # changes were rechecked against the assembly/schema suites. INT-1 stays fixed.
-    "apps/agent/app/execution/wiring.py": "961b6810af095ebf7fb5b2cfe296844ac686fe1644f715bb68b9ac7e65aa5af6",
+    # Resource-plane layering migration: the composition root now imports the
+    # scheduler through components.resource. Keep its assembly-test pin current.
+    "apps/agent/app/execution/wiring.py": "2c8263f03b04e89380f93aa7f1728ba5d08aad433fa82b1dddc4b6582bfd94bf",
     # New ownership boundaries await independent reference acceptance. None
     # forces their real tests on every gate; actual bytes still fingerprint the run.
     "apps/agent/app/execution/coordinator.py": None,

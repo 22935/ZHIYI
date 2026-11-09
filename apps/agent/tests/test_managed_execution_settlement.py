@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 
 from test_mission_semantic_commands import api, create
-from components.scheduler.binder import LeaseKeepAlive
+from components.resource.scheduler.binder import LeaseKeepAlive
 
 
 @pytest.fixture(autouse=True)
@@ -342,7 +342,7 @@ def test_api_cancel_before_actual_runtime_entry_does_not_start_agent(api, monkey
 
 @pytest.mark.parametrize('operator_cancel', [False, True])
 def test_lease_renewal_failure_settles_runner_before_release_even_during_cancel(api, monkeypatch, operator_cancel):
-    from components.scheduler.leases import LeaseRenewalFailedError
+    from components.resource.scheduler.leases import LeaseRenewalFailedError
     renewers = {}
     wait_failed = LeaseKeepAlive.wait_failed
     async def capture(self):

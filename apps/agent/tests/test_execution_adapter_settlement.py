@@ -217,7 +217,7 @@ async def test_formal_tool_keeps_nested_lease_until_receipt_or_quarantines_unkno
     import app.tools.formal_workspace as module
     from adapters.hands_http import HandsExecutionCancelled, HandsOutcomeUnknown, receipt_checksum
     from components.executor.value_store import SQLiteExecutionValueStore
-    from components.scheduler.leases import InMemoryLeaseCoordinator
+    from components.resource.scheduler.leases import InMemoryLeaseCoordinator
     from contracts.local_runtime import LocalRuntimeExecutionResult, LocalRuntimeExecutionError, LocalRuntimeAuthorizationRef
     from datetime import datetime, timedelta, timezone
     started, cancelling, finish, external_ended = (asyncio.Event() for _ in range(4))
