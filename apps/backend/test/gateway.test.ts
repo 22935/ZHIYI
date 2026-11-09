@@ -129,6 +129,16 @@ describe('Python gateway transport contracts', () => {
 });
 
 describe('workbench response compatibility', () => {
+  it('preserves heterogeneous resource provenance in catalog projections', () => {
+    const projected = projectAgentOsResponse('/ai/agentos/v2/resources', { total: 1, items: [{
+      profile: { resourceId: 'runtime:edge:acme', resourceType: 'worker', deploymentTier: 'edge',
+        provider: 'Acme', sourceType: 'kubernetes', adapter: 'k8s-agentos', capabilities: [], domains: [],
+        version: 1, enabled: true, capacity: 4 }, snapshot: {}, snapshotVersion: 1
+    }] }) as { items: Array<{ profile: Record<string, unknown> }> };
+
+    expect(projected.items[0].profile).toMatchObject({ provider: 'Acme', sourceType: 'kubernetes', adapter: 'k8s-agentos' });
+  });
+
   it('retains the workbench graph, execution resource and node health field names', () => {
     expect(projectAgentOsResponse('/ai/agentos/v2/missions/mission', { mission: {}, tasks: [], blueprints: [{ graphId: 'graph', version: 1 }], runs: [] })).toHaveProperty('graphs', [{ graphId: 'graph', version: 1, createdAt: null }]);
     expect(projectAgentOsResponse('/ai/agentos/v2/nodes', { items: [{ profile: { nodeId: 'node' }, health: { status: 'healthy' }, snapshotVersion: 2 }], total: 1 })).toMatchObject({ items: [{ healthStatus: 'healthy' }] });

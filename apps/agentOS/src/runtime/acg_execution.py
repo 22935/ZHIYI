@@ -658,7 +658,7 @@ class ACGExecutionService(CollaboratorAccess):
                 )
                 if decision.status == "allocated":
                     break
-                if (decision.reason or "") in FATAL_SCHEDULING_REASONS:
+                if decision.status == "rejected" or (decision.reason or "") in FATAL_SCHEDULING_REASONS:
                     rejected = ", ".join(
                         f"{item.resource_id}:[{','.join(reason.value for reason in item.reasons)}]"
                         for item in decision.candidates

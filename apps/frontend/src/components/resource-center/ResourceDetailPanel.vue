@@ -95,6 +95,9 @@
         <div><dt>数据域</dt><dd>{{ item.profile.dataZone || '未标注' }}</dd></div>
         <div><dt>位置</dt><dd>{{ item.profile.location || '未标注' }}</dd></div>
         <div><dt>归属</dt><dd>{{ item.profile.ownerScope || '未标注' }}</dd></div>
+        <div><dt>资源来源</dt><dd>{{ item.profile.sourceType || '未标注' }}</dd></div>
+        <div><dt>厂家 / 提供方</dt><dd>{{ item.profile.provider || '未标注' }}</dd></div>
+        <div><dt>接入适配器</dt><dd>{{ item.profile.adapter || '未标注' }}</dd></div>
         <!-- 执行端点与凭据引用已随 N1.2 投影迁移从资源目录移除（任务书：资源目录无 endpoint/credential）。 -->
       </dl>
       </section>

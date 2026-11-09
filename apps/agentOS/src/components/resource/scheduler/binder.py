@@ -153,7 +153,10 @@ def hard_constraint_reasons(
         reasons.append(FilterReason.DISABLED)
     if not healthy:
         reasons.append(FilterReason.UNHEALTHY)
-    if node is None and node_status is not None and node_status in {NodeHealthStatus.STALE, NodeHealthStatus.OFFLINE}:
+    if node is None and node_status is not None and node_status in {
+        NodeHealthStatus.UNKNOWN, NodeHealthStatus.STALE, NodeHealthStatus.OFFLINE,
+        NodeHealthStatus.SUSPICIOUS,
+    }:
         reasons.append(FilterReason.NODE_UNHEALTHY)
     if not set(requirement.required_capabilities).issubset(profile.capabilities):
         reasons.append(FilterReason.CAPABILITY_MISMATCH)
@@ -312,6 +315,9 @@ class ResourceBinder:
                 latency_ms=health.latency_ms,
                 requirement=requirement,
             )
+            # 心跳健康是准入依据；陈旧快照只降权，不允许压过新鲜健康资源。
+            if (current - versioned.snapshot.observed_at.astimezone(timezone.utc)) > timedelta(seconds=60):
+                score = round(score * 0.5, 9)
             decisions.append(CandidateDecision(
                 resourceId=profile.runtime_id,
                 accepted=True,
@@ -405,9 +411,9 @@ class ResourceBinder:
                     version=best.model_version,
                 )
         if assessment.reason in {"NO_MODEL_ENDPOINT", "NO_ELIGIBLE_RESOURCE"}:
-            # 有可执行后端但模型端点缺失是配置缺口，不是容量问题。
+            # 这些是永久性配置缺口；不能进入容量等待队列。
             return ReadyNodeSchedulingResult(
-                status="queued",
+                status="rejected",
                 candidates=evaluations,
                 reason=assessment.reason,
             )
@@ -435,6 +441,14 @@ class ResourceBinder:
                 self.coordinator.release(lease.lease_id)
                 continue
             health = self.plane.health_monitor.health(profile.runtime_id, now=current)
+            if not health.healthy:
+                self.coordinator.release(lease.lease_id)
+                continue
+            confirmed_health = self.plane.get_node_health(profile.node_id, now=current)
+            if confirmed_health.status in {NodeHealthStatus.UNKNOWN, NodeHealthStatus.STALE,
+                                            NodeHealthStatus.OFFLINE, NodeHealthStatus.SUSPICIOUS}:
+                self.coordinator.release(lease.lease_id)
+                continue
             _, score_factors = placement_score(
                 profile,
                 confirmed.snapshot,

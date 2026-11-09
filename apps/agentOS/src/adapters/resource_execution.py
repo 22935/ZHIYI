@@ -246,9 +246,12 @@ def build_resource_execution_adapter(
         raise ResourceExecutionError(
             f"REMOTE_EXECUTION_CONFIG_INVALID: {profile.runtime_id} has no endpoint"
         )
-    if endpoint.protocol not in {"http", "https"}:
+    if endpoint.protocol not in {"http", "https"} or profile.adapter not in {
+        None, "agentos_http", "http", "https"
+    }:
         raise ResourceExecutionError(
-            f"REMOTE_EXECUTION_CONFIG_INVALID: unsupported protocol {endpoint.protocol}"
+            f"REMOTE_EXECUTION_CONFIG_INVALID: unsupported adapter/protocol "
+            f"{profile.adapter or endpoint.protocol}"
         )
     parsed = urlsplit(endpoint.address)
     if parsed.scheme != endpoint.protocol:

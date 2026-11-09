@@ -20,6 +20,7 @@ import secrets
 import uuid
 from dataclasses import dataclass
 from typing import Literal
+from urllib.parse import urlsplit
 
 from contracts.capability import ModelFeatureSet
 from contracts.resource import (
@@ -534,9 +535,19 @@ class ResourcePlane:
         """登记远程 Runtime 并生成只能在注册响应中读取一次的凭据。"""
         if profile.endpoint is None or profile.endpoint.protocol == "local":
             raise ValueError("remote runtime requires a callable execution endpoint")
+        if profile.endpoint.protocol not in {"http", "https"} or profile.adapter not in {
+            None, "agentos_http", "http", "https"
+        }:
+            raise ValueError("remote runtime requires a supported AgentOS HTTP(S) adapter")
+        parsed_endpoint = urlsplit(profile.endpoint.address)
+        if parsed_endpoint.scheme.lower() != profile.endpoint.protocol or not parsed_endpoint.netloc:
+            raise ValueError("remote runtime endpoint scheme must match its protocol")
         if not profile.owner_scope:
             raise ValueError("remote runtime ownerScope is required")
         self._validate_runtime_host(profile)
+        host = self.node_store.get_profile(profile.node_id)
+        if host.owner_scope and host.owner_scope != profile.owner_scope:
+            raise ValueError("remote runtime ownerScope must match its host node")
         registration_id = registration_id or compute_registration_id(
             profile.runtime_id, profile.owner_scope, profile
         )
@@ -941,7 +952,11 @@ class ResourcePlane:
             model = str(route.get("model") or "").strip()
             if not provider or not model:
                 continue
-            endpoint_id = f"model:{provider}/{model}"
+            endpoint_id = str(
+                route.get("endpointId") or route.get("endpoint_id") or f"model:{provider}/{model}"
+            ).strip()
+            if not endpoint_id:
+                continue
             envelope = None
             if describe_model is not None:
                 try:
@@ -951,10 +966,10 @@ class ResourcePlane:
             features: dict[str, bool] = {}
             context_window = None
             max_output = None
-            placement = Placement.CLOUD
+            placement = Placement(route.get("placement") or Placement.CLOUD)
             if envelope is not None:
-                context_window = envelope.context_window_tokens
-                max_output = envelope.max_output_tokens
+                context_window = route.get("contextWindowTokens", envelope.context_window_tokens)
+                max_output = route.get("maxOutputTokens", envelope.max_output_tokens)
                 feature_set = envelope.features
                 features = {
                     key: value
@@ -967,18 +982,30 @@ class ResourcePlane:
                     }.items()
                     if value is not None
                 }
-                if provider.lower() in {"ollama", "vllm"}:
-                    placement = Placement.DEVICE
+            route_features = route.get("features")
+            if isinstance(route_features, dict):
+                features.update(route_features)
+            context_window = route.get("contextWindowTokens", route.get("context_window_tokens", context_window))
+            max_output = route.get("maxOutputTokens", route.get("max_output_tokens", max_output))
+            metadata = dict(route.get("metadata") or {})
+            metadata["_resourcePlaneSync"] = "model-registry"
             endpoint = ModelEndpointProfile(
                 endpointId=endpoint_id,
+                runtimeId=route.get("runtimeId") or route.get("runtime_id"),
                 provider=provider,
                 model=model,
-                modelVersion=(str(route.get("version")) if route.get("version") else None),
+                modelVersion=(str(route.get("modelVersion") or route.get("version")) if route.get("modelVersion") or route.get("version") else None),
+                sourceType=(str(route.get("sourceType") or route.get("source_type") or "model_registry")),
+                adapter=(str(route.get("adapter")) if route.get("adapter") else None),
                 placement=placement,
+                tier=route.get("tier"),
                 contextWindowTokens=context_window,
                 maxOutputTokens=max_output,
                 features=ModelFeatureSet.model_validate(features),
-                metadata={"source": "model-registry-sync"},
+                costMetadata=route.get("costMetadata") or route.get("cost_metadata") or {},
+                labels=route.get("labels") or {},
+                enabled=route.get("enabled", True),
+                metadata=metadata,
             )
             _, changed = self.store.upsert_model_endpoint(endpoint)
             if changed:
@@ -986,7 +1013,8 @@ class ResourcePlane:
             keep.add(endpoint_id)
         for existing in self.store.list_model_endpoints():
             if (
-                existing.metadata.get("source") == "model-registry-sync"
+                (existing.metadata.get("_resourcePlaneSync") == "model-registry"
+                 or existing.metadata.get("source") == "model-registry-sync")
                 and existing.endpoint_id not in keep
             ):
                 self.store.delete_model_endpoint(existing.endpoint_id)
@@ -1000,7 +1028,11 @@ class ResourcePlane:
         demand = demand or ModelDemand()
         allowed = set(demand.allowed_endpoint_ids)
         excluded = set(demand.excluded_endpoint_ids)
-        preferred = set(demand.preferred_model_ids)
+        preferred = {value.casefold() for value in demand.preferred_model_ids}
+        allowed_providers = {value.casefold() for value in demand.allowed_providers}
+        excluded_providers = {value.casefold() for value in demand.excluded_providers}
+        allowed_models = {value.casefold() for value in demand.allowed_models}
+        excluded_models = {value.casefold() for value in demand.excluded_models}
         required_features = set(demand.required_features)
         candidates: list[ModelEndpointCandidate] = []
         for endpoint in self.store.list_model_endpoints():
@@ -1010,6 +1042,15 @@ class ResourcePlane:
                 continue
             if endpoint.endpoint_id in excluded:
                 continue
+            provider = endpoint.provider.casefold()
+            model = endpoint.model.casefold()
+            qualified_model = f"{provider}/{model}"
+            if provider in excluded_providers or (allowed_providers and provider not in allowed_providers):
+                continue
+            if model in excluded_models or qualified_model in excluded_models:
+                continue
+            if allowed_models and model not in allowed_models and qualified_model not in allowed_models:
+                continue
             feature_map = endpoint.features.model_dump()
             if any(feature_map.get(feature) is not True for feature in required_features):
                 continue
@@ -1018,12 +1059,7 @@ class ResourcePlane:
                 or endpoint.context_window_tokens < demand.min_context_tokens
             ):
                 continue
-            score = 1.0 + (
-                0.1
-                if endpoint.model in preferred
-                or f"{endpoint.provider}/{endpoint.model}" in preferred
-                else 0.0
-            )
+            score = 1.0 + (0.1 if model in preferred or qualified_model in preferred else 0.0)
             candidates.append(ModelEndpointCandidate(endpoint=endpoint, score=score))
         return sorted(
             candidates,

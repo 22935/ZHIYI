@@ -15,7 +15,6 @@ components/resource/
 ├── contracts/
 │   ├── __init__.py
 │   ├── resource.py                     # 跨组件资源合同的本地入口
-│   └── resource_signing.py             # 签名规范的本地入口
 ├── domain/
 │   ├── __init__.py
 │   ├── algorithms.py                   # EMA、健康/可用性纯算法
@@ -53,13 +52,13 @@ components/resource/
     ├── models.py                        # 调度决策、拒绝原因和结果模型
     └── placement_policy.py              # Device/Edge/Cloud 软偏好
 
-contracts/resource/                     # 仓库级权威资源合同定义
-contracts/resource_signing.py           # 仓库级权威签名规范
-adapters/resource_execution.py          # 执行适配器，不属于资源器目录
-runtime/binding.py                      # 需求生成，不属于资源器目录
+../contracts/resource/                  # 仓库级权威资源合同定义
+../contracts/resource_signing.py        # 仓库级权威签名规范
+../adapters/resource_execution.py       # 执行适配器，不属于资源器目录
+../runtime/binding.py                   # 需求生成，不属于资源器目录
 ```
 
-`components/resource/contracts/` 是方便资源部件内部使用的合同入口；跨组件合同的权威定义位于 `contracts/resource/` 和 `contracts/resource_signing.py`。不要在两处复制模型定义。
+`components/resource/contracts/` 是方便资源部件内部使用的合同入口；跨组件合同的权威定义位于 `contracts/resource/` 和 `contracts/resource_signing.py`（均相对 `src/`）。不要在两处复制模型定义。
 
 ## 分层职责与依赖
 
@@ -93,7 +92,13 @@ runtime / scheduler / adapters -> application -> ports
 3. **租约确认**：`bind_ready()` 按排序结果逐个申请容量租约。RuntimeSnapshot 的 available slots 是遥测，不是并发容量的权威账本；并发占用由 LeaseCoordinator 决定。冲突时继续尝试下一候选。
 4. **复核并冻结**：取得租约后重新读取 Runtime 快照，版本未变化才建立 `ExecutionBinding`，绑定中固定资源、Node、快照版本和租约版本；快照已变化则释放租约并尝试其他候选。
 
+没有合格 Runtime 或没有满足需求的模型端点属于永久配置缺口，`bind_ready()` 返回 `rejected`，执行流程立即报错；只有暂时没有租约容量才返回 `queued` 并进入有界等待。
+
 默认 placement 软偏好定义于 `scheduler/placement_policy.py`：Device `1.0`、Edge `0.5`、Cloud `0.0`，评分权重 `0.15`。因此默认是“端优先、边缘次选、云端兜底”，但这不是硬路由：硬约束只剩 Cloud 时仍可选 Cloud；端资源无租约容量时可继续尝试 Edge/Cloud。
+
+资源接入时，`placement` 描述物理/信任位置，`provider`、`sourceType` 和 `adapter` 描述厂家、来源与协议适配器；三者正交。厂家扩展参数放在 `metadata`，不得把厂商字符串直接解释成能力、信任或准入许可。当前远程 Agent 执行 adapter 仅实现 HTTP(S)；gRPC、MCP、Kubernetes 等来源可以登记为元数据，但要实际调度执行仍需对应协议 adapter，未知协议不可被当成已可调用资源。
+
+模型路由可通过 `ModelDemand` 的 endpoint/provider/model allowlist 与 denylist 约束候选；供应商匹配不区分大小写，`provider/model` 与模型短名均可用于模型筛选。
 
 ## 一次完整请求的数据变化
 
@@ -118,7 +123,7 @@ BindingManifest
 
 | 对象 | 代表什么 | 生命周期/权威性 |
 |---|---|---|
-| `RuntimeProfile` | 资源静态身份、能力、位置、端点和容量声明 | 登记后持续存在；静态资源事实 |
+| `RuntimeProfile` | 资源静态身份、能力、位置、来源/厂商/适配器、端点和容量声明 | 登记后持续存在；静态资源事实 |
 | `RuntimeSnapshot` | 可用槽位、利用率、心跳等动态观测 | 有观测序号与存储版本；遥测，不负责并发占位 |
 | `CandidateDecision` | 一次需求下的资格结果、原因和分数 | 单次评估结果，不是预留 |
 | `ResourceLease` | 某次执行尝试占用的容量 | 并发容量权威；需要释放或到期 |

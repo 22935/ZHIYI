@@ -21,6 +21,8 @@ export interface RuntimeResourceCatalogProfile {
   trust?: string | null
   hostRuntimeId?: string | null
   provider?: string | null
+  sourceType?: string | null
+  adapter?: string | null
   model?: string | null
   contextWindowTokens?: number | null
   maxOutputTokens?: number | null
@@ -59,7 +61,8 @@ export interface RuntimeResourceCatalogSnapshot {
 export interface ResourceRegistrationRequest {
   profile: {
     runtimeId: string; kind: 'execution_backend' | 'model_server' | 'tool_service'
-    nodeId: string; displayName: string; placement: 'edge' | 'cloud'; trust: string
+    nodeId: string; displayName: string; placement: 'device' | 'edge' | 'cloud'; trust: string
+    provider?: string; sourceType?: string; adapter?: string; metadata?: Record<string, unknown>
     capabilities: string[]; domains: string[]; capacity: number; ownerScope: string
     endpoint: RuntimeResourceEndpoint; modelIds: string[]; enabled: boolean
   }
@@ -70,11 +73,13 @@ export interface ResourceRegistrationResult {
 }
 export interface NodeCatalogItem {
   profile: { nodeId: string; displayName: string; placement: string; trust: string;
-    ownerScope?: string | null; enabled: boolean; computeCapacity?: RuntimeResourceCatalogProfile['computeCapacity'] }
+    ownerScope?: string | null; enabled: boolean; provider?: string | null; sourceType?: string | null; adapter?: string | null;
+    computeCapacity?: RuntimeResourceCatalogProfile['computeCapacity'] }
   healthStatus: string; snapshotVersion: number
 }
 export interface NodeRegistrationRequest {
-  profile: { nodeId: string; displayName: string; placement: 'edge' | 'cloud'; trust: string; ownerScope: string;
+  profile: { nodeId: string; displayName: string; placement: 'device' | 'edge' | 'cloud'; trust: string; ownerScope: string;
+    provider?: string; sourceType?: string; adapter?: string; metadata?: Record<string, unknown>;
     computeCapacity: { cpuCores: number; memoryMb: number; gpuMemoryMb: number; bandwidthMbps: number; gpuType: string | null } }
   snapshot: { nodeId: string; healthStatus: 'offline' }
 }

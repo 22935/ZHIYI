@@ -68,6 +68,17 @@ def test_redis_coordinator_returns_existing_idempotent_lease() -> None:
     assert repeated == original
 
 
+def test_redis_acquire_script_compares_identity_from_actual_payload_argument() -> None:
+    client = _RedisStub([1])
+    _acquire(RedisLeaseCoordinator(client))
+
+    script = client.calls[0][0]
+    assert "cjson.decode(ARGV[8])" in script
+    assert "ARGV[9]" not in script
+    assert "existing['attemptId'] ~= requested['attemptId']" in script
+    assert "existing['status'] ~= 'active'" in script
+
+
 def test_redis_coordinator_never_falls_back_when_redis_is_unavailable() -> None:
     with pytest.raises(SchedulerUnavailable, match="SCHEDULER_UNAVAILABLE"):
         _acquire(RedisLeaseCoordinator(_BrokenRedis()))

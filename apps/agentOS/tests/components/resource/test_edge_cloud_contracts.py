@@ -13,6 +13,7 @@ from contracts.resource import (
     ExecutionRequirement,
     ModelEndpointProfile,
     NodeProfile,
+    NodeSnapshot,
     Placement,
     ResourceEndpoint,
     RuntimeKind,
@@ -20,6 +21,7 @@ from contracts.resource import (
     RuntimeSnapshot,
     TrustLevel,
 )
+from components.resource.application.resource_plane import ResourcePlane
 
 
 def _runtime(**overrides) -> RuntimeProfile:
@@ -132,3 +134,84 @@ def test_runtime_snapshot_reports_slots_and_health_only() -> None:
     )
     assert snapshot.available_slots == 3
     assert snapshot.utilization == 0.25
+
+
+def test_resource_contracts_accept_vendor_source_and_adapter_without_changing_placement():
+    node = NodeProfile(nodeId="node:edge:vendor", placement=Placement.EDGE,
+        sourceType="kubernetes", provider="acme", adapter="k8s-agentos", ownerScope="tenant-a")
+    runtime = _runtime(nodeId=node.node_id, provider="acme", sourceType="vendor-runtime",
+        adapter="agentos-http", metadata={"vendorRegion": "zone-a", "accelerator": {"name": "NPU-X"}})
+    model = ModelEndpointProfile(endpointId="model:acme/chat", provider="acme", model="chat",
+        sourceType="cloud-api", adapter="openai-compatible")
+
+    assert node.placement is Placement.EDGE and node.provider == "acme"
+    assert runtime.placement is Placement.EDGE and runtime.source_type == "vendor-runtime"
+    assert runtime.metadata["accelerator"]["name"] == "NPU-X"
+    assert model.source_type == "cloud-api" and model.adapter == "openai-compatible"
+
+
+def test_model_registry_projection_preserves_declared_placement_and_vendor_metadata():
+    plane = ResourcePlane()
+    plane.sync_model_endpoints([{
+        "provider": "vLLM",
+        "model": "qwen-local",
+        "runtimeId": "runtime:edge:vllm",
+        "placement": "edge",
+        "sourceType": "kubernetes",
+        "adapter": "openai-compatible",
+        "tier": "local-inference",
+        "contextWindowTokens": 65536,
+        "maxOutputTokens": 8192,
+        "costMetadata": {"unit": 0.2},
+        "labels": {"region": "cn-east"},
+        "metadata": {"cluster": "edge-a"},
+    }])
+
+    endpoint = plane.model_endpoint("model:vLLM/qwen-local")
+    assert endpoint.placement is Placement.EDGE
+    assert endpoint.runtime_id == "runtime:edge:vllm"
+    assert endpoint.source_type == "kubernetes"
+    assert endpoint.adapter == "openai-compatible"
+    assert endpoint.tier == "local-inference"
+    assert endpoint.context_window_tokens == 65536
+    assert endpoint.max_output_tokens == 8192
+    assert endpoint.cost_metadata == {"unit": 0.2}
+    assert endpoint.labels == {"region": "cn-east"}
+    assert endpoint.metadata == {"cluster": "edge-a", "_resourcePlaneSync": "model-registry"}
+
+
+def test_model_registry_projection_does_not_infer_placement_from_provider_name():
+    plane = ResourcePlane()
+    plane.sync_model_endpoints([{"provider": "ollama", "model": "remote-model", "placement": "cloud"}])
+
+    assert plane.model_endpoint("model:ollama/remote-model").placement is Placement.CLOUD
+
+
+@pytest.mark.parametrize(
+    ("protocol", "address", "adapter"),
+    [("grpc", "grpc://runtime.example.test", "grpc-vendor"),
+     ("https", "https://runtime.example.test", "mcp")],
+)
+def test_remote_runtime_registration_rejects_unimplemented_execution_adapters(protocol, address, adapter):
+    plane = ResourcePlane()
+    profile = _runtime(endpoint=ResourceEndpoint(protocol=protocol, address=address), adapter=adapter)
+
+    with pytest.raises(ValueError, match=r"supported AgentOS HTTP\(S\) adapter"):
+        plane.register_remote_runtime(profile, RuntimeSnapshot(
+            runtimeId=profile.runtime_id, availableSlots=profile.capacity, utilization=0.0
+        ))
+
+
+def test_remote_runtime_registration_requires_the_host_node_owner_scope():
+    plane = ResourcePlane()
+    plane.register_remote_node(
+        NodeProfile(nodeId="node:edge:tenant-a", placement=Placement.EDGE,
+                    trust=TrustLevel.TRUSTED, ownerScope="tenant-a"),
+        NodeSnapshot(nodeId="node:edge:tenant-a", healthStatus="offline"),
+    )
+    profile = _runtime(nodeId="node:edge:tenant-a", ownerScope="tenant-b")
+
+    with pytest.raises(ValueError, match="ownerScope must match"):
+        plane.register_remote_runtime(profile, RuntimeSnapshot(
+            runtimeId=profile.runtime_id, availableSlots=profile.capacity, utilization=0.0
+        ))

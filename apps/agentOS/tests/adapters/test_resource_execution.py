@@ -184,6 +184,13 @@ def test_build_resource_execution_adapter_uses_remote_profile_endpoint() -> None
     assert adapter.address == "https://edge.example.test/execute"
 
 
+def test_build_resource_execution_adapter_rejects_declared_but_unsupported_protocol():
+    profile = RuntimeProfile(runtimeId="grpc-runtime", nodeId="node:edge", capabilities=["analysis"],
+        adapter="grpc-vendor", endpoint=ResourceEndpoint(protocol="grpc", address="grpc://edge.example.test"))
+    with pytest.raises(ResourceExecutionError, match="unsupported adapter/protocol"):
+        build_resource_execution_adapter(profile, credential_provider=_Credentials())
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status,payload", [
     (202, {"output": {"accepted": True}}),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -58,7 +59,7 @@ class CandidateDecision(BaseModel):
 class ReadyNodeSchedulingResult(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid", frozen=True)
 
-    status: str
+    status: Literal["allocated", "queued", "rejected"]
     binding: ExecutionBinding | None = None
     lease: ResourceLease | None = None
     candidates: list[CandidateDecision] = Field(default_factory=list)

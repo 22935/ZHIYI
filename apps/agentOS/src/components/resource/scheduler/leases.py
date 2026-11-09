@@ -21,6 +21,17 @@ end
 redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', ARGV[5])
 
 if redis.call('EXISTS', KEYS[1]) == 1 then
+  local existing = cjson.decode(redis.call('GET', KEYS[1]))
+  local requested = cjson.decode(ARGV[8])
+  if existing['resourceId'] ~= requested['resourceId']
+    or existing['runId'] ~= requested['runId']
+    or existing['stepId'] ~= requested['stepId']
+    or existing['attemptId'] ~= requested['attemptId']
+    or tonumber(existing['slotCount']) ~= tonumber(requested['slotCount'])
+    or existing['status'] ~= 'active'
+    or tonumber(existing['expiresAtEpochMs'] or 0) <= tonumber(ARGV[5]) then
+    return -2
+  end
   return 2
 end
 
@@ -165,10 +176,19 @@ class InMemoryLeaseCoordinator:
             raise ValueError("lease clock must be timezone-aware")
         if slot_count < 1 or capacity < 1 or ttl <= timedelta(0):
             raise ValueError("capacity, slot_count and ttl must be positive")
+        if not all(value.strip() for value in (lease_id, resource_id, run_id, step_id, attempt_id)):
+            raise ValueError("lease identity fields must not be blank")
         with self._lock:
             self._expire(current)
             existing = self._leases.get(lease_id)
             if existing is not None:
+                requested_identity = (resource_id, run_id, step_id, attempt_id, slot_count)
+                existing_identity = (existing.resource_id, existing.run_id, existing.step_id,
+                                     existing.attempt_id, existing.slot_count)
+                if existing_identity != requested_identity:
+                    raise ValueError("lease identity conflicts with existing lease request")
+                if existing.status != "active" or existing.expires_at <= current:
+                    raise ValueError("lease identity cannot be reused after release or expiry")
                 return existing.model_copy(deep=True)
             slot_key = self._slot_key(resource_id)
             active = sum(
@@ -283,6 +303,8 @@ class RedisLeaseCoordinator:
             raise ValueError("lease clock must be timezone-aware")
         if slot_count < 1 or capacity < 1 or ttl <= timedelta(0):
             raise ValueError("capacity, slot_count and ttl must be positive")
+        if not all(value.strip() for value in (lease_id, resource_id, run_id, step_id, attempt_id)):
+            raise ValueError("lease identity fields must not be blank")
         ttl_ms = max(1, int(ttl.total_seconds() * 1000))
         lease = ResourceLease(
             leaseId=lease_id,
@@ -319,6 +341,8 @@ class RedisLeaseCoordinator:
             )
             if result == 0:
                 return None
+            if result == -2:
+                raise ValueError("lease identity conflicts with existing lease request")
             if result == 2:
                 payload = self.client.get(lease_key)
                 if payload is None:

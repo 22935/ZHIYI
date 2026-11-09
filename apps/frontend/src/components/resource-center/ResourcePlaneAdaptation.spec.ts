@@ -85,6 +85,29 @@ describe('resource plane adaptation', () => {
     wrapper.unmount()
   })
 
+  it('filters heterogeneous resources by provider and source and displays their provenance', async () => {
+    const vendor = item('vendor-runtime', 'edge')
+    vendor.profile.provider = 'Acme'
+    vendor.profile.sourceType = 'kubernetes'
+    vendor.profile.adapter = 'k8s-agentos'
+    const other = item('other-runtime', 'cloud')
+    other.profile.provider = 'Other'
+    other.profile.sourceType = 'openai-compatible'
+    vi.spyOn(agentosApi, 'listResources').mockResolvedValue({ items: [vendor, other], total: 2 })
+    vi.spyOn(agentosApi, 'listNodes').mockResolvedValue({ items: [], total: 0 })
+    const wrapper = mount(ResourceOverviewPanel, { global: { stubs } })
+    await flushPromises()
+    const selects = wrapper.findAll('.resource-catalog-filters select')
+    await selects[4].setValue('kubernetes')
+    expect(wrapper.findAll('.resource-row')).toHaveLength(1)
+    expect(wrapper.find('.resource-row__meta').text()).toContain('Acme')
+    expect(wrapper.find('.resource-row__meta').text()).toContain('kubernetes')
+    const providerFilter = wrapper.findAll('.resource-catalog-filters select')[5]
+    await providerFilter.setValue('Other')
+    expect(wrapper.findAll('.resource-row')).toHaveLength(0)
+    wrapper.unmount()
+  })
+
   it('shows registered nodes before they have a runtime attached', async () => {
     vi.spyOn(agentosApi, 'listResources').mockResolvedValue({ items: [], total: 0 })
     vi.spyOn(agentosApi, 'listNodes').mockResolvedValue({ items: [{ profile: { nodeId: 'node:new', displayName: '新设备', placement: 'edge', trust: 'trusted', ownerScope: 'customer', enabled: true, computeCapacity: { cpuCores: 4, memoryMb: 8192 } }, healthStatus: 'offline', snapshotVersion: 1 }], total: 1 })
@@ -138,9 +161,12 @@ describe('resource plane adaptation', () => {
     await wrapper.setProps({ modelValue: true }); await flushPromises()
     expect(wrapper.text()).toContain('接入设备')
     await wrapper.findAll('input')[0].setValue('node:edge:new')
-    await wrapper.findAll('input')[2].setValue('scope')
+    await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '该节点所属的操作范围')!.setValue('scope')
+    await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '如 kubernetes、vendor_agent')!.setValue('vendor-agent')
+    await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '如 NVIDIA、华为、AWS')!.setValue('Acme')
+    await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '如 k8s-agentos、vendor-sdk')!.setValue('acme-adapter')
     await wrapper.get('.rr-submit').trigger('click'); await flushPromises()
-    expect(register.mock.calls[0][0]).toMatchObject({ profile: { nodeId: 'node:edge:new', placement: 'edge', ownerScope: 'scope' }, snapshot: { nodeId: 'node:edge:new', healthStatus: 'offline' } })
+    expect(register.mock.calls[0][0]).toMatchObject({ profile: { nodeId: 'node:edge:new', placement: 'edge', ownerScope: 'scope', sourceType: 'vendor-agent', provider: 'Acme', adapter: 'acme-adapter' }, snapshot: { nodeId: 'node:edge:new', healthStatus: 'offline' } })
     expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('one-time-secret')
     expect(wrapper.emitted('registered')).toBeUndefined()
     await wrapper.get('.rr-submit').trigger('click')
@@ -159,14 +185,15 @@ describe('resource plane adaptation', () => {
     } } })
     await flushPromises()
     await wrapper.findAll('.rr-type')[1].trigger('click')
+    expect(wrapper.text()).not.toContain('gRPC')
     await wrapper.findAll('input')[0].setValue('runtime:1')
     await wrapper.findAll('select')[0].setValue('node:edge:1')
     wrapper.findAllComponents({ name: 'ElSelect' })[0].vm.$emit('update:modelValue', ['exec.research'])
-    await wrapper.findAll('input')[2].setValue('https://worker.example.com')
+    await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '例如 https://worker.example.com')!.setValue('https://worker.example.com')
     await wrapper.get('.rr-submit').trigger('click'); await flushPromises()
     expect(register.mock.calls[0][0]).toMatchObject({ profile: { runtimeId: 'runtime:1', nodeId: 'node:edge:1',
       kind: 'model_server', placement: 'edge', trust: 'sandboxed', ownerScope: 'scope',
-      capabilities: ['exec.research'], endpoint: { protocol: 'https', address: 'https://worker.example.com' } },
+      adapter: 'agentos_http', capabilities: ['exec.research'], endpoint: { protocol: 'https', address: 'https://worker.example.com' } },
       snapshot: { runtimeId: 'runtime:1', healthStatus: 'unknown' } })
     expect(register.mock.calls[0][0].profile).not.toHaveProperty('resourceType')
     wrapper.unmount()
@@ -186,7 +213,7 @@ describe('resource plane adaptation', () => {
     await wrapper.findAll('input')[0].setValue('tool:1')
     await wrapper.findAll('select')[0].setValue('node:edge:1')
     wrapper.findAllComponents({ name: 'ElSelect' })[0].vm.$emit('update:modelValue', ['tool.search'])
-    await wrapper.findAll('input')[2].setValue('https://tools.example.com')
+    await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '例如 https://worker.example.com')!.setValue('https://tools.example.com')
     await wrapper.get('.rr-submit').trigger('click'); await flushPromises()
     expect(register).toHaveBeenCalledWith(expect.objectContaining({ profile: expect.objectContaining({ kind: 'tool_service', runtimeId: 'tool:1' }) }))
     wrapper.unmount()

@@ -121,7 +121,7 @@ function resourceCatalog(source: Row): Row {
   return { total: source.total, items: rows(source.items, item => {
     const profile = row(item.profile);
     return { snapshotVersion: item.snapshotVersion,
-      profile: { ...pick(profile, 'resourceId resourceType deploymentTier capabilities domains version enabled capacity privacyLevel dataZone location ownerScope modelIds runtimeKind displayName nodeId trust hostRuntimeId provider model contextWindowTokens maxOutputTokens'),
+      profile: { ...pick(profile, 'resourceId resourceType deploymentTier capabilities domains version enabled capacity privacyLevel dataZone location ownerScope modelIds runtimeKind displayName nodeId trust hostRuntimeId provider sourceType adapter model contextWindowTokens maxOutputTokens'),
         labels: Object.entries(row(profile.labels)).filter(([, value]) => typeof value === 'string').map(([key, value]) => ({ key, value })),
         costMetadata: Object.entries(row(profile.costMetadata)).filter(([, value]) => typeof value === 'number').map(([key, value]) => ({ key, value })),
         computeCapacity: profile.computeCapacity == null ? null : pick(profile.computeCapacity, 'cpuCores memoryMb gpuType gpuMemoryMb bandwidthMbps') },
@@ -199,7 +199,7 @@ export function projectAgentOsResponse(path: string, value: unknown): unknown {
   }
   if (suffix === '/resources') return resourceCatalog(source);
   if (suffix === '/nodes') return { total: source.total, items: rows(source.items, source => ({ snapshotVersion: source.snapshotVersion, healthStatus: row(source.health).status,
-    profile: { ...pick(source.profile, 'nodeId displayName placement trust ownerScope enabled'), computeCapacity: row(source.profile).computeCapacity == null ? null : pick(row(source.profile).computeCapacity, 'cpuCores memoryMb gpuType gpuMemoryMb bandwidthMbps') } })) };
+    profile: { ...pick(source.profile, 'nodeId displayName placement trust ownerScope enabled provider sourceType adapter'), computeCapacity: row(source.profile).computeCapacity == null ? null : pick(row(source.profile).computeCapacity, 'cpuCores memoryMb gpuType gpuMemoryMb bandwidthMbps') } })) };
   if (/\/resources\/[^/]+\/credential$/u.test(suffix)) return pick(source, 'resourceId credentialId createdAt');
   if (/\/artifacts$/u.test(suffix)) return { ...pick(source, 'runId total'), items: rows(source.items, artifact) };
   if (/\/artifacts\/[^/]+$/u.test(suffix)) return artifact(source);

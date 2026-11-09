@@ -149,6 +149,9 @@ class NodeProfile(BaseModel):
     data_zone: StrictStr | None = Field(default=None, alias="dataZone")
     data_region: StrictStr | None = Field(default=None, alias="dataRegion")
     owner_scope: StrictStr | None = Field(default=None, alias="ownerScope")
+    source_type: StrictStr | None = Field(default=None, alias="sourceType", description="资源接入来源类别，如 agentos_agent、kubernetes、vendor_sdk。")
+    provider: StrictStr | None = Field(default=None, description="设备/节点提供方或厂家标识。")
+    adapter: StrictStr | None = Field(default=None, description="接入适配器标识。")
     labels: dict[str, str] = Field(default_factory=dict)
     remote_execution_policy: RemoteExecutionPolicy = Field(
         default=RemoteExecutionPolicy.ALLOW, alias="remoteExecutionPolicy"
@@ -202,6 +205,9 @@ class RuntimeProfile(BaseModel):
     location: StrictStr | None = None
     data_zone: StrictStr | None = Field(default=None, alias="dataZone")
     owner_scope: StrictStr | None = Field(default=None, alias="ownerScope")
+    source_type: StrictStr | None = Field(default=None, alias="sourceType", description="资源接入来源类别；不参与调度裁决。")
+    provider: StrictStr | None = Field(default=None, description="Runtime 厂家、供应商或服务提供方标识。")
+    adapter: StrictStr | None = Field(default=None, description="接入协议/适配器标识，如 agentos_http、openai_compatible、mcp。")
     cost_metadata: dict[str, float] = Field(default_factory=dict, alias="costMetadata")
     model_ids: list[StrictStr] = Field(default_factory=list, alias="modelIds", description="MODEL_SERVER 直接服务的模型标识。")
     enabled: bool = Field(default=True, description="是否可接受新调度。")
@@ -238,6 +244,8 @@ class ModelEndpointProfile(BaseModel):
     endpoint_id: StrictStr = Field(alias="endpointId", min_length=1)
     runtime_id: StrictStr | None = Field(default=None, alias="runtimeId", description="承载该端点的 MODEL_SERVER。")
     provider: StrictStr = Field(min_length=1)
+    source_type: StrictStr | None = Field(default=None, alias="sourceType", description="模型接入来源类别。")
+    adapter: StrictStr | None = Field(default=None, description="供应商 API 适配器标识。")
     model: StrictStr = Field(min_length=1)
     model_version: StrictStr | None = Field(default=None, alias="modelVersion", description="供应商模型版本号。")
     placement: Placement = Field(default=Placement.CLOUD)
@@ -262,6 +270,10 @@ class ModelDemand(BaseModel):
     preferred_model_ids: list[StrictStr] = Field(default_factory=list, alias="preferredModelIds", description="软偏好；绝不构成硬白名单。")
     allowed_endpoint_ids: list[StrictStr] = Field(default_factory=list, alias="allowedEndpointIds")
     excluded_endpoint_ids: list[StrictStr] = Field(default_factory=list, alias="excludedEndpointIds")
+    allowed_providers: list[StrictStr] = Field(default_factory=list, alias="allowedProviders")
+    excluded_providers: list[StrictStr] = Field(default_factory=list, alias="excludedProviders")
+    allowed_models: list[StrictStr] = Field(default_factory=list, alias="allowedModels")
+    excluded_models: list[StrictStr] = Field(default_factory=list, alias="excludedModels")
 
 
 class ExecutionRequirement(BaseModel):

@@ -114,7 +114,7 @@ def test_no_eligible_resource_is_fatal_not_capacity_queue() -> None:
         attempt_id="attempt-1",
         requirement=_requirement(requiredCapabilities=["shell.exec"]),
     )
-    assert result.status == "queued"
+    assert result.status == "rejected"
     assert result.reason == "NO_ELIGIBLE_RESOURCE"
     assert result.reason in FATAL_SCHEDULING_REASONS
     assert all(not decision.accepted for decision in result.candidates)
@@ -257,7 +257,7 @@ def test_model_demand_binds_endpoint_and_missing_endpoint_is_fatal_config_gap() 
         run_id="run-1", step_id="step-1", attempt_id="attempt-1",
         requirement=_requirement(model=demand),
     )
-    assert result.status == "queued"
+    assert result.status == "rejected"
     assert result.reason == "NO_MODEL_ENDPOINT"
     assert result.reason in FATAL_SCHEDULING_REASONS
 
@@ -293,7 +293,7 @@ def test_model_endpoint_feature_matching_fails_closed() -> None:
         run_id="run-1", step_id="step-1", attempt_id="attempt-1",
         requirement=_requirement(model=ModelDemand(requiredFeatures=["json_schema"])),
     )
-    assert result.status == "queued" and result.reason == "NO_MODEL_ENDPOINT"
+    assert result.status == "rejected" and result.reason == "NO_MODEL_ENDPOINT"
 
     candidates = plane.model_candidates(ModelDemand(minContextTokens=300_000))
     assert candidates == []
@@ -390,6 +390,62 @@ def test_assessment_checks_model_and_actual_lease_capacity_without_reserving():
     assert again.lease.lease_id == binding.lease.lease_id
     binder.release(binding.lease.lease_id)
     assert binder.assess(demand).ready
+
+
+def test_released_lease_identity_cannot_be_reused_for_a_new_attempt() -> None:
+    plane = _plane()
+    _register(plane, "runtime:edge-exec-1", capacity=1)
+    binder = ResourceBinder(plane)
+    first = binder.bind_ready(run_id="run", step_id="step", attempt_id="attempt-1", requirement=_requirement())
+    assert first.lease is not None
+    assert binder.release(first.lease.lease_id)
+
+    second = binder.bind_ready(run_id="run", step_id="step", attempt_id="attempt-2", requirement=_requirement())
+
+    assert second.status == "allocated"
+    assert second.lease is not None
+    assert second.lease.attempt_id == "attempt-2"
+
+
+def test_lease_id_replay_with_different_resource_identity_is_rejected() -> None:
+    from components.resource.scheduler.leases import InMemoryLeaseCoordinator
+
+    coordinator = InMemoryLeaseCoordinator()
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    issued = coordinator.acquire(lease_id="stable", resource_id="resource-a", capacity=1,
+        run_id="run", step_id="step", attempt_id="attempt", slot_count=1,
+        ttl=timedelta(seconds=30), now=now)
+    assert issued is not None
+
+    with pytest.raises(ValueError, match="identity"):
+        coordinator.acquire(lease_id="stable", resource_id="resource-b", capacity=2,
+            run_id="run", step_id="step", attempt_id="other", slot_count=1,
+            ttl=timedelta(seconds=30), now=now)
+
+
+def test_stale_runtime_heartbeat_is_not_eligible_for_binding() -> None:
+    from datetime import datetime, timezone
+
+    plane = _plane()
+    _register(plane, "runtime:edge-exec-1")
+    old = datetime.now(timezone.utc) - timedelta(minutes=10)
+    plane.health_monitor.heartbeat("runtime:edge-exec-1", received_at=old)
+
+    decisions = ResourceBinder(plane).evaluate(_requirement(), now=datetime.now(timezone.utc))
+
+    assert not decisions[0].accepted
+
+
+def test_model_demand_can_allow_or_exclude_specific_vendors_and_models() -> None:
+    plane = _plane()
+    plane.upsert_model_endpoint(ModelEndpointProfile(endpointId="m:a", provider="Vendor-A", model="chat"))
+    plane.upsert_model_endpoint(ModelEndpointProfile(endpointId="m:b", provider="vendor-b", model="chat"))
+
+    excluded = plane.model_candidates(ModelDemand(allowedProviders=["VENDOR-A"], excludedModels=["chat"]))
+    assert excluded == []
+    allowed = plane.model_candidates(ModelDemand(allowedProviders=["vendor-a"], allowedModels=["vendor-a/chat"]))
+    assert [item.endpoint.endpoint_id for item in allowed] == ["m:a"]
 
 
 def test_zero_remote_snapshot_slots_do_not_override_free_redis_capacity():

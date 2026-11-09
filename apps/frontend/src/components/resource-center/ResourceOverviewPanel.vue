@@ -46,6 +46,8 @@
       <label><span>位置</span><select v-model="selectedTier"><option value="">全部位置</option><option value="device">本地</option><option value="edge">边缘</option><option value="cloud">云端</option><option v-for="tier in otherTierOptions" :key="tier" :value="tier">{{ tier }}</option></select></label>
       <label><span>状态</span><select v-model="selectedHealth"><option value="">全部状态</option><option value="online">可用</option><option value="degraded">需关注</option><option value="offline">离线</option><option value="unknown">待检测</option></select></label>
       <label><span>数据区域</span><select v-model="selectedDataZone"><option value="">全部区域</option><option v-for="zone in dataZoneOptions" :key="zone" :value="zone">{{ zone }}</option></select></label>
+      <label><span>来源</span><select v-model="selectedSource"><option value="">全部来源</option><option v-for="source in sourceOptions" :key="source" :value="source">{{ source }}</option></select></label>
+      <label><span>提供方</span><select v-model="selectedProvider"><option value="">全部提供方</option><option v-for="provider in providerOptions" :key="provider" :value="provider">{{ provider }}</option></select></label>
     </div>
 
     <div v-if="domainOptions.length" class="resource-domain-filter" role="group" aria-label="按领域筛选">
@@ -88,7 +90,7 @@
               </span>
               <div>
                 <strong>{{ item.profile.displayName || item.profile.resourceId }}</strong>
-                <span class="resource-row__meta">{{ customerResourceType(item.profile.runtimeKind || item.profile.resourceType) }}<template v-if="item.profile.provider"> · {{ item.profile.provider }}</template></span>
+              <span class="resource-row__meta">{{ customerResourceType(item.profile.runtimeKind || item.profile.resourceType) }}<template v-if="item.profile.provider"> · {{ item.profile.provider }}</template><template v-if="item.profile.sourceType"> · {{ item.profile.sourceType }}</template></span>
               </div>
             </div>
             <div class="resource-row__capabilities">
@@ -138,6 +140,8 @@ const selectedType = ref('')
 const selectedTier = ref('')
 const selectedHealth = ref('')
 const selectedDataZone = ref('')
+const selectedSource = ref('')
+const selectedProvider = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 const selectedResource = ref<RuntimeResourceItem | null>(null)
@@ -195,8 +199,10 @@ const domainOptions = computed(() => {
 })
 
 const dataZoneOptions = computed(() => [...new Set(resources.value.map(item => item.profile.dataZone).filter((zone): zone is string => Boolean(zone)))].sort())
+const sourceOptions = computed(() => [...new Set(resources.value.map(item => item.profile.sourceType).filter((value): value is string => Boolean(value)))].sort())
+const providerOptions = computed(() => [...new Set(resources.value.map(item => item.profile.provider).filter((value): value is string => Boolean(value)))].sort())
 const otherTierOptions = computed(() => [...new Set(resources.value.map(item => resourcePlacement(item.profile.deploymentTier)))].filter(tier => !['device', 'edge', 'cloud'].includes(tier)).sort())
-const hasFilters = computed(() => Boolean(searchText.value || selectedDomain.value || selectedType.value || selectedTier.value || selectedHealth.value || selectedDataZone.value))
+const hasFilters = computed(() => Boolean(searchText.value || selectedDomain.value || selectedType.value || selectedTier.value || selectedHealth.value || selectedDataZone.value || selectedSource.value || selectedProvider.value))
 const filteredNodes = computed(() => nodes.value.filter(node => {
   if (selectedType.value && selectedType.value !== 'device') return false
   if (selectedTier.value && resourcePlacement(node.profile.placement) !== selectedTier.value) return false
@@ -217,6 +223,8 @@ const filteredResources = computed(() => {
     if (selectedTier.value && resourcePlacement(item.profile.deploymentTier) !== selectedTier.value) return false
     if (selectedHealth.value && item.snapshot.healthStatus !== selectedHealth.value) return false
     if (selectedDataZone.value && item.profile.dataZone !== selectedDataZone.value) return false
+    if (selectedSource.value && item.profile.sourceType !== selectedSource.value) return false
+    if (selectedProvider.value && item.profile.provider !== selectedProvider.value) return false
     if (domain && !(item.profile.domains || []).includes(domain)) return false
     if (!query) return true
     return [
@@ -225,6 +233,7 @@ const filteredResources = computed(() => {
       item.profile.displayName || '', item.profile.nodeId || '', item.profile.runtimeKind || '',
       ...item.profile.capabilities,
       item.profile.deploymentTier || ''
+      , item.profile.provider || '', item.profile.sourceType || '', item.profile.adapter || ''
     ].some(value => (value || '').toLocaleLowerCase().includes(query))
   })
 })

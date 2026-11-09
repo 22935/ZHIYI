@@ -30,6 +30,11 @@
             <label class="rr-field"><span>归属范围 *</span><input v-model="form.ownerScope" placeholder="该节点所属的操作范围" /></label>
           </div>
           <div class="rr-grid rr-grid--3">
+            <label class="rr-field"><span>资源来源</span><input v-model="form.sourceType" placeholder="如 kubernetes、vendor_agent" /></label>
+            <label class="rr-field"><span>厂家 / 提供方</span><input v-model="form.provider" placeholder="如 NVIDIA、华为、AWS" /></label>
+            <label class="rr-field"><span>接入适配器</span><input v-model="form.adapter" placeholder="如 k8s-agentos、vendor-sdk" /></label>
+          </div>
+          <div class="rr-grid rr-grid--3">
             <label class="rr-field"><span>CPU 核数</span><input v-model.number="form.cpuCores" type="number" min="0" /></label>
             <label class="rr-field"><span>内存 MB</span><input v-model.number="form.memoryMb" type="number" min="0" /></label>
             <label class="rr-field"><span>GPU 显存 MB</span><input v-model.number="form.gpuMemoryMb" type="number" min="0" /></label>
@@ -43,12 +48,17 @@
           </select></label>
           <p v-if="!nodesLoading && !remoteNodes.length" class="rr-hint">暂无可用设备，请先完成“接入设备”。</p>
           <p v-if="selectedNode" class="rr-hint">归属：{{ selectedNode.profile.ownerScope }} · 信任：{{ selectedNode.profile.trust }}</p>
+          <div class="rr-grid rr-grid--3">
+            <label class="rr-field"><span>资源来源</span><input v-model="form.sourceType" placeholder="如 openai_compatible、mcp" /></label>
+            <label class="rr-field"><span>厂家 / 提供方</span><input v-model="form.provider" placeholder="如 vLLM、火山引擎" /></label>
+            <label class="rr-field"><span>执行协议适配器</span><select v-model="form.adapter"><option value="agentos_http">AgentOS HTTP</option></select></label>
+          </div>
           <div class="rr-grid rr-grid--2">
             <label class="rr-field"><span>能力 *</span><el-select v-model="form.capabilities" multiple filterable allow-create default-first-option placeholder="输入能力后回车" /></label>
             <label class="rr-field"><span>领域</span><el-select v-model="form.domains" multiple filterable allow-create default-first-option placeholder="例如 general" /></label>
           </div>
           <div class="rr-grid rr-grid--2">
-            <label class="rr-field"><span>端点协议</span><select v-model="form.protocol"><option value="http">HTTP</option><option value="https">HTTPS</option><option value="grpc">gRPC</option></select></label>
+            <label class="rr-field"><span>端点协议</span><select v-model="form.protocol"><option value="https">HTTPS</option><option value="http">HTTP</option></select></label>
             <label class="rr-field"><span>服务地址 *</span><input v-model="form.address" placeholder="例如 https://worker.example.com" /></label>
           </div>
           <label class="rr-field rr-field--capacity"><span>并发容量</span><input v-model.number="form.capacity" type="number" min="1" step="1" /></label>
@@ -73,10 +83,11 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void; (e: '
 const registrationTypes = [
   { value: 'device', label: '接入设备', description: '本地或边缘设备，用于承载任务' },
   { value: 'model', label: '接入模型', description: '连接自有模型服务或登记云端模型' },
-  { value: 'tool', label: '接入工具', description: '连接 HTTP 或 MCP 工具服务' }
+  { value: 'tool', label: '接入工具', description: '接入 AgentOS HTTP 执行服务' }
 ] as const
 const defaults = () => ({ kind: 'device' as 'device' | 'model' | 'tool',
   id: '', name: '', placement: 'edge' as 'edge' | 'cloud', trust: 'trusted', ownerScope: '', nodeId: '',
+  sourceType: '', provider: '', adapter: 'agentos_http',
   capabilities: [] as string[], domains: [] as string[], modelIds: [] as string[],
   protocol: 'https', address: '', capacity: 1, cpuCores: 0, memoryMb: 0, gpuMemoryMb: 0, gpuType: '' })
 const form = reactive(defaults())
@@ -86,7 +97,7 @@ const submitting = ref(false)
 const errorMessage = ref('')
 const issued = ref<ResourceRegistrationResult | null>(null)
 const isDevice = computed(() => form.kind === 'device')
-const remoteNodes = computed(() => nodes.value.filter(n => n.profile.enabled && ['edge', 'cloud'].includes(n.profile.placement) && n.profile.ownerScope))
+const remoteNodes = computed(() => nodes.value.filter(n => n.profile.enabled && ['device', 'edge', 'cloud'].includes(n.profile.placement) && n.profile.ownerScope))
 const selectedNode = computed(() => remoteNodes.value.find(n => n.profile.nodeId === form.nodeId))
 let nodeLoad = 0
 watch(() => props.modelValue, async open => {
@@ -110,13 +121,17 @@ const submit = async () => {
     if (isDevice.value) {
       issued.value = await agentosApi.registerNode({ profile: { nodeId: form.id.trim(), displayName: form.name.trim(),
         placement: form.placement, trust: form.trust, ownerScope: form.ownerScope.trim(),
+        sourceType: form.sourceType.trim() || undefined, provider: form.provider.trim() || undefined,
+        adapter: form.adapter || undefined,
         computeCapacity: { cpuCores: form.cpuCores, memoryMb: form.memoryMb, gpuMemoryMb: form.gpuMemoryMb, gpuType: form.gpuType.trim() || null, bandwidthMbps: 0 } },
         snapshot: { nodeId: form.id.trim(), healthStatus: 'offline' } })
     } else {
       const node = selectedNode.value!.profile
       issued.value = await agentosApi.registerResource({ profile: { runtimeId: form.id.trim(), displayName: form.name.trim(),
         kind: form.kind === 'model' ? 'model_server' : 'tool_service', nodeId: node.nodeId,
-        placement: node.placement as 'edge' | 'cloud', trust: node.trust, ownerScope: node.ownerScope!,
+        placement: node.placement as 'device' | 'edge' | 'cloud', trust: node.trust, ownerScope: node.ownerScope!,
+        sourceType: form.sourceType.trim() || undefined, provider: form.provider.trim() || undefined,
+        adapter: form.adapter.trim() || undefined,
         capabilities: [...form.capabilities], domains: [...form.domains], modelIds: form.kind === 'model' ? [...form.modelIds] : [],
         capacity: form.capacity, enabled: true, endpoint: { protocol: form.protocol, address: form.address.trim() } },
         snapshot: { runtimeId: form.id.trim(), availableSlots: form.capacity, utilization: 0, healthStatus: 'unknown' } })
