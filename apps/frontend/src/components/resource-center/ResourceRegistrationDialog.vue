@@ -14,7 +14,7 @@
       <section class="rr-section"><h3 class="rr-section__title">选择接入类型</h3>
         <div class="rr-type-grid">
           <button v-for="option in registrationTypes" :key="option.value" type="button" class="rr-type"
-            :class="{ 'is-active': form.kind === option.value }" @click="form.kind = option.value">
+            :class="{ 'is-active': form.kind === option.value }" @click="selectRegistrationKind(option.value)">
             <strong>{{ option.label }}</strong><small>{{ option.description }}</small></button>
         </div>
       </section>
@@ -50,7 +50,7 @@
           <p v-if="selectedNode" class="rr-hint">归属：{{ selectedNode.profile.ownerScope }} · 信任：{{ selectedNode.profile.trust }}</p>
           <div class="rr-grid rr-grid--3">
             <label class="rr-field"><span>资源来源</span><input v-model="form.sourceType" placeholder="如 openai_compatible、mcp" /></label>
-            <label class="rr-field"><span>厂家 / 提供方</span><input v-model="form.provider" placeholder="如 vLLM、火山引擎" /></label>
+            <label class="rr-field"><span>厂家 / 提供方{{ form.kind === 'model' ? ' *' : '' }}</span><input v-model="form.provider" placeholder="如 vLLM、火山引擎" /></label>
             <label class="rr-field"><span>执行协议适配器</span><select v-model="form.adapter"><option value="agentos_http">AgentOS HTTP</option></select></label>
           </div>
           <div class="rr-grid rr-grid--2">
@@ -62,7 +62,7 @@
             <label class="rr-field"><span>服务地址 *</span><input v-model="form.address" placeholder="例如 https://worker.example.com" /></label>
           </div>
           <label class="rr-field rr-field--capacity"><span>并发容量</span><input v-model.number="form.capacity" type="number" min="1" step="1" /></label>
-          <label v-if="form.kind === 'model'" class="rr-field"><span>模型标识</span><el-select v-model="form.modelIds" multiple filterable allow-create default-first-option placeholder="输入模型名称后回车" /></label>
+          <label v-if="form.kind === 'model'" class="rr-field"><span>模型标识 *</span><el-select v-model="form.modelIds" multiple filterable allow-create default-first-option placeholder="输入模型名称后回车" /></label>
         </template>
       </div></section>
       <p v-if="errorMessage" class="rr-error" role="alert">{{ errorMessage }}</p>
@@ -87,7 +87,7 @@ const registrationTypes = [
 ] as const
 const defaults = () => ({ kind: 'device' as 'device' | 'model' | 'tool',
   id: '', name: '', placement: 'edge' as 'edge' | 'cloud', trust: 'trusted', ownerScope: '', nodeId: '',
-  sourceType: '', provider: '', adapter: 'agentos_http',
+  sourceType: '', provider: '', adapter: '',
   capabilities: [] as string[], domains: [] as string[], modelIds: [] as string[],
   protocol: 'https', address: '', capacity: 1, cpuCores: 0, memoryMb: 0, gpuMemoryMb: 0, gpuType: '' })
 const form = reactive(defaults())
@@ -97,6 +97,11 @@ const submitting = ref(false)
 const errorMessage = ref('')
 const issued = ref<ResourceRegistrationResult | null>(null)
 const isDevice = computed(() => form.kind === 'device')
+const isModel = computed(() => form.kind === 'model')
+const selectRegistrationKind = (kind: typeof form.kind) => {
+  form.kind = kind
+  if (kind !== 'device' && !form.adapter) form.adapter = 'agentos_http'
+}
 const remoteNodes = computed(() => nodes.value.filter(n => n.profile.enabled && ['device', 'edge', 'cloud'].includes(n.profile.placement) && n.profile.ownerScope))
 const selectedNode = computed(() => remoteNodes.value.find(n => n.profile.nodeId === form.nodeId))
 let nodeLoad = 0
@@ -111,8 +116,11 @@ watch(() => props.modelValue, async open => {
 const submit = async () => {
   if (submitting.value) return
   errorMessage.value = ''
-  if (!form.id.trim() || (isDevice.value ? !form.ownerScope.trim() : !selectedNode.value || !form.capabilities.length || !form.address.trim())) {
-    errorMessage.value = isDevice.value ? '请填写设备 ID 和归属范围。' : '请填写服务 ID，选择承载设备，并提供能力及服务地址。'
+  if (!form.id.trim() || (isDevice.value ? !form.ownerScope.trim() : !selectedNode.value || !form.capabilities.length || !form.address.trim()
+    || (isModel.value && (!form.provider.trim() || !form.modelIds.length)))) {
+    errorMessage.value = isDevice.value ? '请填写设备 ID 和归属范围。'
+      : isModel.value ? '请填写模型服务 ID，选择承载设备，并提供厂家、模型标识、能力及服务地址。'
+        : '请填写服务 ID，选择承载设备，并提供能力及服务地址。'
     return
   }
   if (!isDevice.value && (!Number.isInteger(form.capacity) || form.capacity < 1)) { errorMessage.value = '并发容量必须是正整数。'; return }
@@ -131,7 +139,7 @@ const submit = async () => {
         kind: form.kind === 'model' ? 'model_server' : 'tool_service', nodeId: node.nodeId,
         placement: node.placement as 'device' | 'edge' | 'cloud', trust: node.trust, ownerScope: node.ownerScope!,
         sourceType: form.sourceType.trim() || undefined, provider: form.provider.trim() || undefined,
-        adapter: form.adapter.trim() || undefined,
+        adapter: form.adapter.trim() || 'agentos_http',
         capabilities: [...form.capabilities], domains: [...form.domains], modelIds: form.kind === 'model' ? [...form.modelIds] : [],
         capacity: form.capacity, enabled: true, endpoint: { protocol: form.protocol, address: form.address.trim() } },
         snapshot: { runtimeId: form.id.trim(), availableSlots: form.capacity, utilization: 0, healthStatus: 'unknown' } })

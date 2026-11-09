@@ -31,6 +31,7 @@ from contracts.resource import (
     NodeProfile,
     NodeSnapshot,
     Placement,
+    RuntimeKind,
     RuntimeProfile,
     RuntimeSnapshot,
     TrustLevel,
@@ -544,6 +545,12 @@ class ResourcePlane:
             raise ValueError("remote runtime endpoint scheme must match its protocol")
         if not profile.owner_scope:
             raise ValueError("remote runtime ownerScope is required")
+        if profile.kind is RuntimeKind.MODEL_SERVER and (
+            not (profile.provider or "").strip()
+            or not profile.model_ids
+            or any(not model_id.strip() for model_id in profile.model_ids)
+        ):
+            raise ValueError("remote model server requires a provider and at least one modelId")
         self._validate_runtime_host(profile)
         host = self.node_store.get_profile(profile.node_id)
         if host.owner_scope and host.owner_scope != profile.owner_scope:
@@ -583,6 +590,7 @@ class ResourcePlane:
             created_at=datetime.now(timezone.utc),
         )
         self.store.register_remote(profile, snapshot, record)
+        self._register_runtime_model_endpoints(profile)
         return IssuedResourceCredential(
             resource_id=profile.runtime_id,
             credential_id=record.credential_id,
@@ -633,7 +641,37 @@ class ResourcePlane:
 
     def set_runtime_enabled(self, runtime_id: str, *, enabled: bool) -> RuntimeProfile:
         profile = self.store.get_profile(runtime_id)
-        return self.store.update_profile(profile.model_copy(update={"enabled": enabled}))
+        updated = self.store.update_profile(profile.model_copy(update={"enabled": enabled}))
+        for endpoint in self.store.list_model_endpoints():
+            if endpoint.runtime_id == runtime_id and endpoint.enabled != enabled:
+                self.store.upsert_model_endpoint(endpoint.model_copy(update={"enabled": enabled}))
+        return updated
+
+    def _register_runtime_model_endpoints(self, profile: RuntimeProfile) -> None:
+        """Project a registered model server into the model-routing catalog.
+
+        Runtime registration owns its static model declarations. Creating these
+        endpoint records here keeps customer model registration and ModelDemand
+        selection on one source of truth without assuming a provider's location.
+        """
+        if profile.kind is not RuntimeKind.MODEL_SERVER:
+            return
+        assert profile.provider is not None
+        for model_id in profile.model_ids:
+            endpoint = ModelEndpointProfile(
+                endpointId=f"model:{profile.runtime_id}:{model_id}",
+                runtimeId=profile.runtime_id,
+                provider=profile.provider,
+                sourceType=profile.source_type,
+                adapter=profile.adapter,
+                model=model_id,
+                placement=profile.placement,
+                costMetadata=profile.cost_metadata,
+                labels=profile.labels,
+                enabled=profile.enabled,
+                metadata={"_resourcePlaneManagedBy": "runtime-registration"},
+            )
+            self.store.upsert_model_endpoint(endpoint)
 
     def update_runtime_capacity(
         self, runtime_id: str, capacity: int, *, expected_capacity: int
@@ -1038,6 +1076,13 @@ class ResourcePlane:
         for endpoint in self.store.list_model_endpoints():
             if not endpoint.enabled:
                 continue
+            if endpoint.runtime_id is not None:
+                try:
+                    host_runtime = self.store.get_profile(endpoint.runtime_id)
+                except KeyError:
+                    continue
+                if not host_runtime.enabled:
+                    continue
             if allowed and endpoint.endpoint_id not in allowed:
                 continue
             if endpoint.endpoint_id in excluded:

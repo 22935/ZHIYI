@@ -784,6 +784,9 @@ async def test_v2_resources_projects_registered_nodes_for_legacy_clients(tmp_pat
             capabilities=["vision.infer"],
             trust=TrustLevel.TRUSTED,
             ownerScope="tenant-a",
+            provider="Acme",
+            sourceType="vendor-agent",
+            adapter="agentos_http",
             modelIds=["vision-large"],
             endpoint=ResourceEndpoint(
                 protocol="https",
@@ -812,10 +815,46 @@ async def test_v2_resources_projects_registered_nodes_for_legacy_clients(tmp_pat
     assert projected["profile"]["deploymentTier"] == "edge"
     assert projected["profile"]["nodeId"] == "node:edge-legacy"
     assert projected["profile"]["modelIds"] == ["vision-large"]
+    assert projected["profile"]["provider"] == "Acme"
+    assert projected["profile"]["sourceType"] == "vendor-agent"
+    assert projected["profile"]["adapter"] == "agentos_http"
     # 宿主节点的算力声明合并进行投影，前端无需再查 /nodes。
     assert projected["profile"]["computeCapacity"]["gpuMemoryMb"] == 24576
     assert projected["snapshot"]["availableSlots"] == 1
     assert projected["snapshot"]["latencyMs"] == 17
+
+
+async def test_v2_resources_projects_registered_model_server_as_unknown_model_endpoint(tmp_path) -> None:
+    runtime = _runtime(tmp_path)
+    plane = runtime.resource_plane
+    plane.register_remote_node(
+        NodeProfile(nodeId="node:edge:model-catalog", placement=Placement.EDGE,
+                    trust=TrustLevel.TRUSTED, ownerScope="tenant-a"),
+        NodeSnapshot(nodeId="node:edge:model-catalog"),
+    )
+    plane.register_remote_runtime(
+        RuntimeProfile(
+            runtimeId="runtime:edge:model-catalog", kind=RuntimeKind.MODEL_SERVER,
+            nodeId="node:edge:model-catalog", placement=Placement.EDGE,
+            trust=TrustLevel.TRUSTED, ownerScope="tenant-a", capabilities=["model.generate"],
+            provider="Acme", sourceType="kubernetes", adapter="agentos_http", modelIds=["chat-v1"],
+            endpoint=ResourceEndpoint(protocol="https", address="https://models.example.test/execute"),
+        ),
+        RuntimeSnapshot(runtimeId="runtime:edge:model-catalog", availableSlots=1, utilization=0.0),
+    )
+    app = FastAPI()
+    app.include_router(create_router(runtime, RunExecutionCoordinator(runtime)))
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/agentos/v2/resources")
+
+    endpoint = next(item for item in response.json()["items"]
+                    if item["profile"]["runtimeKind"] == "model_endpoint")
+    assert endpoint["profile"]["hostRuntimeId"] == "runtime:edge:model-catalog"
+    assert endpoint["profile"]["ownerScope"] == "tenant-a"
+    assert endpoint["profile"]["sourceType"] == "kubernetes"
+    assert endpoint["profile"]["adapter"] == "agentos_http"
+    assert endpoint["snapshot"]["healthStatus"] == "unknown"
 
 
 async def test_v2_node_enabled_command_requires_matching_tenant(tmp_path) -> None:
@@ -847,6 +886,48 @@ async def test_v2_node_enabled_command_requires_matching_tenant(tmp_path) -> Non
     assert updated.json() == {"nodeId": "node:tenant-a", "enabled": False}
     assert forbidden.status_code == 403
     assert runtime.resource_plane.node("node:tenant-a").enabled is False
+
+
+async def test_v2_resource_enabled_command_requires_matching_tenant(tmp_path) -> None:
+    runtime = _runtime(tmp_path)
+    plane = runtime.resource_plane
+    plane.register_remote_node(
+        NodeProfile(nodeId="node:resource-tenant-a", placement=Placement.EDGE,
+                    trust=TrustLevel.TRUSTED, ownerScope="tenant-a"),
+        NodeSnapshot(nodeId="node:resource-tenant-a"),
+    )
+    plane.register_remote_runtime(
+        RuntimeProfile(
+            runtimeId="runtime:resource-tenant-a", nodeId="node:resource-tenant-a",
+            placement=Placement.EDGE, trust=TrustLevel.TRUSTED, ownerScope="tenant-a",
+            capabilities=["repo.read"], endpoint=ResourceEndpoint(
+                protocol="https", address="https://tenant-a.example.test/execute"
+            ),
+        ),
+        RuntimeSnapshot(runtimeId="runtime:resource-tenant-a", availableSlots=1, utilization=0.0),
+    )
+    app = FastAPI()
+    app.include_router(create_router(runtime, RunExecutionCoordinator(runtime)))
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        denied = await client.post("/agentos/v2/resources/runtime:resource-tenant-a/enabled", json={"enabled": False})
+        token = _operator_context()
+        try:
+            updated = await client.post("/agentos/v2/resources/runtime:resource-tenant-a/enabled", json={"enabled": False})
+            wrong_tenant = _trusted_user_context.set(TrustedUserContext(
+                user_id="operator-b", subject="operator-b", role="operator", tenant_id="tenant-b"
+            ))
+            try:
+                forbidden = await client.post("/agentos/v2/resources/runtime:resource-tenant-a/enabled", json={"enabled": True})
+            finally:
+                _trusted_user_context.reset(wrong_tenant)
+        finally:
+            _trusted_user_context.reset(token)
+
+    assert denied.status_code == 401
+    assert updated.status_code == 200
+    assert forbidden.status_code == 403
+    assert runtime.resource_plane.runtime("runtime:resource-tenant-a").enabled is False
 
 
 def _operator_context():

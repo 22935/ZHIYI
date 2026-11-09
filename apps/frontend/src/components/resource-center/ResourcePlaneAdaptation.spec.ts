@@ -184,16 +184,18 @@ describe('resource plane adaptation', () => {
       'el-select': { name: 'ElSelect', props: ['modelValue'], template: '<div />' }
     } } })
     await flushPromises()
-    await wrapper.findAll('.rr-type')[1].trigger('click')
+    await wrapper.findAll('.rr-type')[1].trigger('click'); await flushPromises()
     expect(wrapper.text()).not.toContain('gRPC')
     await wrapper.findAll('input')[0].setValue('runtime:1')
     await wrapper.findAll('select')[0].setValue('node:edge:1')
     wrapper.findAllComponents({ name: 'ElSelect' })[0].vm.$emit('update:modelValue', ['exec.research'])
+    await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '如 vLLM、火山引擎')!.setValue('Acme')
+    wrapper.findAllComponents({ name: 'ElSelect' })[2].vm.$emit('update:modelValue', ['chat-v1']); await flushPromises()
     await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '例如 https://worker.example.com')!.setValue('https://worker.example.com')
     await wrapper.get('.rr-submit').trigger('click'); await flushPromises()
     expect(register.mock.calls[0][0]).toMatchObject({ profile: { runtimeId: 'runtime:1', nodeId: 'node:edge:1',
       kind: 'model_server', placement: 'edge', trust: 'sandboxed', ownerScope: 'scope',
-      adapter: 'agentos_http', capabilities: ['exec.research'], endpoint: { protocol: 'https', address: 'https://worker.example.com' } },
+      provider: 'Acme', adapter: 'agentos_http', capabilities: ['exec.research'], modelIds: ['chat-v1'], endpoint: { protocol: 'https', address: 'https://worker.example.com' } },
       snapshot: { runtimeId: 'runtime:1', healthStatus: 'unknown' } })
     expect(register.mock.calls[0][0].profile).not.toHaveProperty('resourceType')
     wrapper.unmount()

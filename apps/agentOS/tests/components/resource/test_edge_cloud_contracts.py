@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from contracts.resource import (
     ComputeCapacity,
     ExecutionRequirement,
+    ModelDemand,
     ModelEndpointProfile,
     NodeProfile,
     NodeSnapshot,
@@ -212,6 +213,49 @@ def test_remote_runtime_registration_requires_the_host_node_owner_scope():
     profile = _runtime(nodeId="node:edge:tenant-a", ownerScope="tenant-b")
 
     with pytest.raises(ValueError, match="ownerScope must match"):
+        plane.register_remote_runtime(profile, RuntimeSnapshot(
+            runtimeId=profile.runtime_id, availableSlots=profile.capacity, utilization=0.0
+        ))
+
+
+def test_remote_model_server_registration_creates_schedulable_model_endpoints():
+    plane = ResourcePlane()
+    plane.register_remote_node(
+        NodeProfile(nodeId="node:edge:model", placement=Placement.EDGE,
+                    trust=TrustLevel.TRUSTED, ownerScope="tenant-a"),
+        NodeSnapshot(nodeId="node:edge:model", healthStatus="offline"),
+    )
+    profile = _runtime(
+        runtimeId="runtime:edge:model", kind=RuntimeKind.MODEL_SERVER,
+        nodeId="node:edge:model", ownerScope="tenant-a", provider="Acme",
+        sourceType="vendor-api", adapter="agentos_http", modelIds=["chat-v1"],
+    )
+    plane.register_remote_runtime(profile, RuntimeSnapshot(
+        runtimeId=profile.runtime_id, availableSlots=profile.capacity, utilization=0.0
+    ))
+
+    candidates = plane.model_candidates(ModelDemand(allowedModels=["ACME/CHAT-V1"]))
+    assert [candidate.endpoint.endpoint_id for candidate in candidates] == [
+        "model:runtime:edge:model:chat-v1"
+    ]
+    assert candidates[0].endpoint.runtime_id == profile.runtime_id
+    assert candidates[0].endpoint.placement is Placement.EDGE
+
+    plane.set_runtime_enabled(profile.runtime_id, enabled=False)
+    assert plane.model_candidates(ModelDemand()) == []
+    plane.set_runtime_enabled(profile.runtime_id, enabled=True)
+    assert [candidate.endpoint.endpoint_id for candidate in plane.model_candidates(ModelDemand())] == [
+        "model:runtime:edge:model:chat-v1"
+    ]
+
+
+def test_remote_model_server_registration_requires_provider_and_model_ids():
+    plane = ResourcePlane()
+    plane.ensure_node("node:edge:model", placement=Placement.EDGE, trust=TrustLevel.TRUSTED)
+    profile = _runtime(kind=RuntimeKind.MODEL_SERVER, nodeId="node:edge:model",
+                       ownerScope="tenant-a", modelIds=[])
+
+    with pytest.raises(ValueError, match="provider and at least one modelId"):
         plane.register_remote_runtime(profile, RuntimeSnapshot(
             runtimeId=profile.runtime_id, availableSlots=profile.capacity, utilization=0.0
         ))

@@ -457,6 +457,9 @@ def _project_runtime_profile(profile: RuntimeProfile, node: NodeProfile | None =
         "costMetadata": dict(profile.cost_metadata),
         "capacity": profile.capacity,
         "ownerScope": profile.owner_scope,
+        "provider": profile.provider,
+        "sourceType": profile.source_type,
+        "adapter": profile.adapter,
         "privacyLevel": None,
         "executionEndpoint": (
             profile.endpoint.model_dump(by_alias=True, mode="json")
@@ -473,7 +476,7 @@ def _project_runtime_profile(profile: RuntimeProfile, node: NodeProfile | None =
     }
 
 
-def _project_model_endpoint(endpoint) -> dict[str, Any]:
+def _project_model_endpoint(endpoint, host_runtime: RuntimeProfile | None = None) -> dict[str, Any]:
     """把模型端点投影为资源中心的 model 行；与执行后端行并列展示。"""
     capabilities = ["model.generate"]
     features = endpoint.features.model_dump(by_alias=True)
@@ -485,6 +488,8 @@ def _project_model_endpoint(endpoint) -> dict[str, Any]:
         "displayName": endpoint.model,
         "hostRuntimeId": endpoint.runtime_id,
         "provider": endpoint.provider,
+        "sourceType": endpoint.source_type,
+        "adapter": endpoint.adapter,
         "model": endpoint.model,
         "contextWindowTokens": endpoint.context_window_tokens,
         "maxOutputTokens": endpoint.max_output_tokens,
@@ -496,7 +501,7 @@ def _project_model_endpoint(endpoint) -> dict[str, Any]:
         "dataZone": None,
         "costMetadata": dict(endpoint.cost_metadata),
         "capacity": 1,
-        "ownerScope": None,
+        "ownerScope": host_runtime.owner_scope if host_runtime is not None else None,
         "privacyLevel": None,
         "executionEndpoint": None,
         "computeCapacity": {},
@@ -1168,19 +1173,33 @@ def create_router(
                 },
             })
         for endpoint in plane.model_endpoints():
+            try:
+                host_runtime = plane.runtime(endpoint.runtime_id) if endpoint.runtime_id else None
+            except KeyError:
+                host_runtime = None
+            host_health = (
+                plane.health_monitor.health(host_runtime.runtime_id)
+                if host_runtime is not None else None
+            )
+            endpoint_status = (
+                "online" if host_health is not None and host_health.healthy
+                else ("offline" if host_health is not None and host_health.last_heartbeat is not None else "unknown")
+            )
+            if not endpoint.enabled or (host_runtime is not None and not host_runtime.enabled):
+                endpoint_status = "offline"
             items.append({
-                "profile": _project_model_endpoint(endpoint),
+                "profile": _project_model_endpoint(endpoint, host_runtime),
                 "snapshot": {
                     "runtimeId": endpoint.endpoint_id,
-                    "healthStatus": "online" if endpoint.enabled else "offline",
+                    "healthStatus": endpoint_status,
                     "availableSlots": 0 if endpoint.runtime_id else 1,
                     "utilization": 0.0,
                     "metrics": {},
                 },
                 "snapshotVersion": endpoint.version,
                 "health": {
-                    "healthy": endpoint.enabled,
-                    "status": "online" if endpoint.enabled else "offline",
+                    "healthy": endpoint_status == "online",
+                    "status": endpoint_status,
                     "reliability": None,
                     "latencyMs": None,
                     "lastHeartbeat": None,
@@ -1279,13 +1298,16 @@ def create_router(
         if plane is None:
             raise HTTPException(status_code=503, detail="resource mutation source unavailable")
         try:
-            plane.runtime(resource_id)
+            profile = plane.runtime(resource_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="resource not found") from exc
         # 启停是本地调度管理动作，不涉及凭据签发：任何已认证用户可操作；
         # 凭据类动作（rotate/register）仍保持 operator 门槛。
-        if current_trusted_user() is None:
+        actor = current_trusted_user()
+        if actor is None:
             raise HTTPException(status_code=401, detail="trusted user context required")
+        if actor.tenant_id and actor.tenant_id != profile.owner_scope:
+            raise HTTPException(status_code=403, detail="resource owner scope does not match operator tenant")
         try:
             updated = plane.set_runtime_enabled(resource_id, enabled=request.enabled)
         except KeyError as exc:
