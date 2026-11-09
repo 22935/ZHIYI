@@ -25,7 +25,7 @@ from components.attachments import (
     PlainTextExtractor,
 )
 from components.planner import TaskDecompositionError
-from components.resource.auth import build_resource_signature
+from contracts.resource_signing import build_resource_signature
 from components.recovery.checkpoint import ACGCheckpointStore
 from components.mission_manager.store import WorkflowRegistry
 from contracts.evolution import PolicyMutation, Trajectory

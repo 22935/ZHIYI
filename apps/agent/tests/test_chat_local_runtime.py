@@ -17,7 +17,7 @@ from contracts.local_runtime import (
     LocalRuntimeExecutionLimits,
     LocalRuntimeExecutionResult,
 )
-from components.resource.service import ResourcePlane
+from components.resource.application.resource_plane import ResourcePlane
 from contracts.resource import Placement, RuntimeKind, RuntimeProfile
 
 

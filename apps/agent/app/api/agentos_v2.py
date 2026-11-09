@@ -28,7 +28,7 @@ from contracts.content import ContentKind
 from domain.models import MissionStatus, RunStatus
 from domain.repository import EntityNotFoundError
 from components.planner import ACGPlanningError, TaskDecompositionError
-from components.resource.auth import (
+from components.resource.infrastructure.signing.request_authenticator import (
     NodeRequestAuthenticator,
     ResourceRequestAuthenticator,
     ResourceRequestExpired,
@@ -43,7 +43,7 @@ from contracts.resource import (
     RuntimeSnapshot,
 )
 from components.mission_manager.state_machine import InvalidStateTransition
-from components.resource.store import StaleResourceObservation
+from components.resource.infrastructure.runtime_store import StaleResourceObservation
 from app.tools.permissions import normalize_relative_path
 
 

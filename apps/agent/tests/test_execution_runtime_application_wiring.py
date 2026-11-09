@@ -8,10 +8,10 @@ from components.executor.value_store import SQLiteExecutionValueStore
 from components.evolution.store import SQLiteEvolutionStore
 from components.memory.store import SQLiteMemoryStore
 from components.content import SQLiteContentManifestStore
-from components.resource.embedded_runtime import EMBEDDED_AGENTS_RUNTIME_ID
-from components.resource.store import SQLiteResourceStore
-from components.resource.health_store import SQLiteResourceHealthStore
-from components.resource.node_store import SQLiteNodeStore
+from components.resource.runtime.embedded_runtime import EMBEDDED_AGENTS_RUNTIME_ID
+from components.resource.infrastructure.runtime_store import SQLiteResourceStore
+from components.resource.infrastructure.health_store import SQLiteResourceHealthStore
+from components.resource.infrastructure.node_store import SQLiteNodeStore
 from components.recovery.checkpoint import ACGCheckpointStore
 from components.scheduler.binder import ResourceBinder
 from components.scheduler.leases import RedisLeaseCoordinator

@@ -27,15 +27,15 @@ from app.tools.chat_catalog import ChatToolCatalog
 from app.tools.local_runtime import LocalRuntimeToolExecutor
 from app.tools.permissions import ApprovalDecision, ChatPermissionService
 from app.tools.runtime import ToolInvocationContext
-from components.resource.health import ResourceHealthMonitor
-from components.resource.health_store import InMemoryResourceHealthStore
-from components.resource.local_runtime import (
+from components.resource.domain.runtime_health import ResourceHealthMonitor
+from components.resource.infrastructure.health_store import InMemoryResourceHealthStore
+from components.resource.runtime.local_runtime import (
     LocalRuntimeHealthProjector,
     LocalRuntimeResourceConfig,
     ensure_local_runtime_resource,
 )
-from components.resource.service import ResourcePlane
-from components.resource.store import InMemoryResourceStore
+from components.resource.application.resource_plane import ResourcePlane
+from components.resource.infrastructure.runtime_store import InMemoryResourceStore
 from contracts.local_runtime import LocalRuntimeAuthorizationRef
 
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="hands 执行基座依赖 Windows Job/koffi")

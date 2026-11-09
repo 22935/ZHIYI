@@ -29,18 +29,18 @@ from components.attachments import (
     PdfTextExtractor,
     PlainTextExtractor,
 )
-from components.resource.service import ResourcePlane
-from components.resource.local_runtime import (
+from components.resource.application.resource_plane import ResourcePlane
+from components.resource.runtime.local_runtime import (
     LOCAL_RUNTIME_RESOURCE_CAPABILITIES,
     LocalRuntimeHealthProjector,
     LocalRuntimeResourceConfig,
     ensure_local_runtime_resource,
 )
 from contracts.local_runtime import LocalRuntimeAuthorizationRef
-from components.resource.health import ResourceHealthMonitor
-from components.resource.health_store import SQLiteResourceHealthStore
-from components.resource.node_store import SQLiteNodeStore
-from components.resource.store import SQLiteResourceStore
+from components.resource.domain.runtime_health import ResourceHealthMonitor
+from components.resource.infrastructure.health_store import SQLiteResourceHealthStore
+from components.resource.infrastructure.node_store import SQLiteNodeStore
+from components.resource.infrastructure.runtime_store import SQLiteResourceStore
 from components.scheduler.binder import ResourceBinder
 from components.recovery.checkpoint import ACGCheckpointStore
 from components.scheduler.leases import RedisLeaseCoordinator
@@ -234,7 +234,7 @@ def configure_runtime(
 
 def sync_agent_registry_to_ledger(runtime: ExecutionRuntime) -> None:
     """Project callable application Agents into the embedded runtime resource."""
-    from components.resource.embedded_runtime import register_embedded_agents_runtime
+    from components.resource.runtime.embedded_runtime import register_embedded_agents_runtime
 
     register_embedded_agents_runtime(runtime.resource_plane, runtime.agent_registry.all())
 

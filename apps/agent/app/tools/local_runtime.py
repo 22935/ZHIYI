@@ -14,8 +14,8 @@ import time
 from typing import Any, Awaitable, Callable, Mapping
 
 from adapters.local_runtime import LocalRuntimeClient
-from components.resource.local_runtime import LocalRuntimeHealthTransport, LocalRuntimeHealthProjector
-from components.resource.service import ResourcePlane
+from components.resource.runtime.local_runtime import LocalRuntimeHealthTransport, LocalRuntimeHealthProjector
+from components.resource.application.resource_plane import ResourcePlane
 from contracts.capability import CapabilityInvocation
 from contracts.local_runtime import (
     LocalRuntimeAuthorizationRef,
