@@ -78,25 +78,17 @@
               <button
                 class="user-identity"
                 type="button"
-                aria-label="打开用户中心"
-                title="打开用户中心"
-                @click="openUserProfile"
+                aria-haspopup="menu"
+                :aria-expanded="accountMenuOpen"
+                aria-controls="sidebar-account-menu"
+                aria-label="打开账户目录"
+                title="账户目录"
+                @click="toggleAccountMenu"
+                @keydown.esc="closeAccountMenu"
               >
               <UserAvatar :size="28" class="user-avatar" :fallback="sidebarUserInitial" />
               </button>
             </div>
-            <el-menu
-              :default-active="activeMenu"
-              router
-              class="sidebar-menu sidebar-settings-menu"
-              collapse
-              :collapse-transition="false"
-            >
-              <el-menu-item index="/settings">
-                <el-icon><Setting /></el-icon>
-                <span>{{ $t('nav.settings') }}</span>
-              </el-menu-item>
-            </el-menu>
           </div>
           </div>
 
@@ -214,6 +206,37 @@
       </el-container>
     <KeyboardShortcutsDialog v-model="shortcutsDialogVisible" />
     <Teleport to="body">
+      <section
+        v-if="accountMenuOpen"
+        id="sidebar-account-menu"
+        ref="accountMenuElement"
+        class="sidebar-account-menu"
+        role="menu"
+        aria-label="账户目录"
+        :style="accountMenuStyle"
+        @keydown.esc="closeAccountMenu"
+      >
+        <div class="sidebar-account-menu__identity">
+          <UserAvatar :size="34" class="sidebar-account-menu__avatar" :fallback="sidebarUserInitial" />
+          <div class="sidebar-account-menu__user-copy">
+            <strong>{{ sidebarUserName }}</strong>
+            <span>{{ userStore.currentUser?.email || '知弈账户' }}</span>
+          </div>
+        </div>
+        <div class="sidebar-account-menu__divider" role="separator"></div>
+        <button type="button" role="menuitem" @click="openUserProfile">
+          <el-icon aria-hidden="true"><User /></el-icon><span>个人资料</span>
+        </button>
+        <button type="button" role="menuitem" @click="openSettings">
+          <el-icon aria-hidden="true"><Setting /></el-icon><span>设置</span>
+        </button>
+        <div class="sidebar-account-menu__divider" role="separator"></div>
+        <button type="button" role="menuitem" @click="handleLogout">
+          <el-icon aria-hidden="true"><SwitchButton /></el-icon><span>退出登录</span>
+        </button>
+      </section>
+    </Teleport>
+    <Teleport to="body">
       <div
         v-if="sidebarActionMenu.target"
         ref="sidebarActionMenuElement"
@@ -239,7 +262,7 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, o
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChatDotRound, ChatLineRound, Delete, Edit, EditPen,
-  Clock, Setting,
+  Clock, Setting, SwitchButton, User,
   Monitor
 } from '@element-plus/icons-vue'
 import WorkspaceModeSwitch from '@/components/workspace/WorkspaceModeSwitch.vue'
@@ -260,6 +283,7 @@ import { agentosApi } from '@/services/api/agentos'
 import { useChatStore } from '@/stores/chat'
 import { useWorkflowRunsStore } from '@/stores/workflowRuns'
 import { useUserStore } from '@/stores/user'
+import { AUTH_ROUTE, logout } from '@/features/auth/authService'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -281,6 +305,9 @@ provide(conversationBindingKey, (contextId, missionId, runId) =>
   isConversationForWorkbench(chatStore.workflowBindings, contextId, missionId, runId))
 const workflowRunsStore = useWorkflowRunsStore()
 const userStore = useUserStore()
+const accountMenuOpen = ref(false)
+const accountMenuElement = ref<HTMLElement | null>(null)
+const accountMenuStyle = ref<Record<string, string>>({})
 const shortcutsDialogVisible = ref(false)
 let disposeAppKeyboardShortcuts: (() => void) | null = null
 type WorkspaceMode = 'agent' | 'chat'
@@ -631,6 +658,10 @@ const handleHistoryRefresh = () => {
 
 const handleSidebarActionMenuOutside = (event: MouseEvent) => {
   const target = event.target as Node | null
+  if (accountMenuOpen.value && target && !accountMenuElement.value?.contains(target)
+    && !(target instanceof Element && target.closest('.user-identity'))) {
+    closeAccountMenu()
+  }
   if (sidebarActionMenu.target && target && !sidebarActionMenuElement.value?.contains(target)) {
     closeSidebarActionMenu()
   }
@@ -708,8 +739,45 @@ const isImmersive = computed(() => false)
 
 const showNavigation = computed(() => !isImmersive.value && !route.meta.hideNavigation)
 
+const closeAccountMenu = () => {
+  accountMenuOpen.value = false
+}
+
+const toggleAccountMenu = async (event: MouseEvent) => {
+  if (accountMenuOpen.value) {
+    closeAccountMenu()
+    return
+  }
+  const trigger = event.currentTarget as HTMLElement
+  const rect = trigger.getBoundingClientRect()
+  accountMenuStyle.value = {
+    left: `${Math.round(rect.right + 10)}px`,
+    bottom: `${Math.max(12, Math.round(window.innerHeight - rect.bottom))}px`
+  }
+  accountMenuOpen.value = true
+  await nextTick()
+  const menu = accountMenuElement.value
+  if (!menu) return
+  accountMenuStyle.value = {
+    left: `${Math.max(8, Math.min(rect.right + 10, window.innerWidth - menu.offsetWidth - 8))}px`,
+    bottom: `${Math.max(12, Math.round(window.innerHeight - rect.bottom))}px`
+  }
+}
+
 const openUserProfile = () => {
+  closeAccountMenu()
   void router.push('/user')
+}
+
+const openSettings = () => {
+  closeAccountMenu()
+  void router.push('/settings')
+}
+
+const handleLogout = () => {
+  closeAccountMenu()
+  logout()
+  void router.replace(AUTH_ROUTE)
 }
 
 const handleTopChromeNavigate = (path: string) => {
@@ -1642,15 +1710,6 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--bg-sidebar) 86%, var(--bg-app));
 }
 
-.sidebar-settings-menu {
-  flex: 0 0 auto;
-  margin-top: 4px;
-}
-
-.sidebar-settings-menu :deep(.el-menu-item) {
-  margin-bottom: 0;
-}
-
 .app-sidebar.collapsed .sidebar-footer {
   padding: 8px 6px;
 }
@@ -1697,7 +1756,6 @@ onUnmounted(() => {
 }
 
 .user-identity:hover { background: var(--bg-input); }
-
 .user-avatar {
   flex: 0 0 32px;
   width: 32px !important;
@@ -1712,6 +1770,72 @@ onUnmounted(() => {
   outline: 2px solid var(--primary-color);
   outline-offset: 2px;
 }
+
+.sidebar-account-menu {
+  position: fixed;
+  z-index: 4000;
+  width: 248px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  border-radius: 16px;
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.sidebar-account-menu__identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 7px 10px;
+}
+
+.sidebar-account-menu__avatar { flex: 0 0 auto; }
+
+.sidebar-account-menu__user-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sidebar-account-menu__user-copy strong,
+.sidebar-account-menu__user-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-account-menu__user-copy strong { font-size: 14px; font-weight: 600; }
+.sidebar-account-menu__user-copy span { color: var(--text-secondary); font-size: 12px; }
+
+.sidebar-account-menu__divider {
+  height: 1px;
+  margin: 2px 4px 6px;
+  background: var(--border-color);
+}
+
+.sidebar-account-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-account-menu > button:hover { background: var(--bg-input); }
+.sidebar-account-menu > button:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 1px; }
 
 /* Main Content Styles */
 .main-container {

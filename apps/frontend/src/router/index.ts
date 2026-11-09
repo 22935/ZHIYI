@@ -21,8 +21,7 @@ const routes: RouteRecordRaw[] = [
     name: 'User',
     component: () => import('@/views/UserView.vue'),
     meta: {
-      title: '用户中心',
-      hideNavigation: true
+      title: '用户中心'
     }
   },
   {
