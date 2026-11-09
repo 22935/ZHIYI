@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { test } from 'node:test'
+import { shouldGrantPermissionRequest } from '../src/lib/permissions.ts'
 
 /**
  * 通道四处同构的一致性门禁：项目此前只靠人工核对 preload / Main /
@@ -56,10 +57,24 @@ test('frontend bridge and adapter stay in sync with the preload surface', () => 
 })
 
 test('desktop companion work does not weaken the existing security baseline', () => {
-  // 单窗口授权模型：不建第二个 BrowserWindow，也不改会话权限全拒策略。
+  // 单窗口授权模型：不建第二个 BrowserWindow。
   assert.equal(main.split('new BrowserWindow(').length - 1, 1)
-  assert.match(main, /callback\(false\)/)
+  // 会话加固仍然接线：请求与检查两侧都必须走 lib/permissions 的白名单决策，
+  // 不允许在 main.ts 里手写绕过（例如直接 callback(true)）。
+  assert.match(main, /hardenSession\(session\.defaultSession/)
+  assert.match(main, /setPermissionRequestHandler/)
   assert.match(main, /setPermissionCheckHandler/)
+  assert.ok(main.includes('shouldGrantPermissionRequest'), 'request side must route through lib/permissions')
+  assert.ok(main.includes('shouldGrantPermissionCheck'), 'check side must route through lib/permissions')
+  assert.doesNotMatch(main, /callback\(true\)/, 'no unconditional permission grants in main.ts')
+  // 白名单语义门禁（比旧的源码正则更强）：唯一放行项是自有 Origin 的纯音频 media 请求。
+  const origins = new Set(['kinlin-app://shell'])
+  const ask = (permission: string, mediaTypes: readonly string[] | undefined, url: string | undefined) =>
+    shouldGrantPermissionRequest({ permission, mediaTypes, requestingUrl: url, allowedOrigins: origins })
+  assert.equal(ask('media', ['audio'], 'kinlin-app://shell/index.html'), true, 'mic for app pages must work')
+  assert.equal(ask('media', ['video'], 'kinlin-app://shell/index.html'), false, 'camera must stay denied')
+  assert.equal(ask('media', ['audio'], 'https://evil.example/'), false, 'foreign origin must stay denied')
+  assert.equal(ask('geolocation', undefined, 'kinlin-app://shell/index.html'), false, 'other permissions stay denied')
   // 托盘只在 whenReady 后创建，且退出时销毁。
   assert.ok(main.includes('createCompanionTray()'))
   assert.ok(main.includes('companionTray?.destroy()'))

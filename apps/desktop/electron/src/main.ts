@@ -23,6 +23,11 @@ import { gitCommit, gitDiff, gitInit, gitShow, gitStage, gitStatus, gitUnstage, 
 import { APP_INDEX_URL, APP_SCHEME, APP_HOST, handleAppProtocol, registerAppScheme } from './lib/protocol'
 import { createFileLogger, type FileLogger } from './lib/logging'
 import {
+  buildAllowedOrigins,
+  shouldGrantPermissionCheck,
+  shouldGrantPermissionRequest
+} from './lib/permissions'
+import {
   DEFAULT_COMPANION_SNAPSHOT,
   formatTrayTooltip,
   isTrayAction,
@@ -274,15 +279,41 @@ function createCompanionTray(): void {
   }
 }
 
-/** 会话级加固：拒绝全部权限请求与检查（media/geolocation/notifications 等）。 */
+/**
+ * 会话级加固：默认拒绝全部权限请求与检查（geolocation/notifications/camera 等），
+ * 唯一放行项是**自有页面来源**的纯音频 `media` 请求——Companion 的语音输入与语音唤醒
+ * （Web Speech API 在 Electron 里以 media 权限申请麦克风）依赖它。
+ * 决策逻辑在 lib/permissions.ts（纯函数，有直测）；这里只做接线与日志。
+ * 注：macOS 若将来打包，需补 NSMicrophoneUsageDescription 与
+ * systemPreferences.askForMediaAccess('microphone')；当前只打包 Windows，无系统级弹窗。
+ */
 function hardenSession(target: Electron.Session, log: FileLogger): void {
-  target.setPermissionRequestHandler((_contents, permission, callback) => {
-    log.warn('permission request denied', { permission })
-    callback(false)
+  const allowedOrigins = buildAllowedOrigins(devServerUrl, parseHttpUrl)
+  target.setPermissionRequestHandler((_contents, permission, callback, details) => {
+    // details 是按权限类型收敛的联合体，mediaTypes 仅 MediaAccessPermissionRequest 携带。
+    const mediaTypes = details && 'mediaTypes' in details ? details.mediaTypes : undefined
+    const grant = shouldGrantPermissionRequest({
+      permission,
+      mediaTypes,
+      requestingUrl: details?.requestingUrl,
+      allowedOrigins
+    })
+    if (grant) {
+      log.info('media permission granted (app-origin audio only)', { permission, requestingUrl: details?.requestingUrl })
+    } else {
+      log.warn('permission request denied', { permission, requestingUrl: details?.requestingUrl })
+    }
+    callback(grant)
   })
-  target.setPermissionCheckHandler((_contents, permission) => {
-    log.warn('permission check denied', { permission })
-    return false
+  target.setPermissionCheckHandler((_contents, permission, requestingOrigin, details) => {
+    const grant = shouldGrantPermissionCheck({
+      permission,
+      mediaType: details?.mediaType,
+      requestingOrigin,
+      allowedOrigins
+    })
+    if (!grant) log.warn('permission check denied', { permission, requestingOrigin })
+    return grant
   })
 }
 
