@@ -61,8 +61,11 @@
           </div>
         </div>
         <div v-if="focusMainPath" class="execution-context__scope" role="group" aria-label="执行链范围切换">
-          <button type="button" :class="{ active: localScope }" :aria-pressed="localScope" @click="setExecutionScope(true)">当前任务</button>
+          <button type="button" :class="{ active: localScope }" :aria-pressed="localScope" @click="setExecutionScope(true)">当前步骤及关联</button>
           <button type="button" :class="{ active: !localScope }" :aria-pressed="!localScope" @click="setExecutionScope(false)">全部步骤</button>
+          <span v-if="localScope && contextAnchorId" class="execution-context__anchor" :title="`焦点步骤：${contextAnchorName}`">
+            焦点：{{ contextAnchorName }}
+          </span>
         </div>
       </div>
       <div class="graph-stage" :class="{ 'has-detail': detailAsideVisible }">
@@ -443,6 +446,8 @@ const contextAnchorId = computed(() => {
   const requested = contextNodeId.value || props.focusNodeId
   return nodes.some(node => node.nodeId === requested) ? requested! : currentTaskId.value
 })
+const contextAnchorName = computed(() =>
+  executionBlueprint.value?.nodes.find(node => node.nodeId === contextAnchorId.value)?.name || contextAnchorId.value)
 // Use positions from the whole execution graph so stepping through adjacent tasks does not shuffle columns.
 const executionPositions = computed(() => {
   const parents = new Map<string, string>()
@@ -1438,6 +1443,7 @@ onBeforeUnmount(() => {
 .acg-topology.is-workbench .runtime-summary { border-color: var(--wb-border); background: var(--wb-surface-inset); }
 .graph-surface { position: relative; min-width: 0; }
 .execution-context__scope { display: inline-flex; flex: 0 0 auto; gap: 2px; padding: 2px; border-radius: 9px; background: var(--wb-surface-inset, var(--bg-input)); }
+.execution-context__anchor { max-width: 220px; overflow: hidden; padding: 0 8px; color: var(--wb-text-muted, var(--text-muted)); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; align-self: center; }
 .execution-context__scope button { padding: 7px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--wb-text-muted, var(--text-muted)); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .2s cubic-bezier(0.4, 0, 0.2, 1); }
 .execution-context__scope button:hover { background: var(--wb-hover, transparent); color: var(--wb-text-secondary, var(--text-secondary)); }
 .execution-context__scope button.active { background: var(--wb-surface-2, var(--bg-panel)); color: var(--wb-accent, var(--primary-color)); box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.04); font-weight: 650; }
