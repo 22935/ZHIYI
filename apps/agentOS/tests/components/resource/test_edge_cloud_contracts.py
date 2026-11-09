@@ -249,6 +249,8 @@ def test_remote_model_server_registration_creates_schedulable_model_endpoints():
     plane.register_remote_runtime(profile, RuntimeSnapshot(
         runtimeId=profile.runtime_id, availableSlots=profile.capacity, utilization=0.0
     ))
+    plane.heartbeat_node(profile.node_id)
+    plane.heartbeat_runtime(profile.runtime_id, source="external")
 
     candidates = plane.model_candidates(ModelDemand(allowedModels=["ACME/CHAT-V1"]))
     assert [candidate.endpoint.endpoint_id for candidate in candidates] == [
@@ -281,6 +283,7 @@ def test_local_model_server_registration_projects_tenant_scoped_model_endpoints(
     )
 
     plane.register_runtime(profile)
+    plane.heartbeat_runtime(profile.runtime_id)
 
     candidates = plane.model_candidates(
         ModelDemand(allowedModels=["localvendor/chat-local"]), owner_scope="tenant-a"
@@ -289,6 +292,31 @@ def test_local_model_server_registration_projects_tenant_scoped_model_endpoints(
         "model:runtime:device:model:chat-local"
     ]
     assert candidates[0].endpoint.owner_scope == "tenant-a"
+
+
+def test_runtime_backed_model_endpoint_requires_a_healthy_enabled_host_node():
+    plane = ResourcePlane()
+    plane.ensure_node("node:device:model-health", placement=Placement.DEVICE)
+    profile = RuntimeProfile(
+        runtimeId="runtime:device:model-health",
+        kind=RuntimeKind.MODEL_SERVER,
+        nodeId="node:device:model-health",
+        placement=Placement.DEVICE,
+        capabilities=["model.generate"],
+        provider="LocalVendor",
+        modelIds=["chat-local"],
+    )
+    plane.register_runtime(profile)
+
+    assert plane.model_candidates(ModelDemand()) == []
+
+    plane.heartbeat_runtime(profile.runtime_id)
+    assert [candidate.endpoint.endpoint_id for candidate in plane.model_candidates(ModelDemand())] == [
+        "model:runtime:device:model-health:chat-local"
+    ]
+
+    plane.set_node_enabled(profile.node_id, enabled=False)
+    assert plane.model_candidates(ModelDemand()) == []
 
 
 def test_remote_model_server_registration_requires_provider_and_model_ids():

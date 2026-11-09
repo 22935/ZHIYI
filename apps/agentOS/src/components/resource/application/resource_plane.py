@@ -1105,9 +1105,22 @@ class ResourcePlane:
             if endpoint.runtime_id is not None:
                 try:
                     host_runtime = self.store.get_profile(endpoint.runtime_id)
+                    host_node = self.node_store.get_profile(host_runtime.node_id)
                 except KeyError:
                     continue
-                if not host_runtime.enabled:
+                host_health = self.health_monitor.health(host_runtime.runtime_id, now=now)
+                node_health = self.get_node_health(host_node.node_id, now=now)
+                if (
+                    not host_runtime.enabled
+                    or not host_node.enabled
+                    or not host_health.healthy
+                    or node_health.status in {
+                        NodeHealthStatus.UNKNOWN,
+                        NodeHealthStatus.STALE,
+                        NodeHealthStatus.OFFLINE,
+                        NodeHealthStatus.SUSPICIOUS,
+                    }
+                ):
                     continue
                 endpoint_owner_scope = host_runtime.owner_scope
             else:
