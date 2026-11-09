@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from ...ports.secret_box import SecretBox
 
-class ResourceSecretBox:
+
+class ResourceSecretBox(SecretBox):
     """使用配置的 Fernet 主密钥加密、解密资源密钥。"""
 
     def __init__(self, key: str | bytes | None = None) -> None:

@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from components.resource.embedded_runtime import register_embedded_agents_runtime, EMBEDDED_AGENTS_RUNTIME_ID
-from components.resource.service import ResourcePlane
+from components.resource.runtime.embedded_runtime import register_embedded_agents_runtime, EMBEDDED_AGENTS_RUNTIME_ID
+from components.resource.application.resource_plane import ResourcePlane
 from contracts.authority import RuntimeResourceId
 from contracts.compiled_acg import BindingManifest
 from contracts.resource import ExecutionRequirement, RuntimeKind

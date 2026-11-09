@@ -6,44 +6,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
 from threading import RLock
-from typing import Protocol
 
-from .sqlite_support import configure_sqlite_connection
-
-
-@dataclass(frozen=True)
-class ResourceHealthState:
-    """单个资源的持久化健康快照，包含派生指标和写入版本。"""
-    resource_id: str
-    reliability: float
-    latency_ms: float | None
-    last_heartbeat: datetime | None
-    forced_health: bool | None
-    updated_at: datetime
-    version: int
-
-
-class ResourceHealthStore(Protocol):
-    """健康持久化的最小接口，隔离监控逻辑与后端实现。"""
-    def get(self, resource_id: str) -> ResourceHealthState | None:
-        ...
-
-    def upsert(
-        self,
-        *,
-        resource_id: str,
-        reliability: float,
-        latency_ms: float | None,
-        last_heartbeat: datetime | None,
-        forced_health: bool | None,
-        updated_at: datetime,
-    ) -> ResourceHealthState:
-        ...
+from ..domain.models import ResourceHealthState
+from .sqlite.connection import configure_sqlite_connection
 
 
 def _utc(value: datetime) -> datetime:
@@ -223,7 +192,5 @@ class SQLiteResourceHealthStore:
 
 __all__ = [
     "InMemoryResourceHealthStore",
-    "ResourceHealthState",
-    "ResourceHealthStore",
     "SQLiteResourceHealthStore",
 ]

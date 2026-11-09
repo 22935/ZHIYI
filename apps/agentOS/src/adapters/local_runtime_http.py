@@ -22,7 +22,7 @@ from contracts.local_runtime import (
     LocalRuntimeExecutionRequest,
     LocalRuntimeExecutionResult,
 )
-from contracts.resource_signing import build_resource_signature
+from contracts.resource.resource_signing import build_resource_signature
 
 
 class LocalRuntimeCredentialProvider(Protocol):

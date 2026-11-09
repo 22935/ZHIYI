@@ -22,8 +22,8 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator, model_validator
 
-from .authority import RuntimeResourceId
-from .capability import ModelFeatureSet
+from ..authority import RuntimeResourceId
+from ..capability import ModelFeatureSet
 
 
 def _utc_now() -> datetime:

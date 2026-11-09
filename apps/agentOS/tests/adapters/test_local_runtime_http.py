@@ -11,7 +11,7 @@ from adapters.local_runtime_http import (
     HttpLocalRuntimeTransport,
     LocalRuntimeTransportError,
 )
-from components.resource.auth import build_resource_signature
+from components.resource.contracts.resource_signing import build_resource_signature
 from contracts.local_runtime import (
     LocalRuntimeAuthorizationRef,
     LocalRuntimeCapability,

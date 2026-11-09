@@ -20,7 +20,7 @@ from contracts.resource import (
 )
 
 from .local_runtime import DEFAULT_LOCAL_RUNTIME_NODE_ID
-from .service import ResourcePlane
+from ..application.resource_plane import ResourcePlane
 
 EMBEDDED_AGENTS_RUNTIME_ID = "runtime:embedded-agents"
 EMBEDDED_AGENTS_BASE_CAPABILITY = "exec.agents"

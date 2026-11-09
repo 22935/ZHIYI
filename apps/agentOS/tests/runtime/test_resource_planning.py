@@ -6,9 +6,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from components.resource.service import ResourcePlane, SQLiteResourceStore
-from components.resource.node_store import SQLiteNodeStore
-from components.resource.embedded_runtime import EMBEDDED_AGENTS_RUNTIME_ID
+from components.resource.application.resource_plane import ResourcePlane
+from components.resource.infrastructure.runtime_store import SQLiteResourceStore
+from components.resource.infrastructure.node_store import SQLiteNodeStore
+from components.resource.runtime.embedded_runtime import EMBEDDED_AGENTS_RUNTIME_ID
 from contracts.capability import CapabilityKind, CapabilityManifest
 from contracts.resource import ModelEndpointProfile
 from contracts.runtime_planning import RuntimePlanningDecision, RuntimeWaitCondition

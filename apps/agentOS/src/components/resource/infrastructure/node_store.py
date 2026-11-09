@@ -11,70 +11,13 @@ import json
 from pathlib import Path
 import sqlite3
 from threading import RLock
-from typing import Protocol
 
 from contracts.resource import NodeProfile, NodeSnapshot
 
-from .models import VersionedNodeSnapshot
-from .store import ResourceCredentialRecord, StaleResourceObservation, VersionConflict
-from .sqlite_support import configure_sqlite_connection
-
-
-class NodeStore(Protocol):
-    """节点资源表依赖的最小存储边界，便于替换存储介质。"""
-
-    def register(self, profile: NodeProfile, snapshot: NodeSnapshot) -> VersionedNodeSnapshot:
-        """登记匹配的节点画像与首份快照；重复登记抛出 ``ValueError``。"""
-        ...
-
-    def register_remote(
-        self,
-        profile: NodeProfile,
-        snapshot: NodeSnapshot,
-        credential: ResourceCredentialRecord,
-    ) -> VersionedNodeSnapshot:
-        """原子登记远程节点及其首个凭据。"""
-        ...
-
-    def get_profile(self, node_id: str) -> NodeProfile:
-        """读取节点画像副本；未知标识抛出 ``KeyError``。"""
-        ...
-
-    def get_snapshot(self, node_id: str) -> VersionedNodeSnapshot:
-        """读取当前版本快照副本；未知标识抛出 ``KeyError``。"""
-        ...
-
-    def list_profiles(self) -> list[NodeProfile]:
-        """返回稳定顺序的节点画像副本列表。"""
-        ...
-
-    def update_snapshot(
-        self, snapshot: NodeSnapshot, *, expected_version: int | None = None
-    ) -> VersionedNodeSnapshot:
-        """按可选期望版本原子更新快照；过期版本抛出 ``VersionConflict``。"""
-        ...
-
-    def update_profile(self, profile: NodeProfile) -> NodeProfile:
-        """更新节点静态画像；节点标识不可变。"""
-        ...
-
-    def save_credential(self, record: ResourceCredentialRecord) -> None:
-        """保存一个节点凭据；同一节点不可静默覆盖已有凭据。"""
-        ...
-
-    def rotate_credential(self, record: ResourceCredentialRecord) -> None:
-        """原子替换已有节点凭据。"""
-        ...
-
-    def get_credential(self, node_id: str) -> ResourceCredentialRecord:
-        """读取节点凭据元数据；未登记凭据抛出 ``KeyError``。"""
-        ...
-
-    def consume_nonce(
-        self, node_id: str, nonce: str, expires_at: datetime, *, now: datetime
-    ) -> bool:
-        """原子登记 nonce；已使用或已过期返回 False。"""
-        ...
+from ..domain.models import VersionedNodeSnapshot
+from .runtime_store import ResourceCredentialRecord, StaleResourceObservation, VersionConflict
+from .sqlite.connection import configure_sqlite_connection
+from ..ports.node_store import NodeStore
 
 
 class InMemoryNodeStore:

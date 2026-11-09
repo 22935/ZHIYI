@@ -48,12 +48,12 @@ from contracts.workflow import (
     WorkflowStatus,
     utc_now,
 )
-from components.scheduler.models import (
+from components.resource.scheduler.models import (
     FATAL_SCHEDULING_REASONS,
     SchedulerAllocationTimeout,
     SchedulerNoEligibleResource,
 )
-from components.scheduler.leases import LeaseRenewalFailedError
+from components.resource.scheduler.leases import LeaseRenewalFailedError
 from components.recovery.checkpoint import ExecutionInterrupt, ExecutionResumeCommand
 from adapters.agent_invocation import AgentInvocationAdapter
 from adapters.resource_execution import (
@@ -62,7 +62,7 @@ from adapters.resource_execution import (
     ResourceExecutionError,
     build_resource_execution_adapter,
 )
-from components.resource.embedded_runtime import (
+from components.resource.runtime.embedded_runtime import (
     EMBEDDED_AGENTS_RUNTIME_ID,
     register_embedded_agents_runtime,
 )
@@ -688,7 +688,7 @@ class ACGExecutionService(CollaboratorAccess):
                 except (ValueError, KeyError, TypeError) as exc:
                     self.resource_binder.release(decision.lease.lease_id)
                     raise ExecutionRunCancelled("execution permit changed after resource allocation") from exc
-            from components.scheduler.binder import LeaseKeepAlive
+            from components.resource.scheduler.binder import LeaseKeepAlive
 
             keep_alive = LeaseKeepAlive(
                 self.resource_binder.coordinator, decision.lease

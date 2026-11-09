@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from components.resource.auth import (
+from components.resource.infrastructure.signing.request_authenticator import (
     NodeRequestAuthenticator,
     ResourceRequestAuthenticator,
     ResourceRequestExpired,
@@ -18,8 +18,8 @@ from components.resource.auth import (
     ResourceRequestNotFound,
     ResourceRequestReplay,
 )
-from components.resource.service import ResourcePlane
-from components.resource.store import SQLiteResourceStore
+from components.resource.application.resource_plane import ResourcePlane
+from components.resource.infrastructure.runtime_store import SQLiteResourceStore
 from contracts.resource import (
     HealthStatus,
     NodeHealthStatus,

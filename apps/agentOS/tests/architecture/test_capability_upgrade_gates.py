@@ -62,7 +62,7 @@ def test_resource_plane_is_the_only_resource_state_authority() -> None:
         "directory.py", "agent_directory.py", "agent_service.py",
         "agent_store.py", "node_service.py", "registry.py",
     })
-    from components.resource.service import ResourcePlane
+    from components.resource.application.resource_plane import ResourcePlane
 
     plane = ResourcePlane()
     # Node/Runtime/ModelEndpoint 状态都收敛在同一服务实例里。

@@ -6,13 +6,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
 from threading import RLock
-from typing import Protocol
 
 from contracts.resource import (
     HealthStatus,
@@ -21,8 +19,9 @@ from contracts.resource import (
     RuntimeSnapshot,
 )
 
-from .models import VersionedRuntimeSnapshot
-from .sqlite_support import configure_sqlite_connection
+from ..domain.models import VersionedRuntimeSnapshot
+from ..domain.credentials import ResourceCredentialRecord
+from .sqlite.connection import configure_sqlite_connection
 
 
 class VersionConflict(RuntimeError):
@@ -31,89 +30,6 @@ class VersionConflict(RuntimeError):
 
 class StaleResourceObservation(RuntimeError):
     """观测序号低于当前已记录序号。"""
-
-
-@dataclass(frozen=True)
-class ResourceCredentialRecord:
-    """远程 Runtime 凭据记录；只在签名校验边界解出明文。"""
-
-    resource_id: str
-    credential_id: str
-    owner_scope: str
-    secret_digest: str
-    encrypted_secret: str
-    created_at: datetime
-
-
-class RuntimeStore(Protocol):
-    """资源平面依赖的最小 Runtime 存储边界，便于替换存储介质。"""
-
-    def register(self, profile: RuntimeProfile, snapshot: RuntimeSnapshot) -> VersionedRuntimeSnapshot:
-        """登记 Runtime 画像与首份快照；ID 冲突必须显式失败。"""
-        ...
-
-    def register_remote(
-        self,
-        profile: RuntimeProfile,
-        snapshot: RuntimeSnapshot,
-        credential: ResourceCredentialRecord,
-    ) -> VersionedRuntimeSnapshot:
-        ...
-
-    def get_profile(self, runtime_id: str) -> RuntimeProfile:
-        """读取 Runtime 静态画像副本；未知 ID 抛出 ``KeyError``。"""
-        ...
-
-    def get_snapshot(self, runtime_id: str) -> VersionedRuntimeSnapshot:
-        ...
-
-    def list_profiles(self) -> list[RuntimeProfile]:
-        ...
-
-    def update_snapshot(
-        self, snapshot: RuntimeSnapshot, *, expected_version: int | None = None
-    ) -> VersionedRuntimeSnapshot:
-        ...
-
-    def update_capacity(
-        self, runtime_id: str, capacity: int, *, expected_capacity: int
-    ) -> VersionedRuntimeSnapshot:
-        """基于期望容量调整容量，并同步修正空闲槽位与利用率。"""
-        ...
-
-    def update_profile(self, profile: RuntimeProfile) -> RuntimeProfile:
-        ...
-
-    def upsert_model_endpoint(self, endpoint: ModelEndpointProfile) -> tuple[ModelEndpointProfile, bool]:
-        """幂等写入模型端点；返回 (生效画像, 是否发生变化)。"""
-
-    def get_model_endpoint(self, endpoint_id: str) -> ModelEndpointProfile:
-        ...
-
-    def list_model_endpoints(self) -> list[ModelEndpointProfile]:
-        ...
-
-    def delete_model_endpoint(self, endpoint_id: str) -> None:
-        ...
-
-    def save_credential(self, record: ResourceCredentialRecord) -> None:
-        ...
-
-    def rotate_credential(self, record: ResourceCredentialRecord) -> None:
-        ...
-
-    def get_credential(self, runtime_id: str) -> ResourceCredentialRecord:
-        ...
-
-    def consume_nonce(
-        self,
-        runtime_id: str,
-        nonce: str,
-        expires_at: datetime,
-        *,
-        now: datetime,
-    ) -> bool:
-        ...
 
 
 class InMemoryResourceStore:
@@ -444,10 +360,6 @@ class SQLiteResourceStore:
                 (profile.runtime_id,),
             ).fetchone()
             if row is not None:
-                existing_profile = RuntimeProfile.model_validate(json.loads(str(row[0])))
-                existing_snapshot = RuntimeSnapshot.model_validate(json.loads(str(row[1])))
-                if existing_profile == profile and existing_snapshot == snapshot:
-                    return self._snapshot((row[1], row[2]))
                 raise ValueError(f"runtime already registered: {profile.runtime_id}")
             self._connection.execute(
                 "INSERT INTO plane_runtimes(runtime_id, profile_json, snapshot_json, version) VALUES (?, ?, ?, 1)",
@@ -809,7 +721,6 @@ __all__ = [
     # TODO(runtime-store-migration): 跨主机部署时应将事务和 nonce 去重迁移到集中式数据库/缓存协调器。
     "InMemoryResourceStore",
     "ResourceCredentialRecord",
-    "RuntimeStore",
     "SQLiteResourceStore",
     "StaleResourceObservation",
     "VersionConflict",

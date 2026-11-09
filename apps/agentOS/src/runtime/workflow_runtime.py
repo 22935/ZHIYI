@@ -54,8 +54,8 @@ from contracts.task_acceptance import frozen_task_acceptance
 from components.planner.acg_semantic_validator import (
     validate_bound_acg_semantics,
 )
-from components.resource.service import ResourcePlane
-from components.scheduler.binder import ResourceBinder
+from components.resource.application.resource_plane import ResourcePlane
+from components.resource.scheduler.binder import ResourceBinder
 from components.recovery.checkpoint import (
     ACGCheckpointStore,
     ExecutionResumeCommand,

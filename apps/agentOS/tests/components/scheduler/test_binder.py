@@ -10,7 +10,7 @@ from datetime import timedelta
 
 import pytest
 
-from components.resource.service import ResourcePlane
+from components.resource.application.resource_plane import ResourcePlane
 from components.scheduler.binder import LeaseKeepAlive, ResourceBinder, hard_constraint_reasons, placement_score
 from components.scheduler.models import FATAL_SCHEDULING_REASONS
 from contracts.resource import (
@@ -136,6 +136,34 @@ def test_hard_constraints_report_their_filter_reasons() -> None:
     assert decisions["runtime:device-local"].accepted is False
     assert "PLACEMENT_MISMATCH" in decisions["runtime:device-local"].reasons
     assert decisions["runtime:edge-exec-1"].accepted is True
+
+
+def test_default_placement_prefers_device_then_edge_then_cloud() -> None:
+    plane = _plane()
+    _register(plane, "runtime:cloud", node="node:cloud", placement=Placement.CLOUD)
+    _register(plane, "runtime:edge", node="node:edge", placement=Placement.EDGE)
+    _register(plane, "runtime:device", node="node:device", placement=Placement.DEVICE)
+    binder = ResourceBinder(plane)
+
+    result = binder.bind_ready(
+        run_id="run-tier",
+        step_id="step-tier",
+        attempt_id="attempt-tier",
+        requirement=_requirement(),
+    )
+
+    assert result.status == "allocated"
+    assert result.binding is not None
+    assert result.binding.resource_id == "runtime:device"
+
+    forced_cloud = binder.bind_ready(
+        run_id="run-tier",
+        step_id="step-cloud",
+        attempt_id="attempt-cloud",
+        requirement=_requirement(allowedPlacements=[Placement.CLOUD]),
+    )
+    assert forced_cloud.binding is not None
+    assert forced_cloud.binding.resource_id == "runtime:cloud"
 
 
 def test_node_hard_constraints_reject_insufficient_hardware_and_wrong_region() -> None:
@@ -325,7 +353,7 @@ def test_placement_score_is_deterministic_and_explainable() -> None:
     )
     assert first == second
     assert set(factors) == {
-        "reliability", "capacity", "idle", "latency", "cost", "preference", "routingPrior",
+        "reliability", "capacity", "idle", "latency", "cost", "preference", "placementTier", "routingPrior",
         "snapshotPenalty",
     }
     assert 0.0 <= first <= 1.0

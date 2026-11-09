@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from components.resource.local_runtime import (
+from components.resource.runtime.local_runtime import (
     DEFAULT_LOCAL_RUNTIME_NODE_ID,
     LOCAL_RUNTIME_RESOURCE_CAPABILITIES,
     LOCAL_RUNTIME_SHELL_CAPABILITY,
@@ -18,8 +18,8 @@ from components.resource.local_runtime import (
     ensure_local_runtime_resource,
     local_runtime_profile,
 )
-from components.resource.service import ResourcePlane
-from components.resource.store import SQLiteResourceStore
+from components.resource.application.resource_plane import ResourcePlane
+from components.resource.infrastructure.runtime_store import SQLiteResourceStore
 from cryptography.fernet import Fernet
 from contracts.local_runtime import LOCAL_RUNTIME_PROTOCOL_VERSION
 from contracts.resource import HealthStatus, Placement, RuntimeKind, TrustLevel

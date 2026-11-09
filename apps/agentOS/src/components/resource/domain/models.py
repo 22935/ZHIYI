@@ -43,6 +43,19 @@ class RuntimeHealth:
 
 
 @dataclass(frozen=True)
+class ResourceHealthState:
+    """健康存储中的单资源状态，version 表示本地写入顺序。"""
+
+    resource_id: str
+    reliability: float
+    latency_ms: float | None
+    last_heartbeat: datetime | None
+    forced_health: bool | None
+    updated_at: datetime
+    version: int
+
+
+@dataclass(frozen=True)
 class RuntimeCandidate:
     """一个通过资格检查的 Runtime 候选及其观测依据。"""
 

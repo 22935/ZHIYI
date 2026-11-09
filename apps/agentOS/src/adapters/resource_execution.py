@@ -12,7 +12,7 @@ import secrets
 
 import httpx
 
-from components.resource.auth import build_resource_signature
+from contracts.resource.resource_signing import build_resource_signature
 from contracts.resource import ResourceEndpoint, RuntimeProfile
 from service.agents.base import AgentOutput, AgentRunContext, BaseAgent
 

@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from components.resource.service import ResourcePlane
+from components.resource.application.resource_plane import ResourcePlane
 from components.resource.errors import ResourceObservationTimeInvalidError
-from components.resource.store import SQLiteResourceStore, StaleResourceObservation
+from components.resource.infrastructure.runtime_store import SQLiteResourceStore, StaleResourceObservation
 from contracts.resource import (
     HealthStatus,
     Placement,

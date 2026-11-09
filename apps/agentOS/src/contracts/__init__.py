@@ -157,7 +157,7 @@ from .recovery import (
     RecoveryAction, RecoveryNodeTemplate, RecoveryPlan, RecoveryRecipe,
     SemanticPatchRequest,
 )
-from .resource import (
+from .resource.resource import (
     ComputeCapacity,
     ExecutionBinding,
     ExecutionRequirement,

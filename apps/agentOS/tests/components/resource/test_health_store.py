@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from components.resource.health import ResourceHealthMonitor
-from components.resource.health_store import SQLiteResourceHealthStore
+from components.resource.domain.runtime_health import ResourceHealthMonitor
+from components.resource.infrastructure.health_store import SQLiteResourceHealthStore
 
 
 NOW = datetime(2026, 9, 4, tzinfo=timezone.utc)

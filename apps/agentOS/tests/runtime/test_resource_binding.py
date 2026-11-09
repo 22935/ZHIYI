@@ -17,8 +17,8 @@ import pytest
 from components.executor.graph import ACGSuperstepError
 from components.mission_manager.store import WorkflowRegistry
 from components.memory.store import MemoryStore
-from components.resource.embedded_runtime import EMBEDDED_AGENTS_RUNTIME_ID
-from components.resource.service import ResourcePlane
+from components.resource.runtime.embedded_runtime import EMBEDDED_AGENTS_RUNTIME_ID
+from components.resource.application.resource_plane import ResourcePlane
 from components.scheduler.binder import ResourceBinder
 from components.scheduler.models import (
     SchedulerAllocationTimeout,

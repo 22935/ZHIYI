@@ -10,14 +10,25 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
+from typing import Protocol
 
-from contracts.resource_signing import (
+from ...contracts.resource_signing import (
     build_resource_signature,
     canonical_resource_request as _canonical_request,
 )
 
-from .service import ResourcePlane
-from .store import ResourceCredentialRecord
+from ...domain.credentials import ResourceCredentialRecord
+
+
+class ResourceAuthenticationPort(Protocol):
+    """鉴权器所需的最小应用能力，不暴露资源平面的其他用例。"""
+
+    def runtime_credential(self, resource_id: str) -> ResourceCredentialRecord: ...
+    def node_credential(self, node_id: str) -> ResourceCredentialRecord: ...
+    def runtime_credential_hmac_key(self, resource_id: str, credential_id: str) -> bytes: ...
+    def node_credential_hmac_key(self, node_id: str, credential_id: str) -> bytes: ...
+    def consume_nonce(self, resource_id: str, nonce: str, expires_at: datetime, *, now: datetime) -> bool: ...
+    def consume_node_nonce(self, node_id: str, nonce: str, expires_at: datetime, *, now: datetime) -> bool: ...
 
 
 class ResourceRequestExpired(ValueError):
@@ -41,7 +52,7 @@ class ResourceRequestAuthenticator:
 
     def __init__(
         self,
-        plane: ResourcePlane,
+        plane: ResourceAuthenticationPort,
         *,
         clock_skew: timedelta = timedelta(minutes=5),
     ) -> None:
@@ -106,7 +117,7 @@ class NodeRequestAuthenticator:
 
     def __init__(
         self,
-        plane: ResourcePlane,
+        plane: ResourceAuthenticationPort,
         *,
         clock_skew: timedelta = timedelta(minutes=5),
     ) -> None:

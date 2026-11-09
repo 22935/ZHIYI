@@ -335,7 +335,7 @@ def test_successful_execution_observes_resource_health() -> None:
 
     assert completed.status.value == "completed"
     plane = runtime.resource_plane
-    from components.resource.embedded_runtime import EMBEDDED_AGENTS_RUNTIME_ID
+    from components.resource.runtime.embedded_runtime import EMBEDDED_AGENTS_RUNTIME_ID
 
     snapshot = plane.runtime_snapshot(EMBEDDED_AGENTS_RUNTIME_ID)
     # 目录行的延迟/可靠性来自执行观测；观测时间是真实回写而非注册时刻。

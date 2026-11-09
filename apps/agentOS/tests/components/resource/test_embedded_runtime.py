@@ -6,12 +6,12 @@ Runtime，能力为并集、容量为各 Agent 声明容量之和，注册表变
 
 from dataclasses import dataclass, field
 
-from components.resource.embedded_runtime import (
+from components.resource.runtime.embedded_runtime import (
     EMBEDDED_AGENTS_BASE_CAPABILITY,
     EMBEDDED_AGENTS_RUNTIME_ID,
     register_embedded_agents_runtime,
 )
-from components.resource.service import ResourcePlane
+from components.resource.application.resource_plane import ResourcePlane
 from contracts.resource import Placement, RuntimeKind, TrustLevel
 
 

@@ -5,14 +5,15 @@
 内部持久化、健康监控和鉴权细节耦合在一起。
 """
 
-from .health import ResourceHealthMonitor
-from .health_store import (
+from .domain.runtime_health import ResourceHealthMonitor
+from .infrastructure.health_store import (
     InMemoryResourceHealthStore,
-    ResourceHealthState,
-    ResourceHealthStore,
     SQLiteResourceHealthStore,
 )
-from .auth import (
+from .domain.models import ResourceHealthState
+from .domain.credentials import ResourceCredentialRecord
+from .ports.health_store import ResourceHealthStore
+from .infrastructure.signing.request_authenticator import (
     NodeRequestAuthenticator,
     ResourceRequestAuthenticator,
     ResourceRequestExpired,
@@ -21,13 +22,13 @@ from .auth import (
     ResourceRequestReplay,
     build_resource_signature,
 )
-from .crypto import ResourceSecretBox
-from .embedded_runtime import (
+from .infrastructure.crypto.fernet_secret_box import ResourceSecretBox
+from .runtime.embedded_runtime import (
     EMBEDDED_AGENTS_BASE_CAPABILITY,
     EMBEDDED_AGENTS_RUNTIME_ID,
     register_embedded_agents_runtime,
 )
-from .local_runtime import (
+from .runtime.local_runtime import (
     DEFAULT_LOCAL_RUNTIME_NODE_ID,
     LOCAL_RUNTIME_RESOURCE_CAPABILITIES,
     LOCAL_RUNTIME_SHELL_CAPABILITY,
@@ -38,7 +39,7 @@ from .local_runtime import (
     local_runtime_node_id,
     local_runtime_profile,
 )
-from .models import (
+from .domain.models import (
     ModelEndpointCandidate,
     NodeHealth,
     RuntimeCandidate,
@@ -46,9 +47,10 @@ from .models import (
     VersionedNodeSnapshot,
     VersionedRuntimeSnapshot,
 )
-from .node_health import NodeHealthMonitor, infer_load_status
-from .node_store import InMemoryNodeStore, NodeStore, SQLiteNodeStore
-from .service import (
+from .domain.node_health import NodeHealthMonitor, infer_load_status
+from .infrastructure.node_store import InMemoryNodeStore, SQLiteNodeStore
+from .ports.node_store import NodeStore
+from .application.resource_plane import (
     compute_registration_id,
     IssuedNodeCredential,
     IssuedResourceCredential,
@@ -61,14 +63,13 @@ from .errors import (
     ResourceObservationTimeInvalidError,
     ResourceVersionConflictError,
 )
-from .store import (
+from .infrastructure.runtime_store import (
     InMemoryResourceStore,
-    ResourceCredentialRecord,
-    RuntimeStore,
     SQLiteResourceStore,
     StaleResourceObservation,
     VersionConflict,
 )
+from .ports.runtime_store import RuntimeStore
 
 __all__ = [
     # TODO(api-evolution): 新增公共符号时同步评估版本兼容性与弃用策略。

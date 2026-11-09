@@ -25,7 +25,7 @@ from contracts.resource import (
     TrustLevel,
 )
 
-from .service import IssuedResourceCredential, ResourcePlane
+from ..application.resource_plane import IssuedResourceCredential, ResourcePlane
 
 
 LOCAL_RUNTIME_RESOURCE_CAPABILITIES: tuple[str, ...] = (

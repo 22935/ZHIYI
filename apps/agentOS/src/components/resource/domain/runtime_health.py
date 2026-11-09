@@ -10,7 +10,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from .algorithms import exponential_moving_average
-from .health_store import InMemoryResourceHealthStore, ResourceHealthStore
+from ..infrastructure.health_store import InMemoryResourceHealthStore
+from ..ports.health_store import ResourceHealthStore
 from .models import RuntimeHealth
 
 

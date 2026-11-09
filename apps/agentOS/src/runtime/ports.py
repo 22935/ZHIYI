@@ -24,8 +24,8 @@ from components.communicator.provenance_store import SQLiteProvenanceStore
 from components.content import ContentManifestStore
 from components.executor import ExecutionValueStore
 from components.recovery.checkpoint import ACGCheckpointStore
-from components.resource.service import ResourcePlane
-from components.scheduler.binder import ResourceBinder
+from components.resource.application.resource_plane import ResourcePlane
+from components.resource.scheduler.binder import ResourceBinder
 from contracts.acg_lifecycle import AcgIdentityLifecyclePort
 from service.agents import AgentRegistry
 from support.acg.capabilities import CapabilityCatalog

@@ -10,9 +10,9 @@ import sqlite3
 
 import pytest
 
-from components.resource.store import (
+from components.resource.domain.credentials import ResourceCredentialRecord
+from components.resource.infrastructure.runtime_store import (
     InMemoryResourceStore,
-    ResourceCredentialRecord,
     SQLiteResourceStore,
     StaleResourceObservation,
     VersionConflict,

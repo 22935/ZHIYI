@@ -916,8 +916,8 @@ def test_wait_and_pending_wake_survive_restart(tmp_path, claim_before_restart):
 
 
 def test_node_wait_checks_persisted_current_health_after_restart(tmp_path):
-    from components.resource.node_store import SQLiteNodeStore
-    from components.resource.service import ResourcePlane
+    from components.resource.infrastructure.node_store import SQLiteNodeStore
+    from components.resource.application.resource_plane import ResourcePlane
     from contracts.resource import NodeProfile, NodeSnapshot
     nodes = ResourcePlane(node_store=SQLiteNodeStore(tmp_path / "nodes.sqlite3"))
     nodes.register_node(

@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from components.resource.node_store import InMemoryNodeStore, SQLiteNodeStore
-from components.resource.service import ResourcePlane
+from components.resource.infrastructure.node_store import InMemoryNodeStore, SQLiteNodeStore
+from components.resource.application.resource_plane import ResourcePlane
 from components.resource.errors import ResourceObservationTimeInvalidError
-from components.resource.store import (
-    ResourceCredentialRecord,
+from components.resource.domain.credentials import ResourceCredentialRecord
+from components.resource.infrastructure.runtime_store import (
     SQLiteResourceStore,
     StaleResourceObservation,
 )
