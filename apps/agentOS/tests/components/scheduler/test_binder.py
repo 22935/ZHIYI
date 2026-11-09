@@ -54,7 +54,7 @@ def _register(
         **overrides,
     )
     plane.register_runtime(profile)
-    plane.heartbeat_runtime(runtime_id)
+    plane.heartbeat_runtime(runtime_id, source="external" if profile.endpoint is not None else "local")
     return profile
 
 
@@ -216,6 +216,10 @@ def test_allow_remote_execution_false_keeps_workload_on_device() -> None:
     plane = _plane()
     _register(plane, "runtime:edge-exec-1")
     _register(plane, "runtime:device-local", node="node:device:local", placement=Placement.DEVICE)
+    _register(
+        plane, "runtime:device-remote", node="node:device:remote", placement=Placement.DEVICE,
+        endpoint={"protocol": "https", "address": "https://device.example.test/execute"},
+    )
     binder = ResourceBinder(plane)
 
     result = binder.bind_ready(
@@ -226,6 +230,8 @@ def test_allow_remote_execution_false_keeps_workload_on_device() -> None:
     )
     assert result.status == "allocated"
     assert result.binding.resource_id == "runtime:device-local"
+    remote = next(item for item in result.candidates if item.resource_id == "runtime:device-remote")
+    assert "REMOTE_EXECUTION_DISABLED" in remote.reasons
 
 
 def test_allowed_and_excluded_runtime_ids_direct_the_choice() -> None:

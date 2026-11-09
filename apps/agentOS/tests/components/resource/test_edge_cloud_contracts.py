@@ -218,6 +218,22 @@ def test_remote_runtime_registration_requires_the_host_node_owner_scope():
         ))
 
 
+def test_remote_device_node_is_allowed_but_cannot_claim_host_trust():
+    plane = ResourcePlane()
+    profile = NodeProfile(nodeId="node:device:remote", placement=Placement.DEVICE,
+                          trust=TrustLevel.TRUSTED, ownerScope="tenant-a")
+    issued = plane.register_remote_node(
+        profile, NodeSnapshot(nodeId=profile.node_id, healthStatus="offline")
+    )
+    assert issued.node_id == profile.node_id
+
+    with pytest.raises(ValueError, match="host_trusted"):
+        plane.register_remote_node(
+            profile.model_copy(update={"nodeId": "node:device:forged", "trust": TrustLevel.HOST_TRUSTED}),
+            NodeSnapshot(nodeId="node:device:forged", healthStatus="offline"),
+        )
+
+
 def test_remote_model_server_registration_creates_schedulable_model_endpoints():
     plane = ResourcePlane()
     plane.register_remote_node(

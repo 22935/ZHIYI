@@ -224,8 +224,8 @@ class ResourcePlane:
         self, profile: NodeProfile, snapshot: NodeSnapshot, *, registration_id: str | None = None
     ) -> IssuedNodeCredential:
         """登记远程节点并生成只能在注册响应中读取一次的凭据。"""
-        if profile.placement is Placement.DEVICE:
-            raise ValueError("remote node must use a non-device placement")
+        if profile.placement is Placement.DEVICE and profile.trust is TrustLevel.HOST_TRUSTED:
+            raise ValueError("remote device node cannot claim host_trusted trust")
         if not profile.owner_scope:
             raise ValueError("remote node ownerScope is required")
         registration_id = registration_id or compute_registration_id(

@@ -25,7 +25,7 @@
         </div>
         <template v-if="isDevice">
           <div class="rr-grid rr-grid--3">
-            <label class="rr-field"><span>部署位置</span><select v-model="form.placement"><option value="edge">边缘节点</option><option value="cloud">云端节点</option></select></label>
+            <label class="rr-field"><span>部署位置</span><select v-model="form.placement"><option value="device">端侧设备</option><option value="edge">边缘节点</option><option value="cloud">云端节点</option></select></label>
             <label class="rr-field"><span>信任等级</span><select v-model="form.trust"><option value="trusted">Trusted</option><option value="sandboxed">Sandboxed</option><option value="untrusted">Untrusted</option></select></label>
             <label class="rr-field"><span>归属范围 *</span><input v-model="form.ownerScope" placeholder="该节点所属的操作范围" /></label>
           </div>
@@ -86,7 +86,7 @@ const registrationTypes = [
   { value: 'tool', label: '接入工具', description: '接入 AgentOS HTTP 执行服务' }
 ] as const
 const defaults = () => ({ kind: 'device' as 'device' | 'model' | 'tool',
-  id: '', name: '', placement: 'edge' as 'edge' | 'cloud', trust: 'trusted', ownerScope: '', nodeId: '',
+  id: '', name: '', placement: 'edge' as 'device' | 'edge' | 'cloud', trust: 'trusted', ownerScope: '', nodeId: '',
   sourceType: '', provider: '', adapter: '',
   capabilities: [] as string[], domains: [] as string[], modelIds: [] as string[],
   protocol: 'https', address: '', capacity: 1, cpuCores: 0, memoryMb: 0, gpuMemoryMb: 0, gpuType: '' })

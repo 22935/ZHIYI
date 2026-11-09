@@ -115,6 +115,7 @@ def hard_constraint_reasons(
 ) -> list[FilterReason]:
     """按硬约束判定 Runtime 是否具备本次绑定资格；不产生任何状态变更。"""
     reasons: list[FilterReason] = []
+    is_remote_runtime = profile.endpoint is not None and profile.endpoint.protocol != "local"
     if node is not None:
         if not node.enabled or node_status in {
             NodeHealthStatus.UNKNOWN, NodeHealthStatus.STALE,
@@ -138,13 +139,13 @@ def hard_constraint_reasons(
         if requirement.allowed_owner_scopes and node.owner_scope not in requirement.allowed_owner_scopes:
             reasons.append(FilterReason.NODE_OWNER_SCOPE_MISMATCH)
         if (
-            profile.placement is not Placement.DEVICE
+            is_remote_runtime
             and node.remote_execution_policy is RemoteExecutionPolicy.DENY
         ):
             reasons.append(FilterReason.NODE_REMOTE_EXECUTION_DENIED)
         allowlist = node.metadata.get("remoteExecutionAllowlist", [])
         if (
-            profile.placement is not Placement.DEVICE
+            is_remote_runtime
             and node.remote_execution_policy is RemoteExecutionPolicy.ALLOWLIST_ONLY
             and profile.runtime_id not in allowlist
         ):
@@ -168,7 +169,7 @@ def hard_constraint_reasons(
         reasons.append(FilterReason.TRUST_INSUFFICIENT)
     if requirement.domain and profile.domains and requirement.domain not in profile.domains and "general" not in profile.domains:
         reasons.append(FilterReason.DOMAIN_MISMATCH)
-    if not requirement.allow_remote_execution and profile.placement is not Placement.DEVICE:
+    if not requirement.allow_remote_execution and is_remote_runtime:
         reasons.append(FilterReason.REMOTE_EXECUTION_DISABLED)
     if requirement.allowed_runtime_ids and profile.runtime_id not in requirement.allowed_runtime_ids:
         reasons.append(FilterReason.NOT_ALLOWED)

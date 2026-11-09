@@ -160,6 +160,7 @@ describe('resource plane adaptation', () => {
       'el-dialog': { template: '<div><slot name="header" /><slot /><slot name="footer" /></div>' } } } })
     await wrapper.setProps({ modelValue: true }); await flushPromises()
     expect(wrapper.text()).toContain('接入设备')
+    expect(wrapper.text()).toContain('端侧设备')
     await wrapper.findAll('input')[0].setValue('node:edge:new')
     await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '该节点所属的操作范围')!.setValue('scope')
     await wrapper.findAll('input').find(input => (input.element as HTMLInputElement).placeholder === '如 kubernetes、vendor_agent')!.setValue('vendor-agent')
