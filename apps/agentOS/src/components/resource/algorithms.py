@@ -25,6 +25,7 @@ def health_score(health: RuntimeHealth, utilization: float) -> float:
     """把可靠性、时延和负载压缩为可稳定排序的健康分数。"""
     if not health.healthy:
         return 0.0
+    # 未采集时延时不额外扣分，避免因遥测缺失把可用资源直接排到末位。
     latency_penalty = 1.0 if health.latency_ms is None else 1.0 / (1.0 + health.latency_ms / 1000.0)
     return health.reliability * latency_penalty * (1.0 - utilization)
 
@@ -37,6 +38,7 @@ def is_runtime_available(
     labels: dict[str, str] | None = None,
 ) -> bool:
     """判定 Runtime 是否能在当前时刻被调度，不在这里产生任何状态变更。"""
+    # 将调用方传入的序列标准化为集合，能力检查只关心包含关系而非顺序或重复。
     required = set(required_capabilities)
     labels = labels or {}
     return (
@@ -49,3 +51,5 @@ def is_runtime_available(
 
 
 is_available = is_runtime_available
+
+# TODO(scheduling-policy): 当前评分模型未纳入成本、地域和租户配额，调度策略扩展时应保持纯函数特性。

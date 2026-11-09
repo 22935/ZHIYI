@@ -206,7 +206,7 @@ app.include_router(
 - `<Teleport to="body">` + `position: fixed`，`z-index: 2100`（避开 `global-error-banner` 的 2000 与右键菜单的 3000）；参照 `AuthenticatedAppShell.vue` 的 Teleport 范例。
 - 可折叠 / 拖拽 / 隐藏，位置与皮肤偏好存 `localStorage`（沿用 `layout.*` 命名）。
 - **不做独立置顶窗口**：`apps/desktop/electron/src/main.ts` 是单无边框窗口并拒绝 `window.open`，置顶透明窗口要改 IPC 三处同构 + 安全基线，成本高。
-- **语音降级**：Electron `hardenSession()` 拒绝所有 media 权限，`SpeechRecognition` 在打包版不可用；桌面端默认文字输入，语音功能需单独做权限白名单评审。
+- **语音降级（已被 §13.10 取代）**：原方案为 `hardenSession()` 全拒 media；2026-11-09 起改为**白名单放行自有页面来源的纯音频（麦克风）请求**，桌面端语音输入 / 语音唤醒可用，摄像头与其余权限仍全拒。
 
 ---
 
@@ -582,6 +582,28 @@ apps/agent/app/companion/        # 独立 Python 包
 
 ### 13.9 限制与后续
 
-- **Electron 端语音输入仍受 `hardenSession()` 全拒媒体权限约束**，且打包版 Chromium 未必内置在线识别服务；当前提供的是明确降级与快捷键，不是桌面端离线 ASR。若要在桌面端完整语音输入，需要单独的安全评审 + 本地/服务端 ASR 方案。
+- **桌面端语音输入已可用（见 §13.10）**：`hardenSession()` 从全拒改为白名单后，Electron 端 Web Speech 识别与语音唤醒依赖麦克风权限已放行；Web 端 ASR 仍依赖浏览器在线识别服务，离线或权限被拒时按既有路径降级。
 - Web 端 ASR 依赖浏览器在线识别服务，离线或权限被拒时按上条降级。
 - 真实 Electron 托盘「听我说话」的端到端联调、以及 P1 服务端对话域 / P2 任务卡提交 / P3 语音，仍未实施。
+
+### 13.10 2026-11-09 桌面端麦克风权限白名单（经产品确认放行）
+
+**背景**：本文档多处（§5.5、风险表、实施记录）登记过「不暗中放宽 `hardenSession()`」，桌面语音需单独安全评审。用户在 2026-11-09 明确要求修复桌面端无麦克风权限的问题，即视为该评审的授权结论，以下为**公开登记**的放行方案（非暗中放宽）。
+
+**实现**：`apps/desktop/electron/src/lib/permissions.ts`（纯函数，`node --test` 直测）+ `main.ts` `hardenSession()` 接线。
+
+- **唯一放行项**：自有页面来源（`kinlin-app://shell`，开发形态附带 dev server Origin）发起的 `media` 权限中**纯音频**请求（`mediaTypes` 仅 `['audio']`；老版本 Electron 的 Web Speech 请求可能不带 mediaTypes，按音频放行——`getUserMedia({video})` 必带 `'video'`，故不会打开摄像头）。
+- **来源校验**：`requestingUrl`/`requestingOrigin` 必须精确命中白名单 Origin 集合；自定义协议属 WHATWG 非特殊 scheme，Node 侧 `URL.origin` 为 `'null'`，`normalizeOrigin()` 手动拼 `scheme://host` 后仍需精确匹配，不放大授权面。
+- **其余权限维持全拒**：摄像头（含 `['audio','video']` 混合请求）、`'unknown'` 媒体、`display-capture`、geolocation、notifications、speaker-selection 等。
+- **检查侧同口径**：`setPermissionCheckHandler` 对 `media`/`audio` 返回 true（`navigator.permissions.query` 走这里），`video` 拒绝。
+- **平台说明**：当前只打包 Windows（electron-builder 仅 win target），无 OS 级弹窗；将来 macOS 打包需补 `NSMicrophoneUsageDescription` 与 `systemPreferences.askForMediaAccess('microphone')`。
+
+**门禁升级**：`companion-ipc.test.ts` 的安全基线测试从「源码正则断言 `callback(false)`」升级为**语义断言**——main.ts 必须把请求/检查两侧都路由到 `lib/permissions`，且不得出现无条件 `callback(true)`；并直接断言白名单决策函数对麦克风放行、对摄像头/外来来源/其他权限拒绝。
+
+**真机验证**（Electron 45.1.0，隐藏窗口 + 应用协议页面）：
+- `getUserMedia({audio:true})` → **GRANTED**（权限请求 `media ["audio"] => true`）；
+- `getUserMedia({video:true})` → **NotAllowedError**（`media ["video"] => false`）；
+- `navigator.permissions.query({name:'microphone'})` → `granted`；
+- `window.SpeechRecognition / webkitSpeechRecognition` → `function`（Web Speech 识别在 Electron 45 存在，权限放行后可用）。
+
+**仍待验证**：真实麦克风收音 + 云端识别服务的端到端联调（需在后端与识别服务可达的运行态下人工确认）；识别服务离线时走既有诚实降级路径。

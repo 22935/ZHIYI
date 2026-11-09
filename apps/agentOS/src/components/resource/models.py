@@ -1,4 +1,8 @@
-"""资源部件内部使用的只读投影模型。"""
+"""资源部件内部使用的只读投影模型。
+
+这些不可变数据类把合同对象、持久化版本和健康/候选计算结果拆开表示，防止
+存储实现细节泄漏到跨部件契约，也让调度查询能携带完整的判定依据。
+"""
 
 from __future__ import annotations
 
@@ -74,4 +78,7 @@ class NodeHealth:
     consecutive_failures: int
 
 
-_ = (HealthStatus,)  # 保留导入占位：合同枚举供下游模块再导出
+# 保留导入占位：合同枚举供下游模块再导出，避免兼容路径提前失效。
+_ = (HealthStatus,)
+
+# TODO(model-cleanup): 下游完成迁移后移除 HealthStatus 的兼容导出占位。

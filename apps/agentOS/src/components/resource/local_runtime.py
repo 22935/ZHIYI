@@ -2,6 +2,9 @@
 
 Local Runtime 是新资源模型的第一个真实实例：一个 Device Node 承载一个
 EXECUTION_BACKEND Runtime，后者暴露 filesystem / shell 执行能力。
+
+这里负责把宿主进程提供的本地执行服务转换为资源合同对象，并将其健康检查
+结果写入 ResourcePlane；实际文件和命令执行仍由 Local Runtime 服务实现。
 """
 
 from __future__ import annotations
@@ -37,11 +40,13 @@ DEFAULT_LOCAL_RUNTIME_NODE_ID = "node:device:local"
 
 
 class LocalRuntimeHealthTransport(Protocol):
+    """本地运行时健康检查的异步传输边界。"""
     async def health(self) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True)
 class LocalRuntimeResourceConfig:
+    """登记本地执行后端所需的静态配置与可选远程凭据。"""
     resource_id: str
     owner_scope: str
     execution_endpoint: str
@@ -62,6 +67,7 @@ class LocalRuntimeResourceConfig:
             raise ValueError("local runtime version and capacity must be positive")
         if (self.credential_id is None) != (self.credential_secret is None):
             raise ValueError("local runtime credential_id and credential_secret must be supplied together")
+        # 保持声明顺序去重，既保证配置稳定，也避免同一能力被重复发布。
         normalized_capabilities = tuple(dict.fromkeys(
             str(capability).strip() for capability in self.capabilities if str(capability).strip()
         ))
@@ -75,11 +81,13 @@ class LocalRuntimeResourceConfig:
 
 @dataclass(frozen=True)
 class RegisteredLocalRuntimeResource:
+    """本地运行时登记后的 Runtime 画像和一次性凭据。"""
     profile: RuntimeProfile
     credential: IssuedResourceCredential | None
 
 
 def local_runtime_node_id(config: LocalRuntimeResourceConfig) -> str:
+    """返回配置归属的 Node 标识，集中封装调用方的取值方式。"""
     return config.node_id
 
 
@@ -87,7 +95,9 @@ def local_runtime_profile(config: LocalRuntimeResourceConfig) -> RuntimeProfile:
     """构建宿主 Local Runtime 的 EXECUTION_BACKEND 画像。"""
     capabilities = list(config.capabilities)
     if config.shell_exec_enabled:
+        # Shell 是高风险能力，必须由显式配置开放，不能随基础文件能力默认发布。
         capabilities.append(LOCAL_RUNTIME_SHELL_CAPABILITY)
+
     return RuntimeProfile(
         runtimeId=config.resource_id,
         kind=RuntimeKind.EXECUTION_BACKEND,
@@ -111,6 +121,9 @@ def local_runtime_profile(config: LocalRuntimeResourceConfig) -> RuntimeProfile:
             "managedBy": "bootstrap",
         },
     )
+
+
+# TODO(local-runtime-policy): 后续应将 shell 的细粒度命令白名单和审计策略下沉到能力声明中。
 
 
 def ensure_local_runtime_resource(

@@ -3,6 +3,9 @@
 逻辑 Agent（Role）不是资源；本进程内可调用的 Agent 集合整体构成一个
 执行后端。绑定选择的是这个后端，"具体由哪个逻辑 Agent 执行"仍由执行器
 按 Planner 提示与能力解析，两层决策互不越界。
+
+该适配器只将当前进程可见的 Agent 注册表投影为一个可调度 Runtime，不改变
+具体 Agent 的调用路由或生命周期管理。
 """
 
 from __future__ import annotations
@@ -34,6 +37,7 @@ def register_embedded_agents_runtime(
     对单 Agent 步骤的角色锚点（``agent:<planned_agent_id>``）对接。注册表
     变化时重复调用即可完成同步（引导路径允许更新）。
     """
+    # 基础能力标识让调度器能够选择整个嵌入式执行后端。
     capabilities: set[str] = {EMBEDDED_AGENTS_BASE_CAPABILITY}
     capacity = 0
     for agent in agents:
@@ -50,6 +54,7 @@ def register_embedded_agents_runtime(
         ).strip()
         if agent_id:
             capabilities.add(f"agent:{agent_id.lower()}")
+        # 容量至少为一，兼容未声明容量的旧 Agent 画像。
         capacity += max(1, int(getattr(profile, "capacity", 1) or 1))
     profile = RuntimeProfile(
         runtimeId=EMBEDDED_AGENTS_RUNTIME_ID,
@@ -79,6 +84,9 @@ def register_embedded_agents_runtime(
     )
     plane.register_runtime(profile, snapshot)
     return profile
+
+
+# TODO(agent-registry): 注册表支持热更新后，应补充已移除 Agent 能力的回收和正在执行任务的迁移策略。
 
 
 __all__ = [

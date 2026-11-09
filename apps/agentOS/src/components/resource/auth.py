@@ -1,4 +1,9 @@
-"""Resource-level request signing for remote edge/cloud nodes."""
+"""远程边缘/云节点请求的资源级签名鉴权。
+
+认证顺序固定为：查找身份、校验凭据、校验时间窗口、校验 HMAC 完整性，
+最后原子消费 nonce。只有全部通过的请求才会消耗 nonce，避免无效请求
+污染重放保护存储。
+"""
 
 from __future__ import annotations
 
@@ -16,23 +21,23 @@ from .store import ResourceCredentialRecord
 
 
 class ResourceRequestExpired(ValueError):
-    """The signed request timestamp is outside the accepted clock skew."""
+    """签名时间戳超出允许的时钟偏差窗口。"""
 
 
 class ResourceRequestReplay(ValueError):
-    """The signed request nonce has already been consumed."""
+    """请求 nonce 已被成功消费，表示该请求可能被重放。"""
 
 
 class ResourceRequestNotFound(ValueError):
-    """The request names an unknown resource."""
+    """请求声明的资源或节点不存在。"""
 
 
 class ResourceRequestInvalid(ValueError):
-    """The credential or signature does not match the named resource."""
+    """凭据或签名与目标资源不匹配。"""
 
 
 class ResourceRequestAuthenticator:
-    """Verify identity, freshness, integrity, and replay protection."""
+    """验证 Runtime 请求的身份、新鲜度、完整性与重放保护。"""
 
     def __init__(
         self,
@@ -73,6 +78,7 @@ class ResourceRequestAuthenticator:
         if abs((current - signed_at).total_seconds()) > self.clock_skew.total_seconds():
             raise ResourceRequestExpired("resource request timestamp is expired")
 
+        # 使用恒定时间比较，避免签名不匹配时泄露前缀匹配长度。
         expected = hmac.new(
             self.plane.runtime_credential_hmac_key(resource_id, credential_id),
             _canonical_request(
@@ -96,7 +102,7 @@ class ResourceRequestAuthenticator:
 
 
 class NodeRequestAuthenticator:
-    """Verify signed requests for the Node ledger using the same HMAC contract."""
+    """使用与 Runtime 相同的 HMAC 合约验证 Node 台账请求。"""
 
     def __init__(
         self,
@@ -137,6 +143,7 @@ class NodeRequestAuthenticator:
         if abs((current - signed_at).total_seconds()) > self.clock_skew.total_seconds():
             raise ResourceRequestExpired("node request timestamp is expired")
 
+        # Node 与 Runtime 分开取密钥和消费 nonce，防止跨资源命名空间重放。
         expected = hmac.new(
             self.plane.node_credential_hmac_key(node_id, credential_id),
             _canonical_request(
@@ -155,3 +162,6 @@ class NodeRequestAuthenticator:
         if not self.plane.consume_node_nonce(node_id, nonce, expires_at, now=current):
             raise ResourceRequestReplay("node request nonce was already used")
         return record
+
+
+# TODO(key-rotation): 支持 credential 的宽限期轮换后，应允许当前与上一把密钥并行校验。

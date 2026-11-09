@@ -1,4 +1,8 @@
-"""Durable health state shared by independently running AgentOS processes."""
+"""在独立运行的 AgentOS 进程之间共享 Runtime 健康状态。
+
+协议层定义健康状态读写边界，内存实现服务测试和单进程部署，SQLite 实现
+提供跨进程可见的最后观测值。版本号只代表本地写入顺序，不属于资源合同。
+"""
 
 from __future__ import annotations
 
@@ -14,6 +18,7 @@ from .sqlite_support import configure_sqlite_connection
 
 @dataclass(frozen=True)
 class ResourceHealthState:
+    """单个资源的持久化健康快照，包含派生指标和写入版本。"""
     resource_id: str
     reliability: float
     latency_ms: float | None
@@ -24,6 +29,7 @@ class ResourceHealthState:
 
 
 class ResourceHealthStore(Protocol):
+    """健康持久化的最小接口，隔离监控逻辑与后端实现。"""
     def get(self, resource_id: str) -> ResourceHealthState | None:
         ...
 
@@ -41,13 +47,14 @@ class ResourceHealthStore(Protocol):
 
 
 def _utc(value: datetime) -> datetime:
+    """拒绝无时区时间，统一使用 UTC 消除跨进程比较歧义。"""
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("health timestamps must be timezone-aware")
     return value.astimezone(timezone.utc)
 
 
 class InMemoryResourceHealthStore:
-    """Small isolated store for unit tests and explicitly single-process use."""
+    """面向测试和明确单进程部署的轻量隔离存储。"""
 
     def __init__(self) -> None:
         self._states: dict[str, ResourceHealthState] = {}
@@ -69,6 +76,7 @@ class InMemoryResourceHealthStore:
     ) -> ResourceHealthState:
         with self._lock:
             previous = self._states.get(resource_id)
+            # 每次写入产生新版本，便于调用方识别同一资源的更新顺序。
             state = ResourceHealthState(
                 resource_id=resource_id,
                 reliability=reliability,
@@ -83,7 +91,7 @@ class InMemoryResourceHealthStore:
 
 
 class SQLiteResourceHealthStore:
-    """SQLite-backed health truth safe to open from multiple AgentOS processes."""
+    """由 SQLite 保存、可被多个 AgentOS 进程同时打开的健康事实源。"""
 
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
@@ -91,6 +99,7 @@ class SQLiteResourceHealthStore:
         self._connection = configure_sqlite_connection(
             sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
         )
+        # TODO(database-migration): 多机部署时改用集中式数据库，避免共享文件系统上的 SQLite 锁语义差异。
         self._connection.execute(
             """CREATE TABLE IF NOT EXISTS resource_health (
                 resource_id TEXT PRIMARY KEY,

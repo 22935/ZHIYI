@@ -1,4 +1,8 @@
-"""节点资源表的存储实现（协议 + 进程内存）。"""
+"""节点资源表的存储实现（协议、内存与 SQLite）。
+
+Node 是部署实体，静态画像和动态快照分离管理；所有读取返回副本，避免
+调用方绕开版本控制修改状态。远程登记与凭据写入必须保持原子性。
+"""
 
 from __future__ import annotations
 
@@ -74,7 +78,7 @@ class NodeStore(Protocol):
 
 
 class InMemoryNodeStore:
-    """面向单进程运行的节点资源存储。"""
+    """面向单进程运行的节点资源存储，主要用于测试和本地开发。"""
 
     def __init__(self) -> None:
         self._profiles: dict[str, NodeProfile] = {}
@@ -93,6 +97,7 @@ class InMemoryNodeStore:
                 if current_profile == profile and current_snapshot.snapshot == snapshot:
                     return self._copy(current_snapshot)
                 raise ValueError(f"node already registered: {profile.node_id}")
+            # 存储副本与返回副本隔离，保护版本和序号不变量。
             self._profiles[profile.node_id] = profile.model_copy(deep=True)
             versioned = VersionedNodeSnapshot(snapshot=snapshot.model_copy(deep=True), version=1)
             self._snapshots[profile.node_id] = versioned
@@ -195,6 +200,7 @@ class InMemoryNodeStore:
         self, node_id: str, nonce: str, expires_at: datetime, *, now: datetime
     ) -> bool:
         with self._lock:
+            # 每次消费前清理过期 nonce，限制常驻进程的重放记录增长。
             self._nonces = {key: expiry for key, expiry in self._nonces.items() if expiry > now}
             key = (node_id, nonce)
             if expires_at <= now or key in self._nonces:
@@ -208,7 +214,7 @@ class InMemoryNodeStore:
 
 
 class SQLiteNodeStore:
-    """SQLite-backed Node registry with profile/snapshot, credentials and nonces."""
+    """由 SQLite 支撑的 Node 注册表，保存画像、快照、凭据和 nonce。"""
 
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
@@ -361,6 +367,7 @@ class SQLiteNodeStore:
                 raise KeyError(f"unknown node: {snapshot.node_id}")
             current_snapshot = NodeSnapshot.model_validate(json.loads(str(row[0])))
             current_version = int(row[1])
+            # 期望版本不匹配时拒绝覆盖，调用方应重新读取后再合并观测。
             if expected_version is not None and expected_version != current_version:
                 raise VersionConflict(
                     f"snapshot version conflict for {snapshot.node_id}: "
@@ -488,8 +495,12 @@ class SQLiteNodeStore:
                 self._connection.commit()
                 return True
             except sqlite3.IntegrityError:
+                # 主键冲突表示 nonce 已消费，鉴权层会将其转换为重放异常。
                 self._connection.rollback()
                 return False
+
+
+# TODO(node-store-migration): 多机部署时迁移到集中式存储，并保留 nonce 的唯一性约束。
             except Exception:
                 self._connection.rollback()
                 raise

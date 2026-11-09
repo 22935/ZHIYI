@@ -1,4 +1,8 @@
-"""资源平面存储：Runtime 画像/快照、模型端点目录与远程凭据。"""
+"""资源平面存储：Runtime 画像/快照、模型端点目录与远程凭据。
+
+静态画像、动态观测、签名凭据和重放 nonce 分离保存。内存实现用于测试和
+嵌入式运行，SQLite 实现使用事务与版本号维护跨进程一致性。
+"""
 
 from __future__ import annotations
 
@@ -45,6 +49,7 @@ class RuntimeStore(Protocol):
     """资源平面依赖的最小 Runtime 存储边界，便于替换存储介质。"""
 
     def register(self, profile: RuntimeProfile, snapshot: RuntimeSnapshot) -> VersionedRuntimeSnapshot:
+        """登记 Runtime 画像与首份快照；ID 冲突必须显式失败。"""
         ...
 
     def register_remote(
@@ -56,6 +61,7 @@ class RuntimeStore(Protocol):
         ...
 
     def get_profile(self, runtime_id: str) -> RuntimeProfile:
+        """读取 Runtime 静态画像副本；未知 ID 抛出 ``KeyError``。"""
         ...
 
     def get_snapshot(self, runtime_id: str) -> VersionedRuntimeSnapshot:
@@ -72,6 +78,7 @@ class RuntimeStore(Protocol):
     def update_capacity(
         self, runtime_id: str, capacity: int, *, expected_capacity: int
     ) -> VersionedRuntimeSnapshot:
+        """基于期望容量调整容量，并同步修正空闲槽位与利用率。"""
         ...
 
     def update_profile(self, profile: RuntimeProfile) -> RuntimeProfile:
@@ -126,6 +133,7 @@ class InMemoryResourceStore:
         with self._lock:
             if profile.runtime_id in self._profiles:
                 raise ValueError(f"runtime already registered: {profile.runtime_id}")
+            # 写入和返回均复制，避免调用方持有内部 RuntimeSnapshot 引用。
             versioned = VersionedRuntimeSnapshot(snapshot=snapshot.model_copy(deep=True), version=1)
             self._profiles[profile.runtime_id] = profile.model_copy(deep=True)
             self._snapshots[profile.runtime_id] = versioned
@@ -292,6 +300,7 @@ class InMemoryResourceStore:
         now: datetime,
     ) -> bool:
         with self._lock:
+            # 清理过期 nonce 后再检查唯一性，控制常驻进程的重放记录规模。
             self._nonces = {
                 key: expiry for key, expiry in self._nonces.items() if expiry > now
             }
@@ -536,6 +545,7 @@ class SQLiteResourceStore:
                     f"snapshot version conflict for {snapshot.runtime_id}: "
                     f"expected {expected_version}, current {current_version}"
                 )
+            # 存储层再次拦截迟到观测，防止绕过服务层的旧数据覆盖新状态。
             if snapshot.observation_sequence < current_snapshot.observation_sequence:
                 raise StaleResourceObservation(
                     f"stale observation for {snapshot.runtime_id}: "
@@ -783,6 +793,7 @@ class SQLiteResourceStore:
                 self._connection.commit()
                 return cursor.rowcount == 1
             except sqlite3.IntegrityError:
+                # nonce 唯一键冲突即已消费，调用鉴权层会将其归类为重放。
                 self._connection.rollback()
                 return False
             except Exception:
@@ -795,6 +806,7 @@ class SQLiteResourceStore:
 
 
 __all__ = [
+    # TODO(runtime-store-migration): 跨主机部署时应将事务和 nonce 去重迁移到集中式数据库/缓存协调器。
     "InMemoryResourceStore",
     "ResourceCredentialRecord",
     "RuntimeStore",
