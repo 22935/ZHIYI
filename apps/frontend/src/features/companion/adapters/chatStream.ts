@@ -3,6 +3,18 @@ import { parseChatStreamFrame } from '@/utils/sse'
 import type { ChatPort, CompanionContext } from '../types'
 
 const CONTEXT_STORAGE_KEY = 'companion.chat_context_id.v1'
+/**
+ * 伙伴默认走模型回复，但只在轻量档位上跑：
+ * - thinking 关闭：闲聊不需要推理链，直接砍掉首字延迟；
+ * - 不指定模型：沿用服务端激活供应商的默认档（现网为 *-flash / 轻量档）；
+ * - 允许本地钉死：在 localStorage 写入该键可强制使用某个更小的模型，
+ *   留空则完全交给服务端默认。
+ */
+const MODEL_OVERRIDE_KEY = 'companion.chat_model.v1'
+
+const readModelOverride = (): string | null => {
+  try { return localStorage.getItem(MODEL_OVERRIDE_KEY)?.trim() || null } catch { return null }
+}
 
 /**
  * 虚拟伙伴复用平台聊天协议，并保留服务端创建的独立 Conversation。
@@ -42,6 +54,7 @@ export class StreamChatPort implements ChatPort {
   async reply(text: string, _context: CompanionContext, signal?: AbortSignal): Promise<string> {
 
     const contextId = this.resolveContextId()
+    const model = readModelOverride()
     const response = await localFetch(apiUrl('/ai/chat/text/stream'), {
       method: 'POST',
       headers: {
@@ -50,6 +63,9 @@ export class StreamChatPort implements ChatPort {
       body: JSON.stringify({
         text,
         tool_mode: 'auto',
+        // 伙伴闲聊不需要深度思考；轻量档是它「回复快」的前提。
+        thinking_mode: 'disabled',
+        ...(model ? { model } : {}),
         ...(contextId ? { context_id: contextId } : {}),
         workspace_mode: 'chat'
       }),

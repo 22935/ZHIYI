@@ -280,7 +280,7 @@ const goToLogin = () => openAuth()
 .landing-view::before,
 .landing-view::after,
 .landing-atmosphere { content: ''; position: absolute; inset: 0; pointer-events: none; }
-.landing-view::before { z-index: -2; background: linear-gradient(112deg, rgba(249, 253, 255, .9) 0%, rgba(243, 250, 255, .66) 38%, rgba(225, 240, 255, .25) 72%, rgba(216, 232, 255, .42) 100%); }
+.landing-view::before { z-index: -2; background: linear-gradient(112deg, rgba(249, 253, 255, .94) 0%, rgba(243, 250, 255, .64) 32%, rgba(225, 240, 255, .2) 60%, rgba(216, 232, 255, .32) 100%); }
 .landing-view::after { z-index: -1; background: radial-gradient(circle at 72% 30%, rgba(94, 206, 255, .2), transparent 28%), radial-gradient(circle at 78% 78%, rgba(119, 105, 244, .14), transparent 30%), radial-gradient(circle at 8% 86%, rgba(72, 168, 237, .13), transparent 30%), repeating-linear-gradient(90deg, transparent 0, transparent 119px, rgba(73, 139, 200, .035) 120px), repeating-linear-gradient(0deg, transparent 0, transparent 119px, rgba(73, 139, 200, .025) 120px); }
 .landing-atmosphere { z-index: 4; opacity: .08; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.2'/%3E%3C/svg%3E"); mix-blend-mode: multiply; }
 
@@ -390,7 +390,7 @@ const goToLogin = () => openAuth()
   background: #050914 url('/darkbg.webp') center / cover no-repeat;
 
   &::before {
-    background: linear-gradient(112deg, rgba(3, 7, 15, .94) 0%, rgba(3, 10, 22, .78) 40%, rgba(3, 7, 15, .42) 100%);
+    background: linear-gradient(112deg, rgba(3, 7, 15, .95) 0%, rgba(3, 10, 22, .74) 34%, rgba(3, 7, 15, .36) 100%);
   }
   &::after {
     background: radial-gradient(circle at 72% 30%, rgba(79, 183, 255, .17), transparent 30%), radial-gradient(circle at 78% 78%, rgba(141, 112, 255, .18), transparent 32%), repeating-linear-gradient(90deg, transparent 0, transparent 119px, rgba(113, 166, 237, .05) 120px), repeating-linear-gradient(0deg, transparent 0, transparent 119px, rgba(113, 166, 237, .035) 120px);

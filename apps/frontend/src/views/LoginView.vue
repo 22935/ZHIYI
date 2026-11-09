@@ -257,7 +257,7 @@ const handleRegister = async () => {
   color: var(--auth-ink);
   background: #dcecff url('/bg.webp') center / cover fixed no-repeat;
 }
-.auth-view::before { content: ''; position: fixed; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(246,251,255,.9) 0%, rgba(246,251,255,.6) 37%, rgba(236,246,255,.08) 77%), linear-gradient(180deg, rgba(255,255,255,.25), transparent 50%); }
+.auth-view::before { content: ''; position: fixed; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(246,251,255,.92) 0%, rgba(246,251,255,.58) 30%, rgba(236,246,255,.06) 68%), linear-gradient(180deg, rgba(255,255,255,.25), transparent 50%); }
 .auth-topbar, .auth-layout, .auth-footer { position: relative; z-index: 1; }
 .auth-topbar { width: min(100% - 96px, 1920px); min-height: 88px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
 .auth-brand { display: inline-flex; align-items: center; gap: 13px; color: var(--auth-ink); font-family: var(--font-sans); font-size: 22px; font-weight: 600; letter-spacing: -.035em; line-height: 1; text-decoration: none; }
@@ -411,7 +411,7 @@ const handleRegister = async () => {
   &::before {
     background:
       radial-gradient(circle at 70% 42%, color-mix(in srgb, var(--auth-accent) 16%, transparent), transparent 38%),
-      linear-gradient(90deg, rgba(3, 7, 15, .94) 0%, rgba(3, 10, 22, .76) 44%, rgba(3, 7, 15, .48) 100%),
+      linear-gradient(90deg, rgba(3, 7, 15, .95) 0%, rgba(3, 10, 22, .72) 38%, rgba(3, 7, 15, .42) 100%),
       linear-gradient(180deg, rgba(1, 4, 10, .16), rgba(1, 4, 10, .72));
   }
   .auth-brand { color: #f1f6ff; }

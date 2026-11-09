@@ -325,6 +325,15 @@ export class VoiceEngine {
     return this.host.listVoices()
   }
 
+  /**
+   * 供唤醒监听等常驻功能复用同一宿主（同一套能力探测与麦克风实现），
+   * 与 start() 的手动聆听互不共享实例，由调用方负责错开时间。
+   */
+  createRecognition(): RecognitionLike | null {
+    if (this.disposed) return null
+    return this.host.createRecognition()
+  }
+
   /** 订阅系统声线变化（首次加载完成、插入耳机等）；返回取消订阅函数。 */
   onVoicesChanged(callback: () => void): () => void {
     if (this.disposed) return () => undefined

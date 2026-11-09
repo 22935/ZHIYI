@@ -102,7 +102,21 @@ describe('CompanionHost voice-first interaction', () => {
 
     expect(query('[data-testid="companion-voice-subtitle"]')?.textContent)
       .toContain('不能语音输入')
-    expect(query('[data-testid="companion-quick-progress"]')).not.toBeNull()
+    // 快捷指令已按需求移除：降级提示不再指向不存在的按钮。
+    expect(query('[data-testid="companion-quick-progress"]')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('wakes up from its name and takes the rest of the sentence in one shot', async () => {
+    const wrapper = await open()
+    // 点头像的那次手势已布防唤醒监听，当前活跃的识别实例就是唤醒会话。
+    say('知宝，帮我新建一个合同审查任务')
+    await flushPromises()
+
+    const messages = query('[data-testid="companion-messages"]')?.textContent || ''
+    expect(messages).toContain('帮我新建一个合同审查任务')
+    expect(messages).toContain('整理成一张任务卡')
+    expect(query('[data-testid="companion-card"]')?.textContent).toContain('合同审查任务')
     wrapper.unmount()
   })
 
@@ -118,6 +132,9 @@ describe('CompanionHost voice-first interaction', () => {
 
   it('lets the user DIY the character and keeps the new name', async () => {
     const wrapper = await open()
+    // DIY 入口收进设置面板。
+    query('[data-testid="companion-settings-open"]')?.click()
+    await flushPromises()
     query('[data-testid="companion-diy-open"]')?.click()
     await flushPromises()
     expect(query('[data-testid="companion-customizer"]')).not.toBeNull()
@@ -132,6 +149,9 @@ describe('CompanionHost voice-first interaction', () => {
     expect(query('[data-testid="companion-customizer"]')).toBeNull()
     expect(query('[data-testid="companion-name"]')?.textContent).toBe('团子')
     expect(localStorage.getItem(CUSTOMIZATION_STORAGE_KEY)).toContain('团子')
+    // 保存后回到设置看形象下拉：DIY 皮肤已被选上。
+    query('[data-testid="companion-settings-open"]')?.click()
+    await flushPromises()
     expect((query('[data-testid="companion-skin"]') as HTMLSelectElement).value)
       .toBe('companion-diy')
     wrapper.unmount()
@@ -139,6 +159,8 @@ describe('CompanionHost voice-first interaction', () => {
 
   it('wires workshop audition to the voice engine and admits when it cannot speak', async () => {
     const wrapper = await open()
+    query('[data-testid="companion-settings-open"]')?.click()
+    await flushPromises()
     query('[data-testid="companion-diy-open"]')?.click()
     await flushPromises()
     // 工坊只负责发意图，真正开口的是宿主持有的 VoiceEngine。

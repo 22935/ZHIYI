@@ -40,6 +40,7 @@ declare module 'vue' {
     CompanionDialogue: typeof import('./src/components/companion/CompanionDialogue.vue')['default']
     CompanionHost: typeof import('./src/components/companion/CompanionHost.vue')['default']
     CompanionPetBar: typeof import('./src/components/companion/CompanionPetBar.vue')['default']
+    CompanionSettings: typeof import('./src/components/companion/CompanionSettings.vue')['default']
     CompanionVoiceBar: typeof import('./src/components/companion/CompanionVoiceBar.vue')['default']
     ConversationExport: typeof import('./src/components/ConversationExport.vue')['default']
     ConversationList: typeof import('./src/components/ConversationList.vue')['default']

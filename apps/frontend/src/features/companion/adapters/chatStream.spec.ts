@@ -25,11 +25,23 @@ describe('Companion server conversation continuity', () => {
     vi.stubGlobal('fetch', fetcher)
 
     expect(await new StreamChatPort().reply('你好', context)).toBe('你好😀')
-    expect(JSON.parse(fetcher.mock.calls[0][1].body)).not.toHaveProperty('context_id')
+    const body = JSON.parse(fetcher.mock.calls[0][1].body)
+    // 模型回复是默认档，但走轻量档位：不指定模型、思考关闭。
+    expect(body.thinking_mode).toBe('disabled')
+    expect(body).not.toHaveProperty('model')
+    expect(body).not.toHaveProperty('context_id')
     expect(localStorage.getItem(storageKey)).toBe('ctx_server-owned')
     expect(await new StreamChatPort().reply('还记得吗', context)).toBe('记得你')
     expect(JSON.parse(fetcher.mock.calls[1][1].body).context_id).toBe('ctx_server-owned')
     expect(new Headers(fetcher.mock.calls[0][1].headers).get('X-Zhiyi-Local-Request')).toBe('1')
+  })
+
+  it('pins a smaller model when the user overrides it locally', async () => {
+    localStorage.setItem('companion.chat_model.v1', ' deepseek-flash ')
+    const fetcher = vi.fn().mockResolvedValue(response(frame('content_delta', { delta: '在' }) + frame('done', {})))
+    vi.stubGlobal('fetch', fetcher)
+    await new StreamChatPort().reply('你好', context)
+    expect(JSON.parse(fetcher.mock.calls[0][1].body).model).toBe('deepseek-flash')
   })
 
   it('discards legacy invented companion ids instead of sending an unknown conversation', async () => {

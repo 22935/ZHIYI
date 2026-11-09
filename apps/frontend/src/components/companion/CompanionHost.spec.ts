@@ -40,26 +40,41 @@ describe('CompanionHost', () => {
     expect(query('[data-testid="companion-root"]')).toBeNull()
   })
 
-  it('is voice-first: no text input, but quick commands still create a task intent card', async () => {
+  it('is voice-first: no text input and no quick command chips, just the mic', async () => {
     const wrapper = mount(CompanionHost)
     await flushPromises()
 
     query('[data-testid="companion-avatar"]')?.click()
     await flushPromises()
     expect(query('[data-testid="companion-dialogue"]')).not.toBeNull()
-    // 用户要求不用打字：面板里不再有文字输入框，改用麦克风与指令按钮。
+    // 用户要求不用打字：面板里没有文字输入框，也没有快捷指令按钮，
+    // 说话靠麦克风或唤醒词，任务卡链路由 voice.spec 直接覆盖。
     expect(query('[data-testid="companion-input"]')).toBeNull()
     expect(query('[data-testid="companion-mic"]')).not.toBeNull()
+    expect(query('[data-testid="companion-quick-task"]')).toBeNull()
+    expect(query('[data-testid="companion-quick-progress"]')).toBeNull()
 
-    const quick = query('[data-testid="companion-quick-task"]') as HTMLButtonElement
-    quick.click()
+    wrapper.unmount()
+  })
+
+  it('moves skin switching, DIY and wake word into the settings panel', async () => {
+    const wrapper = mount(CompanionHost)
     await flushPromises()
+    query('[data-testid="companion-avatar"]')?.click()
+    await flushPromises()
+    // 底部不再摆「模型回复 / 免打扰」开关：模型回复是默认档，免打扰走语音命令与托盘。
+    expect(query('[data-testid="companion-model-toggle"]')).toBeNull()
+    expect(query('[data-testid="companion-quiet"]')).toBeNull()
 
-    const messages = query('[data-testid="companion-messages"]')?.textContent || ''
-    expect(messages).toContain('帮我新建一个合同审查任务')
-    expect(messages).toContain('整理成一张任务卡')
-    expect(query('[data-testid="companion-card"]')?.textContent).toContain('合同审查任务')
-    expect(query('[data-testid="companion-state"]')?.textContent).toContain('思考中')
+    query('[data-testid="companion-settings-open"]')?.click()
+    await flushPromises()
+    expect(query('[data-testid="companion-settings"]')).not.toBeNull()
+    expect(query('[data-testid="companion-skin"]')).not.toBeNull()
+    expect(query('[data-testid="companion-diy-open"]')).not.toBeNull()
+    // 语音唤醒默认开启；这个环境没有麦克风所以是禁用态，但不能丢掉开关。
+    const wake = query('[data-testid="companion-wake"]') as HTMLInputElement
+    expect(wake.checked).toBe(true)
+    expect(wake.disabled).toBe(true)
 
     wrapper.unmount()
   })
@@ -93,6 +108,10 @@ describe('CompanionHost', () => {
     await flushPromises()
     query('[data-testid="companion-avatar"]')?.click()
     await flushPromises()
+    // 形象切换收进设置面板：先开设置才有下拉。
+    query('[data-testid="companion-settings-open"]')?.click()
+    await flushPromises()
+    expect(query('[data-testid="companion-settings"]')).not.toBeNull()
 
     const select = query('[data-testid="companion-skin"]') as HTMLSelectElement
     // 连切三次：中间那次要动态 import 动效引擎，是最慢的一枪。

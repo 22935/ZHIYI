@@ -79,11 +79,8 @@ describe('CompanionHost desktop integration', () => {
       '知宝 · 出错了', expect.stringContaining('Trace')
     )
 
-    query('[data-testid="companion-avatar"]')?.click()
-    await flushPromises()
-    const quiet = query('[data-testid="companion-quiet"]') as HTMLInputElement
-    quiet.checked = true
-    quiet.dispatchEvent(new Event('change', { bubbles: true }))
+    // 免打扰入口收进了语音命令与托盘，面板上不再摆开关。
+    trayListener?.('quiet')
     await flushPromises()
     expect(bridge.publishState).toHaveBeenCalledWith(expect.objectContaining({ quiet: true }))
 

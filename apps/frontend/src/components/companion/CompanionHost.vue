@@ -18,9 +18,22 @@
           <button type="button" data-testid="companion-collapse" @click="toggleExpanded">收起</button>
         </header>
 
-        <!-- 工坊是编辑模式：与养成区互斥，避免两层滚动把「保存形象」藏起来。
-             关闭后互动状态、消息与养成数值都原样保留。 -->
-        <template v-if="!customizerOpen">
+        <!-- 面板有三种互斥形态：日常对话 / 设置 / 形象工坊。
+             设置与工坊都是「编辑模式」，关闭后互动状态、消息与养成数值原样保留。 -->
+        <CompanionSettings
+          v-if="settingsOpen"
+          :skins="skins"
+          :skin-id="skinId"
+          :wake-supported="wakeSupported"
+          :wake-enabled="wakeEnabled"
+          :wake-words="wakeWords"
+          :wake-error="wakeError"
+          @skin-change="onSkinChange"
+          @open-diy="openCustomizer"
+          @toggle-wake="onWakeToggle"
+          @close="closeSettings"
+        />
+        <template v-else-if="!customizerOpen">
           <CompanionPetBar
             :level="level"
             :title="title"
@@ -42,7 +55,6 @@
             :hint="hint"
             :muted="muted"
             :level="voiceLevel"
-            @send="onQuickSend"
             @dismiss-card="card = null"
             @toggle-voice="toggleVoice"
             @toggle-mute="toggleMute"
@@ -58,24 +70,13 @@
           @close="closeCustomizer"
         />
 
-        <footer class="companion-footer">
-          <label class="companion-toggle" title="切换后复用既有对话流，默认关闭">
-            <input v-model="streamEnabled" type="checkbox" data-testid="companion-model-toggle" @change="onModelToggle" />
-            模型回复
-          </label>
-          <label class="companion-toggle" title="免打扰时停止闲时搭话、朗读与桌面通知">
-            <input v-model="quiet" type="checkbox" data-testid="companion-quiet" @change="onQuietChange" />
-            免打扰
-          </label>
-          <select v-model="skinId" data-testid="companion-skin" aria-label="切换形象" @change="onSkinChange">
-            <option v-for="skin in skins" :key="skin.id" :value="skin.id">{{ skin.label }}</option>
-          </select>
+        <footer v-if="!customizerOpen" class="companion-footer">
           <button
             type="button"
-            class="companion-diy-btn"
-            data-testid="companion-diy-open"
-            @click="customizerOpen ? closeCustomizer() : openCustomizer()"
-          >{{ customizerOpen ? '完成' : 'DIY' }}</button>
+            class="companion-settings-btn"
+            data-testid="companion-settings-open"
+            @click="toggleSettings"
+          >{{ settingsOpen ? '完成' : '设置' }}</button>
         </footer>
         <button
           v-if="position"
@@ -121,6 +122,7 @@ import CompanionBubble from './CompanionBubble.vue'
 import CompanionCustomizer from './CompanionCustomizer.vue'
 import CompanionDialogue from './CompanionDialogue.vue'
 import CompanionPetBar from './CompanionPetBar.vue'
+import CompanionSettings from './CompanionSettings.vue'
 import { createDesktopPort, type TrayAction } from '@/features/companion/adapters/desktop'
 import {
   buildDiySkin, DIY_SKIN_ID, loadCustomization, saveCustomization
@@ -143,13 +145,16 @@ import { COMPANION_SKIN_STORAGE_KEY, defaultSkinRegistry } from '@/features/comp
 import { createSwitchGuard } from '@/features/companion/switchGuard'
 import { matchCompanionCommand, type CommandMatch } from '@/features/companion/speechCommands'
 import { VoiceEngine, voiceHint, type VoiceOption, type VoicePhase } from '@/features/companion/voice'
+import { buildWakeWords, WakeWordListener } from '@/features/companion/wakeWord'
 import type {
-  AvatarRenderer, CompanionCustomization, CompanionMessage, CompanionState, SkinManifest,
+  AvatarRenderer, ChatPort, CompanionCustomization, CompanionMessage, CompanionState, SkinManifest,
   TaskIntentCard
 } from '@/features/companion/types'
 
 const EXPANDED_KEY = 'companion.expanded.v1'
 const QUIET_KEY = 'companion.quiet.v1'
+/** 语音唤醒默认开启；用户明确关掉后才写 0。 */
+const WAKE_KEY = 'companion.wake.v1'
 const IDLE_TICK_MS = 15_000
 const BUBBLE_TTL_MS = 3600
 const PREVIEW_DEBOUNCE_MS = 180
@@ -166,6 +171,12 @@ const writeFlag = (key: string, value: boolean): void => {
 const readSkinId = (): string => {
   try { return localStorage.getItem(COMPANION_SKIN_STORAGE_KEY) || 'companion-static' } catch { return 'companion-static' }
 }
+const readWakeFlag = (): boolean => {
+  try {
+    const raw = localStorage.getItem(WAKE_KEY)
+    return raw === null ? true : raw === '1'
+  } catch { return true }
+}
 const viewport = (): { width: number; height: number } => ({
   width: typeof window === 'undefined' ? 1280 : window.innerWidth,
   height: typeof window === 'undefined' ? 800 : window.innerHeight
@@ -181,7 +192,6 @@ const stageRef = ref<HTMLElement | null>(null)
 const expanded = ref(readFlag(EXPANDED_KEY))
 const quiet = ref(readFlag(QUIET_KEY))
 const skinId = ref(readSkinId())
-const streamEnabled = ref(false)
 const state = ref<CompanionState>('idle')
 const messages = ref<CompanionMessage[]>([])
 const pending = ref(false)
@@ -194,6 +204,7 @@ const bubble = ref<{ text: string; tone: 'chat' | 'effect' | 'achievement' } | n
 
 const customization = ref<CompanionCustomization>(loadCustomization(storage))
 const customizerOpen = ref(false)
+const settingsOpen = ref(false)
 const skins = ref(defaultSkinRegistry.list())
 const muted = ref(customization.value.voice.muted)
 const voicePhase = ref<VoicePhase>('idle')
@@ -202,6 +213,9 @@ const voiceError = ref('')
 const speaking = ref(false)
 const listening = ref(false)
 const effects = ref<{ id: number; glyph: string; left: number; delay: number }[]>([])
+const wakeEnabled = ref(readWakeFlag())
+const wakeError = ref('')
+const wakeArmed = ref(false)
 
 const savedPosition = loadCompanionPosition(storage)
 if (savedPosition) position.value = clampCompanionPosition(savedPosition, viewport())
@@ -215,6 +229,8 @@ const voiceCaps = ref(voice.capabilities)
 const voiceOptions = ref<VoiceOption[]>(voice.listVoices())
 const personaName = computed(() => customization.value.name)
 const stateLabel = computed(() => STATE_LABEL[state.value])
+const wakeSupported = computed(() => voiceCaps.value.recognition)
+const wakeWords = computed(() => buildWakeWords(personaName.value))
 const level = computed(() => levelOf(pet.value.affinity))
 const title = computed(() => titleOf(level.value))
 const affinityPercent = computed(() => levelProgress(pet.value.affinity))
@@ -246,7 +262,34 @@ const queue = new ProactivityQueue(4000)
 const choreographer = new IdleChoreographer()
 const desktop = createDesktopPort()
 
+/**
+ * 常驻唤醒监听：与 VoiceEngine 共用同一个浏览器宿主。
+ * 只在「闲着」时收音——朗读与手动聆听期间必须闭麦，否则会把自己的
+ * 声音当成召唤，或跟手动麦克风抢同一路音频。
+ */
+const wake = new WakeWordListener({
+  createRecognition: () => (voiceCaps.value.recognition ? voice.createRecognition() : null),
+  words: () => wakeWords.value,
+  onWake: rest => handleWake(rest),
+  onBlocked: reason => {
+    wakeArmed.value = false
+    wakeError.value = reason === 'denied'
+      ? '麦克风权限没开，语音唤醒用不了。'
+      : '语音唤醒暂时不可用，稍后再试试。'
+  }
+})
+
 let renderer: AvatarRenderer | null = null
+/**
+ * 模型回复是默认档而不是开关：本地话术只做冷启动兜底。
+ * 工坊改台词时用 rebuildService() 重建，别把模型通道弄丢。
+ */
+let modelChat: ChatPort | null = null
+const rebuildService = (): void => {
+  const ports = createDefaultPorts(customization.value.lines)
+  if (modelChat) ports.chat = modelChat
+  service = new CompanionService(ports)
+}
 let service = new CompanionService(createDefaultPorts(customization.value.lines))
 let abort: AbortController | null = null
 let disposed = false
@@ -531,11 +574,13 @@ const toggleExpanded = (): boolean => {
 /**
  * 点头像是「叫它过来/让它退下」，不是摸头，因此不占用摸头冷却：
  * 用户展开面板后立刻点「摸摸头」不该被判成刷数值。
+ * 这里也是唤醒监听的布防点：浏览器要求麦克风会话由用户手势发起。
  */
 const onAvatarClick = (): void => {
   if (suppressClick) return
   const moved = toggleExpanded()
   if (expanded.value) {
+    armWake()
     flashPetState('happy')
     showBubble(moved ? '我往里挪了挪，这样面板能看全～' : '我来啦，想说什么直接说就好。')
     speakReply(moved ? '我往里挪了挪，这样面板能看全。' : '我来啦，想说什么直接说就好。')
@@ -545,7 +590,10 @@ const onAvatarClick = (): void => {
   }
 }
 
-const onSkinChange = (): void => { void applySkin(skinId.value) }
+const onSkinChange = (id: string): void => {
+  skinId.value = id
+  void applySkin(id)
+}
 
 const cycleSkin = (): void => {
   const list = skins.value
@@ -556,6 +604,7 @@ const cycleSkin = (): void => {
 
 /** 打开工坊先看 DIY 皮肤；未保存就收起时还原到原来的形象。 */
 const openCustomizer = (): void => {
+  settingsOpen.value = false
   if (!customizerOpen.value) {
     skinBeforeDiy = skinId.value
     diyCommitted = false
@@ -583,7 +632,7 @@ const onCustomizationPreview = (value: CompanionCustomization): void => {
   if (voiceChanged) stopSpeaking()
   defaultSkinRegistry.upsert(buildDiySkin(value))
   skins.value = defaultSkinRegistry.list()
-  service = new CompanionService(createDefaultPorts(value.lines))
+  rebuildService()
   if (previewTimer !== null) clearTimeout(previewTimer)
   previewTimer = setTimeout(() => {
     if (!disposed && skinId.value === DIY_SKIN_ID) void applySkin(DIY_SKIN_ID)
@@ -595,13 +644,29 @@ const onCustomizationApply = (value: CompanionCustomization): void => {
   saveCustomization(storage, value)
   defaultSkinRegistry.upsert(buildDiySkin(value))
   skins.value = defaultSkinRegistry.list()
-  service = new CompanionService(createDefaultPorts(value.lines))
+  rebuildService()
   diyCommitted = true
   if (skinId.value !== DIY_SKIN_ID) skinId.value = DIY_SKIN_ID
   void applySkin(DIY_SKIN_ID)
   spawnEffects('★', 4)
   showBubble(`好，以后我就是${value.name}啦。`, 'effect')
   speakReply(`好，以后我就是${value.name}啦。`)
+}
+
+const toggleSettings = (): void => {
+  if (settingsOpen.value) {
+    settingsOpen.value = false
+    return
+  }
+  if (customizerOpen.value) closeCustomizer()
+  settingsOpen.value = true
+  expanded.value = true
+  writeFlag(EXPANDED_KEY, true)
+  ensurePanelVisible()
+}
+
+const closeSettings = (): void => {
+  settingsOpen.value = false
 }
 
 const onQuietChange = (): void => {
@@ -631,37 +696,83 @@ const resetPosition = (): void => {
   showBubble('回到老位置啦。')
 }
 
-const onModelToggle = async (): Promise<void> => {
-  if (!streamEnabled.value) {
-    service = new CompanionService(createDefaultPorts(customization.value.lines))
-    pushMessage('companion', '已切回本地回复，不会发起模型请求。')
-    return
-  }
+/**
+ * 模型回复是默认档：加载即接入，失败静默退回本地话术。
+ * 请求层已固定「思考关闭 + 服务端轻量档」，见 chatStream.ts。
+ */
+const enableModelReplies = async (): Promise<void> => {
+  if (modelChat || disposed) return
   try {
     const { StreamChatPort } = await import('@/features/companion/adapters/chatStream')
-    if (disposed || !streamEnabled.value) return
-    const ports = createDefaultPorts(customization.value.lines)
-    ports.chat = new StreamChatPort()
-    service = new CompanionService(ports)
-    pushMessage('companion', '已切换到模型回复，我会复用现有对话流回答你。')
-  } catch {
-    streamEnabled.value = false
-    pushMessage('companion', '模型通道暂时不可用，先继续用本地回复陪你。')
+    if (disposed) return
+    modelChat = new StreamChatPort()
+    rebuildService()
+  } catch { /* 模型通道暂时不可用就先陪聊，不打扰用户 */ }
+}
+
+/**
+ * 唤醒监听的收音窗口：只在「闲着」时开。
+ * 免打扰、朗读、手动聆听任意一个发生，都立刻闭麦。
+ */
+const syncWake = (): void => {
+  if (!wakeArmed.value) return
+  const idle = !quiet.value && voicePhase.value === 'idle' && !speaking.value
+  if (idle) wake.resume()
+  else wake.pause()
+}
+
+watch([voicePhase, speaking, quiet], syncWake)
+
+/** 浏览器要求麦克风会话由用户手势发起：点头像/开设置时才布防。 */
+const armWake = (): void => {
+  if (wakeArmed.value || !wakeEnabled.value || !voiceCaps.value.recognition) return
+  if (wake.start()) wakeArmed.value = true
+}
+
+const onWakeToggle = (enabled: boolean): void => {
+  wakeEnabled.value = enabled
+  writeFlag(WAKE_KEY, enabled)
+  wakeError.value = ''
+  if (enabled) {
+    armWake()
+    showBubble(wakeArmed.value ? '好，以后叫我名字就行。' : '这个环境暂时开不了语音唤醒。')
+  } else {
+    wake.stop()
+    wakeArmed.value = false
+    showBubble('好，语音唤醒先关掉。')
   }
 }
 
-const toggleVoice = (): void => {
-  if (voicePhase.value === 'speaking') {
-    stopSpeaking()
-    showBubble('好，我不说啦。')
+/**
+ * 被叫醒：面板展开、状态点亮；唤醒词后面如果直接跟了话，
+ * 一句话直达对话，不必先唤醒再重复一遍。
+ */
+const handleWake = (rest: string): void => {
+  if (disposed) return
+  settingsOpen.value = false
+  closeCustomizerRestores()
+  expanded.value = true
+  writeFlag(EXPANDED_KEY, true)
+  ensurePanelVisible()
+  applyState('listening', true)
+  if (rest) {
+    showBubble('我在。')
+    handleUtterance(rest)
     return
   }
-  if (voicePhase.value === 'listening' || voicePhase.value === 'recognizing') {
-    voice.stop()
-    setListening(false)
-    voicePhase.value = 'idle'
-    return
-  }
+  showBubble('我在，说吧。')
+  startListening()
+}
+
+/** 只在确实开着工坊时才还原形象，避免每次唤醒都白挂一次渲染器。 */
+const closeCustomizerRestores = (): void => {
+  if (!customizerOpen.value) return
+  closeCustomizer()
+}
+
+const startListening = (): void => {
+  // 手动聆听与常驻唤醒共用麦克风：先让唤醒闭麦，结束后由 syncWake 拉回。
+  wake.pause()
   voiceError.value = ''
   interim.value = ''
   voice.start({
@@ -681,8 +792,27 @@ const toggleVoice = (): void => {
   })
   if (!voiceCaps.value.recognition) {
     voicePhase.value = 'unsupported'
-    voiceError.value = '这个环境暂时不能语音输入，点上面的指令或用系统语音输入（Win+H）也行。'
+    voiceError.value = '这个环境暂时不能语音输入，可以用系统语音输入（Win+H）。'
   }
+}
+
+const stopListening = (): void => {
+  voice.stop()
+  setListening(false)
+  voicePhase.value = 'idle'
+}
+
+const toggleVoice = (): void => {
+  if (voicePhase.value === 'speaking') {
+    stopSpeaking()
+    showBubble('好，我不说啦。')
+    return
+  }
+  if (voicePhase.value === 'listening' || voicePhase.value === 'recognizing') {
+    stopListening()
+    return
+  }
+  startListening()
 }
 
 const toggleVoiceMuteFromCommand = (on: boolean): void => {
@@ -729,8 +859,6 @@ const handleUtterance = (text: string): void => {
   if (command) { runCommand(command); return }
   void send(value)
 }
-
-const onQuickSend = (text: string): void => { void send(text) }
 
 const send = async (text: string): Promise<void> => {
   const value = text.trim()
@@ -918,6 +1046,8 @@ onMounted(() => {
   })
   voiceOptions.value = voice.listVoices()
   void applySkin(skinId.value)
+  // 模型回复是默认档：异步接上流式通道，接不上就先用本地话术兜底。
+  void enableModelReplies()
   // 刷新后若记住的是「展开态 + 靠左位置」，watch 不会触发，这里补一次避让。
   if (expanded.value) ensurePanelVisible()
   interact('visit', false)
@@ -927,6 +1057,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   disposed = true
+  wake.dispose()
   window.removeEventListener('companion:run-event', handleRuntimeEvent)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('resize', handleResize)
@@ -1005,15 +1136,12 @@ onBeforeUnmount(() => {
 .companion-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .companion-name { font-size: 13px; font-weight: 500; margin-right: 8px; }
 .companion-state { font-size: 11px; color: var(--text-muted, var(--text-secondary)); }
-.companion-header button, .companion-footer select, .companion-diy-btn {
+.companion-header button, .companion-settings-btn {
   font: inherit; font-size: 12px; padding: 3px 7px; cursor: pointer;
   color: var(--text-regular, var(--text-primary)); background: var(--bg-panel, var(--bg-card));
   border: 1px solid var(--border-color-base, rgba(128, 128, 128, 0.3)); border-radius: 6px;
 }
-.companion-diy-btn { color: var(--primary-color, #4c8dff); }
-.companion-footer { display: flex; align-items: center; justify-content: space-between; gap: 5px; flex-wrap: wrap; }
-.companion-toggle { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--text-secondary); cursor: pointer; }
-.companion-toggle input { margin: 0; }
+.companion-footer { display: flex; align-items: center; justify-content: flex-end; gap: 5px; flex-wrap: wrap; }
 .companion-reset {
   align-self: flex-start; font: inherit; font-size: 11px; padding: 2px 0; cursor: pointer;
   color: var(--text-muted, var(--text-secondary)); background: none; border: none;
