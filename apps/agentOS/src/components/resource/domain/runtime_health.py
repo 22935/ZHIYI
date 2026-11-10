@@ -10,7 +10,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from .algorithms import exponential_moving_average
-from ..infrastructure.health_store import InMemoryResourceHealthStore
 from ..ports.health_store import ResourceHealthStore
 from .models import RuntimeHealth
 
@@ -31,7 +30,7 @@ class ResourceHealthMonitor:
         heartbeat_timeout: timedelta = timedelta(seconds=60),
         alpha: float = 0.2,
         initial_reliability: float = 0.5,
-        store: ResourceHealthStore | None = None,
+        store: ResourceHealthStore,
     ) -> None:
         if heartbeat_timeout <= timedelta(0):
             raise ValueError("heartbeat_timeout must be positive")
@@ -42,7 +41,7 @@ class ResourceHealthMonitor:
         self.heartbeat_timeout = heartbeat_timeout
         self.alpha = alpha
         self.initial_reliability = initial_reliability
-        self.store = store or InMemoryResourceHealthStore()
+        self.store = store
 
     def heartbeat(self, resource_id: str, *, received_at: datetime | None = None) -> RuntimeHealth:
         """记录本地接收心跳的时间，并返回新的健康投影。"""
@@ -121,5 +120,5 @@ class ResourceHealthMonitor:
     calculate = health
 
 
-# TODO(distributed-health): 继续补齐跨进程心跳的签名鉴权、重放保护和持久化；当前由 ResourcePlane
-# 接收远程观测并更新本进程监测器，尚不等同于生产级多节点健康中心。
+# TODO(distributed-health): 多机健康中心仍需集中式存储、跨进程心跳鉴权和重放保护；
+# 当前 ResourcePlane 已校验远程观测签名，但默认内存健康存储只适用于单进程部署。

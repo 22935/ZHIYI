@@ -3,10 +3,16 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from components.resource.domain.runtime_health import ResourceHealthMonitor
-from components.resource.infrastructure.health_store import SQLiteResourceHealthStore
+from components.resource.infrastructure.health_store import InMemoryResourceHealthStore, SQLiteResourceHealthStore
 
 
 NOW = datetime(2026, 9, 4, tzinfo=timezone.utc)
+
+
+def test_runtime_health_monitor_requires_an_explicit_store_port() -> None:
+    monitor = ResourceHealthMonitor(store=InMemoryResourceHealthStore())
+
+    assert monitor.health("edge-01", now=NOW).healthy is False
 
 
 def test_sqlite_health_store_shares_heartbeat_and_metrics_between_process_monitors(tmp_path) -> None:

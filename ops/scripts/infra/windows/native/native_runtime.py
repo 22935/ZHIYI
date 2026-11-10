@@ -258,8 +258,15 @@ def stop(record, *, allow_terminate=True):
     # dev server (vite) can need a second nudge past the first 25s window.
     failure = None
     for budget in (25, 20):
-        subprocess.run([sys.executable, str(Path(__file__).resolve()), '_signal', str(process.pid)],
-                       check=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+        # A failing/non-zero _signal (e.g. 120 when the target hides its console
+        # and AttachConsole/GenerateConsoleCtrlEvent cannot reach it) must NOT abort
+        # the loop: fall through to wait(), then escalate to terminate/kill below.
+        # Mirror the safer pattern used by the other stop() in this module.
+        try:
+            subprocess.run([sys.executable, str(Path(__file__).resolve()), '_signal', str(process.pid)],
+                           check=False, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+        except (OSError, subprocess.SubprocessError):
+            pass
         try:
             process.wait(budget)
             for child in descendants:

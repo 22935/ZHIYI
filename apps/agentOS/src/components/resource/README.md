@@ -96,7 +96,7 @@ runtime / scheduler / adapters -> application -> ports
 
 默认 placement 软偏好定义于 `scheduler/placement_policy.py`：Device `1.0`、Edge `0.5`、Cloud `0.0`，评分权重 `0.15`。因此默认是“端优先、边缘次选、云端兜底”，但这不是硬路由：硬约束只剩 Cloud 时仍可选 Cloud；端资源无租约容量时可继续尝试 Edge/Cloud。
 
-资源接入时，`placement` 描述物理/信任位置，`provider`、`sourceType` 和 `adapter` 描述厂家、来源与协议适配器；三者正交。厂家扩展参数放在 `metadata`，不得把厂商字符串直接解释成能力、信任或准入许可。远程 Node 可登记为 Device、Edge 或 Cloud，但远程 Device 不得自称 `host_trusted`；是否属于远程执行由 Runtime endpoint 决定，不能由 Device placement 绕过远程执行策略。当前远程 Agent 执行 adapter 仅实现 HTTP(S)；gRPC、MCP、Kubernetes 等来源可以登记为元数据，但要实际调度执行仍需对应协议 adapter，未知协议不可被当成已可调用资源。
+资源接入时，`placement` 描述物理/信任位置，`provider`、`sourceType` 和 `adapter` 描述厂家、来源与协议适配器；三者正交。厂家扩展参数放在 `metadata`，不得把厂商字符串直接解释成能力、信任或准入许可。远程 Node 可登记为 Device、Edge 或 Cloud，但远程 Device 不得自称 `host_trusted`；是否属于远程执行由 Runtime endpoint 决定，不能由 Device placement 绕过远程执行策略。当前远程 Agent 步骤执行 adapter 仅实现 HTTP(S) `agentos_http`，模型推理 adapter 实现了签名 OpenAI Compatible `agentos_model_http`（固定调用 `/v1/chat/completions`）；gRPC、MCP、Kubernetes 等来源可以登记为元数据，但要实际调度执行仍需对应协议 adapter，未知协议不可被当成已可调用资源。
 
 模型路由可通过 `ModelDemand` 的 endpoint/provider/model allowlist 与 denylist 约束候选；供应商匹配不区分大小写，`provider/model` 与模型短名均可用于模型筛选。任意已登记的 `MODEL_SERVER`（本机或远程）只要声明 `provider` 和 `modelId`，资源器就会为每个模型创建绑定到该 Runtime 的 `ModelEndpointProfile`；Runtime、宿主 Node 停用或健康未知/离线时，这些承载端点不会参与路由。Runtime 承载端点从宿主继承 `ownerScope`，带 `ExecutionRequirement.ownerScope` 的请求只能使用同一归属范围的端点；没有归属范围的模型注册表端点表示显式共享服务。模型注册表同步必须显式传入 `placement`，不允许依据厂商名称推断端、边或云位置。
 

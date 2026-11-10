@@ -191,7 +191,8 @@ def test_model_registry_projection_does_not_infer_placement_from_provider_name()
 @pytest.mark.parametrize(
     ("protocol", "address", "adapter"),
     [("grpc", "grpc://runtime.example.test", "grpc-vendor"),
-     ("https", "https://runtime.example.test", "mcp")],
+     ("https", "https://runtime.example.test", "mcp"),
+     ("https", "https://runtime.example.test", "agentos_model_http")],
 )
 def test_remote_runtime_registration_rejects_unimplemented_execution_adapters(protocol, address, adapter):
     plane = ResourcePlane()
@@ -244,7 +245,7 @@ def test_remote_model_server_registration_creates_schedulable_model_endpoints():
     profile = _runtime(
         runtimeId="runtime:edge:model", kind=RuntimeKind.MODEL_SERVER,
         nodeId="node:edge:model", ownerScope="tenant-a", provider="Acme",
-        sourceType="vendor-api", adapter="agentos_http", modelIds=["chat-v1"],
+        sourceType="vendor-api", adapter="agentos_model_http", modelIds=["chat-v1"],
     )
     plane.register_remote_runtime(profile, RuntimeSnapshot(
         runtimeId=profile.runtime_id, availableSlots=profile.capacity, utilization=0.0
@@ -258,6 +259,7 @@ def test_remote_model_server_registration_creates_schedulable_model_endpoints():
     ]
     assert candidates[0].endpoint.runtime_id == profile.runtime_id
     assert candidates[0].endpoint.placement is Placement.EDGE
+    assert candidates[0].endpoint.adapter == "agentos_model_http"
 
     plane.set_runtime_enabled(profile.runtime_id, enabled=False)
     assert plane.model_candidates(ModelDemand()) == []

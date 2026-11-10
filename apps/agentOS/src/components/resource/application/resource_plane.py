@@ -39,6 +39,7 @@ from contracts.resource import (
 
 from ..domain.algorithms import health_score, is_runtime_available
 from ..infrastructure.crypto.fernet_secret_box import ResourceSecretBox
+from ..infrastructure.health_store import InMemoryResourceHealthStore
 from ..domain.runtime_health import ResourceHealthMonitor
 from ..domain.models import (
     ModelEndpointCandidate,
@@ -133,7 +134,8 @@ class ResourcePlane:
         self.store = store or InMemoryResourceStore()
         self.node_store = node_store or InMemoryNodeStore()
         self.health_monitor = health_monitor or ResourceHealthMonitor(
-            heartbeat_timeout=heartbeat_timeout
+            heartbeat_timeout=heartbeat_timeout,
+            store=InMemoryResourceHealthStore(),
         )
         self.node_health_monitor = node_health_monitor or NodeHealthMonitor()
         self.secret_box = ResourceSecretBox(credential_key)
@@ -541,9 +543,10 @@ class ResourcePlane:
         """登记远程 Runtime 并生成只能在注册响应中读取一次的凭据。"""
         if profile.endpoint is None or profile.endpoint.protocol == "local":
             raise ValueError("remote runtime requires a callable execution endpoint")
-        if profile.endpoint.protocol not in {"http", "https"} or profile.adapter not in {
-            None, "agentos_http", "http", "https"
-        }:
+        supported_adapter = profile.adapter in {None, "agentos_http", "http", "https"}
+        if profile.kind is RuntimeKind.MODEL_SERVER:
+            supported_adapter = supported_adapter or profile.adapter == "agentos_model_http"
+        if profile.endpoint.protocol not in {"http", "https"} or not supported_adapter:
             raise ValueError("remote runtime requires a supported AgentOS HTTP(S) adapter")
         parsed_endpoint = urlsplit(profile.endpoint.address)
         if parsed_endpoint.scheme.lower() != profile.endpoint.protocol or not parsed_endpoint.netloc:

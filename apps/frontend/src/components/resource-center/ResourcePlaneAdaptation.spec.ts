@@ -196,7 +196,7 @@ describe('resource plane adaptation', () => {
     await wrapper.get('.rr-submit').trigger('click'); await flushPromises()
     expect(register.mock.calls[0][0]).toMatchObject({ profile: { runtimeId: 'runtime:1', nodeId: 'node:edge:1',
       kind: 'model_server', placement: 'edge', trust: 'sandboxed', ownerScope: 'scope',
-      provider: 'Acme', adapter: 'agentos_http', capabilities: ['exec.research'], modelIds: ['chat-v1'], endpoint: { protocol: 'https', address: 'https://worker.example.com' } },
+      provider: 'Acme', adapter: 'agentos_model_http', capabilities: ['exec.research'], modelIds: ['chat-v1'], endpoint: { protocol: 'https', address: 'https://worker.example.com' } },
       snapshot: { runtimeId: 'runtime:1', healthStatus: 'unknown' } })
     expect(register.mock.calls[0][0].profile).not.toHaveProperty('resourceType')
     wrapper.unmount()

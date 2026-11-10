@@ -71,6 +71,7 @@ from adapters.audited_tool_runtime import AuditedToolRuntime
 from adapters.guarded_model import GuardedModelRuntime
 from adapters.guarded_tool import GuardedToolRuntime
 from adapters.model_runtime import RegisteredModelRuntime
+from adapters.resource_model_execution import build_resource_model_runtime
 from adapters.tool_adapter import configured_tool_runtime
 from support.stores._policy import acg_review_subject
 from runtime.execution_migration import ExecutionEngineMigratingError
@@ -1740,6 +1741,18 @@ class ACGExecutionService(CollaboratorAccess):
         """
         endpoint = binding.model_binding
         if endpoint is not None:
+            resource_runtime = self._resource_model_runtime(endpoint.endpoint_id)
+            if resource_runtime is not None:
+                frozen: dict[str, Any] = {
+                    "provider": endpoint.provider,
+                    "model": endpoint.model,
+                    "streamingCapability": False,
+                    "endpointId": endpoint.endpoint_id,
+                    "resourceModel": True,
+                }
+                if endpoint.version is not None:
+                    frozen["version"] = endpoint.version
+                return frozen
             try:
                 adapter = self.model_registry.resolve(
                     endpoint.provider, endpoint.model, version=endpoint.version
@@ -1762,6 +1775,31 @@ class ACGExecutionService(CollaboratorAccess):
                 frozen["endpointId"] = endpoint.endpoint_id
             return frozen
         return self._freeze_model_binding(step_id=step_id, profile=profile)
+
+    def _resource_model_runtime(self, endpoint_id: str | None):
+        """构造已冻结资源端点的实际模型 transport；未实现协议返回 ``None``。
+
+        这里不改变全局模型注册表。资源端点的 HMAC 凭据和地址只属于本次
+        绑定，避免同名 provider/model 覆盖应用级默认路由。
+        """
+        if not endpoint_id:
+            return None
+        try:
+            endpoint = self.resource_plane.model_endpoint(endpoint_id)
+        except KeyError as exc:
+            raise ValueError(f"MODEL_ENDPOINT_UNAVAILABLE: {endpoint_id}") from exc
+        if endpoint.adapter != "agentos_model_http" or endpoint.runtime_id is None:
+            return None
+        try:
+            runtime = self.resource_plane.runtime(endpoint.runtime_id)
+        except KeyError as exc:
+            raise ValueError(f"MODEL_RUNTIME_UNAVAILABLE: {endpoint.runtime_id}") from exc
+        return build_resource_model_runtime(
+            endpoint,
+            runtime,
+            credential_provider=self.resource_plane,
+            execution_observer=self.resource_plane,
+        )
 
     def _freeze_model_binding(self, *, step_id: str, profile) -> dict[str, Any] | None:
         """验证并冻结步骤的 Profile 模型路由，禁止恢复时读取可变 Profile。"""
@@ -1808,10 +1846,20 @@ class ACGExecutionService(CollaboratorAccess):
         provider = binding.get("provider")
         model = binding.get("model")
         version = binding.get("version")
+        endpoint_id = binding.get("endpointId")
         if not isinstance(provider, str) or not isinstance(model, str):
             raise ValueError("ACG model binding is incomplete")
         if version is not None and not isinstance(version, str):
             raise ValueError("ACG model binding version is invalid")
+        if isinstance(endpoint_id, str):
+            resource_runtime = self._resource_model_runtime(endpoint_id)
+            if resource_runtime is not None:
+                return GuardedModelRuntime(
+                    delegate=resource_runtime,
+                    retries=1,
+                    max_concurrency=self.model_max_concurrency,
+                    min_interval_seconds=self.model_min_interval_seconds,
+                )
         return GuardedModelRuntime(
             delegate=RegisteredModelRuntime(
                 registry=self.model_registry,

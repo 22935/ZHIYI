@@ -51,7 +51,7 @@
           <div class="rr-grid rr-grid--3">
             <label class="rr-field"><span>资源来源</span><input v-model="form.sourceType" placeholder="如 openai_compatible、mcp" /></label>
             <label class="rr-field"><span>厂家 / 提供方{{ form.kind === 'model' ? ' *' : '' }}</span><input v-model="form.provider" placeholder="如 vLLM、火山引擎" /></label>
-            <label class="rr-field"><span>执行协议适配器</span><select v-model="form.adapter"><option value="agentos_http">AgentOS HTTP</option></select></label>
+            <label class="rr-field"><span>执行协议适配器</span><select v-model="form.adapter"><option :value="isModel ? 'agentos_model_http' : 'agentos_http'">{{ isModel ? 'AgentOS Model HTTP' : 'AgentOS HTTP' }}</option></select></label>
           </div>
           <div class="rr-grid rr-grid--2">
             <label class="rr-field"><span>能力 *</span><el-select v-model="form.capabilities" multiple filterable allow-create default-first-option placeholder="输入能力后回车" /></label>
@@ -100,7 +100,7 @@ const isDevice = computed(() => form.kind === 'device')
 const isModel = computed(() => form.kind === 'model')
 const selectRegistrationKind = (kind: typeof form.kind) => {
   form.kind = kind
-  if (kind !== 'device' && !form.adapter) form.adapter = 'agentos_http'
+  if (kind !== 'device') form.adapter = kind === 'model' ? 'agentos_model_http' : 'agentos_http'
 }
 const remoteNodes = computed(() => nodes.value.filter(n => n.profile.enabled && ['device', 'edge', 'cloud'].includes(n.profile.placement) && n.profile.ownerScope))
 const selectedNode = computed(() => remoteNodes.value.find(n => n.profile.nodeId === form.nodeId))
@@ -139,7 +139,7 @@ const submit = async () => {
         kind: form.kind === 'model' ? 'model_server' : 'tool_service', nodeId: node.nodeId,
         placement: node.placement as 'device' | 'edge' | 'cloud', trust: node.trust, ownerScope: node.ownerScope!,
         sourceType: form.sourceType.trim() || undefined, provider: form.provider.trim() || undefined,
-        adapter: form.adapter.trim() || 'agentos_http',
+        adapter: form.adapter.trim() || (form.kind === 'model' ? 'agentos_model_http' : 'agentos_http'),
         capabilities: [...form.capabilities], domains: [...form.domains], modelIds: form.kind === 'model' ? [...form.modelIds] : [],
         capacity: form.capacity, enabled: true, endpoint: { protocol: form.protocol, address: form.address.trim() } },
         snapshot: { runtimeId: form.id.trim(), availableSlots: form.capacity, utilization: 0, healthStatus: 'unknown' } })
