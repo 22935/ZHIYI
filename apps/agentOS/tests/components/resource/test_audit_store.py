@@ -63,6 +63,8 @@ def test_sqlite_audit_reopens_and_filters(tmp_path):
     store = SQLiteResourceAuditStore(path)
     assert [e.resource_id for e in store.list("a")] == ["a"]
     assert [e.resource_id for e in store.list(limit=1)] == ["b"]
+    assert store.counts() == {"registered": 2}
+    assert store.counts("a") == {"registered": 1}
     store.close()
 
 
@@ -80,3 +82,13 @@ def test_rejected_sequence_and_cas_conflict_are_audited(monkeypatch):
     with pytest.raises(VersionConflict):
         plane.observe_remote_runtime("runtime:audit:test", available_slots=1, utilization=0, observation_sequence=1)
     assert [e.kind for e in plane.audit_events("runtime:audit:test")][-2:] == ["observation_rejected", "snapshot_conflict"]
+
+
+def test_audit_store_failure_does_not_mask_committed_registration():
+    class UnavailableAuditStore:
+        def append(self, event):
+            raise OSError("unavailable")
+    plane = ResourcePlane(audit_store=UnavailableAuditStore())
+    plane.ensure_node("node:audit:test", placement=Placement.EDGE, trust=TrustLevel.TRUSTED, owner_scope="tenant-a")
+    issued = plane.register_remote_runtime(_profile(), _snapshot())
+    assert plane.runtime(issued.resource_id).runtime_id == issued.resource_id

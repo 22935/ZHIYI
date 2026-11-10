@@ -209,20 +209,36 @@ class LocalPackageLauncher:
     def remove(self, runtime_id: str) -> None:
         self.stop(runtime_id)
         with self._lock:
-            path = self._install_paths.pop(runtime_id, None)
+            path = self._install_paths.get(runtime_id)
             self._endpoints.pop(runtime_id, None)
             self._credentials.pop(runtime_id, None)
         if path is not None and self.install_root in path.parents:
-            import shutil
-            shutil.rmtree(path)
+            self._remove_installation_path(path)
         elif ":installation:" in runtime_id:
             # 重启后没有进程对象，仅可清理由平台随机生成的安装目录。
             token = runtime_id.rsplit(":installation:", 1)[1]
             if len(token) == 32 and all(c in "0123456789abcdef" for c in token):
                 target = (self.install_root / token).resolve()
                 if self.install_root in target.parents and target.is_dir():
-                    import shutil
-                    shutil.rmtree(target)
+                    self._remove_installation_path(target)
+        self._install_paths.pop(runtime_id, None)
+
+    def _remove_installation_path(self, path: Path) -> None:
+        """Windows 进程退出后目录锁可能短暂滞后；有界重试且不吞掉真实删除失败。"""
+        import shutil
+        if self.install_root not in path.resolve().parents:
+            raise ValueError("installation path escapes platform root")
+        for attempt in range(5):
+            try:
+                if path.exists():
+                    shutil.rmtree(path)
+                return
+            except OSError as error:
+                if not isinstance(error, PermissionError) and getattr(error, "winerror", None) not in {5, 32, 145}:
+                    raise
+                if attempt == 4:
+                    raise
+                time.sleep(0.05 * (2 ** attempt))
 
 class LoopbackHttpEndpointProbe:
     """仅探测 loopback 服务的固定健康路径，不访问用户指定的公网主机。"""

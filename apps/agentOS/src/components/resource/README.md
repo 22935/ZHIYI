@@ -167,6 +167,65 @@ CatalogItem / CustomResourceRequest
 
 执行结果经 `ResourcePlane.observe_execution()` 回写：成功/失败和延迟通过 EMA 更新可靠性与延迟估计；RuntimeSnapshot 的观测序号和版本递增，供后续健康判断与排序使用。存储使用版本比较避免并发覆盖。持久化实现可替换，但必须满足 `ports/` 接口及资源存储合同测试。
 
+### 生命周期审计（已实现）
+
+`domain/audit.py` 定义 `ResourceAuditEvent`；`ports/audit_store.py` 定义写入、资源过滤查询和分类计数接口；`infrastructure/audit_store.py` 提供内存与 SQLite 实现。平台装配将 SQLite 审计表放在 `AGENTOS_RESOURCE_DB` 指定的数据库中，并随 Runtime 关闭连接。默认嵌入式测试使用内存仓储。
+
+事件包括 `node_registered`、`runtime_registered`、`credential_rotated`、`observation_rejected`、`snapshot_conflict` 和模型适配器的 `execution_observation_write_failed`。使用 `plane.audit_events(resource_id, limit=100)` 查询最近事件，使用 `plane.audit_counts(resource_id)` 读取按类型聚合的计数。幂等重复登记不重复生成创建事件。
+
+审计仅记录资源 ID、时间和异常类型等分类信息，不写密钥、提示词或文档正文。模型观测旁路故障不覆盖原模型响应；审计仓储本身不可用时记录服务日志，不把已提交登记改报失败。这是单机可观测性，不等同于事务性审计 outbox 或跨主机指标中心。
+
+## 平台本地文档工具
+
+资源器只负责资源事实与调度；工具代码、包构建和安装生命周期位于 `components/marketplace`，不放入资源领域层：
+
+| 位置 | 职责 |
+| --- | --- |
+| `marketplace/builtins/contracts.py` | 路径、页码、文件大小和格式白名单 |
+| `marketplace/builtins/pdf_parser.py` | pypdf 提取文字、页码和受限元数据 |
+| `marketplace/builtins/file_converter.py` | 文本/表格转换和随机任务输出目录 |
+| `marketplace/builtins/server.py`、`worker.py` | loopback HMAC 服务、单任务执行和 30 秒超时 |
+| `marketplace/builtins/catalog.py` | 两个受控目录项、确定性 ZIP 和 SHA-256 |
+| `marketplace/application/service.py` | 安装、登记、文件传入/结果读取与健康巡检 |
+| `marketplace/infrastructure.py` | 无 shell 启动、独立端口/凭据、任务持久化 |
+
+| 商店工具 | 目录 ID / 能力 | 实际支持 |
+| --- | --- | --- |
+| PDF 解析 | `tool.pdf-parser` / `pdf.parse` | 文字层 PDF，页范围，按页文本、页数、提取器版本及受限标题/作者/主题 |
+| 文件格式转换 | `tool.file-converter` / `file.convert` | `txt → md/html`；`md → txt/html`；`html → txt/md`；`csv ↔ json`；`docx → txt/md/html`；`xlsx → csv/json`；`pdf → txt/md` |
+
+DOCX 转换为文字及表格内容，XLSX 读取活动工作表和公式缓存值，不执行公式；转换为 Markdown 时采用纯文本转义，HTML 转 Markdown 不保留原页面版式。转换不是高保真 Office 排版引擎。扫描 PDF 返回 `OCR_NOT_AVAILABLE`，加密 PDF 被拒绝；不生成 PDF、DOCX 或 XLSX，不隐式下载 OCR、Pandoc 或 LibreOffice。
+
+平台部署时，在运行 AgentOS 的同一 Python 环境安装 `apps/agentOS/requirements-local-tools.txt`（pypdf、python-docx、openpyxl、Markdown）。目录 ZIP 包含平台工具代码，**不包含 Python 解释器和第三方依赖**；缺依赖时安装失败，不在安装请求中执行 pip 或联网下载。平台默认装配会生成本地目录和包，可通过 `AGENTOS_MARKETPLACE_CATALOG_DIR`、`AGENTOS_MARKETPLACE_PACKAGE_DIR`、`AGENTOS_MARKETPLACE_INSTALL_DIR` 覆盖数据目录。当前为平台维护的本地分发，尚未接外部仓库。
+
+### 一次工具请求的数据变化
+
+```text
+资源商店 → 安装目录项
+  → SHA-256 / ZIP 路径校验 → 固定 Python 模块（shell=False）
+  → 独立安装目录、随机 loopback 端口和一次性凭据
+  → /health 通过 → Runtime 登记为 device / tool_service / agentos_http
+  → 安装任务 running → 已安装列表中的“使用工具”
+  → 上传文件 → inputs/<随机 ID>.<扩展名>（sourcePath，不返回宿主绝对路径）
+  → sourcePath + 页码/目标格式 → 后端签名 POST /execute
+  → 子进程执行白名单能力（最多 30 秒）
+  → PDF: AgentOutput.output.text / extractedPages
+  → 转换: AgentOutput.output.outputPath = outputs/<任务 UUID>/result.<格式>
+  → 受控下载 → ResourcePlane.observe_execution 回写真实成功/失败与时延
+```
+
+HTTP `/execute` 成功返回 200 + `AgentOutput`；处理失败返回 422 + 稳定错误码，防止 ACG 将工具失败当成成功。商店便捷接口将工具错误码投影给前端。单文件最多 20 MiB、PDF 最多 200 页、文本最多 100 万字符、表格最多 5 万数据行；Office ZIP 在解析前限制展开大小和压缩比。
+
+文件接口位于 `/agentos/v2/marketplace/installations/{job_id}` 下：`POST /files` 上传、`POST /execute` 执行、`GET /files?path=outputs/...` 下载。接口要求可信租户上下文及资源操作权限，并复核任务归属；只处理运行中的平台文档工具。前端不读取密钥、启动参数或安装路径。
+
+每次安装生成独立 Runtime ID、工作目录和凭据；内置服务凭据绑定进程生命周期，通用凭据轮换接口会明确拒绝单独修改，更新凭据需卸载后重装。健康巡检只刷新心跳，不伪造成功执行。停止后禁用调度，异常退出在下一轮巡检中收敛；平台正常关闭会停止自有服务，重启时旧运行任务收敛为 stopped，需要卸载后重新安装。卸载删除安装工作目录及其输入/结果文件，重要结果应提前下载。当前没有断点续装、跨主机进程接管或自动恢复。
+
+ACG 可以通过现有 `agentos_http` 执行适配器调用这些具体能力，但仍需明确的能力需求、允许的远程执行策略、同租户归属和工作区输入。商店安装不会自动编写业务 Agent、扩展 Planner 业务模板，也不会把其他任务的任意附件路径直接暴露给工具；附件需先进入该安装的受控工作区。
+
+### TODO 复核结论
+
+已完成并移除 `resource-plane-observability` 和 `resource-observability` 两处 TODO，补充事件、持久化、计数和失败隔离测试。其余 TODO 保留真实前提：集中式数据库/nonce 协调、KMS/HSM、密钥宽限期双验、配额及计费权威源、负载恢复策略、Agent 热迁移、shell 细粒度授权及公共 API 弃用策略。`scheduling-policy` 注释已更新，区分已有的成本/地域准入与尚缺的配额/计费数据，避免将已支持约束误写为完全未实现。
+
 ## 维护约束
 
 - 新业务流程放在 `application/`，纯业务计算放在 `domain/`，并发分配流程放在 `scheduler/`。

@@ -1799,6 +1799,7 @@ class ACGExecutionService(CollaboratorAccess):
             runtime,
             credential_provider=self.resource_plane,
             execution_observer=self.resource_plane,
+            audit_reporter=self.resource_plane,
         )
 
     def _freeze_model_binding(self, *, step_id: str, profile) -> dict[str, Any] | None:

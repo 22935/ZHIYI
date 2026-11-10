@@ -125,9 +125,10 @@ def compute_registration_id(resource_id: str, owner_scope: str, profile: NodePro
 def _audit_observation(method):
     """在应用边界统一记录被拒观测和 CAS 冲突，不记录输入正文。"""
     @wraps(method)
-    def wrapped(self, resource_id, *args, **kwargs):
+    def wrapped(self, *args, **kwargs):
+        resource_id = args[0] if args else kwargs.get("runtime_id", kwargs.get("node_id"))
         try:
-            return method(self, resource_id, *args, **kwargs)
+            return method(self, *args, **kwargs)
         except (StaleResourceObservation, ResourceObservationTimeInvalidError) as error:
             self.record_audit_event("observation_rejected", resource_id, reason=type(error).__name__)
             raise
@@ -433,6 +434,7 @@ class ResourcePlane:
             status=NodeHealthStatus.STALE if stale else None,
         )
 
+    @_audit_observation
     def heartbeat_node(
         self,
         node_id: str,
@@ -912,6 +914,9 @@ class ResourcePlane:
 
     def rotate_runtime_credential(self, runtime_id: str) -> IssuedResourceCredential:
         profile = self.store.get_profile(runtime_id)
+        if profile.metadata.get("credentialLifecycle") == "process":
+            # 进程绑定凭据必须由进程管理方协调更新；禁止只改数据库导致已启动服务失联。
+            raise ValueError("process-bound credentials require managed service reinstallation")
         if profile.endpoint is None or profile.endpoint.protocol == "local":
             raise ValueError("runtime credentials require a remote endpoint")
         if not profile.owner_scope:
@@ -929,6 +934,9 @@ class ResourcePlane:
 
     def audit_events(self, resource_id: str | None = None, *, limit: int = 100):
         return self.audit_store.list(resource_id, limit=limit)
+
+    def audit_counts(self, resource_id: str | None = None) -> dict[str, int]:
+        return self.audit_store.counts(resource_id)
 
     def _new_runtime_credential(self, profile: RuntimeProfile) -> IssuedResourceCredential:
         secret = secrets.token_urlsafe(32)
@@ -1210,7 +1218,7 @@ class ResourcePlane:
 
 
 __all__ = [
-    # TODO(resource-plane-observability): 补充登记、凭据轮换、观测丢弃和 CAS 冲突的结构化指标与审计事件。
+    # 生命周期审计由 ResourceAuditStore 持久化；audit_counts 提供按事件类型聚合计数。
     "IssuedNodeCredential",
     "IssuedResourceCredential",
     "ResourcePlane",

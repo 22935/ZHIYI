@@ -52,4 +52,5 @@ def is_runtime_available(
 
 is_available = is_runtime_available
 
-# TODO(scheduling-policy): 当前评分模型未纳入成本、地域和租户配额，调度策略扩展时应保持纯函数特性。
+# TODO(scheduling-policy): 此处仅计算健康分数；端到端调度已有成本/地域约束，
+# 租户配额和动态计费仍需权威数据源，接入后保持计算函数无存储副作用。

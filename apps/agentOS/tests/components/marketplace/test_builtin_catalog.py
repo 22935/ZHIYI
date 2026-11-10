@@ -45,6 +45,9 @@ def test_actual_install_signed_execute_stop_and_uninstall(tmp_path):
         body = json.dumps({"capability": "file.convert", "input": {"sourcePath": "input.md", "targetFormat": "html"}}).encode()
         timestamp, nonce = int(time.time()), "integration-test-nonce"
         credential_id, secret = plane.current_signing_credential(job.runtime_id)
+        with pytest.raises(ValueError, match="process-bound"):
+            plane.rotate_runtime_credential(job.runtime_id)
+        assert plane.current_signing_credential(job.runtime_id) == (credential_id, secret)
         headers = {"X-Resource-Credential": credential_id, "X-Resource-Timestamp": str(timestamp), "X-Resource-Nonce": nonce,
                    "X-Resource-Signature": build_resource_signature(secret, method="POST", path="/execute", timestamp=timestamp, nonce=nonce, body=body)}
         address = runtime.endpoint.address + "/execute"
@@ -105,4 +108,53 @@ def test_service_detects_dead_process_and_allows_cleanup_after_restart(tmp_path)
         assert service.uninstall(job.job_id, owner_scope="tenant-a").status.value == "removed"
         assert not workspace.exists()
     finally:
+        launcher.close()
+
+
+def test_removal_retries_transient_directory_lock(tmp_path, monkeypatch):
+    import shutil
+    launcher = LocalPackageLauncher(package_root=tmp_path / "packages", install_root=tmp_path / "installed")
+    path = launcher.install_root / "test-install"
+    path.mkdir()
+    original = shutil.rmtree
+    calls = []
+    def locked_once(target):
+        calls.append(target)
+        if len(calls) == 1:
+            raise PermissionError("sharing violation")
+        return original(target)
+    monkeypatch.setattr(shutil, "rmtree", locked_once)
+    launcher._remove_installation_path(path)
+    assert len(calls) == 2
+    assert not path.exists()
+
+
+def test_health_refresh_cannot_resurrect_uninstalled_job(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    items = build_builtin_catalog(tmp_path / "catalog", tmp_path / "packages")
+    launcher = LocalPackageLauncher(package_root=tmp_path / "packages", install_root=tmp_path / "installed")
+    service = MarketplaceService(catalog=InMemoryCatalog(items), jobs=InMemoryInstallationJobs(), package_root=tmp_path / "packages", launcher=launcher, endpoint_probe=LoopbackHttpEndpointProbe(), plane=ResourcePlane())
+    entered, release = Event(), Event()
+    try:
+        job = service.install(catalog_id="tool.pdf-parser", owner_scope="tenant-a")
+        assert job.status.value == "running"
+        def unhealthy(runtime_id):
+            entered.set()
+            assert release.wait(5)
+            return False
+        monkeypatch.setattr(launcher, "healthy", unhealthy)
+        with ThreadPoolExecutor(2) as pool:
+            refreshed = pool.submit(service.refresh_managed_health)
+            assert entered.wait(5)
+            removed = pool.submit(service.uninstall, job.job_id, owner_scope="tenant-a")
+            try:
+                assert not removed.done()
+            finally:
+                release.set()
+            refreshed.result(timeout=5)
+            assert removed.result(timeout=5).status.value == "removed"
+        assert service.get_installation(job.job_id, owner_scope="tenant-a").status.value == "removed"
+    finally:
+        release.set()
         launcher.close()

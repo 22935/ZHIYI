@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 from time import monotonic, time
 from typing import Any, Protocol
@@ -41,6 +42,10 @@ class ResourceModelExecutionObserver(Protocol):
 
     def observe_execution(self, runtime_id: str, *, success: bool, latency_ms: float) -> object:
         """记录 Runtime 的成功状态与调用时延。"""
+
+
+class ResourceModelAuditReporter(Protocol):
+    def record_audit_event(self, kind: str, resource_id: str, **metadata: str) -> None: ...
 
 
 def normalize_model_endpoint(address: str) -> str:
@@ -132,6 +137,7 @@ class ResourceModelProviderAdapter:
         runtime: RuntimeProfile,
         credential_provider: ResourceModelCredentialProvider,
         execution_observer: ResourceModelExecutionObserver | None = None,
+        audit_reporter: ResourceModelAuditReporter | None = None,
         client: httpx.AsyncClient | None = None,
         timeout_seconds: float = 120.0,
     ) -> None:
@@ -144,6 +150,7 @@ class ResourceModelProviderAdapter:
         self.endpoint = endpoint
         self.runtime = runtime
         self._execution_observer = execution_observer
+        self._audit_reporter = audit_reporter
         self._manifest = CapabilityManifest(
             capabilityId=f"resource-model.{runtime.runtime_id}.{endpoint.endpoint_id}",
             kind=CapabilityKind.MODEL,
@@ -203,9 +210,15 @@ class ResourceModelProviderAdapter:
                 success=success,
                 latency_ms=(monotonic() - started) * 1000,
             )
-        except Exception:
-            # TODO(resource-observability): 接入结构化事件后记录观测写入失败的原因与计数。
-            pass
+        except Exception as error:
+            # 只记录异常类型，避免存储错误正文夹带提示词或响应内容。
+            if self._audit_reporter is not None:
+                try:
+                    self._audit_reporter.record_audit_event("execution_observation_write_failed", self.runtime.runtime_id, reason=type(error).__name__)
+                except Exception:
+                    logging.getLogger(__name__).warning("resource model audit write failed")
+            else:
+                logging.getLogger(__name__).warning("resource model observation write failed", extra={"runtime_id": self.runtime.runtime_id, "reason": type(error).__name__})
 
 
 def build_resource_model_runtime(
@@ -214,6 +227,7 @@ def build_resource_model_runtime(
     *,
     credential_provider: ResourceModelCredentialProvider,
     execution_observer: ResourceModelExecutionObserver | None = None,
+    audit_reporter: ResourceModelAuditReporter | None = None,
 ) -> RegisteredModelRuntime:
     """为已经绑定的端点构造隔离的模型运行时，不改写全局模型注册表。"""
     registry = ModelCompatibilityRegistry()
@@ -222,6 +236,7 @@ def build_resource_model_runtime(
         runtime=runtime,
         credential_provider=credential_provider,
         execution_observer=execution_observer,
+        audit_reporter=audit_reporter,
     ))
     return RegisteredModelRuntime(registry=registry, provider=endpoint.provider, model=endpoint.model)
 
@@ -229,6 +244,7 @@ def build_resource_model_runtime(
 __all__ = [
     "ResourceModelProviderAdapter",
     "ResourceModelExecutionObserver",
+    "ResourceModelAuditReporter",
     "build_resource_model_runtime",
     "normalize_model_endpoint",
 ]

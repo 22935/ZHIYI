@@ -10,7 +10,8 @@ import secrets
 import time
 import httpx
 import logging
-from threading import Event, Thread
+from threading import Event, Thread, RLock
+from functools import wraps
 from contracts.resource.resource_signing import build_resource_signature
 from ..builtins.contracts import MAX_FILE_BYTES, ToolRequest, source_file
 
@@ -20,6 +21,15 @@ from contracts.resource import HealthStatus, Placement, ResourceEndpoint, Runtim
 from ..contracts import CatalogItem, InstallationJob, InstallationStatus
 from ..infrastructure import validate_package
 from ..ports import Catalog, InstallationJobStore, LocalEndpointProbe, LocalLauncher
+
+
+def _serialized_lifecycle(method):
+    """巡检与安装/卸载串行提交状态，防止旧巡检把 removed 覆盖成 stopped。"""
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lifecycle_lock:
+            return method(self, *args, **kwargs)
+    return wrapped
 
 
 class MarketplaceService:
@@ -41,9 +51,11 @@ class MarketplaceService:
         self.launcher = launcher
         self.endpoint_probe = endpoint_probe
         self.plane = plane
+        self._lifecycle_lock = RLock()
         self._stop_monitor = Event()
         self._monitor: Thread | None = None
 
+    @_serialized_lifecycle
     def refresh_managed_health(self):
         """探活只能刷新心跳；不把健康探测伪造成成功推理/工具执行。"""
         for job in self.jobs.list_all():
@@ -149,6 +161,7 @@ class MarketplaceService:
             raise KeyError(f"unknown installation job: {job_id}")
         return job
 
+    @_serialized_lifecycle
     def install(self, *, catalog_id: str, owner_scope: str) -> InstallationJob:
         item = self.catalog.get(catalog_id)
         job = self.jobs.create(InstallationJob.new(
@@ -245,6 +258,7 @@ class MarketplaceService:
         except Exception:
             return self._advance(job, InstallationStatus.FAILED, error_summary="custom local service registration failed")
 
+    @_serialized_lifecycle
     def stop(self, job_id: str, *, owner_scope: str) -> InstallationJob:
         job = self.get_installation(job_id, owner_scope=owner_scope)
         if job.status is not InstallationStatus.RUNNING or not job.runtime_id:
@@ -255,6 +269,7 @@ class MarketplaceService:
         self.plane.set_runtime_enabled(job.runtime_id, enabled=False)
         return self._advance(job, InstallationStatus.STOPPED)
 
+    @_serialized_lifecycle
     def uninstall(self, job_id: str, *, owner_scope: str) -> InstallationJob:
         job = self.get_installation(job_id, owner_scope=owner_scope)
         if job.status is InstallationStatus.RUNNING:
@@ -268,7 +283,8 @@ class MarketplaceService:
                 remove(job.runtime_id)
             self.plane.unregister_marketplace_runtime(job.runtime_id)
             return self._advance(job, InstallationStatus.REMOVED)
-        except Exception:
+        except Exception as error:
+            logging.getLogger(__name__).warning("marketplace uninstall failed", extra={"runtime_id": job.runtime_id, "reason": type(error).__name__})
             return self._advance(job, InstallationStatus.FAILED, error_summary="uninstall failed")
 
     def _advance(
@@ -292,6 +308,8 @@ class MarketplaceService:
         if profile.kind is RuntimeKind.MODEL_SERVER and not profile.model_ids:
             raise ValueError("model runtime must declare model ids")
         metadata = {**profile.metadata, "managedBy": "marketplace", "catalogId": item.catalog_id}
+        if builtin:
+            metadata["credentialLifecycle"] = "process"
         return profile.model_copy(update={"owner_scope": owner_scope, "metadata": metadata})
 
     def _register_host(self, profile: RuntimeProfile) -> None:
