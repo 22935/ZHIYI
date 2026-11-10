@@ -44,6 +44,8 @@ from components.resource.infrastructure.runtime_store import SQLiteResourceStore
 from components.resource.scheduler.binder import ResourceBinder
 from components.recovery.checkpoint import ACGCheckpointStore
 from components.resource.scheduler.leases import RedisLeaseCoordinator
+from components.marketplace.application.service import MarketplaceService
+from components.marketplace.infrastructure import DirectoryCatalog, LocalPackageLauncher, LoopbackHttpEndpointProbe, SQLiteInstallationJobStore
 from components.mission_manager.store import WorkflowRegistry
 from runtime import ApplicationSetup, ExecutionRuntime
 from adapters.guarded_model import GuardedModelRuntime
@@ -76,6 +78,7 @@ _DEFAULT_DATABASES = {
     "AGENTOS_NODE_DB": "data/nodes.sqlite3",
     "AGENTOS_RESOURCE_HEALTH_DB": "data/resource_health.sqlite3",
     "AGENTOS_EVOLUTION_DB": "data/evolution.sqlite3",
+    "AGENTOS_MARKETPLACE_DB": "data/marketplace.sqlite3",
 }
 
 
@@ -508,6 +511,25 @@ def _assemble_default_runtime(
         tool_runtime=tool_runtime or get_tool_runtime(),
         identity_lifecycle=identity_adapter,
         require_planner_identity=True,
+    )
+    marketplace_jobs = progress.own(
+        SQLiteInstallationJobStore(_database_path(env, "AGENTOS_MARKETPLACE_DB"))
+    )
+    marketplace_package_root = Path(str(
+        env.get("AGENTOS_MARKETPLACE_PACKAGE_DIR") or workflow_path.parent / "marketplace" / "packages"
+    ))
+    runtime.marketplace_service = MarketplaceService(
+        catalog=DirectoryCatalog(
+            env.get("AGENTOS_MARKETPLACE_CATALOG_DIR") or workflow_path.parent / "marketplace" / "catalog"
+        ),
+        jobs=marketplace_jobs,
+        package_root=marketplace_package_root,
+        launcher=LocalPackageLauncher(
+            package_root=marketplace_package_root,
+            install_root=env.get("AGENTOS_MARKETPLACE_INSTALL_DIR") or workflow_path.parent / "marketplace" / "installed",
+        ),
+        endpoint_probe=LoopbackHttpEndpointProbe(),
+        plane=resource_plane,
     )
     progress.runtime = runtime
     runtime._assembly_owned_resources = progress.owned

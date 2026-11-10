@@ -78,6 +78,7 @@ from app.api.agentos_contracts import (
     RunResponse,
     project_control_run,
 )
+from components.marketplace.contracts import CustomResourceRequest
 
 
 logger = logging.getLogger(__name__)
@@ -166,6 +167,12 @@ class ResourceEnabledRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     enabled: bool
+
+
+class MarketplaceInstallRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    catalog_id: str = Field(alias="catalogId", min_length=1, max_length=160)
 
 
 class RemoteNodeObservationRequest(BaseModel):
@@ -1208,6 +1215,77 @@ def create_router(
                 },
             })
         return {"items": items, "total": len(items)}
+
+    def require_marketplace():
+        marketplace = getattr(runtime, "marketplace_service", None)
+        if marketplace is None:
+            raise HTTPException(status_code=503, detail="resource marketplace unavailable")
+        actor = current_trusted_user()
+        if actor is None:
+            raise HTTPException(status_code=401, detail="trusted user context required")
+        owner_scope = str(actor.tenant_id or "local")
+        return marketplace, owner_scope
+
+    @router.get("/marketplace/catalog")
+    async def list_marketplace_catalog():
+        marketplace, _ = require_marketplace()
+        return {
+            "items": [item.model_dump(by_alias=True, mode="json") for item in marketplace.list_catalog()]
+        }
+
+    @router.get("/marketplace/installations")
+    async def list_marketplace_installations():
+        marketplace, owner_scope = require_marketplace()
+        return {
+            "items": [
+                job.model_dump(by_alias=True, mode="json")
+                for job in marketplace.list_installations(owner_scope)
+            ]
+        }
+
+    @router.post("/marketplace/installations", status_code=status.HTTP_201_CREATED)
+    async def install_marketplace_item(request: MarketplaceInstallRequest):
+        marketplace, owner_scope = require_marketplace()
+        require_resource_operator(owner_scope)
+        try:
+            job = marketplace.install(catalog_id=request.catalog_id, owner_scope=owner_scope)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="marketplace item not found") from exc
+        return job.model_dump(by_alias=True, mode="json")
+
+    @router.post("/marketplace/custom-resources", status_code=status.HTTP_201_CREATED)
+    async def register_marketplace_custom_resource(request: CustomResourceRequest):
+        marketplace, owner_scope = require_marketplace()
+        require_resource_operator(owner_scope)
+        try:
+            job = marketplace.register_custom(request, owner_scope=owner_scope)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return job.model_dump(by_alias=True, mode="json")
+
+    @router.post("/marketplace/installations/{job_id}/stop")
+    async def stop_marketplace_installation(job_id: str):
+        marketplace, owner_scope = require_marketplace()
+        require_resource_operator(owner_scope)
+        try:
+            job = marketplace.stop(job_id, owner_scope=owner_scope)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="installation not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail="installation cannot be stopped") from exc
+        return job.model_dump(by_alias=True, mode="json")
+
+    @router.delete("/marketplace/installations/{job_id}")
+    async def uninstall_marketplace_installation(job_id: str):
+        marketplace, owner_scope = require_marketplace()
+        require_resource_operator(owner_scope)
+        try:
+            job = marketplace.uninstall(job_id, owner_scope=owner_scope)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="installation not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail="installation cannot be removed") from exc
+        return job.model_dump(by_alias=True, mode="json")
 
     @router.get("/resources/{resource_id}/usage")
     async def get_resource_usage(resource_id: str, limit: int = Query(default=12, ge=1, le=50)):

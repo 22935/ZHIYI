@@ -28,6 +28,7 @@ from components.planner import TaskDecompositionError
 from contracts.resource_signing import build_resource_signature
 from components.recovery.checkpoint import ACGCheckpointStore
 from components.mission_manager.store import WorkflowRegistry
+from components.marketplace.contracts import InstallationJob
 from contracts.evolution import PolicyMutation, Trajectory
 from contracts.content import ContentKind
 from contracts.attachments import InputAttachmentStatus
@@ -1014,6 +1015,44 @@ async def test_v2_remote_resource_registration_requires_operator_and_returns_one
 
 
 
+
+
+async def test_marketplace_catalog_requires_backend_and_install_is_tenant_scoped(tmp_path) -> None:
+    runtime = _runtime(tmp_path)
+    app = FastAPI()
+    app.include_router(create_router(runtime, RunExecutionCoordinator(runtime)))
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        unavailable = await client.get("/agentos/v2/marketplace/catalog")
+    assert unavailable.status_code == 503
+
+    class MarketplaceStub:
+        def list_catalog(self):
+            return []
+
+        def list_installations(self, owner_scope):
+            return []
+
+        def install(self, *, catalog_id, owner_scope):
+            return InstallationJob.new("job-1", catalog_id, owner_scope)
+
+    runtime.marketplace_service = MarketplaceStub()
+    app = FastAPI()
+    app.include_router(create_router(runtime, RunExecutionCoordinator(runtime)))
+    token = _operator_context()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            catalog = await client.get("/agentos/v2/marketplace/catalog")
+            installed = await client.post(
+                "/agentos/v2/marketplace/installations", json={"catalogId": "model.demo"}
+            )
+    finally:
+        _trusted_user_context.reset(token)
+
+    assert catalog.status_code == 200
+    assert installed.status_code == 201
+    assert installed.json()["ownerScope"] == "tenant-a"
+    assert installed.json()["status"] == "queued"
 
 
 async def test_v2_remote_resource_credential_rotation_is_scoped_atomic_and_invalidates_old_secret(tmp_path) -> None:
