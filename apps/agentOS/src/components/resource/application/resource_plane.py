@@ -645,6 +645,13 @@ class ResourcePlane:
     def runtimes(self) -> list[RuntimeProfile]:
         return self.store.list_profiles()
 
+    def unregister_marketplace_runtime(self, runtime_id: str) -> None:
+        """撤销仅由资源商店创建的 Runtime，防止误删用户手动登记资源。"""
+        profile = self.store.get_profile(runtime_id)
+        if profile.metadata.get("managedBy") != "marketplace":
+            raise ValueError("only marketplace-managed runtimes can be unregistered")
+        self.store.delete_runtime(runtime_id)
+
     def runtime_snapshot(self, runtime_id: str) -> VersionedRuntimeSnapshot:
         return self.store.get_snapshot(runtime_id)
 

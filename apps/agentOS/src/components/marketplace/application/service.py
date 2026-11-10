@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from components.resource.application.resource_plane import ResourcePlane
-from contracts.resource import HealthStatus, NodeProfile, NodeSnapshot, Placement, RuntimeProfile, RuntimeSnapshot, TrustLevel
+from contracts.resource import HealthStatus, Placement, ResourceEndpoint, RuntimeKind, RuntimeProfile, RuntimeSnapshot, TrustLevel
 
 from ..contracts import CatalogItem, InstallationJob, InstallationStatus
 from ..infrastructure import validate_package
-from ..ports import Catalog, InstallationJobStore, LocalLauncher
+from ..ports import Catalog, InstallationJobStore, LocalEndpointProbe, LocalLauncher
 
 
 class MarketplaceService:
@@ -24,12 +24,14 @@ class MarketplaceService:
         jobs: InstallationJobStore,
         package_root: str | Path,
         launcher: LocalLauncher,
+        endpoint_probe: LocalEndpointProbe,
         plane: ResourcePlane,
     ) -> None:
         self.catalog = catalog
         self.jobs = jobs
         self.package_root = Path(package_root)
         self.launcher = launcher
+        self.endpoint_probe = endpoint_probe
         self.plane = plane
 
     def list_catalog(self) -> list[CatalogItem]:
@@ -82,12 +84,84 @@ class MarketplaceService:
                     pass
             if registered_runtime is not None:
                 try:
-                    self.plane.set_runtime_enabled(registered_runtime, enabled=False)
-                    self.plane.set_runtime_health(registered_runtime, healthy=False)
+                    self.plane.unregister_marketplace_runtime(registered_runtime)
                 except Exception:
                     pass
+            if started_runtime is not None:
+                remove = getattr(self.launcher, "remove", None)
+                if callable(remove):
+                    try:
+                        remove(started_runtime)
+                    except Exception:
+                        pass
             summary = "package checksum mismatch" if "checksum mismatch" in str(exc).lower() else f"{stage} failed"
             return self._advance(job, InstallationStatus.FAILED, error_summary=summary)
+
+    def register_custom(self, request, *, owner_scope: str) -> InstallationJob:
+        job = self.jobs.create(InstallationJob.new(
+            f"custom:{uuid.uuid4().hex}", None, owner_scope, display_name=request.display_name
+        ))
+        try:
+            job = self._advance(job, InstallationStatus.INSTALLING)
+            if not self.endpoint_probe.healthy(request.endpoint.address):
+                raise RuntimeError("local endpoint health check failed")
+            job = self._advance(job, InstallationStatus.REGISTERING)
+            runtime_id = f"runtime:custom:{uuid.uuid4().hex}"
+            adapter = request.adapter or (
+                "agentos_model_http" if request.kind is RuntimeKind.MODEL_SERVER else "agentos_http"
+            )
+            profile = RuntimeProfile(
+                runtimeId=runtime_id,
+                kind=request.kind,
+                displayName=request.display_name,
+                nodeId=f"node:device:{owner_scope}",
+                placement=Placement.DEVICE,
+                capabilities=request.capabilities,
+                trust=TrustLevel.HOST_TRUSTED,
+                endpoint=request.endpoint,
+                capacity=1,
+                ownerScope=owner_scope,
+                provider=request.provider,
+                adapter=adapter,
+                sourceType="custom-local",
+                modelIds=request.model_ids,
+                metadata={"managedBy": "marketplace", "customResource": True},
+            )
+            self._register_host(profile)
+            self.plane.register_runtime(profile, RuntimeSnapshot(
+                runtimeId=runtime_id, availableSlots=1, utilization=0.0,
+                healthStatus=HealthStatus.UNKNOWN,
+            ))
+            self.plane.observe_execution(runtime_id, success=True, latency_ms=0.0)
+            return self._advance(job, InstallationStatus.RUNNING, runtime_id=runtime_id)
+        except Exception:
+            return self._advance(job, InstallationStatus.FAILED, error_summary="custom local service registration failed")
+
+    def stop(self, job_id: str, *, owner_scope: str) -> InstallationJob:
+        job = self.get_installation(job_id, owner_scope=owner_scope)
+        if job.status is not InstallationStatus.RUNNING or not job.runtime_id:
+            raise ValueError("only running installations can be stopped")
+        profile = self.plane.runtime(job.runtime_id)
+        if profile.source_type != "custom-local":
+            self.launcher.stop(job.runtime_id)
+        self.plane.set_runtime_enabled(job.runtime_id, enabled=False)
+        return self._advance(job, InstallationStatus.STOPPED)
+
+    def uninstall(self, job_id: str, *, owner_scope: str) -> InstallationJob:
+        job = self.get_installation(job_id, owner_scope=owner_scope)
+        if job.status is InstallationStatus.RUNNING:
+            job = self.stop(job_id, owner_scope=owner_scope)
+        if job.status is not InstallationStatus.STOPPED or not job.runtime_id:
+            raise ValueError("only stopped installations can be uninstalled")
+        job = self._advance(job, InstallationStatus.UNINSTALLING)
+        try:
+            remove = getattr(self.launcher, "remove", None)
+            if callable(remove):
+                remove(job.runtime_id)
+            self.plane.unregister_marketplace_runtime(job.runtime_id)
+            return self._advance(job, InstallationStatus.REMOVED)
+        except Exception:
+            return self._advance(job, InstallationStatus.FAILED, error_summary="uninstall failed")
 
     def _advance(
         self,
@@ -122,7 +196,5 @@ class MarketplaceService:
                 metadata={"managedBy": "marketplace"},
             )
 
-
-from contracts.resource import RuntimeKind
 
 __all__ = ["MarketplaceService"]

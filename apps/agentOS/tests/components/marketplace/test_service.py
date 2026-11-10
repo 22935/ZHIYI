@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 
 from components.marketplace.application.service import MarketplaceService
-from components.marketplace.contracts import CatalogItem, InstallationJob, InstallationStatus
+from components.marketplace.contracts import CatalogItem, CustomResourceRequest, InstallationJob, InstallationStatus
 from components.marketplace.infrastructure import InMemoryCatalog, InMemoryInstallationJobs
 from components.marketplace.infrastructure import SQLiteInstallationJobStore
 from components.resource.application.resource_plane import ResourcePlane
@@ -27,6 +27,14 @@ class _Launcher:
         self.stopped.append(runtime_id)
 
     def healthy(self, runtime_id: str) -> bool:
+        return self.is_healthy
+
+
+class _Probe:
+    def __init__(self, healthy: bool = True) -> None:
+        self.is_healthy = healthy
+
+    def healthy(self, endpoint: str) -> bool:
         return self.is_healthy
 
 
@@ -62,6 +70,7 @@ def _service(tmp_path, *, healthy: bool = True, expected_hash: str | None = None
         jobs=InMemoryInstallationJobs(),
         package_root=tmp_path,
         launcher=launcher,
+        endpoint_probe=_Probe(healthy),
         plane=plane,
     )
     return service, plane, launcher
@@ -103,3 +112,66 @@ def test_installation_job_survives_store_reopen_and_is_tenant_scoped(tmp_path):
         assert reopened.list("tenant-b") == []
     finally:
         reopened.close()
+
+
+def test_custom_local_service_rejects_shell_command():
+    from pydantic import ValidationError
+    import pytest
+
+    with pytest.raises(ValidationError):
+        CustomResourceRequest(
+            displayName="Local model",
+            kind="model_server",
+            endpoint={"protocol": "http", "address": "http://127.0.0.1:11434"},
+            capabilities=["model.generate"],
+            command="run arbitrary command",
+        )
+
+
+def test_custom_local_service_registers_only_after_loopback_health_check(tmp_path):
+    service, plane, _ = _service(tmp_path)
+
+    job = service.register_custom(
+        CustomResourceRequest(
+            displayName="Ollama local",
+            kind="model_server",
+            endpoint={"protocol": "http", "address": "http://127.0.0.1:11434"},
+            capabilities=["model.generate"],
+            modelIds=["qwen-local"],
+            provider="Ollama",
+            adapter="agentos_model_http",
+        ),
+        owner_scope="tenant-a",
+    )
+
+    assert job.status is InstallationStatus.RUNNING
+    assert plane.runtime(job.runtime_id).source_type == "custom-local"
+    assert plane.model_endpoint(f"model:{job.runtime_id}:qwen-local").model == "qwen-local"
+
+
+def test_unhealthy_custom_endpoint_is_not_registered(tmp_path):
+    service, plane, _ = _service(tmp_path, healthy=False)
+
+    job = service.register_custom(
+        CustomResourceRequest(
+            displayName="Unavailable local model",
+            kind="model_server",
+            endpoint={"protocol": "http", "address": "http://localhost:11434"},
+            capabilities=["model.generate"], modelIds=["model"], provider="Local",
+        ),
+        owner_scope="tenant-a",
+    )
+
+    assert job.status is InstallationStatus.FAILED
+    assert not any(profile.source_type == "custom-local" for profile in plane.runtimes())
+
+
+def test_uninstall_stops_launcher_and_removes_marketplace_runtime(tmp_path):
+    service, plane, launcher = _service(tmp_path)
+    job = service.install(catalog_id="model.demo", owner_scope="tenant-a")
+
+    removed = service.uninstall(job.job_id, owner_scope="tenant-a")
+
+    assert removed.status is InstallationStatus.REMOVED
+    assert launcher.stopped == [job.runtime_id]
+    assert not any(profile.runtime_id == job.runtime_id for profile in plane.runtimes())

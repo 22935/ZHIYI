@@ -92,6 +92,19 @@ class InMemoryResourceStore:
     def list_profiles(self) -> list[RuntimeProfile]:
         return [self._profiles[key].model_copy(deep=True) for key in sorted(self._profiles)]
 
+    def delete_runtime(self, runtime_id: str) -> None:
+        with self._lock:
+            if runtime_id not in self._profiles:
+                raise KeyError(f"unknown runtime: {runtime_id}")
+            self._profiles.pop(runtime_id)
+            self._snapshots.pop(runtime_id, None)
+            self._credentials.pop(runtime_id, None)
+            for key in [key for key in self._nonces if key[0] == runtime_id]:
+                self._nonces.pop(key, None)
+            for endpoint_id, endpoint in list(self._model_endpoints.items()):
+                if endpoint.runtime_id == runtime_id:
+                    self._model_endpoints.pop(endpoint_id)
+
     def update_snapshot(
         self, snapshot: RuntimeSnapshot, *, expected_version: int | None = None
     ) -> VersionedRuntimeSnapshot:
@@ -439,6 +452,35 @@ class SQLiteResourceStore:
             "SELECT profile_json FROM plane_runtimes ORDER BY runtime_id"
         ).fetchall()
         return [RuntimeProfile.model_validate(json.loads(str(row[0]))) for row in rows]
+
+    def delete_runtime(self, runtime_id: str) -> None:
+        with self._lock:
+            try:
+                self._connection.execute("BEGIN IMMEDIATE")
+                exists = self._connection.execute(
+                    "SELECT 1 FROM plane_runtimes WHERE runtime_id = ?", (runtime_id,)
+                ).fetchone()
+                if exists is None:
+                    raise KeyError(f"unknown runtime: {runtime_id}")
+                endpoint_rows = self._connection.execute(
+                    "SELECT endpoint_id, profile_json FROM plane_model_endpoints"
+                ).fetchall()
+                endpoint_ids = [
+                    str(endpoint_id)
+                    for endpoint_id, payload in endpoint_rows
+                    if ModelEndpointProfile.model_validate(json.loads(str(payload))).runtime_id == runtime_id
+                ]
+                self._connection.executemany(
+                    "DELETE FROM plane_model_endpoints WHERE endpoint_id = ?",
+                    [(endpoint_id,) for endpoint_id in endpoint_ids],
+                )
+                self._connection.execute("DELETE FROM resource_credentials WHERE resource_id = ?", (runtime_id,))
+                self._connection.execute("DELETE FROM resource_auth_nonces WHERE resource_id = ?", (runtime_id,))
+                self._connection.execute("DELETE FROM plane_runtimes WHERE runtime_id = ?", (runtime_id,))
+                self._connection.commit()
+            except Exception:
+                self._connection.rollback()
+                raise
 
     def update_snapshot(
         self, snapshot: RuntimeSnapshot, *, expected_version: int | None = None

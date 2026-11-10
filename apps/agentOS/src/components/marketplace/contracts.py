@@ -50,6 +50,7 @@ class CatalogItem(BaseModel):
     size_bytes: int = Field(default=0, alias="sizeBytes", ge=0)
     requirements: dict[str, Any] = Field(default_factory=dict)
     runtime: dict[str, Any]
+    startup: dict[str, Any] = Field(default_factory=dict)
     category: StrictStr = Field(default="", max_length=80)
 
     @field_validator("package_path")

@@ -152,6 +152,26 @@ def test_runtime_store_register_remote_writes_profile_snapshot_and_credential_as
     assert store.get_credential("runtime:a").credential_id == "rc_runtime:a"
 
 
+def test_runtime_store_delete_removes_runtime_snapshot_models_credentials_and_nonces(store) -> None:
+    profile = _profile("runtime:marketplace", kind=RuntimeKind.MODEL_SERVER, provider="demo", modelIds=["chat"])
+    store.register_remote(profile, _snapshot(profile.runtime_id), _credential(profile.runtime_id))
+    store.upsert_model_endpoint(ModelEndpointProfile(
+        endpointId="model:runtime:marketplace:chat", runtimeId=profile.runtime_id,
+        provider="demo", model="chat",
+    ))
+    now = datetime.now(timezone.utc)
+    store.consume_nonce(profile.runtime_id, "once", now + timedelta(minutes=1), now=now)
+
+    store.delete_runtime(profile.runtime_id)
+
+    with pytest.raises(KeyError):
+        store.get_profile(profile.runtime_id)
+    with pytest.raises(KeyError):
+        store.get_model_endpoint("model:runtime:marketplace:chat")
+    with pytest.raises(KeyError):
+        store.get_credential(profile.runtime_id)
+
+
 def test_runtime_store_register_remote_rolls_back_when_credential_write_fails(store) -> None:
     store.register_remote(_profile("runtime:a"), _snapshot("runtime:a"), _credential("runtime:a"))
     with pytest.raises(ValueError):
