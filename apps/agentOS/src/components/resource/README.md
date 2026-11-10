@@ -119,6 +119,20 @@ BindingManifest
   -> Lease release 或到期
 ```
 
+已绑定的远程模型端点不会再按同名 `provider/model` 回查全局模型注册表，实际推理路径如下：
+
+```text
+ExecutionBinding.modelBinding.endpointId
+  -> ACGExecutionService._resource_model_runtime()
+  -> ResourcePlane（读取冻结端点与承载 Runtime）
+  -> adapters/resource_model_execution.py
+  -> 签名 POST <Runtime endpoint>/v1/chat/completions
+  -> StructuredGenerationResult / ModelInvocationError
+  -> ResourcePlane.observe_execution(runtimeId, success, latencyMs)
+```
+
+`agentos_model_http` 仅适用于 `MODEL_SERVER`。适配器固定目标路径、忽略登记地址中的查询与片段，并对直接登记为 `/v1` 或完整 `/v1/chat/completions` 的 OpenAI Compatible 地址归一化，防止路径重复拼接。观测只写成功状态和时延，不记录提示词、请求体或模型响应。其他协议（例如 gRPC、MCP、厂商 SDK）必须各自实现 adapter 后，才可作为实际推理目标。
+
 几个关键对象不可混用：
 
 | 对象 | 代表什么 | 生命周期/权威性 |
