@@ -21,6 +21,10 @@ import uuid
 from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urlsplit
+from functools import wraps
+from ..domain.audit import ResourceAuditEvent
+from ..ports.audit_store import ResourceAuditStore
+from ..infrastructure.audit_store import InMemoryResourceAuditStore
 
 from contracts.capability import ModelFeatureSet
 from contracts.resource import (
@@ -118,6 +122,21 @@ def compute_registration_id(resource_id: str, owner_scope: str, profile: NodePro
     return f"{owner_scope}:{resource_id}:{fingerprint}"
 
 
+def _audit_observation(method):
+    """在应用边界统一记录被拒观测和 CAS 冲突，不记录输入正文。"""
+    @wraps(method)
+    def wrapped(self, resource_id, *args, **kwargs):
+        try:
+            return method(self, resource_id, *args, **kwargs)
+        except (StaleResourceObservation, ResourceObservationTimeInvalidError) as error:
+            self.record_audit_event("observation_rejected", resource_id, reason=type(error).__name__)
+            raise
+        except (VersionConflict, ResourceVersionConflictError) as error:
+            self.record_audit_event("snapshot_conflict", resource_id, reason=type(error).__name__)
+            raise
+    return wrapped
+
+
 class ResourcePlane:
     """以分层模型暴露可调度资源，并向 Binder 提供候选查询。"""
 
@@ -130,7 +149,9 @@ class ResourcePlane:
         *,
         heartbeat_timeout: timedelta = timedelta(seconds=60),
         credential_key: str | bytes | None = None,
+        audit_store: ResourceAuditStore | None = None,
     ) -> None:
+        self.audit_store = audit_store if audit_store is not None else InMemoryResourceAuditStore()
         self.store = store or InMemoryResourceStore()
         self.node_store = node_store or InMemoryNodeStore()
         self.health_monitor = health_monitor or ResourceHealthMonitor(
@@ -160,7 +181,9 @@ class ResourcePlane:
         try:
             existing = self.node_store.get_profile(profile.node_id)
         except KeyError:
-            return self.node_store.register(profile, snapshot)
+            result = self.node_store.register(profile, snapshot)
+            self.record_audit_event("node_registered", profile.node_id)
+            return result
         # 幂等重试只能复用完全相同的静态画像，防止调用方无意覆盖节点身份。
         if existing != profile:
             raise ValueError(f"node conflicts with existing profile: {profile.node_id}")
@@ -199,6 +222,7 @@ class ResourcePlane:
                 lastHeartbeat=datetime.now(timezone.utc),
             )
             self.node_store.register(profile, snapshot)
+            self.record_audit_event("node_registered", node_id)
             self.node_health_monitor.report(node_id, success=True)
             return profile
         if existing == profile:
@@ -260,6 +284,7 @@ class ResourcePlane:
             created_at=datetime.now(timezone.utc),
         )
         self.node_store.register_remote(profile, snapshot, record)
+        self.record_audit_event("node_registered", profile.node_id)
         return IssuedNodeCredential(
             node_id=profile.node_id,
             credential_id=record.credential_id,
@@ -343,6 +368,7 @@ class ResourcePlane:
             expected_version=current.version,
         )
 
+    @_audit_observation
     def observe_node(
         self,
         node_id: str,
@@ -510,6 +536,7 @@ class ResourcePlane:
             existing = self.store.get_profile(profile.runtime_id)
         except KeyError:
             versioned = self.store.register(profile, initial)
+            self.record_audit_event("runtime_registered", profile.runtime_id)
             self._sync_runtime_model_endpoints(profile)
             return versioned
         if existing == profile:
@@ -599,6 +626,7 @@ class ResourcePlane:
             created_at=datetime.now(timezone.utc),
         )
         self.store.register_remote(profile, snapshot, record)
+        self.record_audit_event("runtime_registered", profile.runtime_id)
         self._sync_runtime_model_endpoints(profile)
         return IssuedResourceCredential(
             resource_id=profile.runtime_id,
@@ -722,6 +750,7 @@ class ResourcePlane:
             raise ValueError("remote runtime heartbeat must come from an external heartbeat")
         return self.health_monitor.heartbeat(runtime_id, received_at=received_at)
 
+    @_audit_observation
     def observe_execution(
         self,
         runtime_id: str,
@@ -784,6 +813,7 @@ class ResourcePlane:
             f"resource observation persistence failed for {runtime_id}"
         ) from last_error
 
+    @_audit_observation
     def observe_remote_runtime(
         self,
         runtime_id: str,
@@ -887,7 +917,18 @@ class ResourcePlane:
         if not profile.owner_scope:
             raise ValueError("remote runtime ownerScope is required")
         issued = self._new_runtime_credential_for_rotation(profile)
+        self.record_audit_event("credential_rotated", runtime_id)
         return issued
+
+    def record_audit_event(self, kind: str, resource_id: str, **metadata: str) -> None:
+        """内部可信调用方仅传分类信息；审计不可用时保留日志且不改变已提交业务。"""
+        try:
+            self.audit_store.append(ResourceAuditEvent(kind, resource_id, datetime.now(timezone.utc), metadata))
+        except Exception:
+            logger.exception("resource audit persistence failed", extra={"kind": kind, "resource_id": resource_id})
+
+    def audit_events(self, resource_id: str | None = None, *, limit: int = 100):
+        return self.audit_store.list(resource_id, limit=limit)
 
     def _new_runtime_credential(self, profile: RuntimeProfile) -> IssuedResourceCredential:
         secret = secrets.token_urlsafe(32)
