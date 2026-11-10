@@ -1027,7 +1027,7 @@ async def test_marketplace_catalog_requires_backend_and_install_is_tenant_scoped
     assert unavailable.status_code == 503
 
     class MarketplaceStub:
-        def list_catalog(self):
+        def public_catalog(self):
             return []
 
         def list_installations(self, owner_scope):
@@ -1053,6 +1053,49 @@ async def test_marketplace_catalog_requires_backend_and_install_is_tenant_scoped
     assert installed.status_code == 201
     assert installed.json()["ownerScope"] == "tenant-a"
     assert installed.json()["status"] == "queued"
+
+
+async def test_marketplace_real_tool_upload_execute_download_and_owner_isolation(tmp_path) -> None:
+    from components.marketplace.builtins.catalog import build_builtin_catalog
+    from components.marketplace.application.service import MarketplaceService
+    from components.marketplace.infrastructure import InMemoryCatalog, InMemoryInstallationJobs, LocalPackageLauncher, LoopbackHttpEndpointProbe
+    runtime = _runtime(tmp_path)
+    items = build_builtin_catalog(tmp_path / "catalog", tmp_path / "packages")
+    launcher = LocalPackageLauncher(package_root=tmp_path / "packages", install_root=tmp_path / "installed")
+    runtime.marketplace_service = MarketplaceService(catalog=InMemoryCatalog(items), jobs=InMemoryInstallationJobs(), package_root=tmp_path / "packages", launcher=launcher, endpoint_probe=LoopbackHttpEndpointProbe(), plane=runtime.resource_plane)
+    app = FastAPI()
+    app.include_router(create_router(runtime, RunExecutionCoordinator(runtime)))
+    token = _operator_context()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            catalog = await client.get("/agentos/v2/marketplace/catalog")
+            assert catalog.status_code == 200
+            assert len(catalog.json()["items"]) == 2
+            assert all(not {"startup", "runtime", "packagePath", "sha256"} & item.keys() for item in catalog.json()["items"])
+            installed = await client.post("/agentos/v2/marketplace/installations", json={"catalogId": "tool.file-converter"})
+            assert installed.status_code == 201
+            assert installed.json()["status"] == "running", installed.text
+            job_id = installed.json()["jobId"]
+            base = f"/agentos/v2/marketplace/installations/{job_id}"
+            uploaded = await client.post(base + "/files", files={"file": ("test.md", b"# Actual conversion", "text/markdown")})
+            assert uploaded.status_code == 200, uploaded.text
+            converted = await client.post(base + "/execute", json={"sourcePath": uploaded.json()["sourcePath"], "targetFormat": "html"})
+            assert converted.status_code == 200, converted.text
+            output = converted.json()["outputPath"]
+            downloaded = await client.get(base + "/files", params={"path": output})
+            assert b"<h1>Actual conversion</h1>" in downloaded.content
+            assert (await client.get(base + "/files", params={"path": "../ready.json"})).status_code == 422
+            other = _trusted_user_context.set(TrustedUserContext(user_id="other", subject="other", role="operator", tenant_id="tenant-b"))
+            try:
+                assert (await client.post(base + "/execute", json={})).status_code == 404
+                assert (await client.get(base + "/files", params={"path": output})).status_code == 404
+            finally:
+                _trusted_user_context.reset(other)
+            assert (await client.post(base + "/stop")).status_code == 200
+            assert (await client.delete(base)).json()["status"] == "removed"
+    finally:
+        _trusted_user_context.reset(token)
+        launcher.close()
 
 
 async def test_v2_remote_resource_credential_rotation_is_scoped_atomic_and_invalidates_old_secret(tmp_path) -> None:

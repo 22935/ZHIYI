@@ -45,6 +45,8 @@ from components.resource.scheduler.binder import ResourceBinder
 from components.recovery.checkpoint import ACGCheckpointStore
 from components.resource.scheduler.leases import RedisLeaseCoordinator
 from components.marketplace.application.service import MarketplaceService
+from components.marketplace.builtins.catalog import ensure_builtin_catalog
+from components.resource.infrastructure.audit_store import SQLiteResourceAuditStore
 from components.marketplace.infrastructure import DirectoryCatalog, LocalPackageLauncher, LoopbackHttpEndpointProbe, SQLiteInstallationJobStore
 from components.mission_manager.store import WorkflowRegistry
 from runtime import ApplicationSetup, ExecutionRuntime
@@ -409,6 +411,7 @@ def _assemble_default_runtime(
             heartbeat_timeout=timedelta(seconds=float(env.get("AGENTOS_RESOURCE_HEARTBEAT_TIMEOUT_SECONDS") or 60)),
         ),
         credential_key=resource_credential_key,
+        audit_store=progress.own(SQLiteResourceAuditStore(_database_path(env, "AGENTOS_RESOURCE_DB"))),
     )
     coordination_url = str(env.get("AGENTOS_COORDINATION_REDIS_URL") or "").strip()
     coordinator = None
@@ -518,19 +521,21 @@ def _assemble_default_runtime(
     marketplace_package_root = Path(str(
         env.get("AGENTOS_MARKETPLACE_PACKAGE_DIR") or workflow_path.parent / "marketplace" / "packages"
     ))
+    marketplace_catalog_root = Path(str(env.get("AGENTOS_MARKETPLACE_CATALOG_DIR") or workflow_path.parent / "marketplace" / "catalog"))
+    ensure_builtin_catalog(marketplace_catalog_root, marketplace_package_root)
     runtime.marketplace_service = MarketplaceService(
-        catalog=DirectoryCatalog(
-            env.get("AGENTOS_MARKETPLACE_CATALOG_DIR") or workflow_path.parent / "marketplace" / "catalog"
-        ),
+        catalog=DirectoryCatalog(marketplace_catalog_root),
         jobs=marketplace_jobs,
         package_root=marketplace_package_root,
-        launcher=LocalPackageLauncher(
+        launcher=progress.own(LocalPackageLauncher(
             package_root=marketplace_package_root,
             install_root=env.get("AGENTOS_MARKETPLACE_INSTALL_DIR") or workflow_path.parent / "marketplace" / "installed",
-        ),
+        )),
         endpoint_probe=LoopbackHttpEndpointProbe(),
         plane=resource_plane,
     )
+    progress.own(runtime.marketplace_service)
+    runtime.marketplace_service.start_monitor()
     progress.runtime = runtime
     runtime._assembly_owned_resources = progress.owned
     runtime.attachment_service = attachment_service

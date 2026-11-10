@@ -78,3 +78,34 @@ def test_csv_json_roundtrip_and_unsupported_pair(tmp_path):
     assert json.loads((tmp_path / result["outputPath"]).read_text(encoding="utf-8")) == [{"name": "中文", "value": "42"}]
     with pytest.raises(ToolExecutionError, match="FORMAT_NOT_SUPPORTED"):
         converter.convert(ConvertRequest(sourcePath="input.csv", targetFormat="html"))
+
+
+def test_office_files_are_converted_without_calculating_formulas(tmp_path):
+    from docx import Document
+    from openpyxl import Workbook
+    from components.marketplace.builtins.file_converter import FileConverter
+    import json
+    document = Document()
+    document.add_paragraph("真实文档")
+    document.save(tmp_path / "input.docx")
+    book = Workbook()
+    book.active.append(["name", "value"])
+    book.active.append(["中文", "=1+2"])
+    book.save(tmp_path / "input.xlsx")
+    converter = FileConverter(tmp_path, tmp_path / "out")
+    result = converter.convert(ConvertRequest(sourcePath="input.docx", targetFormat="txt"))
+    assert (tmp_path / result["outputPath"]).read_text(encoding="utf-8") == "真实文档"
+    result = converter.convert(ConvertRequest(sourcePath="input.xlsx", targetFormat="json"))
+    assert json.loads((tmp_path / result["outputPath"]).read_text(encoding="utf-8")) == [{"name": "中文", "value": None}]
+
+
+def test_duplicate_csv_headers_and_spreadsheet_formula_export(tmp_path):
+    from components.marketplace.builtins.file_converter import FileConverter
+    from components.marketplace.builtins.contracts import ToolExecutionError
+    converter = FileConverter(tmp_path, tmp_path / "out")
+    (tmp_path / "input.csv").write_text("a,a\n1,2", encoding="utf-8")
+    with pytest.raises(ToolExecutionError, match="TABLE_SHAPE_INVALID"):
+        converter.convert(ConvertRequest(sourcePath="input.csv", targetFormat="json"))
+    (tmp_path / "input.json").write_text('[{"name":"=1+2"}]', encoding="utf-8")
+    result = converter.convert(ConvertRequest(sourcePath="input.json", targetFormat="csv"))
+    assert "'=1+2" in (tmp_path / result["outputPath"]).read_text(encoding="utf-8")

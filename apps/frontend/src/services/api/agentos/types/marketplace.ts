@@ -9,12 +9,9 @@ export interface MarketplaceCatalogItem {
   version: string
   displayName: string
   description: string
-  packagePath: string
-  sha256: string
   sizeBytes: number
   requirements: Record<string, unknown>
-  runtime: Record<string, unknown>
-  startup: Record<string, unknown>
+  capabilities?: string[]
   category: string
 }
 

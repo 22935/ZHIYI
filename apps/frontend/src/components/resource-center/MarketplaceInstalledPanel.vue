@@ -9,6 +9,7 @@
         <div class="installed-row__timeline"><span>{{ statusLabel(job.status) }}</span><small>{{ timeLabel(job.updatedAt) }}</small></div>
         <p v-if="job.errorSummary" class="installed-row__error">{{ job.errorSummary }}</p>
         <div class="installed-row__actions">
+          <button v-if="job.status === 'running' && ['tool.pdf-parser', 'tool.file-converter'].includes(job.catalogId || '')" type="button" title="使用工具" aria-label="使用工具" :disabled="Boolean(busyJob)" @click="$emit('use', job)"><el-icon><Tools /></el-icon></button>
           <button v-if="job.status === 'running'" type="button" title="停止资源" aria-label="停止资源" :disabled="busyJob === job.jobId" @click="$emit('stop', job)"><el-icon><VideoPause /></el-icon></button>
           <button v-if="['running', 'stopped', 'failed'].includes(job.status)" type="button" title="卸载资源" aria-label="卸载资源" :disabled="busyJob === job.jobId" @click="$emit('uninstall', job)"><el-icon><Delete /></el-icon></button>
           <span v-if="busyJob === job.jobId" class="installed-row__busy">处理中</span>
@@ -19,11 +20,12 @@
 </template>
 
 <script setup lang="ts">
-import { Delete, VideoPause } from '@element-plus/icons-vue'
+import { Delete, Tools, VideoPause } from '@element-plus/icons-vue'
 import type { MarketplaceInstallation } from '@/services/api/agentos'
 
 defineProps<{ items: MarketplaceInstallation[]; loading: boolean; busyJob: string }>()
 defineEmits<{
+  (event: 'use', item: MarketplaceInstallation): void
   (event: 'stop', item: MarketplaceInstallation): void
   (event: 'uninstall', item: MarketplaceInstallation): void
 }>()

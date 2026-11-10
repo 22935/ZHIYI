@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import asyncio
 from tempfile import SpooledTemporaryFile
 from sqlite3 import Error as SQLiteError
 from datetime import datetime, timezone
@@ -1230,7 +1231,7 @@ def create_router(
     async def list_marketplace_catalog():
         marketplace, _ = require_marketplace()
         return {
-            "items": [item.model_dump(by_alias=True, mode="json") for item in marketplace.list_catalog()]
+            "items": marketplace.public_catalog()
         }
 
     @router.get("/marketplace/installations")
@@ -1248,10 +1249,47 @@ def create_router(
         marketplace, owner_scope = require_marketplace()
         require_resource_operator(owner_scope)
         try:
-            job = marketplace.install(catalog_id=request.catalog_id, owner_scope=owner_scope)
+            job = await asyncio.to_thread(marketplace.install, catalog_id=request.catalog_id, owner_scope=owner_scope)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="marketplace item not found") from exc
         return job.model_dump(by_alias=True, mode="json")
+
+    @router.post("/marketplace/installations/{job_id}/files")
+    async def upload_marketplace_tool_file(job_id: str, file: UploadFile = File(...)):
+        marketplace, owner_scope = require_marketplace()
+        require_resource_operator(owner_scope)
+        try:
+            content = await file.read(20 * 1024 * 1024 + 1)
+            return await asyncio.to_thread(marketplace.upload_tool_file, job_id, owner_scope=owner_scope, filename=file.filename, content=content)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="installation not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="file type, size or tool state invalid") from exc
+        finally:
+            await file.close()
+
+    @router.post("/marketplace/installations/{job_id}/execute")
+    async def execute_marketplace_tool(job_id: str, data: dict[str, Any]):
+        marketplace, owner_scope = require_marketplace()
+        require_resource_operator(owner_scope)
+        try:
+            return await asyncio.to_thread(marketplace.execute_tool, job_id, owner_scope=owner_scope, data=data)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="installation not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="tool input or state invalid") from exc
+
+    @router.get("/marketplace/installations/{job_id}/files")
+    async def download_marketplace_tool_file(job_id: str, path: str = Query(max_length=512)):
+        marketplace, owner_scope = require_marketplace()
+        require_resource_operator(owner_scope)
+        try:
+            content, name = await asyncio.to_thread(marketplace.download_tool_file, job_id, owner_scope=owner_scope, relative_path=path)
+            return StreamingResponse(iter([content]), media_type="application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{name}"', "X-Content-Type-Options": "nosniff"})
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="installation not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="output file or tool state invalid") from exc
 
     @router.post("/marketplace/custom-resources", status_code=status.HTTP_201_CREATED)
     async def register_marketplace_custom_resource(request: CustomResourceRequest):

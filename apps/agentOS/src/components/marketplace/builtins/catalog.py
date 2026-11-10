@@ -35,7 +35,7 @@ def build_builtin_catalog(catalog_root, package_root):
             packagePath=package_name, sha256=digest, sizeBytes=len(payload), category="文档工具",
             requirements={"python": ">=3.10", "dependencies": ["pypdf==7.0.0", "python-docx==1.2.0", "openpyxl==3.1.5", "Markdown==3.7"], "formats": formats, "maxFileMb": 20, "offline": True},
             runtime={"runtimeId": "runtime:platform:" + slug, "nodeId": "node:device:platform-tools", "kind": "tool_service", "placement": "device", "trust": "host_trusted", "displayName": title,
-                "capabilities": ["tool.invoke", capability], "capacity": 1, "adapter": "agentos_http", "provider": "AgentOS Local Tools", "sourceType": "platform-local", "endpoint": {"protocol": "http", "address": "http://127.0.0.1:0"}},
+                "capabilities": [capability], "capacity": 1, "adapter": "agentos_http", "provider": "AgentOS Local Tools", "sourceType": "platform-local", "endpoint": {"protocol": "http", "address": "http://127.0.0.1:0"}},
             startup={"pythonModule": "agentos_local_tools.server", "capability": capability})
         target = catalog_root / (item.catalog_id + ".json")
         serialized = item.model_dump_json(by_alias=True, indent=2)

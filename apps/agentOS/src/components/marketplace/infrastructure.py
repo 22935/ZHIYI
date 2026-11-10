@@ -157,7 +157,7 @@ class LocalPackageLauncher:
                         raise ValueError("unsafe platform bundle path")
                 archive.extractall(destination)
             credential = ("rc_" + uuid.uuid4().hex, secrets.token_urlsafe(32))
-            environment = os.environ.copy()
+            environment = {key: value for key, value in os.environ.items() if key.upper() in {"SYSTEMROOT", "WINDIR", "PATH", "TEMP", "TMP", "LANG", "LC_ALL"}}
             environment.update(AGENTOS_TOOL_RUNTIME_ID=runtime_id, AGENTOS_TOOL_CREDENTIAL_ID=credential[0],
                 AGENTOS_TOOL_SECRET=credential[1], AGENTOS_TOOL_CAPABILITY=item.startup["capability"])
             environment.pop("PYTHONPATH", None)
@@ -215,6 +215,14 @@ class LocalPackageLauncher:
         if path is not None and self.install_root in path.parents:
             import shutil
             shutil.rmtree(path)
+        elif ":installation:" in runtime_id:
+            # 重启后没有进程对象，仅可清理由平台随机生成的安装目录。
+            token = runtime_id.rsplit(":installation:", 1)[1]
+            if len(token) == 32 and all(c in "0123456789abcdef" for c in token):
+                target = (self.install_root / token).resolve()
+                if self.install_root in target.parents and target.is_dir():
+                    import shutil
+                    shutil.rmtree(target)
 
 class LoopbackHttpEndpointProbe:
     """仅探测 loopback 服务的固定健康路径，不访问用户指定的公网主机。"""
@@ -310,6 +318,11 @@ class SQLiteInstallationJobStore:
         with self._lock:
             self._connection.close()
 
+    def list_all(self) -> list[InstallationJob]:
+        with self._lock:
+            rows = self._connection.execute("SELECT job_json FROM marketplace_installations ORDER BY created_at").fetchall()
+        return [self._parse(str(row[0])) for row in rows]
+
 
 class InMemoryInstallationJobs:
     """线程安全的任务仓储，仅用于测试。"""
@@ -342,6 +355,10 @@ class InMemoryInstallationJobs:
     def list(self, owner_scope: str) -> list[InstallationJob]:
         with self._lock:
             return [job.model_copy(deep=True) for job in self._jobs.values() if job.owner_scope == owner_scope]
+
+    def list_all(self) -> list[InstallationJob]:
+        with self._lock:
+            return [job.model_copy(deep=True) for job in self._jobs.values()]
 
 
 def validate_package(package_root: Path, item: CatalogItem) -> Path:

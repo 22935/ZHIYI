@@ -5,8 +5,9 @@ import os
 import subprocess
 import sys
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Lock, BoundedSemaphore
 from .signing import build_resource_signature
 
 
@@ -18,6 +19,8 @@ def serve():
     workspace = Path("workspace").resolve()
     workspace.mkdir(exist_ok=True)
     nonces = {}
+    auth_lock = Lock()
+    execution_slot = BoundedSemaphore(1)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -48,30 +51,35 @@ def serve():
                 timestamp = int(self.headers.get("X-Resource-Timestamp", "0"))
                 nonce = self.headers.get("X-Resource-Nonce", "")
                 now = time.time()
-                for old in list(nonces):
-                    if nonces[old] < now - 60:
-                        del nonces[old]
                 expected = build_resource_signature(secret, method="POST", path="/execute", timestamp=timestamp, nonce=nonce, body=body)
-                if (len(body) != length or abs(now - timestamp) > 60 or not 16 <= len(nonce) <= 160 or nonce in nonces
-                    or len(nonces) >= 10000 or self.headers.get("X-Resource-Credential") != credential_id
-                    or not hmac.compare_digest(expected, self.headers.get("X-Resource-Signature", ""))):
-                    return self.reply(401, {"error": "SIGNATURE_INVALID"})
-                nonces[nonce] = now
+                with auth_lock:
+                    for old in list(nonces):
+                        if nonces[old] < now - 60:
+                            del nonces[old]
+                    if (len(body) != length or abs(now - timestamp) > 60 or not 16 <= len(nonce) <= 160 or nonce in nonces
+                        or len(nonces) >= 10000 or self.headers.get("X-Resource-Credential") != credential_id
+                        or not hmac.compare_digest(expected, self.headers.get("X-Resource-Signature", ""))):
+                        return self.reply(401, {"error": "SIGNATURE_INVALID"})
+                    nonces[nonce] = now
                 request = json.loads(body)
                 if request.get("capability") != capability:
                     return self.reply(422, {"error": "CAPABILITY_NOT_SUPPORTED"})
                 worker = {"workspace": str(workspace), "capability": capability, "input": request.get("input", {})}
+                if not execution_slot.acquire(blocking=False):
+                    return self.reply(200, {"output": {"error": "TOOL_BUSY"}})
                 try:
                     process = subprocess.run([sys.executable, "-m", "agentos_local_tools.worker"], input=json.dumps(worker),
                         capture_output=True, text=True, timeout=30, shell=False, encoding="utf-8")
                     result = json.loads(process.stdout) if process.returncode == 0 else {"output": {"error": "TOOL_PROCESS_FAILED"}}
                 except subprocess.TimeoutExpired:
                     result = {"output": {"error": "TOOL_TIMEOUT"}}
+                finally:
+                    execution_slot.release()
                 self.reply(200, result)
             except (ValueError, TypeError, KeyError):
                 self.reply(422, {"error": "INVALID_TOOL_INPUT"})
 
-    server = HTTPServer(("127.0.0.1", 0), Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.timeout = 1
     Path("ready.json").write_text(json.dumps({"port": server.server_port, "runtimeId": runtime_id}), encoding="utf-8")
     server.serve_forever()

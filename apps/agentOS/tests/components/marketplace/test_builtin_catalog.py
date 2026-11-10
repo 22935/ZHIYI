@@ -29,6 +29,17 @@ def test_actual_install_signed_execute_stop_and_uninstall(tmp_path):
         job = service.install(catalog_id="tool.file-converter", owner_scope="tenant-a")
         assert job.status.value == "running", job.error_summary
         runtime = plane.runtime(job.runtime_id)
+        assert not {"startup", "runtime", "packagePath", "sha256"} & service.public_catalog()[0].keys()
+        import pytest
+        with pytest.raises(KeyError):
+            service.upload_tool_file(job.job_id, owner_scope="other-tenant", filename="input.md", content=b"# Hello")
+        uploaded = service.upload_tool_file(job.job_id, owner_scope="tenant-a", filename="input.md", content=b"# Uploaded")
+        converted = service.execute_tool(job.job_id, owner_scope="tenant-a", data={"sourcePath": uploaded["sourcePath"], "targetFormat": "html"})
+        downloaded, name = service.download_tool_file(job.job_id, owner_scope="tenant-a", relative_path=converted["outputPath"])
+        assert b"<h1>Uploaded</h1>" in downloaded
+        assert name == "result.html"
+        with pytest.raises(ValueError):
+            service.download_tool_file(job.job_id, owner_scope="tenant-a", relative_path="../ready.json")
         workspace = launcher.workspace(job.runtime_id)
         (workspace / "input.md").write_text("# Hello", encoding="utf-8")
         body = json.dumps({"capability": "file.convert", "input": {"sourcePath": "input.md", "targetFormat": "html"}}).encode()
@@ -43,7 +54,48 @@ def test_actual_install_signed_execute_stop_and_uninstall(tmp_path):
         output = result.json()["output"]
         assert "<h1>Hello</h1>" in (workspace / output["outputPath"]).read_text(encoding="utf-8")
         assert httpx.post(address, content=body, headers=headers).status_code == 401
+        # 验证真实 ACG HTTP 执行适配器也能消费工具的 AgentOutput 合同。
+        from adapters.resource_execution import build_resource_execution_adapter
+        from types import SimpleNamespace
+        import asyncio
+        adapter = build_resource_execution_adapter(runtime, credential_provider=plane)
+        context = SimpleNamespace(run=SimpleNamespace(run_id="run-test"), task=SimpleNamespace(mission_id="mission-test"),
+            step=SimpleNamespace(step_id="step-test", agent_name="document-tool", capability="file.convert", goal="convert"),
+            context_pack=SimpleNamespace(data={"sourcePath": "input.md", "targetFormat": "html"}, attempt_id="attempt-test", evidence_refs=[]), commit_id="commit-test")
+        async def invoke():
+            try:
+                return await adapter.run(context)
+            finally:
+                await adapter.aclose()
+        assert asyncio.run(invoke()).output["format"] == "html"
         assert service.stop(job.job_id, owner_scope="tenant-a").status.value == "stopped"
+        assert service.uninstall(job.job_id, owner_scope="tenant-a").status.value == "removed"
+        assert not workspace.exists()
+    finally:
+        launcher.close()
+
+
+def test_service_detects_dead_process_and_allows_cleanup_after_restart(tmp_path):
+    items = build_builtin_catalog(tmp_path / "catalog", tmp_path / "packages")
+    plane, jobs = ResourcePlane(), InMemoryInstallationJobs()
+    launcher = LocalPackageLauncher(package_root=tmp_path / "packages", install_root=tmp_path / "installed")
+    service = MarketplaceService(catalog=InMemoryCatalog(items), jobs=jobs, package_root=tmp_path / "packages", launcher=launcher, endpoint_probe=LoopbackHttpEndpointProbe(), plane=plane)
+    try:
+        job = service.install(catalog_id="tool.pdf-parser", owner_scope="tenant-a")
+        assert job.status.value == "running"
+        workspace = launcher.workspace(job.runtime_id)
+        service.refresh_managed_health()
+        assert plane.health_monitor.health(job.runtime_id).healthy
+        from test_builtin_tools import text_pdf
+        text_pdf(workspace / "input.pdf")
+        parsed = service.execute_tool(job.job_id, owner_scope="tenant-a", data={"sourcePath": "input.pdf"})
+        assert parsed["text"] == "agentos"
+        launcher.close()
+        replacement = LocalPackageLauncher(package_root=tmp_path / "packages", install_root=tmp_path / "installed")
+        service.launcher = replacement
+        service.refresh_managed_health()
+        assert not plane.runtime(job.runtime_id).enabled
+        assert service.get_installation(job.job_id, owner_scope="tenant-a").status.value == "stopped"
         assert service.uninstall(job.job_id, owner_scope="tenant-a").status.value == "removed"
         assert not workspace.exists()
     finally:

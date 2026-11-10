@@ -1,6 +1,6 @@
 """基于 pypdf 的本地文本 PDF 提取，不执行附件、脚本或外链。"""
 from pathlib import Path
-from pypdf import PdfReader
+from pypdf import PdfReader, __version__
 from .contracts import MAX_PAGES, MAX_TEXT_CHARS, PdfParseRequest, ToolExecutionError, source_file
 
 
@@ -33,7 +33,10 @@ class PdfParser:
                     if length > MAX_TEXT_CHARS:
                         raise ToolExecutionError("TEXT_LIMIT_EXCEEDED")
                     pages.append({"page": index + 1, "text": text})
-                return {"pages": total, "extractedPages": pages, "text": "\n\n".join(p["text"] for p in pages)}
+                metadata = reader.metadata or {}
+                return {"pages": total, "extractedPages": pages, "text": "\n\n".join(p["text"] for p in pages),
+                        "extractor": {"name": "pypdf", "version": __version__},
+                        "metadata": {key[1:].lower(): str(metadata[key])[:256] for key in ("/Title", "/Author", "/Subject") if key in metadata}}
             except ToolExecutionError:
                 raise
             except Exception as error:

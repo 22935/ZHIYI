@@ -3,6 +3,7 @@ import csv
 import html
 import io
 import json
+import re
 import uuid
 import zipfile
 from html.parser import HTMLParser
@@ -139,6 +140,9 @@ class FileConverter:
             return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'"></head><body>' + body + '</body></html>'
         if source == "md" and target == "txt":
             return visible_text(markdown_html(text))
+        if target == "md":
+            # 非 Markdown 文档按纯文本导出，转义语法字符，避免内容被误解释为排版。
+            return re.sub(r"([\\`*_{}\[\]<>#+.!|~-])", r"\\\1", text)
         return text
 
     def _read_rows(self, path, source):
@@ -152,13 +156,20 @@ class FileConverter:
                     raise ToolExecutionError("TABLE_LIMIT_EXCEEDED")
                 iterator = sheet.iter_rows(values_only=True)
                 headers = [str(v) if v is not None else f"column_{i}" for i, v in enumerate(next(iterator, []))]
+                if len(headers) != len(set(headers)):
+                    raise ToolExecutionError("TABLE_SHAPE_INVALID")
                 rows = [dict(zip(headers, row)) for row in iterator]
             finally:
                 book.close()
         elif source == "csv":
             with path.open(encoding="utf-8-sig", newline="") as file:
                 rows = []
-                for row in csv.DictReader(file):
+                reader = csv.DictReader(file)
+                if not reader.fieldnames or len(reader.fieldnames) != len(set(reader.fieldnames)):
+                    raise ToolExecutionError("TABLE_SHAPE_INVALID")
+                for row in reader:
+                    if None in row or any(v is None for v in row.values()):
+                        raise ToolExecutionError("TABLE_SHAPE_INVALID")
                     rows.append(row)
                     if len(rows) > MAX_ROWS:
                         raise ToolExecutionError("TABLE_LIMIT_EXCEEDED")

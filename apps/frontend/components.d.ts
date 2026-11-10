@@ -119,6 +119,7 @@ declare module 'vue' {
     LoginAcgDemo: typeof import('./src/components/agentos/LoginAcgDemo.vue')['default']
     MarketplaceCatalogPanel: typeof import('./src/components/resource-center/MarketplaceCatalogPanel.vue')['default']
     MarketplaceInstalledPanel: typeof import('./src/components/resource-center/MarketplaceInstalledPanel.vue')['default']
+    MarketplaceToolDialog: typeof import('./src/components/resource-center/MarketplaceToolDialog.vue')['default']
     MermaidRenderer: typeof import('./src/components/agent/MermaidRenderer.vue')['default']
     MessageBubble: typeof import('./src/components/MessageBubble.vue')['default']
     MissionEditor: typeof import('./src/components/workspace/MissionEditor.vue')['default']
