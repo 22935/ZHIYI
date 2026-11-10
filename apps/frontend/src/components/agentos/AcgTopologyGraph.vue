@@ -1,4 +1,6 @@
-<!-- ACG 拓扑图 — 使用 vis-network 渲染 ACG 交互式拓扑，含步骤、Agent、记忆、证据、控制节点和图例 -->
+<!-- ACG 拓扑图 — 主执行链用 AcgExecutionFlow 渲染，异常路径回退 vis-network 画布，含步骤、控制节点和图例 -->
+<!-- 注：蓝图内核自 2026-09 a5011660 收敛后只产 step/control 节点与 dependency/control_flow 边，
+     旧「完整拓扑/数据流」页签与关系筛选已随死数据合同移除，勿凭旧印象恢复 -->
 <template>
   <section ref="sectionRef" class="acg-topology ui-surface" :class="{ 'is-workbench': workbench }">
     <header class="panel-head">
@@ -40,25 +42,13 @@
     <div v-if="!hasData" class="empty">
       <span class="empty__badge" aria-hidden="true"><el-icon><Share /></el-icon></span>
       <p class="empty__title">暂无 ACG 拓扑数据</p>
-      <p class="empty__hint">启动一个 ACG 引擎工作流后，这里会呈现步骤、Agent、记忆与证据的交互拓扑。</p>
+      <p class="empty__hint">启动一个 ACG 引擎工作流后，这里会呈现任务步骤的执行拓扑。</p>
     </div>
     <div v-else class="graph-surface">
       <div class="graph-toolbar" aria-label="拓扑分析视图">
         <div class="view-mode">
           <button type="button" :class="{ active: viewMode === 'main' }" @click="setViewMode('main')">主执行链</button>
-          <button type="button" :class="{ active: viewMode === 'full' }" @click="setViewMode('full')">完整拓扑</button>
           <button type="button" :class="{ active: viewMode === 'exceptions' }" @click="setViewMode('exceptions')">异常路径</button>
-          <button type="button" :class="{ active: viewMode === 'dataflow' }" @click="setViewMode('dataflow')">数据流</button>
-        </div>
-        <div v-if="viewMode === 'full'" class="filter-menu">
-          <button type="button" class="filter-trigger" :class="{ active: filtersExpanded }" @click="filtersExpanded = !filtersExpanded">关系筛选</button>
-          <div v-if="filtersExpanded" class="edge-filters" aria-label="边类型筛选">
-            <label v-for="item in EDGE_TYPES" :key="item.value" :class="{ checked: selectedEdgeTypes.includes(item.value) }">
-              <input v-model="selectedEdgeTypes" type="checkbox" :value="item.value" />
-              <i :style="{ backgroundColor: edgeColor(item.value) }" />
-              {{ item.label }}
-            </label>
-          </div>
         </div>
         <div v-if="focusMainPath" class="execution-context__scope" role="group" aria-label="执行链范围切换">
           <button type="button" :class="{ active: localScope }" :aria-pressed="localScope" @click="setExecutionScope(true)">当前步骤及关联</button>
@@ -220,10 +210,6 @@
               <div class="legend-group">
                 <span class="legend-label">节点类型</span>
                 <span class="legend-item"><i class="dot step"></i>步骤</span>
-                <span class="legend-item"><i class="dot agent"></i>智能体</span>
-                <span class="legend-item"><i class="dot skill"></i>技能</span>
-                <span class="legend-item"><i class="dot memory"></i>记忆</span>
-                <span class="legend-item"><i class="dot evidence"></i>证据</span>
                 <span class="legend-item"><i class="dot control"></i>控制</span>
               </div>
               <div class="legend-group">
@@ -296,13 +282,12 @@ const graphRef = ref<HTMLElement | null>(null)
 const sectionRef = ref<HTMLElement | null>(null)
 const executionFlow = ref<InstanceType<typeof AcgExecutionFlow> | null>(null)
 const selectedNodeId = ref('')
-type GraphViewMode = 'main' | 'full' | 'exceptions' | 'dataflow'
+type GraphViewMode = 'main' | 'exceptions'
 const viewMode = ref<GraphViewMode>('main')
 const focusMainPath = computed(() => viewMode.value === 'main')
 const localScope = ref(Boolean(props.workbench && props.observeResize))
 const contextNodeId = ref('')
 const zoomPercent = ref(100)
-const filtersExpanded = ref(false)
 const controlsExpanded = ref(false)
 const fabRef = ref<HTMLElement | null>(null)
 const FAB_POSITION_KEY = 'acg.graph.fab.position'
@@ -382,16 +367,11 @@ const ENDPOINT_MAX_GAP = 280
 // a slight optical inset so the topology reads as the primary canvas content.
 const SAFE_VIEW_SCALE = 0.98
 
+// 蓝图内核只产 dependency/control_flow 边（a5011660 收敛），其余旧类型仅保留渲染回退
 const EDGE_TYPES: Array<{ value: AcgEdge['edgeType']; label: string }> = [
   { value: 'dependency', label: '依赖' },
-  { value: 'communication', label: '通信' },
-  { value: 'execution', label: '执行' },
-  { value: 'write', label: '写入' },
-  { value: 'read', label: '读取' },
-  { value: 'support', label: '证据' },
   { value: 'control_flow', label: '控制流' }
 ]
-const selectedEdgeTypes = ref<AcgEdge['edgeType'][]>(EDGE_TYPES.map(item => item.value))
 
 const hasData = computed(() => {
   return !!props.blueprint && Array.isArray(props.blueprint.nodes) && props.blueprint.nodes.length > 0
@@ -485,25 +465,11 @@ const visibleBlueprint = computed<GraphProjection | null>(() => {
     return { ...blueprint, nodes, edges }
   }
 
-  if (viewMode.value === 'dataflow') {
-    const dataEdgeTypes = new Set<AcgEdge['edgeType']>(['communication', 'write', 'read', 'support'])
-    const edges = blueprint.edges.filter(edge => dataEdgeTypes.has(edge.edgeType))
-    const nodeIds = new Set(edges.flatMap(edge => [edge.sourceId, edge.targetId]))
-    const nodes = blueprint.nodes.filter(node => nodeIds.has(node.nodeId))
-    return { ...blueprint, nodes, edges }
-  }
-
-  const selected = new Set(selectedEdgeTypes.value)
-  const edges = blueprint.edges.filter(edge => selected.has(edge.edgeType))
-  if (selected.size === EDGE_TYPES.length) return blueprint
-  const connectedNodeIds = new Set(edges.flatMap(edge => [edge.sourceId, edge.targetId]))
-  const nodes = blueprint.nodes.filter(node => node.nodeType === 'step' || connectedNodeIds.has(node.nodeId))
-  return { ...blueprint, nodes, edges }
+  return blueprint
 })
 
 const viewHint = computed(() => {
   if (viewMode.value === 'exceptions' && !visibleBlueprint.value?.nodes.length) return '当前运行没有异常路径'
-  if (viewMode.value === 'dataflow' && !visibleBlueprint.value?.edges.length) return '当前运行没有可展示的数据流关系'
   return ''
 })
 
@@ -644,7 +610,6 @@ const EDGE_STYLE: Record<string, { color: string; dashes: boolean | number[] }> 
   execution: { color: '#6EA8FE', dashes: false }
 }
 
-const edgeColor = (edgeType: AcgEdge['edgeType']) => EDGE_STYLE[edgeType]?.color || '#626B78'
 const edgeTypeLabel = (edgeType: AcgEdge['edgeType']) =>
   EDGE_TYPES.find(item => item.value === edgeType)?.label || edgeType
 const nodeTypeLabel = (nodeType: AcgNode['nodeType']) => ({
@@ -1241,7 +1206,6 @@ const selectRelatedNode = (nodeId: string) => { void focusNode(nodeId) }
 const setViewMode = (mode: GraphViewMode) => {
   if (viewMode.value === mode) return
   viewMode.value = mode
-  filtersExpanded.value = false
   selectedNodeId.value = ''
   stopPhysics()
   network?.destroy()
@@ -1301,7 +1265,7 @@ const cancelScheduledRender = () => {
 }
 
 watch(
-  () => [props.blueprint, props.completedStepIds, props.stepStates, props.runtimePhases, selectedEdgeTypes.value, viewMode.value, localScope.value, contextAnchorId.value],
+  () => [props.blueprint, props.completedStepIds, props.stepStates, props.runtimePhases, viewMode.value, localScope.value, contextAnchorId.value],
   () => scheduleRender(),
   { deep: true }
 )
@@ -1425,14 +1389,12 @@ onBeforeUnmount(() => {
 .acg-topology.is-workbench .view-mode button.active { background: var(--wb-surface-2); color: var(--wb-accent); box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.04); font-weight: 650; }
 .acg-topology.is-workbench .execution-context__scope { margin-left: auto; }
 .acg-topology.is-workbench .execution-context__scope button { min-height: 30px; padding: 0 12px; }
-.acg-topology.is-workbench .filter-trigger { min-height: 30px; border-left: 1px solid var(--wb-border); border-radius: 0; }
 .acg-topology.is-workbench .empty { flex: 1 1 auto; min-height: 0; }
 .acg-topology.is-workbench .graph-stage { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); border: 0; border-radius: 0; background: transparent; }
 .acg-topology.is-workbench .graph-canvas { flex: 1 1 auto; height: 100%; min-height: 0; }
 .acg-topology.is-workbench .node-detail { height: auto; min-height: 0; }
 .acg-topology.is-workbench .meta { padding: 2px 5px; border-radius: 3px; background: transparent; }
-.acg-topology.is-workbench .view-hint,
-.acg-topology.is-workbench .edge-filters { border-color: var(--wb-border); background: color-mix(in srgb, var(--wb-surface-2) 94%, transparent); box-shadow: none; }
+.acg-topology.is-workbench .view-hint { border-color: var(--wb-border); background: color-mix(in srgb, var(--wb-surface-2) 94%, transparent); box-shadow: none; }
 .acg-topology.is-workbench .canvas-controls button { color: var(--wb-text-secondary); }
 .acg-topology.is-workbench .canvas-controls button:hover { background: var(--wb-hover); color: var(--wb-accent); }
 .acg-topology.is-workbench .node-detail { border-left-color: var(--wb-border); background: var(--wb-surface-1); }
@@ -1504,42 +1466,6 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-sm);
   font-weight: 600;
 }
-.filter-menu { position: relative; }
-.filter-trigger {
-  min-height: 34px; padding: 0 14px; border: 0; margin-left: 6px; padding-left: 18px;
-  border-left: 1px solid color-mix(in srgb, var(--border-light) 60%, transparent); background: transparent;
-  color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer;
-  transition: color 0.18s var(--ease-out);
-  border-radius: 0;
-}
-.filter-trigger:hover, .filter-trigger.active { color: var(--primary-color); }
-.edge-filters {
-  position: absolute; z-index: 8; top: calc(100% + 12px); right: 0; width: 240px; box-sizing: border-box;
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--border-light) 82%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--bg-card) 96%, transparent);
-  box-shadow: var(--shadow-md);
-  backdrop-filter: var(--backdrop-blur);
-}
-.edge-filters label {
-  min-height: 32px; display: inline-flex; align-items: center; gap: 7px; padding: 0 10px;
-  border: 1px solid transparent; border-radius: 7px; color: var(--text-disabled);
-  font-size: 12px; font-weight: 500; cursor: pointer;
-  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
-}
-.edge-filters label:hover {
-  background: color-mix(in srgb, var(--bg-app) 55%, transparent);
-  color: var(--text-secondary);
-}
-.edge-filters label.checked {
-  color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--border-light) 82%, transparent);
-  background: var(--bg-input);
-}
-.edge-filters input { position: absolute; opacity: 0; pointer-events: none; }
-.edge-filters i { width: 16px; height: 3px; border-radius: 2px; opacity: .35; transition: opacity .25s; }
-.edge-filters label.checked i { opacity: 1; }
 .empty {
   display: flex;
   flex: 1 1 auto;
@@ -1692,10 +1618,6 @@ onBeforeUnmount(() => {
 .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; font-weight: 500; }
 .dot { width: 12px; height: 12px; border-radius: 4px; display: inline-block; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
 .dot.step { background: color-mix(in srgb, var(--sem-running) 18%, var(--bg-input)); border: 2px solid var(--sem-running); }
-.dot.agent { background: color-mix(in srgb, var(--sem-flow) 15%, var(--bg-panel)); border: 2px solid var(--sem-flow); border-radius: 50%; }
-.dot.skill { background: color-mix(in srgb, var(--sem-artifact) 14%, var(--bg-panel)); border: 2px solid var(--sem-artifact); border-radius: 50%; }
-.dot.memory { background: color-mix(in srgb, var(--sem-waiting) 19%, var(--bg-input)); border: 2px solid var(--sem-waiting); }
-.dot.evidence { background: color-mix(in srgb, var(--sem-success) 15%, var(--bg-input)); border: 2px solid var(--sem-success); transform: rotate(45deg); }
 .dot.control { background: color-mix(in srgb, var(--sem-artifact) 13%, var(--bg-input)); border: 2px solid var(--sem-artifact); }
 .ring { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 3px solid var(--success); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 1px 3px rgba(0, 0, 0, 0.12); }
 .ring.done { border-color: var(--sem-success); }
@@ -1832,7 +1754,6 @@ onBeforeUnmount(() => {
   .graph-toolbar { top: 12px; left: 12px; width: calc(100% - 24px); box-sizing: border-box; overflow-x: auto; justify-content: flex-start; }
   .view-mode { flex: 0 0 auto; }
   .view-mode button { padding: 0 8px; }
-  .filter-menu { flex: 0 0 auto; }
   .legend.expanded { right: 16px; width: auto; max-width: none; max-height: 280px; }
 }
 </style>

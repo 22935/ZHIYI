@@ -1,10 +1,10 @@
 <!-- 个人中心页面：导航由应用级侧栏统一承载，主体聚焦身份、活动与资料。 -->
 <template>
-  <div class="user-view">
-    <main class="user-content">
+  <div class="user-view" :class="{ 'user-view--embedded': props.embedded }">
+    <div class="user-content">
       <header class="content-header">
         <div>
-          <button class="back-to-app" type="button" @click="goBack">
+          <button v-if="!props.embedded" class="back-to-app" type="button" @click="goBack">
             <el-icon><ArrowLeft /></el-icon>
             返回
           </button>
@@ -77,7 +77,7 @@
           </article>
         </section>
 
-    </main>
+    </div>
   </div>
 </template>
 
@@ -99,6 +99,7 @@ type ActivityDay = { key: string; label: string; level: number; isToday: boolean
 type ActivityColumn = { key: string; days: ActivityDay[] }
 
 const router = useRouter()
+const props = defineProps<{ embedded?: boolean }>()
 
 const goBack = () => {
   if (window.history.length > 1) {
@@ -328,6 +329,7 @@ onBeforeUnmount(releaseAvatarObjectUrl)
 <style scoped lang="scss">
 .user-view { width: 100%; height: 100%; min-height: 0; overflow: hidden; background: var(--bg-app); color: var(--text-primary); }
 .user-content { width: min(100%, 1400px); height: 100%; min-width: 0; min-height: 0; margin: 0 auto; padding: 30px clamp(20px, 4vw, 58px) 52px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; overflow-x: hidden; }
+.user-view--embedded .user-content { width: 100%; padding: 0; }
 .content-header { padding-bottom: 21px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--border-light); }
 .back-to-app { min-height: 30px; margin: 0 0 12px; padding: 0; display: inline-flex; align-items: center; gap: 6px; border: 0; color: var(--text-secondary); background: transparent; font: inherit; font-size: 12px; cursor: pointer; }
 .back-to-app:hover, .back-to-app:focus-visible { color: var(--text-primary); }.back-to-app:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
@@ -349,6 +351,7 @@ onBeforeUnmount(releaseAvatarObjectUrl)
 .security-panel { width: min(100%, 560px); margin: 10px auto 0; padding: 20px 22px 22px; } .security-hero .hero-name { font-size: 23px; }
 @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } .stats-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } .stats-cell:nth-child(3) { border-right: 0; } .stats-cell:nth-child(-n + 3) { border-bottom: 1px solid var(--border-light); } }
 @media (max-width: 640px) { .user-content { padding: 22px 14px 38px; } .content-header { flex-direction: column; } .content-actions { width: 100%; flex-wrap: wrap; } .profile-status { margin-left: auto; } .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stats-cell:nth-child(2n) { border-right: 0; } .stats-cell:nth-child(n + 3) { border-top: 1px solid var(--border-light); } .activity-card { padding: 18px 14px 13px; } .activity-card__header { flex-direction: column; gap: 10px; } .activity-card__footer { flex-direction: column; gap: 4px; } }
+@media (max-width: 700px) { .user-view--embedded { height: auto; min-height: 70vh; overflow: visible; } .user-view--embedded .user-content { height: auto; overflow: visible; padding: 0; } }
 
 /* Keep the calendar rhythm compact instead of stretching cells across the card. */
 .activity-months,

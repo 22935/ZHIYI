@@ -22,11 +22,12 @@ export const conversationApi = {
   async getUserConversations(
     _userId?: string,
     workspaceMode?: 'agent' | 'chat',
-    options: { signal?: AbortSignal } = {}
+    options: { signal?: AbortSignal; timeout?: number } = {}
   ): Promise<Conversation[]> {
     const response = await request.get<Conversation[]>('/conversations', {
       params: workspaceMode ? { workspaceMode } : undefined,
-      signal: options.signal
+      signal: options.signal,
+      ...(options.timeout === undefined ? {} : { timeout: options.timeout })
     })
     return response.data
   },

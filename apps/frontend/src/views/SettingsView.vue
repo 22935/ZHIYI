@@ -32,7 +32,7 @@
     </aside>
 
     <main class="settings-content">
-      <header class="settings-header">
+      <header v-if="activeTab !== 'profile'" class="settings-header">
         <div>
           <span class="settings-eyebrow">PERSONAL SETTINGS</span>
           <h1>{{ currentTab.label }}</h1>
@@ -414,7 +414,11 @@
         </div>
       </section>
 
-      <footer class="settings-footer">
+      <section v-else-if="activeTab === 'profile'" class="settings-profile" aria-label="个人资料">
+        <UserProfileView embedded />
+      </section>
+
+      <footer v-if="activeTab !== 'profile'" class="settings-footer">
         <div class="hint"><el-icon><InfoFilled /></el-icon><span>{{ inlineHint }}</span></div>
         <div class="actions">
           <el-button @click="resetSettings">恢复默认</el-button>
@@ -427,12 +431,12 @@
 
 <script setup lang="ts">
 import { localFetch } from '@/platform/api'
-import { computed, onMounted, ref, watch, type Component } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { apiUrl } from '@/platform/api'
-import { ArrowLeft, Brush, ChatDotRound, Check, Cpu, InfoFilled, Key, Lock, Microphone, Search, Setting } from '@element-plus/icons-vue'
+import { ArrowLeft, Brush, ChatDotRound, Check, Cpu, InfoFilled, Key, Lock, Microphone, Search, Setting, User } from '@element-plus/icons-vue'
 import { useTheme } from '@/composables/useTheme'
 import { UI_ZOOM_BASE, UI_ZOOM_MAX_LEVEL, UI_ZOOM_MIN_LEVEL, UI_ZOOM_STORAGE_KEY, setUiZoomLevel, uiZoomPercentage, uiZoomState } from '@/composables/useUiZoom'
 import { colorSchemes, type ColorSchemeId } from '@/themes/presets'
@@ -448,9 +452,9 @@ import {
   type ModelProviderId
 } from '@/config/modelSettings'
 
-type TabId = 'general' | 'appearance' | 'privacy' | 'chat' | 'model' | 'voice'
+type TabId = 'general' | 'appearance' | 'privacy' | 'chat' | 'model' | 'voice' | 'profile'
 type NavigationItem = {
-  id: TabId
+  id: TabId | 'profile'
   label: string
   icon: Component
   route?: string
@@ -483,6 +487,7 @@ const { brandOptions, setBrand } = useBrand()
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const UserProfileView = defineAsyncComponent(() => import('@/views/UserView.vue'))
 
 const tabs = [
   { id: 'general' as TabId, label: '常规', description: '管理工作区权限、默认目录与基础偏好。', icon: Setting },
@@ -490,7 +495,8 @@ const tabs = [
   { id: 'privacy' as TabId, label: '隐私', description: '控制数据存储、历史记录与敏感设置。', icon: Lock },
   { id: 'chat' as TabId, label: '对话', description: '管理消息发送与历史对话体验。', icon: ChatDotRound },
   { id: 'model' as TabId, label: '模型与 API', description: '配置当前浏览器使用的模型连接。', icon: Cpu },
-  { id: 'voice' as TabId, label: '语音', description: '管理语音讲解的声音与播放参数。', icon: Microphone }
+  { id: 'voice' as TabId, label: '语音', description: '管理语音讲解的声音与播放参数。', icon: Microphone },
+  { id: 'profile' as TabId, label: '个人资料', description: '管理账户资料、头像与工作活动。', icon: User }
 ]
 
 const settingsSections: Array<{ label: string; items: NavigationItem[] }> = [
@@ -508,6 +514,12 @@ const settingsSections: Array<{ label: string; items: NavigationItem[] }> = [
     items: [
       { id: 'chat', label: '对话', icon: ChatDotRound },
       { id: 'model', label: '模型与 API', icon: Cpu }
+    ]
+  },
+  {
+    label: '账户',
+    items: [
+      { id: 'profile', label: '个人资料', icon: User }
     ]
   }
 ]
@@ -564,7 +576,7 @@ const defaultSettings = (): AppSettings => ({
 
 const settings = ref<AppSettings>(defaultSettings())
 const modelSettings = ref(getDefaultModelSettings())
-const tabIds: TabId[] = ['general', 'appearance', 'privacy', 'chat', 'model', 'voice']
+const tabIds: TabId[] = ['general', 'appearance', 'privacy', 'chat', 'model', 'voice', 'profile']
 const isTabId = (value: unknown): value is TabId => typeof value === 'string' && tabIds.includes(value as TabId)
 const activeTab = ref<TabId>(isTabId(route.query.tab) ? route.query.tab : 'general')
 const searchTerm = ref('')
@@ -1040,9 +1052,15 @@ function ensureSelectedModel(models: string[]): void {
 
 .settings-header,
 .settings-section,
+.settings-profile,
 .settings-footer {
   width: min(100%, 1400px);
   margin: 0 auto;
+}
+
+.settings-profile {
+  height: 100%;
+  min-height: 0;
 }
 
 .settings-header {
@@ -1593,6 +1611,7 @@ function ensureSelectedModel(models: string[]): void {
   .settings-nav-item .item-arrow { display: none; }
   .settings-search { margin: 12px 0 10px; }
   .settings-content { height: auto; overflow: visible; padding: 26px 16px 36px; }
+  .settings-profile { height: auto; }
   .settings-header { align-items: flex-start; flex-direction: column; gap: 18px; }
   .settings-header-actions { width: 100%; justify-content: space-between; }
   .theme-grid { grid-template-columns: 1fr; }

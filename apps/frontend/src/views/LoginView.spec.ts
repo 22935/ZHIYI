@@ -93,7 +93,7 @@ describe('LoginView（浅色介绍页配套登录注册）', () => {
   it('?mode=register 直接进入注册模式，页内切换不改变路由', async () => {
     const { router, wrapper: view } = await mountLogin()
     expect(view.get('#auth-card-title').text()).toContain('登录知弈 AgentOS')
-    await view.findAll('.el-tabs__item')[1].trigger('click')
+    await view.get('[data-testid="auth-tab-register"]').trigger('click')
     await settle()
     expect(view.get('#auth-card-title').text()).toContain('创建知弈 AgentOS 账号')
     expect(router.currentRoute.value.path).toBe('/login')

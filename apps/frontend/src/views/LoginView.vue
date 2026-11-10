@@ -8,6 +8,10 @@
           <strong>AgentOS</strong>
         </span>
       </a>
+      <button class="auth-home-toggle" data-testid="auth-home-toggle" type="button" aria-label="返回首页" title="返回首页" @click="handleBrandClick">
+        <el-icon aria-hidden="true"><HomeFilled /></el-icon>
+        <span>首页</span>
+      </button>
       <button
         class="auth-theme-toggle"
         data-testid="auth-theme-toggle"
@@ -22,6 +26,7 @@
       <DesktopWindowControls v-if="desktopShell" />
     </header>
 
+    <div class="auth-scroll">
     <div class="auth-layout">
       <section v-if="!props.embedded" class="auth-intro" aria-labelledby="auth-title">
         <p class="auth-eyebrow">DYNAMIC HETEROGENEOUS AGENT SWARM</p>
@@ -44,63 +49,70 @@
           <p>{{ activeTab === 'login' ? '继续进入你的智能协作工作空间' : '连接模型、知识与智能体，开始构建你的工作流' }}</p>
         </div>
 
-        <el-tabs v-model="activeTab" class="auth-tabs" stretch @tab-change="authError = ''">
-          <el-tab-pane label="登录" name="login">
-            <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" label-position="top" class="auth-form">
-              <el-form-item label="登录账号" prop="username">
-                <el-input v-model="loginForm.username" :prefix-icon="User" placeholder="用户名或邮箱" autocomplete="username" />
-              </el-form-item>
-              <el-form-item label="登录密码" prop="password">
-                <el-input v-model="loginForm.password" type="password" :prefix-icon="Lock" placeholder="输入你的登录密码" autocomplete="current-password" show-password @keyup.enter="handleLogin" />
-              </el-form-item>
-              <p v-if="authError" class="auth-form__error" role="alert">{{ authError }}</p>
-              <div class="auth-form__options">
-                <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
-                <button class="text-action" type="button" @click="showUnavailable('忘记密码')">忘记密码？</button>
-              </div>
-              <el-button type="primary" class="auth-submit" data-testid="auth-submit" :loading="loading" @click="handleLogin">登录</el-button>
-            </el-form>
-          </el-tab-pane>
+        <div class="auth-tabs" role="tablist" aria-label="登录或注册">
+          <span class="auth-tabs__thumb" :class="{ 'is-register': activeTab === 'register' }" aria-hidden="true"></span>
+          <button type="button" role="tab" class="auth-tab" :class="{ 'is-active': activeTab === 'login' }" :aria-selected="activeTab === 'login'" aria-controls="auth-panel-login" data-testid="auth-tab-login" @click="switchTab('login')">登录</button>
+          <button type="button" role="tab" class="auth-tab" :class="{ 'is-active': activeTab === 'register' }" :aria-selected="activeTab === 'register'" aria-controls="auth-panel-register" data-testid="auth-tab-register" @click="switchTab('register')">注册</button>
+        </div>
 
-          <el-tab-pane label="注册" name="register">
-            <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" label-position="top" class="auth-form">
-              <el-form-item label="用户名" prop="username">
-                <el-input v-model="registerForm.username" :prefix-icon="User" placeholder="设置用户名" autocomplete="username" />
-              </el-form-item>
-              <el-form-item label="邮箱地址" prop="email">
-                <el-input v-model="registerForm.email" :prefix-icon="Message" placeholder="用于接收账号通知" autocomplete="email" />
-              </el-form-item>
-              <el-form-item label="设置密码" prop="password">
-                <el-input v-model="registerForm.password" type="password" :prefix-icon="Lock" placeholder="8–32 位，含字母和数字" autocomplete="new-password" show-password />
-              </el-form-item>
-              <el-form-item label="确认密码" prop="confirmPassword">
-                <el-input v-model="registerForm.confirmPassword" type="password" :prefix-icon="Lock" placeholder="再次输入你的密码" autocomplete="new-password" show-password @keyup.enter="handleRegister" />
-              </el-form-item>
-              <p v-if="authError" class="auth-form__error" role="alert">{{ authError }}</p>
-              <el-button type="primary" class="auth-submit" data-testid="auth-submit" :loading="loading" @click="handleRegister">立即注册</el-button>
-            </el-form>
-          </el-tab-pane>
-        </el-tabs>
+        <el-form v-show="activeTab === 'login'" id="auth-panel-login" role="tabpanel" ref="loginFormRef" :model="loginForm" :rules="loginRules" label-position="top" class="auth-form">
+          <el-form-item label="登录账号" prop="username">
+            <el-input v-model="loginForm.username" :prefix-icon="User" placeholder=" " autocomplete="username" />
+            <template #error="{ error }">
+              <div v-if="error !== '请输入用户名'" class="el-form-item__error">{{ error }}</div>
+            </template>
+          </el-form-item>
+          <el-form-item label="登录密码" prop="password">
+            <el-input v-model="loginForm.password" type="password" :prefix-icon="Lock" placeholder=" " autocomplete="current-password" show-password @keyup.enter="handleLogin" />
+          </el-form-item>
+          <p v-if="authError" class="auth-form__error" role="alert">{{ authError }}</p>
+          <div class="auth-form__options">
+            <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
+            <button class="text-action" type="button" @click="showUnavailable('忘记密码')">忘记密码？</button>
+          </div>
+          <el-button type="primary" class="auth-submit" data-testid="auth-submit" :loading="loading" @click="handleLogin">登录</el-button>
+        </el-form>
 
-        <div v-if="!props.embedded" class="auth-divider"><span>或使用以下方式登录</span></div>
-        <div v-if="!props.embedded" class="auth-providers" aria-label="第三方登录">
+        <el-form v-show="activeTab === 'register'" id="auth-panel-register" role="tabpanel" ref="registerFormRef" :model="registerForm" :rules="registerRules" label-position="top" class="auth-form">
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="registerForm.username" :prefix-icon="User" placeholder=" " autocomplete="username" />
+            <template #error="{ error }">
+              <div v-if="error !== '请输入用户名'" class="el-form-item__error">{{ error }}</div>
+            </template>
+          </el-form-item>
+          <el-form-item label="邮箱地址" prop="email">
+            <el-input v-model="registerForm.email" :prefix-icon="Message" placeholder=" " autocomplete="email" />
+          </el-form-item>
+          <el-form-item label="设置密码" prop="password">
+            <el-input v-model="registerForm.password" type="password" :prefix-icon="Lock" placeholder=" " autocomplete="new-password" show-password />
+          </el-form-item>
+          <el-form-item label="确认密码" prop="confirmPassword">
+            <el-input v-model="registerForm.confirmPassword" type="password" :prefix-icon="Lock" placeholder=" " autocomplete="new-password" show-password @keyup.enter="handleRegister" />
+          </el-form-item>
+          <p v-if="authError" class="auth-form__error" role="alert">{{ authError }}</p>
+          <el-button type="primary" class="auth-submit" data-testid="auth-submit" :loading="loading" @click="handleRegister">立即注册</el-button>
+        </el-form>
+
+        <div v-if="!props.embedded && activeTab === 'login'" class="auth-divider"><span>或使用以下方式登录</span></div>
+        <div v-if="!props.embedded && activeTab === 'login'" class="auth-providers" aria-label="第三方登录">
           <button type="button" aria-label="微信登录" @click="showUnavailable('微信登录')"><el-icon><ChatDotRound /></el-icon></button>
           <button type="button" aria-label="GitHub 登录" @click="showUnavailable('GitHub 登录')"><el-icon><Connection /></el-icon></button>
           <button type="button" aria-label="企业账号登录" @click="showUnavailable('企业账号登录')"><el-icon><OfficeBuilding /></el-icon></button>
         </div>
-        <p v-if="!props.embedded" class="auth-switch">还没有账户？ <button type="button" @click="activeTab = 'register'">立即注册</button></p>
+        <p v-if="!props.embedded && activeTab === 'login'" class="auth-switch">还没有账户？ <button type="button" @click="activeTab = 'register'">立即注册</button></p>
         <p v-if="!props.embedded" class="auth-legal">登录即表示你同意遵守平台使用规范与隐私政策。</p>
       </section>
     </div>
 
     <footer v-if="!props.embedded" class="auth-footer"><span>© 2026 知弈 AgentOS</span><span>智能协作 · 共创未来</span></footer>
+    </div>
   </main>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChatDotRound, Connection, Lock, Message, Moon, OfficeBuilding, Sunny, User } from '@element-plus/icons-vue'
+import { ChatDotRound, Connection, HomeFilled, Lock, Message, Moon, OfficeBuilding, Sunny, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { DEFAULT_REDIRECT, login as localLogin, register as localRegister } from '@/features/auth/authService'
@@ -139,6 +151,12 @@ const registerFormRef = ref<FormInstance>()
 const authError = ref('')
 const loginForm = reactive({ username: '', password: '', remember: false })
 const registerForm = reactive({ username: '', email: '', password: '', confirmPassword: '' })
+
+const switchTab = (tab: 'login' | 'register') => {
+  if (activeTab.value === tab) return
+  activeTab.value = tab
+  authError.value = ''
+}
 
 const loginRules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -266,8 +284,8 @@ const handleRegister = async () => {
 .auth-brand strong { color: #23477d; font-family: var(--font-sans); font-size: .93em; font-weight: 650; letter-spacing: -.045em; }
 .auth-brand__logo { width: 36px; height: 36px; display: block; }
 .auth-brand__logo img { width: 100%; height: 100%; display: block; object-fit: contain; }
-.auth-theme-toggle { min-height: 34px; margin-left: 18px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(36, 143, 240, .2); border-radius: 999px; color: #557cae; background: rgba(255, 255, 255, .28); cursor: pointer; font: inherit; font-size: 12px; font-weight: 650; white-space: nowrap; transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, transform 180ms ease; }
-.auth-theme-toggle:hover { border-color: rgba(36, 143, 240, .5); color: var(--auth-ink); background: rgba(255, 255, 255, .62); transform: translateY(-1px); }
+.auth-home-toggle, .auth-theme-toggle { min-height: 34px; margin-left: 18px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(36, 143, 240, .2); border-radius: 999px; color: #557cae; background: rgba(255, 255, 255, .28); cursor: pointer; font: inherit; font-size: 12px; font-weight: 650; white-space: nowrap; transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, transform 180ms ease; }
+.auth-home-toggle:hover, .auth-theme-toggle:hover { border-color: rgba(36, 143, 240, .5); color: var(--auth-ink); background: rgba(255, 255, 255, .62); transform: translateY(-1px); }
 .auth-layout { width: min(100% - 96px, 1420px); min-height: calc(100vh - 130px); min-height: calc(100dvh - 130px); margin: 0 auto; display: grid; grid-template-columns: minmax(360px, 1fr) minmax(420px, 520px); align-items: center; gap: clamp(70px, 11vw, 190px); padding-bottom: 44px; box-sizing: border-box; }
 .auth-intro { margin-top: -5vh; }
 .auth-eyebrow { margin: 0 0 22px; color: #6c8fbe; font-size: 11px; font-weight: 700; letter-spacing: .25em; }
@@ -276,19 +294,52 @@ const handleRegister = async () => {
 .auth-intro__lead { max-width: 520px; margin: 24px 0 0; color: var(--auth-muted); font-size: 16px; line-height: 1.8; }
 .auth-intro__features { max-width: 510px; margin-top: 48px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px 30px; color: #53729e; font-size: 13px; }
 .auth-intro__features b { margin-right: 10px; color: var(--auth-blue); font-size: 10px; letter-spacing: .08em; }
-.auth-card { width: 100%; box-sizing: border-box; padding: 36px 44px 28px; border: 1px solid rgba(255,255,255,.78); border-radius: 24px; background: rgba(249,252,255,.72); box-shadow: 0 24px 70px rgba(68,111,181,.16), inset 0 1px 0 rgba(255,255,255,.86); backdrop-filter: blur(18px); }
+.auth-card { --auth-floating-label-bg: #f4f9ff; width: 100%; box-sizing: border-box; padding: 36px 44px 28px; border: 1px solid rgba(255,255,255,.78); border-radius: 24px; background: rgba(249,252,255,.72); box-shadow: 0 24px 70px rgba(68,111,181,.16), inset 0 1px 0 rgba(255,255,255,.86); backdrop-filter: blur(18px); }
 .auth-card__mark { width: 44px; height: 44px; margin-bottom: 22px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(145deg, #d9f1ff, #b8dcff); box-shadow: 0 8px 18px rgba(36,143,240,.14); }
 .auth-card__mark img { width: 29px; height: 29px; object-fit: contain; }
 .auth-card__heading h2 { margin: 0; color: var(--auth-ink); font-size: 30px; font-weight: 650; letter-spacing: -.04em; }
 .auth-card__heading p { margin: 8px 0 26px; color: var(--auth-muted); font-size: 13px; }
-.auth-tabs :deep(.el-tabs__header) { margin-bottom: 24px; }
-.auth-tabs :deep(.el-tabs__nav-wrap::after) { background: rgba(114,149,194,.2); }
-.auth-tabs :deep(.el-tabs__item) { min-height: 44px; color: #7891b5; font-size: 14px; font-weight: 650; }
-.auth-tabs :deep(.el-tabs__item.is-active) { color: var(--auth-ink); }
-.auth-tabs :deep(.el-tabs__active-bar) { height: 3px; border-radius: 999px; background: linear-gradient(90deg, var(--auth-blue), var(--auth-purple)); }
-.auth-form :deep(.el-form-item) { margin-bottom: 28px; }
-.auth-form :deep(.el-form-item__label) { padding-bottom: 6px; color: #55739f; font-size: 12px; line-height: 1.2; }
-.auth-form :deep(.el-input__wrapper) { min-height: 48px; padding: 0 15px; border: 1px solid rgba(150,180,220,.42) !important; border-radius: 12px; background: rgba(255,255,255,.62) !important; box-shadow: 0 1px 2px rgba(68,111,181,.06) inset !important; transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease; }
+/* 浮动胶囊分段标签：滑块在两个标签间滑动，代替下划线式页签。 */
+.auth-tabs { position: relative; display: flex; margin-bottom: 24px; padding: 4px; border: 1px solid rgba(114, 149, 194, .24); border-radius: 999px; background: rgba(114, 149, 194, .1); }
+.auth-tabs__thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px; background: rgba(255, 255, 255, .95); box-shadow: 0 6px 16px rgba(68, 111, 181, .2), inset 0 1px 0 rgba(255, 255, 255, .9); transition: transform 240ms cubic-bezier(.22, .78, .24, 1); }
+.auth-tabs__thumb.is-register { transform: translateX(100%); }
+.auth-tab { position: relative; z-index: 1; flex: 1; min-height: 40px; padding: 0; border: 0; background: transparent; color: #7891b5; font: inherit; font-size: 14px; font-weight: 650; letter-spacing: .02em; cursor: pointer; transition: color 180ms ease; }
+.auth-tab.is-active { color: var(--auth-ink); }
+.auth-tab:focus-visible { outline: 3px solid rgba(36, 143, 240, .42); outline-offset: 2px; border-radius: 999px; }
+.auth-form { --auth-input-height: 48px; }
+.auth-form :deep(.el-form-item) { position: relative; margin-bottom: 28px; }
+.auth-form :deep(.el-form-item__label-wrap) { position: absolute; inset: 0 auto auto 0; z-index: 2; width: 100%; height: 0; margin: 0 !important; line-height: 1; }
+.auth-form :deep(.el-form-item__label) {
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--auth-input-height) / 2);
+  left: 40px;
+  width: max-content;
+  height: auto;
+  margin: 0;
+  padding: 0 5px;
+  transform: translateY(-50%);
+  color: #55739f;
+  font-size: 13px;
+  line-height: 1.2;
+  transition: top 160ms ease, font-size 160ms ease;
+}
+.auth-form :deep(.el-form-item:focus-within .el-form-item__label),
+.auth-form :deep(.el-form-item:has(.el-input__inner:not(:placeholder-shown)) .el-form-item__label) {
+  top: 0;
+  border-radius: 4px;
+  background: var(--auth-floating-label-bg);
+  font-size: 11px;
+}
+.auth-form :deep(.el-form-item__content) {
+  display: block;
+}
+.auth-form :deep(.el-form-item__error) {
+  position: static;
+  padding-top: 5px;
+  line-height: 1.4;
+}
+.auth-form :deep(.el-input__wrapper) { box-sizing: border-box; min-height: var(--auth-input-height); padding: 0 15px; border: 1px solid rgba(150,180,220,.42) !important; border-radius: 12px; background: rgba(255,255,255,.62) !important; box-shadow: 0 1px 2px rgba(68,111,181,.06) inset !important; transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease; }
 .auth-form :deep(.el-input__wrapper:hover) { border-color: rgba(36,143,240,.58) !important; background: rgba(255,255,255,.76) !important; }
 .auth-form :deep(.el-input__wrapper.is-focus) { border-color: var(--auth-blue) !important; background: rgba(255,255,255,.88) !important; box-shadow: 0 0 0 3px rgba(36,143,240,.12) !important; }
 .auth-form :deep(.el-input__inner) { color: var(--auth-ink) !important; font-size: 13px; }
@@ -312,15 +363,24 @@ const handleRegister = async () => {
 .auth-switch button { padding: 4px; font-weight: 700; }
 .auth-legal { margin: 19px 0 0; color: #a1b2c9; font-size: 10px; line-height: 1.6; text-align: center; }
 .auth-footer { width: min(100% - 96px, 1920px); margin: -2px auto 0; padding-bottom: 20px; display: flex; justify-content: space-between; color: #6f8bae; font-size: 10px; letter-spacing: .05em; }
-.auth-brand:focus-visible, .auth-theme-toggle:focus-visible, .text-action:focus-visible, .auth-switch button:focus-visible, .auth-providers button:focus-visible, .auth-submit:focus-visible { outline: 3px solid rgba(36,143,240,.42); outline-offset: 3px; }
+.auth-brand:focus-visible, .auth-home-toggle:focus-visible, .auth-theme-toggle:focus-visible, .text-action:focus-visible, .auth-switch button:focus-visible, .auth-providers button:focus-visible, .auth-submit:focus-visible { outline: 3px solid rgba(36,143,240,.42); outline-offset: 3px; }
 @media (max-width: 940px) { .auth-layout { width: min(100% - 56px, 680px); display: block; padding-top: 7vh; } .auth-intro { display: none; } .auth-card { max-width: 520px; margin: 0 auto; } }
-@media (max-width: 560px) { .auth-view { overflow-y: auto; } .auth-topbar { width: calc(100% - 40px); min-height: 72px; } .auth-brand { font-size: 18px; } .auth-brand__logo { width: 32px; height: 32px; } .auth-theme-toggle span { display: none; } .auth-theme-toggle { margin-left: 8px; padding: 0 9px; } .auth-layout { width: calc(100% - 32px); min-height: auto; padding-top: 4vh; padding-bottom: 28px; } .auth-card { padding: 28px 22px 24px; border-radius: 20px; } .auth-card__heading h2 { font-size: 27px; } .auth-footer { width: calc(100% - 32px); padding-bottom: 16px; font-size: 9px; } }
-@media (prefers-reduced-motion: reduce) { .auth-form :deep(.el-input__wrapper), .auth-submit, .auth-providers button { transition: none; } }
+@media (max-width: 560px) { .auth-view { overflow-y: auto; } .auth-topbar { width: calc(100% - 40px); min-height: 72px; } .auth-brand { font-size: 18px; } .auth-brand__logo { width: 32px; height: 32px; } .auth-home-toggle span, .auth-theme-toggle span { display: none; } .auth-home-toggle, .auth-theme-toggle { margin-left: 8px; padding: 0 9px; } .auth-layout { width: calc(100% - 32px); min-height: auto; padding-top: 4vh; padding-bottom: 28px; } .auth-card { padding: 28px 22px 24px; border-radius: 20px; } .auth-card__heading h2 { font-size: 27px; } .auth-footer { width: calc(100% - 32px); padding-bottom: 16px; font-size: 9px; } }
+@media (prefers-reduced-motion: reduce) { .auth-form :deep(.el-input__wrapper), .auth-form :deep(.el-form-item__label), .auth-submit, .auth-providers button, .auth-tabs__thumb, .auth-tab { transition: none; } }
 
-/* Tauri 隐藏了原生标题栏，桌面 shell 下由登录页顶栏兼任窗口拖拽区，
-   右上角承载窗口控制按钮（纯 Web 版不渲染桌面 shell）。 */
-.auth-view.is-desktop-shell { overflow-y: auto; scrollbar-gutter: stable; }
-.auth-view.is-desktop-shell .auth-topbar { width: 100%; min-height: 52px; padding-left: 18px; box-sizing: border-box; }
+/* 桌面 shell 下由登录页顶栏兼任窗口拖拽区，右上角承载窗口控制按钮
+   （纯 Web 版不渲染桌面 shell）。窗口圆角由 Windows DWM 按真实窗口形状统一裁切，
+   顶栏不自绘圆角（自绘半径与系统半径在不同缩放下必然错位出缝）。
+   滚动条槽只留在顶栏以内的内容区：顶栏通到窗口真实左右边缘，不再被
+   scrollbar-gutter 截短，右上角也不会留缝。 */
+.auth-view.is-desktop-shell { overflow: hidden; scrollbar-gutter: auto; display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+.auth-view.is-desktop-shell .auth-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+/* 溢出时的滚动条收敛成细圆角，不再压住右上角观感。 */
+.auth-view.is-desktop-shell .auth-scroll::-webkit-scrollbar { width: 10px; }
+.auth-view.is-desktop-shell .auth-scroll::-webkit-scrollbar-track { background: transparent; }
+.auth-view.is-desktop-shell .auth-scroll::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: rgba(69, 105, 151, .3); background-clip: padding-box; }
+.auth-view.is-desktop-shell .auth-scroll::-webkit-scrollbar-thumb:hover { background-color: rgba(69, 105, 151, .48); }
+.auth-view.is-desktop-shell .auth-topbar { width: 100%; min-height: 52px; padding-left: 18px; box-sizing: border-box; flex: 0 0 auto; position: relative; z-index: 2; background: rgba(246, 250, 255, .72); backdrop-filter: blur(16px) saturate(140%); box-shadow: 0 1px 0 rgba(69, 105, 151, .12); }
 .auth-view.is-desktop-shell :deep(.desktop-window-controls) { flex: 0 0 auto; height: 52px; align-self: center; margin-left: auto; }
 
 /* Desktop windows can be as small as 1100x700. Keep the registration form,
@@ -332,10 +392,10 @@ const handleRegister = async () => {
 .auth-view.is-desktop-shell .auth-card__mark img { width: 25px; height: 25px; }
 .auth-view.is-desktop-shell .auth-card__heading h2 { font-size: 27px; }
 .auth-view.is-desktop-shell .auth-card__heading p { margin-bottom: 17px; }
-.auth-view.is-desktop-shell .auth-tabs :deep(.el-tabs__header) { margin-bottom: 16px; }
-.auth-view.is-desktop-shell .auth-tabs :deep(.el-tabs__item) { min-height: 38px; }
+.auth-view.is-desktop-shell .auth-tabs { margin-bottom: 16px; }
+.auth-view.is-desktop-shell .auth-tab { min-height: 36px; }
 .auth-view.is-desktop-shell .auth-form :deep(.el-form-item) { margin-bottom: 20px; }
-.auth-view.is-desktop-shell .auth-form :deep(.el-input__wrapper) { min-height: 43px; }
+.auth-view.is-desktop-shell .auth-form { --auth-input-height: 43px; }
 .auth-view.is-desktop-shell .auth-form__options { min-height: 28px; }
 .auth-view.is-desktop-shell .auth-submit { min-height: 45px; margin-top: 5px; }
 .auth-view.is-desktop-shell .auth-divider { margin: 17px 0 12px; }
@@ -343,6 +403,15 @@ const handleRegister = async () => {
 .auth-view.is-desktop-shell .auth-providers button { width: 40px; height: 40px; }
 .auth-view.is-desktop-shell .auth-switch { margin-top: 14px; }
 .auth-view.is-desktop-shell .auth-legal { margin-top: 12px; }
+
+/* 注册态字段比登录多一倍，第三方登录区又是登录语义——注册时整体收起并收紧
+   纵向节奏，保证卡片在最小窗口（1100x700）里也居中留白，不顶到上下边缘。 */
+.auth-view.is-register .auth-card__mark { margin-bottom: 12px; }
+.auth-view.is-register .auth-card__heading p { margin-bottom: 12px; }
+.auth-view.is-register .auth-tabs { margin-bottom: 12px; }
+.auth-view.is-register .auth-form :deep(.el-form-item) { margin-bottom: 13px; }
+.auth-view.is-register .auth-form :deep(.el-form-item:last-of-type) { margin-bottom: 4px; }
+.auth-view.is-register .auth-submit { min-height: 44px; margin-top: 4px; }
 
 /* 注册态收紧两栏构图：两侧各向中心移动一点，卡片整体上提，
    登录态保留原有的宽松节奏。 */
@@ -372,10 +441,10 @@ const handleRegister = async () => {
   .auth-card__mark img { width: 25px; height: 25px; }
   .auth-card__heading h2 { font-size: 27px; }
   .auth-card__heading p { margin-bottom: 17px; }
-  .auth-tabs :deep(.el-tabs__header) { margin-bottom: 16px; }
-  .auth-tabs :deep(.el-tabs__item) { min-height: 38px; }
+  .auth-tabs { margin-bottom: 16px; }
+  .auth-tab { min-height: 36px; }
   .auth-form :deep(.el-form-item) { margin-bottom: 20px; }
-  .auth-form :deep(.el-input__wrapper) { min-height: 43px; }
+  .auth-form { --auth-input-height: 43px; }
   .auth-form__options { min-height: 28px; }
   .auth-submit { min-height: 45px; margin-top: 5px; }
   .auth-divider { margin: 17px 0 12px; }
@@ -416,8 +485,8 @@ const handleRegister = async () => {
   }
   .auth-brand { color: #f1f6ff; }
   .auth-brand strong { color: color-mix(in srgb, var(--auth-accent) 42%, #f1f6ff); }
-  .auth-theme-toggle { border-color: rgba(109, 189, 255, .3); color: #b7cbe4; background: rgba(9, 24, 46, .48); }
-  .auth-theme-toggle:hover { border-color: rgba(109, 189, 255, .68); color: #f1f6ff; background: rgba(18, 44, 77, .76); }
+  .auth-home-toggle, .auth-theme-toggle { border-color: rgba(109, 189, 255, .3); color: #b7cbe4; background: rgba(9, 24, 46, .48); }
+  .auth-home-toggle:hover, .auth-theme-toggle:hover { border-color: rgba(109, 189, 255, .68); color: #f1f6ff; background: rgba(18, 44, 77, .76); }
   .auth-intro h1 { color: #f1f6ff; }
   .auth-intro h1 span { color: color-mix(in srgb, var(--auth-accent) 64%, #f1f6ff); }
   .auth-eyebrow { color: color-mix(in srgb, var(--auth-accent) 78%, #f1f6ff); }
@@ -425,6 +494,7 @@ const handleRegister = async () => {
   .auth-intro__features { color: #a7bdd8; }
   .auth-intro__features b { color: var(--auth-blue); }
   .auth-card {
+    --auth-floating-label-bg: #0b1b30;
     border-color: color-mix(in srgb, var(--auth-accent) 28%, transparent);
     background: linear-gradient(145deg, rgba(13, 29, 53, .86), rgba(4, 12, 25, .80));
     box-shadow: 0 26px 80px rgba(0, 0, 0, .46), inset 0 1px 0 rgba(220, 239, 255, .16);
@@ -435,9 +505,10 @@ const handleRegister = async () => {
   }
   .auth-card__heading h2 { color: #f1f6ff; }
   .auth-card__heading p { color: var(--auth-muted); }
-  .auth-tabs :deep(.el-tabs__nav-wrap::after) { background: var(--auth-line); }
-  .auth-tabs :deep(.el-tabs__item) { color: #8ea8c8; }
-  .auth-tabs :deep(.el-tabs__item.is-active) { color: #f1f6ff; }
+  .auth-tabs { border-color: color-mix(in srgb, var(--auth-accent) 26%, transparent); background: rgba(114, 149, 194, .12); }
+  .auth-tabs__thumb { background: linear-gradient(145deg, rgba(21, 41, 74, .96), rgba(9, 22, 44, .94)); box-shadow: 0 6px 16px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(220, 239, 255, .16); }
+  .auth-tab { color: #8ea8c8; }
+  .auth-tab.is-active { color: #f1f6ff; }
   .auth-form :deep(.el-form-item__label) { color: #a5beda; }
   .auth-form :deep(.el-input__wrapper) {
     border-color: rgba(135, 188, 241, .28) !important;
@@ -487,6 +558,7 @@ const handleRegister = async () => {
     --app-topbar-hover: color-mix(in srgb, var(--auth-accent) 12%, transparent);
     --app-topbar-active: color-mix(in srgb, var(--auth-accent) 20%, transparent);
     --app-topbar-focus-ring: color-mix(in srgb, var(--auth-accent) 55%, transparent);
+    .auth-topbar { background: rgba(7, 15, 30, .58); box-shadow: 0 1px 0 rgba(0, 0, 0, .4); }
   }
 }
 
@@ -503,6 +575,8 @@ const handleRegister = async () => {
   color-scheme: light;
 }
 .auth-view.is-embedded::before { display: none; }
+/* 嵌入态的滚动壳不参与布局，卡片仍由 is-embedded 的网格直接居中。 */
+.auth-view.is-embedded .auth-scroll { display: contents; }
 .auth-view.is-embedded .auth-layout {
   width: 100%;
   min-height: 100%;
@@ -576,14 +650,15 @@ const handleRegister = async () => {
 .auth-view.is-embedded .auth-card__eyebrow span { display: none; }
 .auth-view.is-embedded .auth-card__heading h2 { color: #173a63; font-size: 31px; letter-spacing: -.05em; text-shadow: none; }
 .auth-view.is-embedded .auth-card__heading > p:not(.auth-card__eyebrow) { max-width: none; margin: 9px 0 24px; color: #5f7d9e; font-size: 13px; line-height: 1.65; }
-.auth-view.is-embedded .auth-tabs :deep(.el-tabs__header) { margin-bottom: 20px; }
-.auth-view.is-embedded .auth-tabs :deep(.el-tabs__nav-wrap::after) { background: rgba(89, 137, 185, .26); }
-.auth-view.is-embedded .auth-tabs :deep(.el-tabs__item) { min-height: 40px; color: #7894b2; font-size: 13px; }
-.auth-view.is-embedded .auth-tabs :deep(.el-tabs__item.is-active) { color: #244b73; }
-.auth-view.is-embedded .auth-tabs :deep(.el-tabs__active-bar) { height: 2px; background: #3f8fd2; }
+.auth-view.is-embedded .auth-tabs { margin-bottom: 20px; border-color: rgba(89, 137, 185, .28); background: rgba(89, 137, 185, .12); }
+.auth-view.is-embedded .auth-tabs__thumb { background: rgba(255, 255, 255, .92); box-shadow: 0 6px 16px rgba(65, 105, 164, .18); }
+.auth-view.is-embedded .auth-tab { min-height: 38px; color: #7894b2; font-size: 13px; }
+.auth-view.is-embedded .auth-tab.is-active { color: #244b73; }
 .auth-view.is-embedded .auth-form :deep(.el-form-item) { margin-bottom: 22px; }
+.auth-view.is-embedded .auth-card { --auth-floating-label-bg: #f3f8fd; }
 .auth-view.is-embedded .auth-form :deep(.el-form-item__label) { color: #527397; }
-.auth-view.is-embedded .auth-form :deep(.el-input__wrapper) { min-height: 50px; border-radius: 14px; border-color: rgba(91, 137, 185, .32) !important; background: rgba(255, 255, 255, .56) !important; box-shadow: 0 1px 2px rgba(59, 106, 158, .07) inset !important; }
+.auth-view.is-embedded .auth-form { --auth-input-height: 50px; }
+.auth-view.is-embedded .auth-form :deep(.el-input__wrapper) { border-radius: 14px; border-color: rgba(91, 137, 185, .32) !important; background: rgba(255, 255, 255, .56) !important; box-shadow: 0 1px 2px rgba(59, 106, 158, .07) inset !important; }
 .auth-view.is-embedded .auth-form :deep(.el-input__wrapper:hover) { border-color: rgba(53, 157, 214, .62) !important; background: rgba(255, 255, 255, .72) !important; }
 .auth-view.is-embedded .auth-form :deep(.el-input__wrapper.is-focus) { border-color: #4aa9dc !important; background: rgba(255, 255, 255, .86) !important; box-shadow: 0 0 0 3px rgba(62, 169, 223, .14) !important; }
 .auth-view.is-embedded .auth-form :deep(.el-input__inner) { color: #24496f !important; }

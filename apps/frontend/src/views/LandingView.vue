@@ -455,8 +455,9 @@ const goToLogin = () => openAuth()
 }
 
 .landing-view.is-desktop-shell { --app-topbar-muted: var(--muted-ink); --app-topbar-hover: rgba(36, 143, 240, .08); --app-topbar-active: rgba(36, 143, 240, .13); --app-topbar-focus-ring: rgba(36, 143, 240, .45); }
-.landing-view.is-desktop-shell .landing-header { padding-right: 24px; padding-left: 24px; background: linear-gradient(180deg, rgba(246, 251, 255, .72), rgba(246, 251, 255, .34)); backdrop-filter: blur(14px); }
-.landing-view.is-desktop-shell .landing-header :deep(.desktop-window-controls) { height: 52px; align-self: center; }
+/* 顶栏圆角交由 Windows DWM 裁切，不再自绘半径（自绘值与系统圆角错位会露出底色）。 */
+.landing-view.is-desktop-shell .landing-header { width: 100%; max-width: none; min-height: 52px; height: 52px; padding: 0 0 0 18px; box-sizing: border-box; gap: 24px; background: linear-gradient(180deg, rgba(246, 251, 255, .78), rgba(246, 251, 255, .38)); backdrop-filter: blur(14px); }
+.landing-view.is-desktop-shell .landing-header :deep(.desktop-window-controls) { flex: 0 0 auto; height: 100%; align-self: stretch; }
 .landing-brand:focus-visible, .landing-nav a:focus-visible, .landing-theme-toggle:focus-visible, .landing-header__login:focus-visible, .landing-cta:focus-visible, .landing-footer button:focus-visible { outline: 2px solid rgba(36, 143, 240, .56); outline-offset: 5px; }
 
 @media (max-width: 860px) {

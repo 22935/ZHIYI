@@ -44,6 +44,7 @@ const blueprint: GraphProjection = {
   edges: [1, 2, 3, 4].map(i => ({ edgeId: `e${i}`, sourceId: `n${i}`, targetId: `n${i + 1}`, edgeType: 'dependency' }))
 }
 const wrappers: ReturnType<typeof mount>[] = []
+const failedStepStates = [{ stepId: 'n3', status: 'failed', agentName: 'worker', attempt: 1, retryCount: 0 }]
 const setup = async (extra = {}) => {
   const wrapper = mount(AcgTopologyGraph, {
     props: { blueprint, workbench: true, observeResize: true, runtimePhases: { n3: 'running' }, ...extra },
@@ -67,10 +68,10 @@ describe('execution flow integration', () => {
     const visible = ref(true)
     const phases = ref<Record<string, string>>({})
     const host = defineComponent({ setup: () => () => h(KeepAlive, null, { default: () => visible.value
-      ? h(AcgTopologyGraph, { blueprint, workbench: true, observeResize: true, runtimePhases: phases.value }) : null }) })
+      ? h(AcgTopologyGraph, { blueprint, workbench: true, observeResize: true, runtimePhases: phases.value, stepStates: failedStepStates }) : null }) })
     const wrapper = mount(host, { global: { stubs: { ElIcon: true } } }); wrappers.push(wrapper)
     await flushPromises()
-    await click(wrapper, '完整拓扑')
+    await click(wrapper, '异常路径')
     const uid = wrapper.findComponent(AcgTopologyGraph).vm.$.uid
     const network = networks[0]
     network.getScale = () => 1.7; network.getViewPosition = () => ({ x: 80, y: 120 })

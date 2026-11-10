@@ -117,8 +117,12 @@
                   </button>
                 </div>
 
-                <div v-if="conversationListLoading && !workspaceHistoryCount" class="chat-submenu-loading">正在加载…</div>
-                <div v-else-if="visibleRecentConversations.length" class="chat-project-list" role="list" aria-label="对话记录">
+                <div v-if="conversationListLoading && !workspaceHistoryCount" class="chat-submenu-loading" role="status">正在加载…</div>
+                <div v-if="conversationListError" class="chat-submenu-empty">
+                  <span role="status">{{ workspaceHistoryCount ? '对话记录更新失败' : '对话记录加载失败' }}</span>
+                  <button class="chat-submenu-action" type="button" @click="loadRecentConversations">重试</button>
+                </div>
+                <div v-if="visibleRecentConversations.length" class="chat-project-list" role="list" aria-label="对话记录">
                   <div
                     v-for="conversation in visibleRecentConversations"
                     :key="conversation.id"
@@ -151,7 +155,7 @@
                     </div>
                   </div>
                 </div>
-                <div v-else class="chat-submenu-empty">
+                <div v-else-if="!conversationListLoading && !conversationListError" class="chat-submenu-empty">
                   暂无历史对话
                 </div>
 
@@ -357,6 +361,7 @@ const visibleRecentConversations = computed(() => {
 })
 const workspaceHistoryCount = computed(() => visibleRecentConversations.value.length)
 const conversationListLoading = ref(false)
+const conversationListError = ref(false)
 const isAcgRoute = computed(() => isAcgPath(route.path))
 const secondaryNavOpen = computed(() => chatNavOpen.value)
 // 侧边栏固定为图标窄栏：展开宽栏与移动端抽屉已退役，唯一可变宽度是对话子栏。
@@ -406,17 +411,23 @@ const loadRecentConversations = (): Promise<void> => {
   conversationLoadWorkspace = requestedWorkspace
   const requestGeneration = ++conversationLoadGeneration
   conversationListLoading.value = true
+  conversationListError.value = false
 
   const pending = (async () => {
     try {
       const userId = localStorage.getItem('userId') || undefined
-      const conversations = await conversationApi.getUserConversations(userId, 'chat', { signal: controller.signal })
+      const conversations = await conversationApi.getUserConversations(userId, 'chat', {
+        signal: controller.signal,
+        timeout: 10000
+      })
       if (requestGeneration !== conversationLoadGeneration || requestedWorkspace !== workspaceMode.value) return
       recentConversations.value = [...conversations]
         .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
     } catch {
-      // Keep the last successful list visible during transient failures and cancelled refreshes.
-      if (controller.signal.aborted) return
+      if (!controller.signal.aborted && requestGeneration === conversationLoadGeneration
+        && requestedWorkspace === workspaceMode.value) {
+        conversationListError.value = true
+      }
     } finally {
       if (requestGeneration === conversationLoadGeneration) {
         conversationListLoading.value = false
@@ -766,7 +777,7 @@ const toggleAccountMenu = async (event: MouseEvent) => {
 
 const openUserProfile = () => {
   closeAccountMenu()
-  void router.push('/user')
+  void router.push({ path: '/settings', query: { tab: 'profile' } })
 }
 
 const openSettings = () => {
@@ -872,6 +883,7 @@ const guardNativeFileDrop = (event: DragEvent): void => {
 
 onMounted(() => {
   window.addEventListener('history-refresh', handleHistoryRefresh)
+  window.addEventListener('online', handleHistoryRefresh)
   window.addEventListener('acg-runs-refresh', handleHistoryRefresh)
   window.addEventListener('conversation-workspace-change', handleConversationWorkspaceChange)
   window.addEventListener('dragover', guardNativeFileDrop)
@@ -896,6 +908,7 @@ onUnmounted(() => {
   disposeAppKeyboardShortcuts?.()
   disposeAppKeyboardShortcuts = null
   window.removeEventListener('history-refresh', handleHistoryRefresh)
+  window.removeEventListener('online', handleHistoryRefresh)
   window.removeEventListener('acg-runs-refresh', handleHistoryRefresh)
   window.removeEventListener('conversation-workspace-change', handleConversationWorkspaceChange)
   window.removeEventListener('dragover', guardNativeFileDrop)
