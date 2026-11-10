@@ -1,0 +1,93 @@
+- generic [ref=f7e1]:
+  - generic [ref=f7e4]:
+    - generic "应用工作栏" [ref=f7e5]:
+      - generic [ref=f7e9]:
+        - group "历史导航" [ref=f7e10]:
+          - button "上一步" [ref=f7e11] [cursor=pointer]
+          - button "下一步" [disabled] [ref=f7e15]
+        - search "应用导航" [ref=f7e19]:
+          - searchbox "搜索任务、步骤、运行或命令" [ref=f7e23]
+    - generic [ref=f7e25]:
+      - complementary [ref=f7e26]:
+        - generic [ref=f7e27]:
+          - menubar [ref=f7e29]:
+            - button "OScode" [ref=f7e31] [cursor=pointer]
+            - button "Workbench" [ref=f7e37] [cursor=pointer]
+          - button "打开账户目录" [ref=f7e41] [cursor=pointer]:
+            - generic [ref=f7e42]: 当
+      - main [ref=f7e44]:
+        - main [ref=f7e48]:
+          - main "资源商店" [ref=f7e49]:
+            - generic [ref=f7e50]:
+              - generic [ref=f7e51]:
+                - text: RESOURCE PLANE / STORE
+                - heading "资源商店" [level=1] [ref=f7e52]
+                - paragraph [ref=f7e53]: 浏览平台本地目录，安装能力，或接入自己的本地服务。
+              - button "登记本地服务" [ref=f7e55] [cursor=pointer]
+            - navigation "资源中心" [ref=f7e60]:
+              - link "概览" [ref=f7e61] [cursor=pointer]:
+                - /url: /agentos/resources/overview
+              - link "资源管理" [ref=f7e62] [cursor=pointer]:
+                - /url: /agentos/resources/manage
+              - link "资源商店" [ref=f7e63] [cursor=pointer]:
+                - /url: /agentos/resources/store
+            - region "资源商店说明" [ref=f7e64]:
+              - paragraph [ref=f7e71]:
+                - strong [ref=f7e72]: 平台本地目录
+                - generic [ref=f7e73]: 目录包由平台维护并校验。安装完成且健康检查通过后，资源才进入端边云调度。
+              - generic [ref=f7e74]: 0 项内容
+            - generic [ref=f7e75]:
+              - tablist "商店内容" [ref=f7e76]:
+                - tab "平台目录 0" [selected] [ref=f7e77] [cursor=pointer]:
+                  - text: 平台目录
+                  - generic [ref=f7e78]: "0"
+                - tab "已安装 0" [ref=f7e79] [cursor=pointer]:
+                  - text: 已安装
+                  - generic [ref=f7e80]: "0"
+              - button "刷新目录和安装状态" [ref=f7e81] [cursor=pointer]
+            - region "平台资源目录" [ref=f7e85]:
+              - generic [ref=f7e86]:
+                - strong [ref=f7e87]: 目录正在准备中
+                - generic [ref=f7e88]: 平台目录包由本机管理员维护，接入已部署的本地服务可使用“自定义资源”。
+            - alert [ref=f7e89]: 商店数据暂时不可用，请稍后重试。
+            - paragraph [ref=f7e90]: 自定义资源仅接受本机回环地址，不会执行用户提交的命令。
+  - dialog "登记本地服务" [ref=f7e100]:
+    - generic [active] [ref=f7e101]:
+      - banner [ref=f7e102]:
+        - heading "登记本地服务" [level=2] [ref=f7e103]
+        - button "关闭此对话框" [ref=f7e104] [cursor=pointer]
+      - generic [ref=f7e109]:
+        - generic [ref=f7e110]:
+          - generic [ref=f7e111]: 资源名称
+          - textbox "资源名称" [ref=f7e112]:
+            - /placeholder: 例如：我的本地模型
+        - generic [ref=f7e113]:
+          - generic [ref=f7e114]: 资源类型
+          - combobox "资源类型" [ref=f7e115]:
+            - option "模型服务" [selected]
+            - option "工具服务"
+            - option "执行服务"
+        - generic [ref=f7e116]:
+          - generic [ref=f7e117]: 本地服务地址
+          - textbox "本地服务地址 只允许 localhost 或本机回环地址" [ref=f7e118]:
+            - /placeholder: http://127.0.0.1:11434
+            - text: http://127.0.0.1:11434
+          - generic [ref=f7e119]: 只允许 localhost 或本机回环地址
+        - generic [ref=f7e120]:
+          - generic [ref=f7e121]: 能力标识
+          - textbox "能力标识" [ref=f7e122]:
+            - /placeholder: model.generate
+            - text: model.generate
+        - generic [ref=f7e123]:
+          - generic [ref=f7e124]: 提供方
+          - textbox "提供方" [ref=f7e125]:
+            - /placeholder: Ollama
+        - generic [ref=f7e126]:
+          - generic [ref=f7e127]: 模型 ID
+          - textbox "模型 ID" [ref=f7e128]:
+            - /placeholder: qwen3:4b
+        - contentinfo [ref=f7e129]:
+          - button "取消" [ref=f7e130] [cursor=pointer]
+          - button "检查并登记" [ref=f7e131] [cursor=pointer]
+  - button "展开知宝" [ref=f7e92]:
+    - img "虚拟伙伴形象" [ref=f7e93]

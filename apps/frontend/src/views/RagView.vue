@@ -10,7 +10,6 @@
           <WorkspacePageHero
             eyebrow="KNOWLEDGE BASE"
             title="知识库"
-            description="智能检索与文档管理"
           >
             <template #actions>
               <div class="rag-document-count" aria-label="文档数量">

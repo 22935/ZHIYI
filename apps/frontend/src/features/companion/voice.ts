@@ -2,13 +2,13 @@
  * Companion 语音端口：把「听（ASR）」与「说（TTS）」收敛成一个可注入的引擎。
  *
  * 边界：
- * - 纯展示层能力，不引用任何后端、ACG 或任务执行链路；
  * - 浏览器 API 全部通过 VoiceHost 注入，jsdom / 无麦克风环境可以完整单测；
- * - 语音输出（speechSynthesis）不需要任何媒体权限，Electron 的
- *   hardenSession() 全拒策略不影响朗读；
- * - 语音输入（SpeechRecognition）只在支持它的宿主可用，不可用时由 UI
- *   显式降级到指令按钮与系统语音输入，绝不假装「在听」。
+ * - 语音输出（speechSynthesis）不需要任何媒体权限；
+ * - 语音输入：浏览器自带 SpeechRecognition 时优先原生；Electron 的 Chromium
+ *   没有在线识别服务，回落到 adapters/serverAsr（本地小模型，经 /ai/voice/asr）；
+ *   两者都不可用时由 UI 显式降级，绝不假装「在听」。
  */
+import { createServerRecognition } from './adapters/serverAsr'
 
 export type VoicePhase =
   | 'idle'
@@ -186,6 +186,8 @@ export function describeVoiceError(code: string | undefined): string {
       return '没听见声音，再靠近一点说一次？'
     case 'network':
       return '语音识别服务暂时连不上，先用指令按钮吧。'
+    case 'asr-unavailable':
+      return '本地语音模型还没就绪（后端需下载识别模型），先用指令按钮吧。'
     case 'audio-capture':
       return '没找到可用的麦克风。'
     default:
@@ -212,6 +214,12 @@ const SPEAK_TIMEOUT_MS = 30_000
 export function createBrowserVoiceHost(win: Window | null = typeof window === 'undefined' ? null : window): VoiceHost {
   const scope = asRecord(win)
   const Ctor = (scope.SpeechRecognition || scope.webkitSpeechRecognition) as SpeechRecognitionCtor | undefined
+  // Electron 的 UA 带 "Electron/x.y.z"；其 Chromium 不含浏览器在线识别服务，
+  // 原生 SpeechRecognition 存在也必然启动失败，因此直接走本地小模型识别。
+  const isElectronHost = typeof win?.navigator?.userAgent === 'string' && /electron/i.test(win.navigator.userAgent)
+  const openServerRecognition = isElectronHost || typeof Ctor !== 'function'
+    ? () => createServerRecognition()
+    : () => null
   const synth = typeof win !== 'undefined' && win !== null
     ? (scope.speechSynthesis as SpeechSynthesis | undefined) : undefined
   // lib.dom 把构造器挂在全局而非 Window 接口上，从同一个 scope 取更稳。
@@ -234,10 +242,14 @@ export function createBrowserVoiceHost(win: Window | null = typeof window === 'u
 
   return {
     hasRecognition() {
-      return typeof Ctor === 'function'
+      if (typeof Ctor === 'function' && !isElectronHost) return true
+      return openServerRecognition() !== null
     },
     createRecognition() {
-      if (typeof Ctor !== 'function') return null
+      if (isElectronHost || typeof Ctor !== 'function') {
+        // Electron / 无原生识别的浏览器：本地小模型识别（不可用返回 null 继续降级）。
+        return openServerRecognition()
+      }
       try {
         const recognition = new Ctor()
         recognition.lang = 'zh-CN'
@@ -245,7 +257,7 @@ export function createBrowserVoiceHost(win: Window | null = typeof window === 'u
         recognition.interimResults = true
         return recognition
       } catch {
-        return null
+        return openServerRecognition()
       }
     },
     hasSynthesis() {
@@ -397,10 +409,23 @@ export class VoiceEngine {
 
   stop(): void {
     if (this.disposed) return
+    // 只停计时器，不清回调：浏览器与本地识别都会在 stop() 之后
+    // 吐出最后的 final 结果再 onend，提前清空会丢掉句尾。
+    if (this.listenTimer !== null) {
+      clearTimeout(this.listenTimer)
+      this.listenTimer = null
+    }
     const recognition = this.recognition
-    this.clearRecognition()
-    try { recognition?.stop() } catch { /* already stopped */ }
-    if (this.phase === 'listening' || this.phase === 'recognizing') this.setPhase('idle')
+    if (!recognition) {
+      if (this.phase === 'listening' || this.phase === 'recognizing') this.setPhase('idle')
+      return
+    }
+    try { recognition.stop() } catch { /* already stopped */ }
+    // 识别实例的清理交给 onend；但若实现不再触发 onend（异常路径），
+    // 用一个短兜底定时器收尾，避免实例悬挂。
+    this.listenTimer = setTimeout(() => {
+      if (this.recognition === recognition) this.clearRecognition()
+    }, 5000)
   }
 
   private clearRecognition(): void {

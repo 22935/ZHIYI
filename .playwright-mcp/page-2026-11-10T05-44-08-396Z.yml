@@ -1,0 +1,93 @@
+- generic [ref=f8e1]:
+  - generic [ref=f8e4]:
+    - generic "应用工作栏" [ref=f8e5]:
+      - generic [ref=f8e9]:
+        - group "历史导航" [ref=f8e10]:
+          - button "上一步" [ref=f8e11] [cursor=pointer]
+          - button "下一步" [disabled] [ref=f8e15]
+        - search "应用导航" [ref=f8e19]:
+          - searchbox "搜索任务、步骤、运行或命令" [ref=f8e23]
+    - generic [ref=f8e25]:
+      - complementary [ref=f8e26]:
+        - generic [ref=f8e27]:
+          - menubar [ref=f8e29]:
+            - button "OScode" [ref=f8e31] [cursor=pointer]
+            - button "Workbench" [ref=f8e37] [cursor=pointer]
+          - button "打开账户目录" [ref=f8e41] [cursor=pointer]:
+            - generic [ref=f8e42]: 当
+      - main [ref=f8e44]:
+        - main [ref=f8e48]:
+          - main "资源商店" [ref=f8e49]:
+            - generic [ref=f8e50]:
+              - generic [ref=f8e51]:
+                - text: RESOURCE PLANE / STORE
+                - heading "资源商店" [level=1] [ref=f8e52]
+                - paragraph [ref=f8e53]: 浏览平台本地目录，安装能力，或接入自己的本地服务。
+              - button "登记本地服务" [ref=f8e55] [cursor=pointer]
+            - navigation "资源中心" [ref=f8e60]:
+              - link "概览" [ref=f8e61] [cursor=pointer]:
+                - /url: /agentos/resources/overview
+              - link "资源管理" [ref=f8e62] [cursor=pointer]:
+                - /url: /agentos/resources/manage
+              - link "资源商店" [ref=f8e63] [cursor=pointer]:
+                - /url: /agentos/resources/store
+            - region "资源商店说明" [ref=f8e64]:
+              - paragraph [ref=f8e71]:
+                - strong [ref=f8e72]: 平台本地目录
+                - generic [ref=f8e73]: 目录包由平台维护并校验。安装完成且健康检查通过后，资源才进入端边云调度。
+              - generic [ref=f8e74]: 0 项内容
+            - generic [ref=f8e75]:
+              - tablist "商店内容" [ref=f8e76]:
+                - tab "平台目录 0" [selected] [ref=f8e77] [cursor=pointer]:
+                  - text: 平台目录
+                  - generic [ref=f8e78]: "0"
+                - tab "已安装 0" [ref=f8e79] [cursor=pointer]:
+                  - text: 已安装
+                  - generic [ref=f8e80]: "0"
+              - button "刷新目录和安装状态" [ref=f8e81] [cursor=pointer]
+            - region "平台资源目录" [ref=f8e85]:
+              - generic [ref=f8e86]:
+                - strong [ref=f8e87]: 目录正在准备中
+                - generic [ref=f8e88]: 平台目录包由本机管理员维护，接入已部署的本地服务可使用“自定义资源”。
+            - alert [ref=f8e89]: 商店数据暂时不可用，请稍后重试。
+            - paragraph [ref=f8e90]: 自定义资源仅接受本机回环地址，不会执行用户提交的命令。
+  - button "展开知宝" [ref=f8e92]:
+    - img "虚拟伙伴形象" [ref=f8e93]
+  - dialog "登记本地服务" [ref=f8e100]:
+    - generic [active] [ref=f8e101]:
+      - banner [ref=f8e102]:
+        - heading "登记本地服务" [level=2] [ref=f8e103]
+        - button "关闭此对话框" [ref=f8e104] [cursor=pointer]
+      - generic [ref=f8e109]:
+        - generic [ref=f8e110]:
+          - generic [ref=f8e111]: 资源名称
+          - textbox "资源名称" [ref=f8e112]:
+            - /placeholder: 例如：我的本地模型
+        - generic [ref=f8e113]:
+          - generic [ref=f8e114]: 资源类型
+          - combobox "资源类型" [ref=f8e115]:
+            - option "模型服务" [selected]
+            - option "工具服务"
+            - option "执行服务"
+        - generic [ref=f8e116]:
+          - generic [ref=f8e117]: 本地服务地址
+          - textbox "本地服务地址 只允许 localhost 或本机回环地址" [ref=f8e118]:
+            - /placeholder: http://127.0.0.1:11434
+            - text: http://127.0.0.1:11434
+          - generic [ref=f8e119]: 只允许 localhost 或本机回环地址
+        - generic [ref=f8e120]:
+          - generic [ref=f8e121]: 能力标识
+          - textbox "能力标识" [ref=f8e122]:
+            - /placeholder: model.generate
+            - text: model.generate
+        - generic [ref=f8e123]:
+          - generic [ref=f8e124]: 提供方
+          - textbox "提供方" [ref=f8e125]:
+            - /placeholder: Ollama
+        - generic [ref=f8e126]:
+          - generic [ref=f8e127]: 模型 ID
+          - textbox "模型 ID" [ref=f8e128]:
+            - /placeholder: qwen3:4b
+        - contentinfo [ref=f8e129]:
+          - button "取消" [ref=f8e130] [cursor=pointer]
+          - button "检查并登记" [ref=f8e131] [cursor=pointer]

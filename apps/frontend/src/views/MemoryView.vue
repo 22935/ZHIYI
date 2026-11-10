@@ -5,7 +5,6 @@
         <WorkspacePageHero
           eyebrow="MEMORY"
           title="运行记忆"
-          description="每个节点完成时写入一张记忆卡片，后续节点起跑时按 run 范围召回；流向图展示「谁读了谁的记忆」。"
         />
 
         <div class="memory-page__body" :class="{ 'is-loading': runsLoading }">

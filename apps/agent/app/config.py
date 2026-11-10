@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     TOOL_SEARCH_MAX_RESULTS: int = 5
     TOOL_EXTRACT_MAX_URLS: int = 3
     TOOL_CODEBASE_ROOT: str = ""
+    # 本地 ASR（sherpa-onnx paraformer）：空 = 用 apps/agent/data/models/paraformer-zh-small。
+    LOCAL_ASR_MODEL_DIR: str = ""
+    LOCAL_ASR_NUM_THREADS: int = 2
     # Chat-only terminal execution. ACG keeps using the read-only runtime until
     # its capability and approval contracts are ready.
     CHAT_TERMINAL_ENABLED: bool = False

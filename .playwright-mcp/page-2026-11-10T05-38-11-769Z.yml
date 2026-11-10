@@ -1,0 +1,82 @@
+- generic [active] [ref=f4e1]:
+  - generic [ref=f4e4]:
+    - generic "应用工作栏" [ref=f4e5]:
+      - navigation "工作台菜单" [ref=f4e9]:
+        - button "项目" [ref=f4e11] [cursor=pointer]
+        - button "资源" [ref=f4e12] [cursor=pointer]
+        - button "知识库" [ref=f4e13] [cursor=pointer]
+        - button "历史记录" [ref=f4e14] [cursor=pointer]
+        - button "运行记忆" [ref=f4e15] [cursor=pointer]
+      - generic [ref=f4e16]:
+        - group "历史导航" [ref=f4e17]:
+          - button "上一步" [ref=f4e18] [cursor=pointer]
+          - button "下一步" [disabled] [ref=f4e22]
+        - search "应用导航" [ref=f4e26]:
+          - searchbox "搜索任务、步骤、运行或命令" [ref=f4e30]
+          - generic [aria-hidden] [ref=f4e31]: Ctrl K
+    - generic [ref=f4e33]:
+      - complementary [ref=f4e34]:
+        - generic [ref=f4e35]:
+          - menubar [ref=f4e37]:
+            - button "OScode" [ref=f4e39] [cursor=pointer]
+            - button "Workbench" [ref=f4e45] [cursor=pointer]
+          - button "打开账户目录" [ref=f4e49] [cursor=pointer]:
+            - generic [ref=f4e50]: 当
+      - main [ref=f4e52]:
+        - main [ref=f4e56]:
+          - main "资源概览" [ref=f4e57]:
+            - generic [ref=f4e58]:
+              - generic [ref=f4e59]:
+                - text: RESOURCE PLANE / 01
+                - heading "资源概览" [level=1] [ref=f4e60]
+                - paragraph [ref=f4e61]: 端、边、云协同运行的设备、模型与工具。
+              - link "浏览资源商店" [ref=f4e63] [cursor=pointer]:
+                - /url: /agentos/resources/store
+            - navigation "资源中心" [ref=f4e64]:
+              - link "概览" [ref=f4e65] [cursor=pointer]:
+                - /url: /agentos/resources/overview
+              - link "资源管理" [ref=f4e66] [cursor=pointer]:
+                - /url: /agentos/resources/manage
+              - link "资源商店" [ref=f4e67] [cursor=pointer]:
+                - /url: /agentos/resources/store
+            - region "资源运行摘要" [ref=f4e68]:
+              - generic [ref=f4e69]:
+                - generic [ref=f4e70]: LIVE RESOURCE FIELD
+                - strong [ref=f4e71]: "0"
+                - generic [ref=f4e72]: 已登记运行时
+                - generic [ref=f4e74]: 0 可调度 · 0 需关注
+              - generic [ref=f4e75]:
+                - generic [ref=f4e76]:
+                  - generic [ref=f4e77]: "01"
+                  - generic [ref=f4e78]:
+                    - generic [ref=f4e79]: 本地设备
+                    - strong [ref=f4e80]: "0"
+                    - generic [ref=f4e81]: 项资源
+                - generic [ref=f4e83]:
+                  - generic [ref=f4e84]: "02"
+                  - generic [ref=f4e85]:
+                    - generic [ref=f4e86]: 边缘节点
+                    - strong [ref=f4e87]: "0"
+                    - generic [ref=f4e88]: 项资源
+                - generic [ref=f4e90]:
+                  - generic [ref=f4e91]: "03"
+                  - generic [ref=f4e92]:
+                    - generic [ref=f4e93]: 云端服务
+                    - strong [ref=f4e94]: "0"
+                    - generic [ref=f4e95]: 项资源
+            - generic [ref=f4e97]:
+              - generic [ref=f4e98]:
+                - generic [ref=f4e99]:
+                  - text: CONNECTED CAPABILITIES
+                  - heading "正在运行" [level=2] [ref=f4e100]
+                - link "打开资源管理" [ref=f4e101] [cursor=pointer]:
+                  - /url: /agentos/resources/manage
+              - alert [ref=f4e105]:
+                - generic [ref=f4e106]: 暂时无法读取资源状态。
+                - button "重试" [ref=f4e107] [cursor=pointer]
+            - generic [ref=f4e108]:
+              - generic [ref=f4e109]: 资源目录与运行资源分离管理
+              - link "查看端边云拓扑" [ref=f4e110] [cursor=pointer]:
+                - /url: /agentos/resources/manage
+  - button "展开知宝" [ref=f4e115]:
+    - img "虚拟伙伴形象" [ref=f4e116]

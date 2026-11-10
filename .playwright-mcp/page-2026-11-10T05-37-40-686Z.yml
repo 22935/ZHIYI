@@ -1,0 +1,12 @@
+- status "知弈 AgentOS 启动页" [ref=f1e4]:
+  - generic [ref=f1e5]:
+    - paragraph [ref=f1e6]: ZHIYI · LOCAL WORKSPACE
+    - heading "知弈 AgentOS" [level=1] [ref=f1e9]
+    - paragraph [ref=f1e10]: 本机工作空间 · 身份已验证
+    - generic [aria-hidden] [ref=f1e11]:
+      - generic [ref=f1e12]: 本机身份
+      - generic [ref=f1e13]: 执行闭环
+      - generic [ref=f1e14]: 虚拟伙伴
+    - paragraph [ref=f1e17]: 正在准备界面，马上就好…
+    - button "进入工作台" [ref=f1e18] [cursor=pointer]
+    - paragraph [ref=f1e19]: 按 Esc 跳过 · 稍后自动进入

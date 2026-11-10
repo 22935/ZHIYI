@@ -10,7 +10,6 @@
           </button>
           <span class="content-eyebrow">PROFILE</span>
           <h1>个人资料</h1>
-          <p>管理本机个人资料与工作活动。</p>
         </div>
         <div class="content-actions">
           <button class="profile-action" type="button" @click="inviteFriend"><el-icon><Promotion /></el-icon>邀请好友</button>

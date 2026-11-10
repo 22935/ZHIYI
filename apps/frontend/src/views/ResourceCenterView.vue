@@ -3,7 +3,7 @@
     <WorkbenchLayout :show-left="false" :show-right="false" storage-key="zhiyi.resources.layout.v1">
       <template #main>
         <main class="resource-center__main" aria-label="资源与连接中心" data-max-width="1400px">
-          <WorkspacePageHero eyebrow="RESOURCE & CONNECTIONS" title="资源与连接中心" description="连接并管理您的设备、模型和工具；任务会在符合数据与能力要求的位置运行。">
+          <WorkspacePageHero eyebrow="RESOURCE & CONNECTIONS" title="资源与连接中心">
             <template #actions>
               <button class="resource-action resource-action--primary" type="button" @click="openRegistration">
                 <el-icon aria-hidden="true"><Plus /></el-icon>
