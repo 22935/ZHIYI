@@ -68,6 +68,12 @@ def test_actual_install_signed_execute_stop_and_uninstall(tmp_path):
             finally:
                 await adapter.aclose()
         assert asyncio.run(invoke()).output["format"] == "html"
+        from adapters.resource_execution import ResourceExecutionError
+        adapter = build_resource_execution_adapter(runtime, credential_provider=plane)
+        context.context_pack.data = {"sourcePath": "input.md", "targetFormat": "exe"}
+        with pytest.raises(ResourceExecutionError) as failure:
+            asyncio.run(invoke())
+        assert not failure.value.outcome_unknown
         assert service.stop(job.job_id, owner_scope="tenant-a").status.value == "stopped"
         assert service.uninstall(job.job_id, owner_scope="tenant-a").status.value == "removed"
         assert not workspace.exists()

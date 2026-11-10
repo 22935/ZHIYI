@@ -66,7 +66,7 @@ def serve():
                     return self.reply(422, {"error": "CAPABILITY_NOT_SUPPORTED"})
                 worker = {"workspace": str(workspace), "capability": capability, "input": request.get("input", {})}
                 if not execution_slot.acquire(blocking=False):
-                    return self.reply(200, {"output": {"error": "TOOL_BUSY"}})
+                    return self.reply(422, {"output": {"error": "TOOL_BUSY"}})
                 try:
                     process = subprocess.run([sys.executable, "-m", "agentos_local_tools.worker"], input=json.dumps(worker),
                         capture_output=True, text=True, timeout=30, shell=False, encoding="utf-8")
@@ -75,7 +75,8 @@ def serve():
                     result = {"output": {"error": "TOOL_TIMEOUT"}}
                 finally:
                     execution_slot.release()
-                self.reply(200, result)
+                # 明确失败不能伪装成成功 AgentOutput，否则 ACG 会把失败步骤记成完成。
+                self.reply(422 if "error" in result["output"] else 200, result)
             except (ValueError, TypeError, KeyError):
                 self.reply(422, {"error": "INVALID_TOOL_INPUT"})
 

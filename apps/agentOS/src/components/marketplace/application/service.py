@@ -123,7 +123,8 @@ class MarketplaceService:
         started = time.monotonic()
         try:
             response = httpx.post(profile.endpoint.address + "/execute", content=body, headers=headers, timeout=40, trust_env=False)
-            response.raise_for_status()
+            if response.status_code not in {200, 422}:
+                response.raise_for_status()
             result = response.json()["output"]
         except (httpx.HTTPError, KeyError, ValueError):
             self.plane.observe_execution(job.runtime_id, success=False, latency_ms=(time.monotonic() - started) * 1000)
