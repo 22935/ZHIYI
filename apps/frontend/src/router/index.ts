@@ -55,7 +55,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/roles',
     name: 'Roles',
-    redirect: to => ({ path: '/agentos/resources', query: to.query })
+    redirect: to => ({ path: '/agentos/resources/overview', query: to.query })
   },
   {
     path: '/settings',
@@ -80,12 +80,12 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/federated-models',
     name: 'FederatedModelManagement',
-    redirect: to => ({ path: '/agentos/resources', query: { ...to.query, tab: 'models' } })
+    redirect: to => ({ path: '/agentos/resources/store', query: { ...to.query, view: 'installed' } })
   },
   {
     path: '/federated-learning',
     name: 'FederatedLearning',
-    redirect: to => ({ path: '/agentos/resources', query: { ...to.query, tab: 'federated' } })
+    redirect: to => ({ path: '/agentos/resources/overview', query: to.query })
   },
   {
     path: '/federated-agent-workbench',
@@ -116,9 +116,33 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/agentos/resources',
     name: 'ResourceCenter',
-    component: () => import('@/views/ResourceCenterView.vue'),
+    redirect: '/agentos/resources/overview',
     meta: {
-      title: 'Resource Center'
+      title: '资源中心'
+    }
+  },
+  {
+    path: '/agentos/resources/overview',
+    name: 'ResourceOverview',
+    component: () => import('@/views/ResourceOverviewView.vue'),
+    meta: {
+      title: '资源概览'
+    }
+  },
+  {
+    path: '/agentos/resources/manage',
+    name: 'ResourceManagement',
+    component: () => import('@/views/ResourceManagementView.vue'),
+    meta: {
+      title: '资源管理'
+    }
+  },
+  {
+    path: '/agentos/resources/store',
+    name: 'ResourceMarketplace',
+    component: () => import('@/views/ResourceMarketplaceView.vue'),
+    meta: {
+      title: '资源商店'
     }
   },
   {

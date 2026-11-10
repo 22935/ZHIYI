@@ -6,6 +6,9 @@ import { SESSION_KEY } from '@/features/auth/storage'
 vi.mock('@/views/ChatView.vue', () => ({ default: { template: '<main>Chat</main>' } }))
 vi.mock('@/views/HistoryView.vue', () => ({ default: { template: '<main>History</main>' } }))
 vi.mock('@/views/ResourceCenterView.vue', () => ({ default: { template: '<main>Resources</main>' } }))
+vi.mock('@/views/ResourceOverviewView.vue', () => ({ default: { template: '<main>Resource overview</main>' } }))
+vi.mock('@/views/ResourceManagementView.vue', () => ({ default: { template: '<main>Resource management</main>' } }))
+vi.mock('@/views/ResourceMarketplaceView.vue', () => ({ default: { template: '<main>Resource marketplace</main>' } }))
 vi.mock('@/views/LoginView.vue', () => ({ default: { template: '<main>Login</main>' } }))
 vi.mock('@/views/LandingView.vue', () => ({ default: { template: '<main>Landing</main>' } }))
 
@@ -92,9 +95,9 @@ describe('user center route contract', () => {
 
 describe('integrated legacy route contract', () => {
   it.each([
-    ['/roles', '/agentos/resources', {}],
-    ['/federated-learning', '/agentos/resources', { tab: 'federated' }],
-    ['/federated-models', '/agentos/resources', { tab: 'models' }],
+    ['/roles', '/agentos/resources/overview', {}],
+    ['/federated-learning', '/agentos/resources/overview', {}],
+    ['/federated-models', '/agentos/resources/store', { view: 'installed' }],
     ['/agentos-console', '/history', { tab: 'acg' }],
   ])('keeps %s as a redirect-only route', (legacyPath, targetPath, query) => {
     const legacyRoute = router.getRoutes().find(route => route.path === legacyPath)
@@ -108,9 +111,9 @@ describe('integrated legacy route contract', () => {
   })
 
   it.each([
-    ['/roles?source=legacy', '/agentos/resources', { source: 'legacy' }],
-    ['/federated-learning?source=legacy', '/agentos/resources', { source: 'legacy', tab: 'federated' }],
-    ['/federated-models?source=legacy', '/agentos/resources', { source: 'legacy', tab: 'models' }],
+    ['/roles?source=legacy', '/agentos/resources/overview', { source: 'legacy' }],
+    ['/federated-learning?source=legacy', '/agentos/resources/overview', { source: 'legacy' }],
+    ['/federated-models?source=legacy', '/agentos/resources/store', { source: 'legacy', view: 'installed' }],
     ['/agentos-console?runId=run_1&source=legacy', '/history', { runId: 'run_1', source: 'legacy', tab: 'acg' }],
   ])('resolves %s to its integrated tab target', async (legacyUrl, targetPath, query) => {
     await router.push(legacyUrl)
