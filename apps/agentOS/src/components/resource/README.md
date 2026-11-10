@@ -133,6 +133,24 @@ ExecutionBinding.modelBinding.endpointId
 
 `agentos_model_http` 仅适用于 `MODEL_SERVER`。适配器固定目标路径、忽略登记地址中的查询与片段，并对直接登记为 `/v1` 或完整 `/v1/chat/completions` 的 OpenAI Compatible 地址归一化，防止路径重复拼接。观测只写成功状态和时延，不记录提示词、请求体或模型响应。其他协议（例如 gRPC、MCP、厂商 SDK）必须各自实现 adapter 后，才可作为实际推理目标。
 
+## 资源商店边界
+
+平台本地资源商店位于相邻的 `components/marketplace/`，它是安装控制面，不属于 Resource Plane 的领域模型。商店负责受控目录、安装任务、包校验、受控进程生命周期和用户已有本地服务的接入；资源器只接收已启动的 Runtime，维护其健康、容量和调度事实。
+
+```text
+CatalogItem / CustomResourceRequest
+  -> InstallationJob
+  -> checksum validation / loopback endpoint validation
+  -> LocalLauncher (only catalog-managed packages)
+  -> ResourcePlane Runtime registration
+  -> health check
+  -> ResourceBinder candidate
+```
+
+`CatalogItem`、处于 `queued`、`installing`、`registering`、`uninstalling` 或 `failed` 的 `InstallationJob` 都不是调度候选。只有任务进入 `running`，且 Runtime 已成功登记并通过健康检查，`ResourceBinder` 才会将其纳入资格判断。停止或卸载会先撤销 Runtime 和模型端点，使其立即退出候选集合；目录任务本身不能绕过 Resource Plane 直接被调度。
+
+首期目录仅从平台维护的本地 JSON 目录和受控 ZIP 包读取，包路径必须落在配置的本地包根目录，并由 SHA-256 校验。自定义资源不接受 shell command：用户只能登记已在本机运行的 `localhost`、`127.0.0.1` 或 IPv6 回环 HTTP(S) 服务。模型服务使用 `agentos_model_http` 时，登记成功后可进入模型端点资源目录；其他协议仍需对应执行 adapter 才能实际调用。
+
 几个关键对象不可混用：
 
 | 对象 | 代表什么 | 生命周期/权威性 |
