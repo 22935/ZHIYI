@@ -7,6 +7,13 @@ import httpx
 import sqlite3
 import subprocess
 import zipfile
+import os
+import sys
+import json
+import uuid
+import secrets
+import time
+import importlib.util
 from pathlib import Path
 from urllib.parse import urlsplit
 from threading import RLock
@@ -65,6 +72,7 @@ class LocalPackageLauncher:
         self._processes: dict[str, subprocess.Popen] = {}
         self._install_paths: dict[str, Path] = {}
         self._endpoints: dict[str, str] = {}
+        self._credentials: dict[str, tuple[str, str]] = {}
         self._lock = RLock()
 
     def start(self, item: CatalogItem, *, owner_scope: str) -> RuntimeProfile:
@@ -78,6 +86,9 @@ class LocalPackageLauncher:
         if host not in {"127.0.0.1", "localhost", "::1", "[::1]"}:
             raise ValueError("catalog service endpoint must be loopback")
         entrypoint = item.startup.get("entrypoint")
+        module = item.startup.get("pythonModule")
+        if module is not None:
+            return self._start_builtin(item, declared, package, owner_scope, module)
         arguments = item.startup.get("arguments", [])
         if not isinstance(entrypoint, str) or not entrypoint or not isinstance(arguments, list) or not all(
             isinstance(argument, str) for argument in arguments
@@ -122,13 +133,85 @@ class LocalPackageLauncher:
 
     def healthy(self, runtime_id: str) -> bool:
         endpoint = self._endpoints.get(runtime_id)
-        return endpoint is not None and LoopbackHttpEndpointProbe().healthy(endpoint)
+        process = self._processes.get(runtime_id)
+        return process is not None and process.poll() is None and endpoint is not None and LoopbackHttpEndpointProbe().healthy(endpoint)
+
+    def _start_builtin(self, item, declared, package, owner_scope, module):
+        """只运行平台固定模块；每次安装独占身份、目录、随机端口和签名凭据。"""
+        if module != "agentos_local_tools.server" or item.startup.get("capability") not in {"pdf.parse", "file.convert"}:
+            raise ValueError("unsupported platform Python module")
+        if any(importlib.util.find_spec(name) is None for name in ("pypdf", "docx", "openpyxl", "markdown")):
+            raise ValueError("local tool dependencies missing; install requirements-local-tools.txt")
+        token = uuid.uuid4().hex
+        runtime_id = declared.runtime_id + ":installation:" + token
+        destination = self.install_root / token
+        destination.mkdir()
+        try:
+            with zipfile.ZipFile(package) as archive:
+                members = archive.infolist()
+                if len(members) > 100 or sum(m.file_size for m in members) > 10 * 1024 * 1024:
+                    raise ValueError("platform bundle too large")
+                for member in members:
+                    target = (destination / member.filename).resolve()
+                    if destination not in target.parents or "\\" in member.filename or ":" in member.filename:
+                        raise ValueError("unsafe platform bundle path")
+                archive.extractall(destination)
+            credential = ("rc_" + uuid.uuid4().hex, secrets.token_urlsafe(32))
+            environment = os.environ.copy()
+            environment.update(AGENTOS_TOOL_RUNTIME_ID=runtime_id, AGENTOS_TOOL_CREDENTIAL_ID=credential[0],
+                AGENTOS_TOOL_SECRET=credential[1], AGENTOS_TOOL_CAPABILITY=item.startup["capability"])
+            environment.pop("PYTHONPATH", None)
+            process = subprocess.Popen([sys.executable, "-m", module], cwd=destination, env=environment, shell=False,
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+            with self._lock:
+                self._processes[runtime_id] = process
+                self._install_paths[runtime_id] = destination
+                self._credentials[runtime_id] = credential
+            deadline = time.monotonic() + 15
+            ready = destination / "ready.json"
+            while time.monotonic() < deadline and process.poll() is None:
+                if ready.exists():
+                    try:
+                        data = json.loads(ready.read_text(encoding="utf-8"))
+                        if data["runtimeId"] == runtime_id:
+                            endpoint = f'http://127.0.0.1:{int(data["port"])}'
+                            self._endpoints[runtime_id] = endpoint
+                            if self.healthy(runtime_id):
+                                return declared.model_copy(update={"runtime_id": runtime_id, "owner_scope": owner_scope,
+                                    "node_id": "node:device:tools:" + hashlib.sha256(owner_scope.encode()).hexdigest()[:20],
+                                    "endpoint": declared.endpoint.model_copy(update={"address": endpoint})})
+                    except (ValueError, KeyError):
+                        pass
+                time.sleep(0.05)
+            raise RuntimeError("platform tool startup timed out")
+        except Exception:
+            import shutil
+            self.stop(runtime_id)
+            self._install_paths.pop(runtime_id, None)
+            self._credentials.pop(runtime_id, None)
+            self._endpoints.pop(runtime_id, None)
+            shutil.rmtree(destination)
+            raise
+
+    def signing_credential(self, runtime_id):
+        return self._credentials[runtime_id]
+
+    def workspace(self, runtime_id):
+        if not self.healthy(runtime_id) or runtime_id not in self._credentials:
+            raise ValueError("managed tool is not running")
+        return self._install_paths[runtime_id] / "workspace"
+
+    def close(self):
+        for runtime_id in list(self._processes):
+            self.stop(runtime_id)
 
     def remove(self, runtime_id: str) -> None:
         self.stop(runtime_id)
         with self._lock:
             path = self._install_paths.pop(runtime_id, None)
             self._endpoints.pop(runtime_id, None)
+            self._credentials.pop(runtime_id, None)
         if path is not None and self.install_root in path.parents:
             import shutil
             shutil.rmtree(path)

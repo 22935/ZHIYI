@@ -8,15 +8,8 @@ import zipfile
 from html.parser import HTMLParser
 from pathlib import Path
 import markdown
-from .contracts import ConvertRequest, MAX_FILE_BYTES, MAX_ROWS, MAX_TEXT_CHARS, PdfParseRequest, ToolExecutionError, source_file
+from .contracts import SUPPORTED_PAIRS, ConvertRequest, MAX_FILE_BYTES, MAX_ROWS, MAX_TEXT_CHARS, PdfParseRequest, ToolExecutionError, source_file
 from .pdf_parser import PdfParser
-
-SUPPORTED_PAIRS = {
-    "txt": {"md", "html"}, "md": {"txt", "html"}, "html": {"txt", "md"},
-    "csv": {"json"}, "json": {"csv"}, "docx": {"txt", "md", "html"},
-    "xlsx": {"csv", "json"}, "pdf": {"txt", "md"},
-}
-
 
 class PlainText(HTMLParser):
     """提取可见文字；脚本/样式内容丢弃，不跟随任何链接。"""

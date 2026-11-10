@@ -7,6 +7,11 @@ MAX_FILE_BYTES = 20 * 1024 * 1024
 MAX_TEXT_CHARS = 1_000_000
 MAX_PAGES = 200
 MAX_ROWS = 50_000
+SUPPORTED_PAIRS = {
+    "txt": {"md", "html"}, "md": {"txt", "html"}, "html": {"txt", "md"},
+    "csv": {"json"}, "json": {"csv"}, "docx": {"txt", "md", "html"},
+    "xlsx": {"csv", "json"}, "pdf": {"txt", "md"},
+}
 
 
 class ToolExecutionError(ValueError):

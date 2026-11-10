@@ -64,12 +64,17 @@ class MarketplaceService:
             job = self._advance(job, InstallationStatus.REGISTERING, runtime_id=profile.runtime_id)
             stage = "resource registration"
             self._register_host(profile)
-            self.plane.register_runtime(profile, RuntimeSnapshot(
+            snapshot = RuntimeSnapshot(
                 runtimeId=profile.runtime_id,
                 availableSlots=profile.capacity,
                 utilization=0.0,
                 healthStatus=HealthStatus.UNKNOWN,
-            ))
+            )
+            if item.startup.get("pythonModule") == "agentos_local_tools.server":
+                credential_id, secret = self.launcher.signing_credential(profile.runtime_id)
+                self.plane.register_remote_runtime(profile, snapshot, credential_id=credential_id, secret=secret)
+            else:
+                self.plane.register_runtime(profile, snapshot)
             registered_runtime = profile.runtime_id
             stage = "local service health check"
             if not self.launcher.healthy(profile.runtime_id):
@@ -176,7 +181,10 @@ class MarketplaceService:
     @staticmethod
     def _validate_profile(profile: RuntimeProfile, item: CatalogItem, owner_scope: str) -> RuntimeProfile:
         declared = RuntimeProfile.model_validate(item.runtime)
-        if profile.runtime_id != declared.runtime_id or profile.kind is not item.kind:
+        builtin = item.startup.get("pythonModule") == "agentos_local_tools.server"
+        identity_matches = (profile.runtime_id.startswith(declared.runtime_id + ":installation:")
+                            if builtin else profile.runtime_id == declared.runtime_id)
+        if not identity_matches or profile.kind is not item.kind:
             raise ValueError("launcher runtime does not match catalog declaration")
         if profile.kind is RuntimeKind.MODEL_SERVER and not profile.model_ids:
             raise ValueError("model runtime must declare model ids")
