@@ -53,6 +53,24 @@ def test_normalize_model_endpoint_accepts_an_openai_compatible_v1_base_url():
     assert normalize_model_endpoint("https://edge.example.test/v1/chat/completions") == "https://edge.example.test"
 
 
+def test_model_observation_failure_is_audited_without_sensitive_error():
+    from components.resource.application.resource_plane import ResourcePlane
+    from time import monotonic
+    class Observer:
+        def observe_execution(self, *args, **kwargs):
+            raise OSError("secret-business-body")
+    plane = ResourcePlane()
+    client = httpx.AsyncClient()
+    adapter = ResourceModelProviderAdapter(endpoint=_endpoint(), runtime=_runtime(), credential_provider=_Credentials(), execution_observer=Observer(), audit_reporter=plane, client=client)
+    adapter._observe_execution(success=True, started=monotonic())
+    events = plane.audit_events()
+    assert events[0].kind == "execution_observation_write_failed"
+    assert events[0].metadata == {"reason": "OSError"}
+    assert "secret-business-body" not in repr(events)
+    assert plane.audit_counts() == {"execution_observation_write_failed": 1}
+    asyncio.run(client.aclose())
+
+
 def test_resource_model_adapter_calls_the_bound_runtime_with_signed_openai_request():
     seen: dict[str, object] = {}
 

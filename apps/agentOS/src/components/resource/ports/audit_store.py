@@ -1,0 +1,9 @@
+"""审计存储端口，由装配层选择单机持久化或内存实现。"""
+from typing import Protocol
+from ..domain.audit import ResourceAuditEvent
+
+
+class ResourceAuditStore(Protocol):
+    def append(self, event: ResourceAuditEvent) -> None: ...
+    def list(self, resource_id: str | None = None, *, limit: int = 100) -> list[ResourceAuditEvent]: ...
+    def counts(self, resource_id: str | None = None) -> dict[str, int]: ...

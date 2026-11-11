@@ -116,6 +116,10 @@ def test_application_builds_the_single_execution_runtime_with_authoritative_reso
         assert isinstance(runtime.resource_binder, ResourceBinder)
         assert runtime.resource_binder.plane is runtime.resource_plane
         assert isinstance(runtime.resource_plane.store, SQLiteResourceStore)
+        from components.resource.infrastructure.audit_store import SQLiteResourceAuditStore
+        assert isinstance(runtime.resource_plane.audit_store, SQLiteResourceAuditStore)
+        assert {item.catalog_id for item in runtime.marketplace_service.list_catalog()} >= {"tool.pdf-parser", "tool.file-converter"}
+        assert runtime.marketplace_service._monitor.is_alive()
         assert isinstance(runtime.resource_plane.health_monitor.store, SQLiteResourceHealthStore)
         assert isinstance(runtime.evolution_service.store, SQLiteEvolutionStore)
         # hands 唯一后端：装配恒以 FormalWorkspaceTools 包装注入的工具运行时。

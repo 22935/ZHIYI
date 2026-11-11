@@ -1,0 +1,6 @@
+# 平台受控本地工具依赖。安装前执行 pip install -r requirements-local-tools.txt。
+# pypdf: BSD-3-Clause; python-docx/openpyxl: MIT; Markdown: BSD-3-Clause。
+pypdf==7.0.0
+python-docx==1.2.0
+openpyxl==3.1.5
+Markdown==3.7

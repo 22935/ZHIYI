@@ -189,7 +189,7 @@ export class ServerSpeechRecognition implements RecognitionLike {
   private segmentFailures = 0
   private resultBase = 0
   private queue: Promise<void> = Promise.resolve()
-  private readonly results: RecognitionEventLike['results'] = []
+  private readonly results: Array<RecognitionEventLike['results'][number]> = []
 
   constructor(private readonly deps: ServerRecognitionDeps) {}
 
