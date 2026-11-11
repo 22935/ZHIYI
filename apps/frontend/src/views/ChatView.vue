@@ -259,6 +259,28 @@
             <NativeWorkspacePicker class="composer-missions__workspace" />
           </div>
 
+          <!-- Slash-command panel floating above the composer, per the Codex/ZCode reference. -->
+          <Transition name="command-menu-pop">
+            <div
+              v-if="showCompactCommand && !loading"
+              class="composer-command-menu"
+              role="menu"
+              aria-label="可用命令"
+            >
+              <div class="composer-command-menu__header">命令</div>
+              <button
+                type="button"
+                role="menuitem"
+                class="composer-command-menu__item"
+                @click="runCompactCommand"
+              >
+                <span class="composer-command-menu__name">/compact</span>
+                <span class="composer-command-menu__desc">压缩当前对话上下文</span>
+              </button>
+         
+            </div>
+          </Transition>
+
           <div class="composer-card">
             <el-input
               v-model="inputText"
@@ -269,16 +291,27 @@
               :placeholder="$t('chat.conversationPlaceholder')"
               @keydown="handleKeydown"
             />
-            <button
-              v-if="showCompactCommand && !loading"
-              type="button"
-              class="composer-compact-command"
-              @click="runCompactCommand"
+            <!-- Codex-style compaction status row, docked above the composer footer. -->
+            <div
+              v-if="chatStore.compactionStatus"
+              class="compaction-row"
+              :class="`is-${chatStore.compactionStatus.kind}`"
+              role="status"
+              aria-live="polite"
             >
-              <code>/compact</code><span>压缩当前对话上下文</span>
-            </button>
-            <div v-if="chatStore.compactionNotice" class="composer-compaction-notice" role="status" aria-live="polite">
-              {{ chatStore.compactionNotice }}
+              <span class="compaction-row__icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+                  stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 2.8h10" />
+                  <path d="M3 13.2h10" />
+                  <path d="M5.6 5.2 8 7.6l2.4-2.4" />
+                  <path d="M5.6 10.8 8 8.4l2.4 2.4" />
+                </svg>
+              </span>
+              <span class="compaction-row__body">
+                <span class="compaction-row__title">{{ chatStore.compactionStatus.title }}</span>
+                <span v-if="chatStore.compactionStatus.detail" class="compaction-row__detail">{{ chatStore.compactionStatus.detail }}</span>
+              </span>
             </div>
               <div class="composer-footer">
                 <div class="left-actions">
@@ -496,6 +529,7 @@ import {
   ChatDotRound,
   DArrowLeft,
   DArrowRight,
+  InfoFilled,
   Link,
   Loading,
   Plus,
@@ -2334,28 +2368,100 @@ const handleHeroLogoPointerUp = () => {
 </script>
 
 <style scoped>
-.composer-compact-command {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--el-border-color);
+/* Slash-command panel floating above the composer (Codex/ZCode reference).
+   Same centered column as .composer-card so the edges line up. */
+.composer-command-menu {
+  width: min(100%, 780px);
+  margin: 0 auto 8px;
+  padding: 6px;
+  border: 1px solid var(--el-border-color-lighter);
   border-radius: 10px;
-  background: var(--el-fill-color-light);
+  background: var(--el-bg-color-overlay);
+  box-shadow: var(--el-box-shadow-light);
+}
+.composer-command-menu__header {
+  padding: 2px 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+}
+.composer-command-menu__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
   color: var(--el-text-color-primary);
   text-align: left;
   cursor: pointer;
 }
-.composer-compact-command:hover { background: var(--el-fill-color); }
-.composer-compact-command code { font-size: 14px; color: var(--el-color-primary); }
-.composer-compact-command span { font-size: 13px; }
-.composer-compaction-notice {
-  padding: 8px 14px;
+.composer-command-menu__item:hover,
+.composer-command-menu__item:focus-visible { background: var(--el-fill-color); }
+.composer-command-menu__name { font-size: 13px; font-weight: 500; white-space: nowrap; }
+.composer-command-menu__desc {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  overflow-wrap: anywhere;
+}
+.composer-command-menu__footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 2px;
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+}
+.command-menu-pop-enter-active { transition: opacity 0.16s ease, transform 0.16s ease; }
+.command-menu-pop-leave-active { transition: opacity 0.12s ease; }
+.command-menu-pop-enter-from { opacity: 0; transform: translateY(4px); }
+.command-menu-pop-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .command-menu-pop-enter-active,
+  .command-menu-pop-leave-active { transition: none; }
+}
+/* Codex-style compaction entry, docked inside the composer above the footer. */
+.compaction-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 14px 2px;
   font-size: 13px;
   line-height: 1.6;
   color: var(--el-text-color-secondary);
+  animation: compaction-row-in 0.24s ease both;
+}
+.compaction-row__icon {
+  flex: none;
+  display: inline-flex;
+  margin-top: 3.5px;
+  color: var(--el-text-color-secondary);
+}
+.compaction-row.is-running .compaction-row__icon { animation: compaction-pulse 1.6s ease-in-out infinite; }
+.compaction-row.is-warning,
+.compaction-row.is-warning .compaction-row__icon { color: var(--el-color-warning); }
+.compaction-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
   overflow-wrap: anywhere;
+}
+.compaction-row.is-success .compaction-row__title { color: var(--el-text-color-regular); }
+.compaction-row__detail { font-size: 12px; color: var(--el-text-color-placeholder); }
+@keyframes compaction-row-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes compaction-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .compaction-row { animation: none; }
+  .compaction-row.is-running .compaction-row__icon { animation: none; }
 }
 .chat-view {
   height: 100%;

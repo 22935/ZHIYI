@@ -1,6 +1,6 @@
 <!-- ACG 拓扑图 — 主执行链用 AcgExecutionFlow 渲染，异常路径回退 vis-network 画布，含步骤、控制节点和图例 -->
-<!-- 注：蓝图内核自 2026-09 a5011660 收敛后只产 step/control 节点与 dependency/control_flow 边，
-     旧「完整拓扑/数据流」页签与关系筛选已随死数据合同移除，勿凭旧印象恢复 -->
+<!-- 注：蓝图内核自 2026-09 a5011660 收敛后只产 step/control 节点与 dependency 边（后端 EdgeType 枚举仅剩依赖），
+     旧「完整拓扑/数据流」页签、关系筛选与 agent/skill/memory/evidence 死类型样式已随之移除，勿凭旧印象恢复 -->
 <template>
   <section ref="sectionRef" class="acg-topology ui-surface" :class="{ 'is-workbench': workbench }">
     <header class="panel-head">
@@ -367,34 +367,22 @@ const ENDPOINT_MAX_GAP = 280
 // a slight optical inset so the topology reads as the primary canvas content.
 const SAFE_VIEW_SCALE = 0.98
 
-// 蓝图内核只产 dependency/control_flow 边（a5011660 收敛），其余旧类型仅保留渲染回退
+// 蓝图内核自 a5011660 收敛后只产 step/control 节点与 dependency 边（后端 EdgeType 枚举仅剩依赖）
 const EDGE_TYPES: Array<{ value: AcgEdge['edgeType']; label: string }> = [
-  { value: 'dependency', label: '依赖' },
-  { value: 'control_flow', label: '控制流' }
+  { value: 'dependency', label: '依赖' }
 ]
 
 const hasData = computed(() => {
   return !!props.blueprint && Array.isArray(props.blueprint.nodes) && props.blueprint.nodes.length > 0
 })
 
-const renderableBlueprint = computed<GraphProjection | null>(() => {
-  if (!props.blueprint) return null
-  const connectedNodeIds = new Set(
-    props.blueprint.edges.flatMap(edge => [edge.sourceId, edge.targetId])
-  )
-  const nodes = props.blueprint.nodes.filter(
-    node => node.nodeType !== 'skill' || connectedNodeIds.has(node.nodeId)
-  )
-  return { ...props.blueprint, nodes }
-})
-
 const executionBlueprint = computed<GraphProjection | null>(() => {
-  const blueprint = renderableBlueprint.value
+  const blueprint = props.blueprint
   if (!blueprint) return null
   const nodes = blueprint.nodes.filter(node => node.nodeType === 'step' || node.nodeType === 'control')
   const nodeIds = new Set(nodes.map(node => node.nodeId))
   const edges = blueprint.edges.filter(edge =>
-    (edge.edgeType === 'dependency' || edge.edgeType === 'control_flow')
+    edge.edgeType === 'dependency'
     && nodeIds.has(edge.sourceId)
     && nodeIds.has(edge.targetId)
   )
@@ -438,7 +426,7 @@ const executionPositions = computed(() => {
 })
 
 const visibleBlueprint = computed<GraphProjection | null>(() => {
-  const blueprint = renderableBlueprint.value
+  const blueprint = props.blueprint
   if (!blueprint) return null
   if (viewMode.value === 'main') {
     const execution = executionBlueprint.value!
@@ -568,7 +556,7 @@ const cardObjective = computed(() =>
   selectedStepState.value?.task?.objective || selectedNode.value?.goal || selectedNode.value?.description || '')
 const cardAgentLabel = computed(() => selectedStepState.value?.agentName || selectedNode.value?.agentName || '')
 const peerNodeName = (nodeId: string) =>
-  renderableBlueprint.value?.nodes.find(node => node.nodeId === nodeId)?.name || nodeId
+  props.blueprint?.nodes.find(node => node.nodeId === nodeId)?.name || nodeId
 const formatTokenCount = (value: number) => value.toLocaleString('zh-CN')
 
 const flowStatuses = computed(() => Object.fromEntries((executionBlueprint.value?.nodes || []).map(node => {
@@ -582,42 +570,28 @@ const onFlowSelect = (id: string) => {
 }
 
 const stats = computed(() => {
-  if (!renderableBlueprint.value || !visibleBlueprint.value) return ''
+  if (!props.blueprint || !visibleBlueprint.value) return ''
   const visible = `${visibleBlueprint.value.nodes.length} 节点 / ${visibleBlueprint.value.edges.length} 边`
-  if (visibleBlueprint.value.nodes.length === renderableBlueprint.value.nodes.length
-    && visibleBlueprint.value.edges.length === renderableBlueprint.value.edges.length) return visible
-  return `${visible}（全图 ${renderableBlueprint.value.nodes.length} / ${renderableBlueprint.value.edges.length}）`
+  if (visibleBlueprint.value.nodes.length === props.blueprint.nodes.length
+    && visibleBlueprint.value.edges.length === props.blueprint.edges.length) return visible
+  return `${visible}（全图 ${props.blueprint.nodes.length} / ${props.blueprint.edges.length}）`
 })
 
-// 节点类型 → 配色（沿用项目色板）
+// 节点类型 → 配色（沿用项目色板；蓝图内核只产 step/control，其余类型走 fallback）
 const NODE_STYLE: Record<string, { background: string; border: string; shape: string }> = {
   step: { background: '#ddeafa', border: '#6EA8FE', shape: 'box' },
-  agent: { background: '#d9f0f1', border: '#67C5C8', shape: 'ellipse' },
-  skill: { background: '#e9e2f5', border: '#B39DDB', shape: 'ellipse' },
-  memory: { background: '#f6edd8', border: '#D9B86C', shape: 'database' },
-  evidence: { background: '#e0f2da', border: '#8BCB78', shape: 'diamond' },
   control: { background: '#e9e2f5', border: '#B39DDB', shape: 'hexagon' }
 }
 
-// 边类型 → 样式
+// 边类型 → 样式（蓝图内核只产 dependency）
 const EDGE_STYLE: Record<string, { color: string; dashes: boolean | number[] }> = {
-  dependency: { color: '#9AA3B2', dashes: false },
-  communication: { color: '#67C5C8', dashes: [4, 4] },
-  control_flow: { color: '#B39DDB', dashes: [2, 3] },
-  write: { color: '#67C5C8', dashes: [6, 3] },
-  read: { color: '#67C5C8', dashes: [6, 3] },
-  support: { color: '#626B78', dashes: [2, 2] },
-  execution: { color: '#6EA8FE', dashes: false }
+  dependency: { color: '#9AA3B2', dashes: false }
 }
 
 const edgeTypeLabel = (edgeType: AcgEdge['edgeType']) =>
   EDGE_TYPES.find(item => item.value === edgeType)?.label || edgeType
 const nodeTypeLabel = (nodeType: AcgNode['nodeType']) => ({
   step: '步骤',
-  agent: '智能体',
-  skill: '技能',
-  memory: '记忆',
-  evidence: '证据',
   control: '控制'
 }[nodeType] || nodeType)
 
@@ -636,35 +610,18 @@ function applyThemeToGraphStyles() {
   // The topology is a technical drawing surface: node fills stay bright, but
   // category, edge and status hues come from the global semantic tokens so the
   // graph speaks the same color language as the rest of the workbench
-  // (task=blue, control/artifact=purple, agent/data-flow=cyan, memory=waiting
-  // yellow, evidence=verified green, structure=muted gray).
+  // (task=blue, control/artifact=purple, structure=muted gray).
   const running = cssColor('--sem-running', '#6EA8FE')
-  const success = cssColor('--sem-success', '#8BCB78')
-  const waiting = cssColor('--sem-waiting', '#D9B86C')
-  const failed = cssColor('--sem-failed', '#E06C75')
   const artifact = cssColor('--sem-artifact', '#B39DDB')
-  const flow = cssColor('--sem-flow', '#67C5C8')
   const textSecondary = cssColor('--sem-text-2', '#9AA3B2')
-  const textMuted = cssColor('--sem-text-3', '#626B78')
-  const nodeSurface = '#fcfdfd'
   const nodeSurfaceStrong = '#f8faf9'
 
   Object.assign(NODE_STYLE, {
     step: { background: mixGraphColor(running, nodeSurfaceStrong, 0.09), border: running, shape: 'box' },
-    agent: { background: mixGraphColor(flow, nodeSurface, 0.08), border: flow, shape: 'ellipse' },
-    skill: { background: mixGraphColor(artifact, nodeSurface, 0.08), border: artifact, shape: 'ellipse' },
-    memory: { background: mixGraphColor(waiting, nodeSurfaceStrong, 0.10), border: waiting, shape: 'database' },
-    evidence: { background: mixGraphColor(success, nodeSurfaceStrong, 0.09), border: success, shape: 'diamond' },
     control: { background: mixGraphColor(artifact, nodeSurfaceStrong, 0.08), border: artifact, shape: 'hexagon' }
   })
   Object.assign(EDGE_STYLE, {
-    dependency: { color: textSecondary, dashes: false },
-    communication: { color: flow, dashes: [4, 4] },
-    control_flow: { color: artifact, dashes: [2, 3] },
-    write: { color: flow, dashes: [6, 3] },
-    read: { color: flow, dashes: [6, 3] },
-    support: { color: textMuted, dashes: [2, 2] },
-    execution: { color: running, dashes: false }
+    dependency: { color: textSecondary, dashes: false }
   })
 }
 
@@ -801,12 +758,7 @@ const buildEdgeRows = (edges: AcgEdge[]) => {
       || edge.targetId === selectedNodeId.value
     const length = ({
       dependency: 220,
-      communication: 180,
-      control_flow: 200,
-      execution: 140,
-      write: 140,
-      read: 150,
-      support: 155
+      control_flow: 200
     } as Record<string, number>)[edge.edgeType] || 170
     const fromPosition = executionPositions.value.get(edge.sourceId)
     const toPosition = executionPositions.value.get(edge.targetId)

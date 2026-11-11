@@ -135,13 +135,18 @@ describe('execution flow integration', () => {
     await flushPromises()
     expect(wrapper.find('.uml-card').exists()).toBe(false)
   })
-  it('keeps the complete topology on the existing network renderer', async () => {
-    const wrapper = await setup()
-    await click(wrapper, '\u5b8c\u6574\u62d3\u6251')
+  it('keeps the abnormal-path view on the existing network renderer', async () => {
+    const wrapper = await setup({ stepStates: failedStepStates })
+    await click(wrapper, '\u5f02\u5e38\u8def\u5f84')
     expect(wrapper.find('.mock-execution-flow').exists()).toBe(false)
     expect(networks).toHaveLength(1)
-    expect(networks[0].data.nodes.getIds()).toHaveLength(5)
+    expect(networks[0].data.nodes.getIds()).toEqual(['n2', 'n3', 'n4'])
     expect(networks[0].options.physics.enabled).toBe(true)
+  })
+  it('shows the empty hint when no abnormal steps exist', async () => {
+    const wrapper = await setup()
+    await click(wrapper, '\u5f02\u5e38\u8def\u5f84')
+    expect(wrapper.text()).toContain('\u5f53\u524d\u8fd0\u884c\u6ca1\u6709\u5f02\u5e38\u8def\u5f84')
   })
   it('can close full execution details after expanding a node', async () => {
     const wrapper = await setup({ stepStates: [{ stepId: 'n3', status: 'running', agentName: 'worker', attempt: 1, retryCount: 0 }] })

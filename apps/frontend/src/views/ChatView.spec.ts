@@ -571,8 +571,10 @@ describe('ChatView ACG progress integration', () => {
   it('offers the compact command while typing its prefix', async () => {
     const { wrapper } = await mountPage('?workspace=chat')
     await wrapper.get('.composer-card textarea').setValue('/co')
-    expect(wrapper.get('.composer-compact-command').text()).toContain('/compact')
-    await wrapper.get('.composer-compact-command').trigger('click')
+    const menu = wrapper.get('.composer-command-menu')
+    expect(menu.text()).toContain('命令')
+    expect(menu.get('.composer-command-menu__name').text()).toBe('/compact')
+    await menu.get('.composer-command-menu__item').trigger('click')
     await flushPromises()
     expect(chatStoreMock.compactContext).toHaveBeenCalledOnce()
     expect(chatStoreMock.sendMessageStream).not.toHaveBeenCalled()

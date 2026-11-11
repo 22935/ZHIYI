@@ -67,6 +67,13 @@ export interface ExecutionSummaryItem {
   approval?: ChatApproval
 }
 
+/** Page-lifetime compaction entry rendered as an inline row in the chat timeline. */
+export interface CompactionStatus {
+  kind: 'running' | 'success' | 'info' | 'warning'
+  title: string
+  detail?: string
+}
+
 export interface Message {
   id: number | string
   role: 'user' | 'assistant'
@@ -165,7 +172,13 @@ export const useChatStore = defineStore('chat', () => {
   const isStreaming = ref(false)
   const isLoadingConversation = ref(false)
   const isCompacting = ref(false)
-  const compactionNotice = ref('')
+  // Codex-style timeline entry: icon + headline with an optional muted detail line.
+  const compactionStatus = ref<CompactionStatus | null>(null)
+  const compactionNotice = computed(() => {
+    const status = compactionStatus.value
+    if (!status) return ''
+    return status.detail ? `${status.title}：${status.detail}` : status.title
+  })
   // Page-lifetime projections only; raw messages and stored history stay intact.
   const contextCheckpoints = new Map<string, ContextCheckpoint>()
   const workflowBindings = ref<Record<string, ChatWorkflowBinding[]>>(loadWorkflowBindings())
@@ -186,7 +199,7 @@ export const useChatStore = defineStore('chat', () => {
     activeRequestId = null
     isStreaming.value = false
     isCompacting.value = false
-    compactionNotice.value = ''
+    compactionStatus.value = null
     loading.value = false
   }
   // Provider usage belongs to the last execution, including its tool loop.
@@ -369,7 +382,7 @@ export const useChatStore = defineStore('chat', () => {
     const owner = contextId.value
     const source = conversationInput(messages.value)
     if (!owner || !source.length) {
-      compactionNotice.value = '暂无可压缩的上下文，请先开始对话。'
+      compactionStatus.value = { kind: 'info', title: '暂无可压缩的上下文', detail: '请先开始对话。' }
       return
     }
     const generation = ++messageGeneration
@@ -379,7 +392,7 @@ export const useChatStore = defineStore('chat', () => {
     activeStreamController = controller
     loading.value = true
     isCompacting.value = true
-    compactionNotice.value = '正在压缩上下文，完整聊天记录会保留…'
+    compactionStatus.value = { kind: 'running', title: '正在压缩上下文' }
     try {
       const model = toModelRequestSettings(settings)
       const response = await chatApi.compactContext({
@@ -398,13 +411,16 @@ export const useChatStore = defineStore('chat', () => {
         }
         contextCheckpoints.set(owner, { source, projected: response.messages, modelKey })
         const before = Number(response.metrics.inputTokens), after = Number(response.metrics.outputTokens)
-        compactionNotice.value = `上下文已压缩：估算 ${before.toLocaleString()} → ${after.toLocaleString()} Token。本页后续对话使用摘要，完整记录保留。`
+        compactionStatus.value = { kind: 'success', title: '上下文已压缩',
+          detail: `估算 ${before.toLocaleString()} → ${after.toLocaleString()} Token · 本页后续对话使用摘要，完整记录保留` }
       } else if (response.status === 'failed_passthrough') {
-        compactionNotice.value = compactionFailureMessage(response.metrics.failureCode)
+        compactionStatus.value = { kind: 'warning', title: compactionFailureMessage(response.metrics.failureCode) }
       } else if (response.metrics.reasonCode === 'INSUFFICIENT_SAVINGS') {
-        compactionNotice.value = '当前历史较短，摘要及必要引用的开销接近原文，无需压缩。原上下文已保留。'
+        compactionStatus.value = { kind: 'info', title: '无需压缩',
+          detail: '当前历史较短，摘要及必要引用的开销接近原文，原上下文已保留。' }
       } else {
-        compactionNotice.value = '暂无可安全摘要的已完成历史；当前请求、未完成工具组及附件内容会保留。'
+        compactionStatus.value = { kind: 'info', title: '暂无可安全摘要的已完成历史',
+          detail: '当前请求、未完成工具组及附件内容会保留。' }
       }
       if (response.model) contextModel.value = response.model
       if (response.contextWindowTokens > 0) contextWindowTokens.value = response.contextWindowTokens
@@ -413,8 +429,8 @@ export const useChatStore = defineStore('chat', () => {
       return response
     } catch (error: any) {
       if (isCurrent()) {
-        compactionNotice.value = error.response?.data?.detail?.message
-          || error.response?.data?.message || '上下文压缩未完成，原上下文已保留。'
+        compactionStatus.value = { kind: 'warning', title: '上下文压缩未完成', detail: error.response?.data?.detail?.message
+          || error.response?.data?.message || '原上下文已保留。' }
         throw error
       }
     } finally {
@@ -1109,6 +1125,7 @@ export const useChatStore = defineStore('chat', () => {
 
   return {
     isCompacting,
+    compactionStatus,
     compactionNotice,
     compactContext,
     approvalMode,
