@@ -28,20 +28,22 @@ describe('resource plane adaptation', () => {
     expect(wrapper.findAll('.resource-row')).toHaveLength(2)
     expect(wrapper.text()).toContain('本机设备')
     expect(wrapper.text()).toContain('其他位置 · satellite')
-    expect(wrapper.find('.resource-summary__metric--compute').text()).toContain('未观测')
+    // 摘要卡已移除：算力改为按行展示，零容量不得虚报成「0核」。
     expect(wrapper.text()).not.toContain('0核')
+    expect(wrapper.findAll('.resource-row__capacity').length).toBe(2)
     wrapper.unmount()
   })
 
-  it('counts physical compute once even when multiple runtimes share a node', async () => {
+  it('shows per-runtime compute on rows without double counting a shared node', async () => {
     const a = item('a', 'device'); a.profile.computeCapacity = { cpuCores: 8, memoryMb: 16384 }
     const b = item('b', 'device'); b.profile.computeCapacity = { cpuCores: 8, memoryMb: 16384 }
     vi.spyOn(agentosApi, 'listResources').mockResolvedValue({ items: [a, b], total: 2 })
     vi.spyOn(agentosApi, 'listNodes').mockResolvedValue({ items: [], total: 0 })
     const wrapper = mount(ResourceOverviewPanel, { global: { stubs } })
     await flushPromises()
-    expect(wrapper.find('.resource-summary__metric--compute').text()).toContain('8核')
-    expect(wrapper.find('.resource-summary__metric--compute').text()).not.toContain('16核')
+    // 同一节点上的两个运行时各自展示自身容量，不再把节点算力聚合成 16核。
+    expect(wrapper.findAll('.resource-row__capacity').every(cell => cell.text().includes('8核'))).toBe(true)
+    expect(wrapper.text()).not.toContain('16核')
     wrapper.unmount()
   })
 

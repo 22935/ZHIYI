@@ -3,7 +3,7 @@
     <WorkbenchLayout :show-left="false" :show-right="false" storage-key="zhiyi.resources.overview.v2">
       <template #main>
         <main class="resource-page__main" aria-label="资源概览">
-          <WorkspacePageHero eyebrow="RESOURCE PLANE / 01" title="资源概览" description="端、边、云协同运行的设备、模型与工具。">
+          <WorkspacePageHero eyebrow="RESOURCE PLANE / 01" title="资源概览">
             <template #actions>
               <RouterLink class="resource-button resource-button--primary" to="/agentos/resources/store">浏览资源商店</RouterLink>
             </template>

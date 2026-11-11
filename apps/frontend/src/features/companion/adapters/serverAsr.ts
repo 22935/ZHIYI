@@ -189,6 +189,7 @@ export class ServerSpeechRecognition implements RecognitionLike {
   private segmentFailures = 0
   private resultBase = 0
   private queue: Promise<void> = Promise.resolve()
+  /** 识别结果累积区：必须是可写的真数组（push/按下标回填），对外满足 ArrayLike 即可。 */
   private readonly results: Array<RecognitionEventLike['results'][number]> = []
 
   constructor(private readonly deps: ServerRecognitionDeps) {}

@@ -46,8 +46,7 @@ const emit = defineEmits<{
 const groupDefinitions = [
   { id: 'device', label: '我的设备' },
   { id: 'edge', label: '边缘节点' },
-  { id: 'cloud', label: '云端服务' },
-  { id: 'other', label: '其他位置' }
+  { id: 'cloud', label: '云端服务' }
 ] as const
 const groups = computed(() => {
   const representedNodes = new Set(props.items.map(item => item.profile.nodeId).filter((nodeId): nodeId is string => Boolean(nodeId)))

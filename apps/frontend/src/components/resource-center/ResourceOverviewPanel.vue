@@ -1,12 +1,12 @@
 <template>
   <section class="resource-overview-panel" aria-label="系统资源">
-    <div class="resource-summary" aria-label="资源摘要">
-      <div class="resource-summary__intro">
+    <!-- <div class="resource-summary" aria-label="资源摘要">
+       <div class="resource-summary__intro">
         <span class="resource-summary__eyebrow">RESOURCE OVERVIEW</span>
         <strong>您的资源</strong>
         <span>设备、模型与工具的连接状态和使用情况</span>
-      </div>
-      <div class="resource-summary__metrics">
+      </div> -->
+      <!-- <div class="resource-summary__metrics">
         <div v-for="tier in tierStats" :key="tier.id" class="resource-summary__metric resource-summary__metric--tier" :class="`is-tier-${tier.id}`">
           <span>{{ tier.label }}</span>
           <strong>{{ tier.count }}</strong>
@@ -24,7 +24,7 @@
           <small>在线 · {{ degradedResourceCount }} 降级 · {{ offlineResourceCount }} 离线 · {{ unknownResourceCount }} 未知</small>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <div class="resource-toolbar" aria-label="资源筛选">
       <label class="resource-search" :class="{ 'has-query': searchText }">

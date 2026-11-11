@@ -494,7 +494,6 @@ const tabs = [
   { id: 'appearance' as TabId, label: '外观', description: '调整主题、密度与界面显示方式。', icon: Brush },
   { id: 'privacy' as TabId, label: '隐私', description: '控制数据存储、历史记录与敏感设置。', icon: Lock },
   { id: 'chat' as TabId, label: '对话', description: '管理消息发送与历史对话体验。', icon: ChatDotRound },
-  { id: 'model' as TabId, label: '模型与 API', description: '配置当前浏览器使用的模型连接。', icon: Cpu },
   { id: 'voice' as TabId, label: '语音', description: '管理语音讲解的声音与播放参数。', icon: Microphone },
   { id: 'profile' as TabId, label: '个人资料', description: '管理账户资料、头像与工作活动。', icon: User }
 ]
@@ -512,14 +511,7 @@ const settingsSections: Array<{ label: string; items: NavigationItem[] }> = [
   {
     label: '工作区',
     items: [
-      { id: 'chat', label: '对话', icon: ChatDotRound },
-      { id: 'model', label: '模型与 API', icon: Cpu }
-    ]
-  },
-  {
-    label: '账户',
-    items: [
-      { id: 'profile', label: '个人资料', icon: User }
+      { id: 'chat', label: '对话', icon: ChatDotRound }
     ]
   }
 ]

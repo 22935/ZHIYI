@@ -3,7 +3,7 @@
     <WorkbenchLayout :show-left="false" :show-right="false" storage-key="zhiyi.resources.store.v2">
       <template #main>
         <main class="resource-page__main" aria-label="资源商店">
-          <WorkspacePageHero eyebrow="RESOURCE PLANE / STORE" title="资源商店" description="浏览平台本地目录，安装能力，或接入自己的本地服务。">
+          <WorkspacePageHero eyebrow="RESOURCE PLANE / STORE" title="资源商店">
             <template #actions><button class="store-custom-action" type="button" @click="customOpen = true"><el-icon aria-hidden="true"><Plus /></el-icon><span>登记本地服务</span></button></template>
           </WorkspacePageHero>
           <ResourceCenterNav active="store" />
